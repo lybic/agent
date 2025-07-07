@@ -129,32 +129,18 @@ class AgentS2(UIAgent):
         self.memory_folder_name = memory_folder_name
         self.kb_release_tag = kb_release_tag
 
-        # Initialize agent's knowledge base on user's current working directory.
-        print("Downloading knowledge base initial Agent-S knowledge...")
+        # Initialize agent's knowledge base path
         self.local_kb_path = os.path.join(
             self.memory_root_path, self.memory_folder_name
         )
 
+        # Check if knowledge base exists
         if not os.path.exists(os.path.join(self.local_kb_path, self.platform)):
-            download_kb_data(
-                version="s2",
-                release_tag=kb_release_tag,
-                download_dir=self.local_kb_path,
-                platform=self.platform,
-            )
-            print(
-                f"Successfully completed download of knowledge base for version s2, tag {self.kb_release_tag}, platform {self.platform}."
-            )
+            print(f"Warning: Knowledge base for {self.platform} platform not found in {self.local_kb_path}")
+            print(f"Or ensure the directory {os.path.join(self.local_kb_path, self.platform)} exists")
+            raise FileNotFoundError(f"Knowledge base path does not exist: {os.path.join(self.local_kb_path, self.platform)}")
         else:
-            print(
-                f"Path local_kb_path {self.local_kb_path} already exists. Skipping download."
-            )
-            print(
-                f"If you'd like to re-download the initial knowledge base, please delete the existing knowledge base at {self.local_kb_path}."
-            )
-            print(
-                "Note, the knowledge is continually updated during inference. Deleting the knowledge base will wipe out all experience gained since the last knowledge base download."
-            )
+            print(f"Found local knowledge base path: {os.path.join(self.local_kb_path, self.platform)}")
 
         if embedding_engine_type == "openai":
             self.embedding_engine = OpenAIEmbeddingEngine(**embedding_engine_params)

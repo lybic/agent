@@ -1,11 +1,22 @@
 # Manager
 ## 输入
-- 叙事记忆（Mn）：
-  - 本地文件形式，json格式。Key是与环境观测有关的查询Query，Value是与Query相关的叙事记忆。
+
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| Mn_dict | Dict | 由叙事记忆Mn类的readout方法得到的字典 | 
+| Tu | String | 用户任务指令，文本形式 |
+| Screenshot | PIL (Pillow) 库的 Image 对象 | 由全局状态类Global_Instance的get_screenshot方法得到的图片对象|
+| Termination_flag | String | 终止标记，文本形式，"terminated" 或 "not_terminated"。由全局状态类Global_Instance的get_termination_flag方法得到 |
+| Running_state | String | 运行状态标记，文本形式，"running" 或 "stopped"。由全局状态类Global_Instance的get_running_state方法得到 |
+| Tools_dict | Dict | 工具字典，Key是工具名称，Value是工具调用的模型名称 |
+
+
+
+- 叙事记忆（Mn_dict）：
   - 示例：
-      ```json
+      ```python
       {
-      "How to open App Store on Mac?": "The task was successfully executed.\n\n**Successful Plan:**\n1. Open Spotlight Search using `command + space`.\n2. Type \"App Store\" and press enter."
+        "How to open App Store on Mac?": "The task was successfully executed.\n\n**Successful Plan:**\n1. Open Spotlight Search using `command + space`.\n2. Type \"App Store\" and press enter."
       }
       ```
 - 用户任务指令（Tu）：
@@ -44,24 +55,23 @@
       ```python
       "running"
       ```
-- 工具调用（Tools）：
-  - Python类，参考[engine.py](./gui_agents/s2/core/engine.py)
-  - 封装成Tools类，并接受模型名称和是否embedding的参数
+- 工具调用（Tools_dict）：
+  - 用Dict的key做工具匹配，value选择工具使用的模型名称
   - 示例：
      ```python
      class Tools:
-       def __init__(self, model_name, embedding=False):
+       def __init__(self, tool_name, model_name):
          self.model_name = model_name
-     ```
-- 提示词（Prompt）：
-  - 文本形式，python字符串，参考[procedural_memory.py](./gui_agents/s2/memory/procedural_memory.py)
-  - 示例：
-     ```python
-     "You are an expert in graphical user interfaces and Python code. You are responsible for executing the current subtask: `SUBTASK_DESCRIPTION` of the larger goal: `TASK_DESCRIPTION`. IMPORTANT: ** The subtasks: ['DONE_TASKS'] have already been done. The future subtasks ['FUTURE_TASKS'] will be done in the future by me. You must only perform the current subtask: `SUBTASK_DESCRIPTION`. Do not try to do future subtasks. ** You are working in CURRENT_OS. You must only complete the subtask provided and not the larger goal. You are provided with: 1. A screenshot of the current time step. 2. The history of your previous interactions with the UI. 3. Access to the following class and methods to interact with the UI: class Agent: "
+         self.tool_name = tool_name
      ```
 ## 输出
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| Subtasks | List[Node] | 子任务列表，Node对象列表，类定义参考[common_utils.py](./gui_agents/s2/utils/common_utils.py) |
+| Manager_info | Dict | Manager信息，字典形式，python字符串 |
+
 - 子任务（Subtask）：
-  - Node对象列表，参考[common_utils.py](./gui_agents/s2/utils/common_utils.py)
+  - Node对象列表，类定义参考[common_utils.py](./gui_agents/s2/utils/common_utils.py)
   - 示例：
      ```python
      [Node(name='Open Finder', info='Click on the Finder icon in the dock to open Finder.')]
@@ -82,7 +92,15 @@
     }
      ```
 
-# Global Instance
+# Global_Instance
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| Screenshot_dir | String | 截图文件夹路径 |
+| Search_query_path | String | 环境相关的任务总结查询文件路径 |
+| Subtask_path | String | 子任务文件路径 |
+| Termination_flag_path | String | 终止标记文件路径 |
+| Running_state_path | String | 运行状态标记文件路径 |
+
 ## 存储对象
 - 环境观测（obs）：
   - 截屏（Screenshot）：一个文件夹内，以时间戳命名的PNG图片形式，对应subtask，即图像-子任务配对。通过方法返回PIL (Pillow) 库的 Image 对象
@@ -91,7 +109,15 @@
   - 终止标记（termination_flag）：json格式存储，通过方法读取并返回文本形式，python字符串，"terminated" 或 "not_terminated"，作为终止按钮的标记。
 - 运行状态标记（running_state）：json格式存储，通过方法读取并返回文本形式，python字符串，"running" 或 "stopped"，作为暂停按钮的标记。
 
-## 读取
+## 读取方法
+| 方法名 | 参数 | 返回值 | 描述 |
+|-----|-----|-----|-----|
+| get_screenshot | 无 | PIL (Pillow) 库的 Image 对象 | 从```Screenshot_dir```文件夹中获取当前最新时间戳的截图 |
+| get_search_query | 无 | String | 从```Search_query_path```文件中获取环境相关的任务总结查询 |
+| get_subtask | 无 | List[Node] | 从```Subtask_path```文件中获取子任务 |
+| get_termination_flag | 无 | String | 从```Termination_flag_path```文件中获取终止标记 |
+| get_running_state | 无 | String | 从```Running_state_path```文件中获取运行状态标记 |
+
 - Manager：
   - 环境观测（obs）中的截屏（Screenshot）
   - 环境观测（obs）中的终止标记（termination_flag）
@@ -99,7 +125,16 @@
   - 环境观测（obs）中的截屏（Screenshot）
 - Evaluator：
   - 环境观测（obs）中的环境相关的任务总结查询（search_query）、子任务（Subtask）和截屏（Screenshot）
-## 写入
+
+## 写入方法
+| 方法名 | 参数 | 描述 |
+|-----|-----|-----|
+| set_screenshot | PIL (Pillow) 库的 Image 对象 | 将截图保存到```Screenshot_dir```文件夹中，以时间戳命名 |
+| set_search_query | String | 将环境相关的任务总结查询保存到```Search_query_path```文件中 |
+| set_subtask | List[Node] | 将子任务保存到```Subtask_path```文件中 |
+| set_termination_flag | String | 将终止标记保存到```Termination_flag_path```文件中 |
+| set_running_state | String | 将运行状态标记保存到```Running_state_path```文件中 |
+
 - Manager：
   - 环境观测（obs）中的环境相关的任务总结查询（search_query）
 - HardwareInterface：

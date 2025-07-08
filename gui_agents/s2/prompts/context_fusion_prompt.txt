@@ -1,0 +1,2 @@
+# Default prompt template for context_fusion
+# Replace this with an actual prompt template

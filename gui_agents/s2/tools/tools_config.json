@@ -1,0 +1,56 @@
+{
+  "tools": [
+    {
+      "tool_name": "websearch",
+      "provider": "serper",
+      "model_name": "default"
+    },
+    {
+      "tool_name": "context_fusion",
+      "provider": "openai",
+      "model_name": "gpt-4o"
+    },
+    {
+      "tool_name": "subtask_planner",
+      "provider": "anthropic",
+      "model_name": "claude-3-5-sonnet"
+    },
+    {
+      "tool_name": "traj_reflector",
+      "provider": "anthropic",
+      "model_name": "claude-3-5-sonnet"
+    },
+    {
+      "tool_name": "memory_retrival",
+      "provider": "openai",
+      "model_name": "gpt-4o"
+    },
+    {
+      "tool_name": "grounding",
+      "provider": "gemini",
+      "model_name": "gemini-2.5-pro"
+    },
+    {
+      "tool_name": "evaluator",
+      "provider": "anthropic",
+      "model_name": "claude-3-7-sonnet"
+    },
+    {
+      "tool_name": "action_generator",
+      "provider": "anthropic",
+      "model_name": "claude-3-7-sonnet"
+    }
+  ],
+  "api_keys": {
+    "openai": "${OPENAI_API_KEY}",
+    "anthropic": "${ANTHROPIC_API_KEY}",
+    "gemini": "${GEMINI_API_KEY}",
+    "serper": "${SERPER_API_KEY}",
+    "serpapi": "${SERPAPI_API_KEY}"
+  },
+  "base_urls": {
+    "openai": "https://api.openai.com/v1",
+    "anthropic": "https://api.anthropic.com/v1",
+    "gemini": "https://generativelanguage.googleapis.com/v1"
+  }
+} 

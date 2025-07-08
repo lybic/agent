@@ -7,7 +7,7 @@
 | Tu | String | 用户任务指令，文本形式 |
 | Screenshot | PIL (Pillow) 库的 Image 对象 | 由全局状态类Global_Instance的get_screenshot方法得到的图片对象|
 | Running_state | String | 运行状态标记，文本形式，"running" 或 "stopped"。由全局状态类Global_Instance的get_running_state方法得到 |
-| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性 |
+| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性，应包含“memory_retrival”、“websearch”、“context_fusion”和“subtask_planner” |
 
 
 - 叙事记忆（Mn_dict）：
@@ -142,7 +142,7 @@
 ## 属性
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
-| tool_name | String | 工具名称，有X种：“websearch”、“context_fusion”、“subtask_planner”、“traj_reflector”、“memory_retrival”、“grounding”、“evaluator”、 “action_generator”|
+| tool_name | String | 工具名称，有X种：“websearch”、“context_fusion”、“subtask_planner”、“traj_reflector”、“memory_retrival”、“grounding”、“summarizer”、 “action_generator”|
 | provider | String | API供应商名称，如“gemini” |
 | model_name | String | 工具调用的模型名称，如“gemini-2.5-pro” |
 | prompt_path | String | 提示词文件路径，文本形式，python字符串。选定tool_name后，根据tool_name选择固定路径下的提示词文件 |
@@ -165,6 +165,11 @@
 
 - 叙事记忆（Mn）：
   - 本地文件形式，json格式。Key是与环境观测有关的查询Query，Value是与Query相关的叙事记忆。
+  - 示例：{"How to open Finder on Mac?": "The task was successfully executed.\n\n**Successful Plan:**\n1. Open Spotlight Search using `command + space`.\n2. Type \"Finder\" into the Spotlight search bar.\n3. Press `enter` to launch Finder."}
+
+- 情景记忆（Me）：
+  - 本地文件形式，json格式。Key任务与子任务的描述；Value是与子任务的执行过程，包含Action自然语言描述与Grounded Action伪代码形式。
+  - 示例：{"Task:\nHow to open Finder on Mac?\n\nSubtask: Open Spotlight\nSubtask Instruction: Press `command + space` to open Spotlight.": "Action: Click the Spotlight icon in the menu bar to open Spotlight.\nGrounded Action: agent.click(\"element1_description\", 1, \"left\")"}
 
 ## 读取方法
 | 方法名 | 参数 | 返回值 | 描述 |
@@ -185,7 +190,7 @@
 | Search_query | String | 环境相关的任务总结查询，文本形式，由全局状态类Global_Instance的get_search_query方法得到 |
 | Screenshot | PIL (Pillow) 库的 Image 对象 | 由全局状态类Global_Instance的get_screenshot方法得到的图片对象|
 | Running_state | String | 运行状态标记，文本形式，"running" 或 "stopped"。由全局状态类Global_Instance的get_running_state方法得到 |
-| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性 |
+| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性，应包含“memory_retrival”、“traj_reflector”和“action_generator” |
 
 
 ## 输出
@@ -203,19 +208,39 @@
 - 示例3：
 (Previous action verification)\nThe previous action of typing "App Store" into Spotlight and pressing enter was successful, as the App Store application is now open on the screen.\n\n(Screenshot Analysis)\nThe current screenshot shows the App Store application open. The window displays a sidebar on the left with options like "搜索" (Search), "探索" (Explore), "创作" (Create), "工作" (Work), "游戏" (Games), "开发" (Develop), "类别" (Categories), and "更新" (Updates). The main content area is currently showing "探索" (Explore). The dock is still visible at the bottom of the screen.\n\n(Next Action)\nThe subtask was to "Click App Store icon". The App Store is now open. Therefore, the subtask is complete.\n\n(Grounded Action)\n```python\nagent.done()\n```
 
-# Evaluator
-## 输入
-
-
-## 输出
-
 # Grounding
 ## 输入
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| grounding_input | Dict | 环境观测，字典形式，python字符串，包含str_input和img_input两个key，str_input是文本输入，即为Worker输出的worker_plan全文，img_input是图像输入，即为全局状态类Global_Instance的get_screenshot方法得到的图片对象 |
+| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性，应包含“grounding” |
 
 ## 输出
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| grounding_output | String | 与具体硬件环境无关的指令输出，统一成python代码形式。文本形式，python字符串 |
+- 示例1：
+  "import pyautogui; import pyautogui; pyautogui.click(769, 1006, clicks=1, button='left'); "
+
+# Evaluator
+## 输入
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| evaluator_worker_plan_input | String | 由Worker模块得出的worker_plan全文，文本形式，python字符串。需解析成Grounded Action伪代码形式，解析方式参考[worker.py](./gui_agents/s2/agents/worker.py)第225行的实现 |
+
+## 输出
+无输出。每次执行完Worker模块后，调用Evaluator模块，更新情景记忆Me。当解析出当前任务已完成后，调用Evaluator模块，更新叙事记忆Mn。
 
 # HardwareInterface
 ## 输入
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| hardware_input | String | 由Grounding输出的与具体硬件环境无关的指令输出，统一成python代码形式。文本形式，python字符串 |
 
 ## 输出
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| hardware_output | String | 适配Lybic硬件环境相关的指令输出，文本形式，python字符串 |
+- 示例："XXX"
+
 

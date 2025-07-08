@@ -8,8 +8,7 @@
 | Screenshot | PIL (Pillow) 库的 Image 对象 | 由全局状态类Global_Instance的get_screenshot方法得到的图片对象|
 | Termination_flag | String | 终止标记，文本形式，"terminated" 或 "not_terminated"。由全局状态类Global_Instance的get_termination_flag方法得到 |
 | Running_state | String | 运行状态标记，文本形式，"running" 或 "stopped"。由全局状态类Global_Instance的get_running_state方法得到 |
-| Tools_dict | Dict | 工具字典，Key是工具名称，Value是工具调用的模型名称 |
-
+| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性 |
 
 
 - 叙事记忆（Mn_dict）：
@@ -142,6 +141,24 @@
 - Evaluator：
   - 环境观测（obs）中的终止标记（termination_flag）
 
+# Tools
+## 属性
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| tool_name | String | 工具名称，有X种：“websearch”、“context_fusion”、“subtask_planner”、“traj_reflector”、“memory_retrival”、“grounding”、“evaluator”、 “action_generator”|
+| provider | String | API供应商名称，如“gemini” |
+| model_name | String | 工具调用的模型名称，如“gemini-2.5-pro” |
+| prompt_path | String | 提示词文件路径，文本形式，python字符串。选定tool_name后，根据tool_name选择固定路径下的提示词文件 |
+
+## 输入
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| tool_input | Dict | 环境观测，字典形式，python字符串，包含str_input和img_input两个key，str_input是文本输入，img_input是图像输入 |
+
+## 输出
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| tool_output | String | 工具输出，文本形式，python字符串 |
 
 # Worker
 ## 输入
@@ -149,11 +166,6 @@
 ## 输出
 
 # Evaluator
-## 输入
-
-## 输出
-
-# Tools
 ## 输入
 
 ## 输出

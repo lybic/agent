@@ -6,7 +6,6 @@
 | Mn_dict | Dict | 由叙事记忆Mn类的readout方法得到的字典 | 
 | Tu | String | 用户任务指令，文本形式 |
 | Screenshot | PIL (Pillow) 库的 Image 对象 | 由全局状态类Global_Instance的get_screenshot方法得到的图片对象|
-| Termination_flag | String | 终止标记，文本形式，"terminated" 或 "not_terminated"。由全局状态类Global_Instance的get_termination_flag方法得到 |
 | Running_state | String | 运行状态标记，文本形式，"running" 或 "stopped"。由全局状态类Global_Instance的get_running_state方法得到 |
 | Tools_dict | Dict | 工具字典配置参照Tools类的创建属性 |
 
@@ -41,12 +40,6 @@
       screenshot_bytes = buffered.getvalue()
       # Convert to base64 string.
       obs["screenshot"] = screenshot_bytes
-      ```
-  - 终止标记（termination_flag）：
-    - 文本形式，python字符串，"terminated" 或 "not_terminated"
-    - 示例：
-      ```python
-      "terminated"
       ```
   - 运行状态标记（running_state）：
     - 文本形式，python字符串，"running" 或 "stopped"
@@ -95,16 +88,18 @@
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
 | Screenshot_dir | String | 截图文件夹路径 |
+| Tu_path | String | 用户任务指令文件路径 |
 | Search_query_path | String | 环境相关的任务总结查询文件路径 |
-| Subtask_path | String | 子任务文件路径 |
+| Completed_subtask_path | String | 已完成子任务文件路径 |
 | Termination_flag_path | String | 终止标记文件路径 |
 | Running_state_path | String | 运行状态标记文件路径 |
 
 ## 存储对象
 - 环境观测（obs）：
   - 截屏（Screenshot）：一个文件夹内，以时间戳命名的PNG图片形式，对应subtask，即图像-子任务配对。通过方法返回PIL (Pillow) 库的 Image 对象
+  - 用户任务指令（Tu）：json格式存储，通过方法读取文件并返回文本形式，python字符串
   - 环境相关的任务总结查询（search_query）：json格式存储，通过方法读取文件并返回文本形式，python字符串
-  - 子任务（Subtask）：json格式存储，Node对象列表，通过方法读取并返回Node对象列表。仅存储当前任务真正执行的子任务，不存储未来任务。
+  - 已完成子任务（Completed_subtask）：json格式存储，Node对象列表，通过方法读取并返回Node对象列表。仅存储当前任务真正执行过的子任务，不存储未来规划中的任务。
   - 终止标记（termination_flag）：json格式存储，通过方法读取并返回文本形式，python字符串，"terminated" 或 "not_terminated"，作为终止按钮的标记。
 - 运行状态标记（running_state）：json格式存储，通过方法读取并返回文本形式，python字符串，"running" 或 "stopped"，作为暂停按钮的标记。
 
@@ -112,6 +107,7 @@
 | 方法名 | 参数 | 返回值 | 描述 |
 |-----|-----|-----|-----|
 | get_screenshot | 无 | PIL (Pillow) 库的 Image 对象 | 从```Screenshot_dir```文件夹中获取当前最新时间戳的截图 |
+| get_Tu | 无 | String | 从```Tu_path```文件中获取用户任务指令 |
 | get_search_query | 无 | String | 从```Search_query_path```文件中获取环境相关的任务总结查询 |
 | get_subtask | 无 | List[Node] | 从```Subtask_path```文件中获取子任务 |
 | get_termination_flag | 无 | String | 从```Termination_flag_path```文件中获取终止标记 |
@@ -129,6 +125,7 @@
 | 方法名 | 参数 | 描述 |
 |-----|-----|-----|
 | set_screenshot | PIL (Pillow) 库的 Image 对象 | 将截图保存到```Screenshot_dir```文件夹中，以时间戳命名 |
+| set_Tu | String | 将用户任务指令保存到```Tu_path```文件中 |
 | set_search_query | String | 将环境相关的任务总结查询保存到```Search_query_path```文件中 |
 | set_subtask | List[Node] | 将子任务保存到```Subtask_path```文件中 |
 | set_termination_flag | String | 将终止标记保存到```Termination_flag_path```文件中 |
@@ -181,11 +178,34 @@
 
 # Worker
 ## 输入
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| Me_dict | Dict | 由叙事记忆Me类的readout方法得到的字典 | 
+| Tu | String | 用户任务指令，文本形式 |
+| Search_query | String | 环境相关的任务总结查询，文本形式，由全局状态类Global_Instance的get_search_query方法得到 |
+| Screenshot | PIL (Pillow) 库的 Image 对象 | 由全局状态类Global_Instance的get_screenshot方法得到的图片对象|
+| Running_state | String | 运行状态标记，文本形式，"running" 或 "stopped"。由全局状态类Global_Instance的get_running_state方法得到 |
+| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性 |
+
 
 ## 输出
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| worker_plan | String | 计划，文本形式，python字符串 |
+
+- 示例1：
+(Previous action verification)\nThe previous action was to open Spotlight Search. However, the screenshot does not show Spotlight Search open. It shows the VS Code application and the dock. The previous action was likely not successful, or the screenshot was taken before the Spotlight Search appeared. Given the current state, I will proceed assuming Spotlight Search is not visible.\n\n(Screenshot Analysis)\nThe current screenshot displays the VS Code application as the active window. At the bottom of the screen, the macOS Dock is visible, showing various application icons. The Maps application icon, which is a blue icon with a white map symbol, is visible in the Dock.\n\n(Next Action)\nClick the Maps application icon in the dock to open it.\n\n(Grounded Action)\n```python\nagent.click("The Maps application icon in the dock, which is a blue icon with a white map symbol", 1, "left")\n```
+
+- 示例2：
+(Previous action verification)\nThe previous action `agent.open("Finder")` did not successfully open the Finder application. The screenshot shows the desktop without any open Finder windows.\n\n
+(Screenshot Analysis)\nThe current screenshot shows the macOS desktop. No applications are open in the foreground. The dock is visible at the bottom. WeChat is not open. Given that multiple attempts to open or click the WeChat icon using various methods (direct click, dock click, and Spotlight search) have failed, and even opening Finder has failed, it indicates that the subtask cannot be completed in the current environment.\n\n(Next Action)\nSince all attempts to open WeChat have failed, and even opening other applications like Finder is not working, it indicates that the environment is not allowing applications to be launched. Therefore, I must report failure.\n\n(Grounded Action)\n```python\nagent.fail()\n```
+
+- 示例3：
+(Previous action verification)\nThe previous action of typing "App Store" into Spotlight and pressing enter was successful, as the App Store application is now open on the screen.\n\n(Screenshot Analysis)\nThe current screenshot shows the App Store application open. The window displays a sidebar on the left with options like "搜索" (Search), "探索" (Explore), "创作" (Create), "工作" (Work), "游戏" (Games), "开发" (Develop), "类别" (Categories), and "更新" (Updates). The main content area is currently showing "探索" (Explore). The dock is still visible at the bottom of the screen.\n\n(Next Action)\nThe subtask was to "Click App Store icon". The App Store is now open. Therefore, the subtask is complete.\n\n(Grounded Action)\n```python\nagent.done()\n```
 
 # Evaluator
 ## 输入
+
 
 ## 输出
 

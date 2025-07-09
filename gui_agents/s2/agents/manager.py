@@ -16,6 +16,8 @@ from gui_agents.s2.utils.common_utils import (
     call_llm_safe,
     parse_dag,
 )
+from gui_agents.s2.store.registry import Registry
+store = Registry.get("store")
 
 logger = logging.getLogger("desktopenv.agent")
 

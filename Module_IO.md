@@ -90,7 +90,9 @@
 | Screenshot_dir | String | 截图文件夹路径 |
 | Tu_path | String | 用户任务指令文件路径 |
 | Search_query_path | String | 环境相关的任务总结查询文件路径 |
+| Failed_subtask_path | String | 失败子任务文件路径 |
 | Completed_subtask_path | String | 已完成子任务文件路径 |
+| Remaining_subtask_path | String | 剩余子任务文件路径 |
 | Termination_flag_path | String | 终止标记文件路径 |
 | Running_state_path | String | 运行状态标记文件路径 |
 
@@ -109,7 +111,9 @@
 | get_screenshot | 无 | PIL (Pillow) 库的 Image 对象 | 从```Screenshot_dir```文件夹中获取当前最新时间戳的截图 |
 | get_Tu | 无 | String | 从```Tu_path```文件中获取用户任务指令 |
 | get_search_query | 无 | String | 从```Search_query_path```文件中获取环境相关的任务总结查询 |
-| get_subtask | 无 | List[Node] | 从```Subtask_path```文件中获取子任务 |
+| get_failed_subtask | 无 | List[Node] | 从```Failed_subtask_path```文件中获取失败子任务 |
+| get_completed_subtask | 无 | List[Node] | 从```Completed_subtask_path```文件中获取已完成子任务 |
+| get_remaining_subtask | 无 | List[Node] | 从```Remaining_subtask_path```文件中获取剩余子任务 |
 | get_termination_flag | 无 | String | 从```Termination_flag_path```文件中获取终止标记 |
 | get_running_state | 无 | String | 从```Running_state_path```文件中获取运行状态标记 |
 
@@ -127,7 +131,9 @@
 | set_screenshot | PIL (Pillow) 库的 Image 对象 | 将截图保存到```Screenshot_dir```文件夹中，以时间戳命名 |
 | set_Tu | String | 将用户任务指令保存到```Tu_path```文件中 |
 | set_search_query | String | 将环境相关的任务总结查询保存到```Search_query_path```文件中 |
-| set_subtask | List[Node] | 将子任务保存到```Subtask_path```文件中 |
+| set_failed_subtask | List[Node] | 将失败子任务保存到```Failed_subtask_path```文件中 |
+| set_completed_subtask | List[Node] | 将已完成子任务保存到```Completed_subtask_path```文件中 |
+| set_remaining_subtask | List[Node] | 将剩余子任务保存到```Remaining_subtask_path```文件中 |
 | set_termination_flag | String | 将终止标记保存到```Termination_flag_path```文件中 |
 | set_running_state | String | 将运行状态标记保存到```Running_state_path```文件中 |
 

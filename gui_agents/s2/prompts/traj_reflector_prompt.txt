@@ -1,0 +1,2 @@
+# Default prompt template for traj_reflector
+# Replace this with an actual prompt template

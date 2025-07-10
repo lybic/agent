@@ -5,99 +5,83 @@ from typing import Dict, List, Optional, Tuple
 import platform
 
 from gui_agents.s2.agents.grounding import ACI
-from gui_agents.s2.core.module import BaseModule
 from gui_agents.s2.core.knowledge import KnowledgeBase
-from gui_agents.s2.memory.procedural_memory import PROCEDURAL_MEMORY
-from gui_agents.s2.core.engine import OpenAIEmbeddingEngine
 from gui_agents.s2.utils.common_utils import (
     Dag,
-    Node,
+    Node,   
     calculate_tokens,
-    call_llm_safe,
+    # call_llm_safe,
     parse_dag,
 )
 from gui_agents.s2.store.registry import Registry
 # store = Registry.get("store")
+from gui_agents.s2.tools.tools import Tools
+from PIL import Image
+import io
 
 logger = logging.getLogger("desktopenv.agent")
 
 NUM_IMAGE_TOKEN = 1105  # Value set of screen of size 1920x1080 for openai vision
 
-
-class Manager(BaseModule):
+class Manager:
     def __init__(
         self,
-        engine_params: Dict,
-        grounding_agent: ACI,
+        Tools_dict: Dict,
+        # engine_params: Dict,
         local_kb_path: str,
-        embedding_engine=OpenAIEmbeddingEngine(),
-        search_engine: Optional[str] = None,
         multi_round: bool = False,
         platform: str = platform.system().lower(),
     ):
         # TODO: move the prompt to Procedural Memory
-        super().__init__(engine_params, platform)
-
-        # Initialize the ACI
-        self.grounding_agent = grounding_agent
+        # super().__init__(engine_params, platform)
+        self.platform = platform
+        self.Tools_dict = Tools_dict
 
         # Initialize the planner
-        sys_prompt = PROCEDURAL_MEMORY.COMBINED_MANAGER_PROMPT
+        # sys_prompt = PROCEDURAL_MEMORY.COMBINED_MANAGER_PROMPT
 
-        self.generator_agent = self._create_agent(sys_prompt)
+        # self.generator_agent = self._create_agent(sys_prompt)
+
+        self.generator_agent = Tools()
+        self.generator_agent.register_tool("subtask_planner", Tools_dict["subtask_planner"]["provider"], Tools_dict["subtask_planner"]["model"])
 
         # Initialize the remaining modules
-        self.dag_translator_agent = self._create_agent(
-            PROCEDURAL_MEMORY.DAG_TRANSLATOR_PROMPT
-        )
-        self.narrative_summarization_agent = self._create_agent(
-            PROCEDURAL_MEMORY.TASK_SUMMARIZATION_PROMPT
-        )
-        self.episode_summarization_agent = self._create_agent(
-            PROCEDURAL_MEMORY.SUBTASK_SUMMARIZATION_PROMPT
-        )
+        # self.dag_translator_agent = self._create_agent(
+        #     PROCEDURAL_MEMORY.DAG_TRANSLATOR_PROMPT
+        # )
+
+        self.dag_translator_agent = Tools()
+        self.dag_translator_agent.register_tool("dag_translator", self.Tools_dict["dag_translator"]["provider"], self.Tools_dict["dag_translator"]["model"])
+
+        # Stop at 2025.07.10 01:29
+        # TODO: how to plug in knowledge base?
 
         self.local_kb_path = local_kb_path
 
-        self.embedding_engine = embedding_engine
+        self.embedding_engine = Tools()
+        self.embedding_engine.register_tool("embedding", self.Tools_dict["embedding"]["provider"], self.Tools_dict["embedding"]["model"])
+        KB_Tools_dict = {
+            "embedding": self.Tools_dict["embedding"],
+            "query_formulator": self.Tools_dict["query_formulator"],
+            "context_fusion": self.Tools_dict["context_fusion"],
+        }
+
+
         self.knowledge_base = KnowledgeBase(
             embedding_engine=self.embedding_engine,
             local_kb_path=self.local_kb_path,
             platform=platform,
-            engine_params=engine_params,
+            Tools_dict=KB_Tools_dict,
         )
 
         self.planner_history = []
 
         self.turn_count = 0
-        self.search_engine = search_engine
+        # self.search_engine = search_engine
+        self.search_engine = Tools()
+        self.search_engine.register_tool("websearch", self.Tools_dict["websearch"]["provider"], self.Tools_dict["websearch"]["model"])
+
         self.multi_round = multi_round
-
-    def summarize_episode(self, trajectory):
-        """Summarize the episode experience for lifelong learning reflection
-        Args:
-            trajectory: str: The episode experience to be summarized
-        """
-
-        # Create Reflection on whole trajectories for next round trial, keep earlier messages as exemplars
-        self.episode_summarization_agent.add_message(trajectory, role="user")
-        subtask_summarization = call_llm_safe(self.episode_summarization_agent)
-        self.episode_summarization_agent.add_message(
-            subtask_summarization, role="assistant"
-        )
-
-        return subtask_summarization
-
-    def summarize_narrative(self, trajectory):
-        """Summarize the narrative experience for lifelong learning reflection
-        Args:
-            trajectory: str: The narrative experience to be summarized
-        """
-        # Create Reflection on whole trajectories for next round trial
-        self.narrative_summarization_agent.add_message(trajectory, role="user")
-        lifelong_learning_reflection = call_llm_safe(self.narrative_summarization_agent)
-
-        return lifelong_learning_reflection
 
     def _generate_step_by_step_plan(
         self,
@@ -107,7 +91,6 @@ class Manager(BaseModule):
         completed_subtasks_list: List[Node] = [],
         remaining_subtasks_list: List[Node] = [],
     ) -> Tuple[Dict, str]:
-        agent = self.grounding_agent
 
         # Converts a list of DAG Nodes into a natural langauge list
         def format_subtask_list(subtasks: List[Node]) -> str:
@@ -165,11 +148,12 @@ class Manager(BaseModule):
             if integrated_knowledge:
                 instruction += f"\nYou may refer to some retrieved knowledge if you think they are useful.{integrated_knowledge}"
 
-            self.generator_agent.add_system_prompt(
-                self.generator_agent.system_prompt.replace(
-                    "TASK_DESCRIPTION", instruction
-                )
-            )
+            # self.generator_agent.add_system_prompt(
+            #     self.generator_agent.system_prompt.replace(
+            #         "TASK_DESCRIPTION", instruction
+            #     )
+            # )
+            prefix_message = f"TASK_DESCRIPTION is {instruction}"
 
         # Re-plan on failure case
         if failed_subtask:
@@ -187,37 +171,41 @@ class Manager(BaseModule):
         # Initial plan case
         else:
             generator_message = "Please generate the initial plan for the task.\n"
-
+        
+        generator_message = prefix_message + "\n" + generator_message
         logger.info("GENERATOR MESSAGE: %s", generator_message)
 
-        self.generator_agent.add_message(
-            generator_message,
-            image_content=observation.get("screenshot", None),
-            role="user",
-        )
+        # self.generator_agent.add_message(
+        #     generator_message,
+        #     image_content=observation.get("screenshot", None),
+        #     role="user",
+        # )
 
         logger.info("GENERATING HIGH LEVEL PLAN")
 
-        plan = call_llm_safe(self.generator_agent)
+        # plan = call_llm_safe(self.generator_agent)
+
+        plan = self.generator_agent.execute_tool("subtask_planner", {"str_input": generator_message, "img_input": observation.get("screenshot", None)})
+
         if plan == "":
             raise Exception("Plan Generation Failed - Fix the Prompt")
 
         logger.info("HIGH LEVEL STEP BY STEP PLAN: %s", plan)
 
-        self.generator_agent.add_message(plan, role="assistant")
+        # self.generator_agent.add_message(plan, role="assistant")
         self.planner_history.append(plan)
         self.turn_count += 1
 
-        # Set Cost based on GPT-4o
-        input_tokens, output_tokens = calculate_tokens(self.generator_agent.messages)
-        cost = input_tokens * (0.0050 / 1000) + output_tokens * (0.0150 / 1000)
+        # # Set Cost based on GPT-4o
+        # input_tokens, output_tokens = calculate_tokens(self.generator_agent.messages)
+        # cost = input_tokens * (0.0050 / 1000) + output_tokens * (0.0150 / 1000)
 
         planner_info = {
             "search_query": self.search_query,
             "goal_plan": plan,
-            "num_input_tokens_plan": input_tokens,
-            "num_output_tokens_plan": output_tokens,
-            "goal_plan_cost": cost,
+            # "num_input_tokens_plan": input_tokens,
+            # "num_output_tokens_plan": output_tokens,
+            # "goal_plan_cost": cost,
         }
 
         assert type(plan) == str
@@ -226,36 +214,37 @@ class Manager(BaseModule):
 
     def _generate_dag(self, instruction: str, plan: str) -> Tuple[Dict, Dag]:
         # For the re-planning case, remove the prior input since this should only translate the new plan
-        self.dag_translator_agent.reset()
+        # self.dag_translator_agent.reset()
 
         # Add initial instruction and plan to the agent's message history
-        self.dag_translator_agent.add_message(
-            f"Instruction: {instruction}\nPlan: {plan}", role="user"
-        )
+        # self.dag_translator_agent.add_message(
+        #     f"Instruction: {instruction}\nPlan: {plan}", role="user"
+        # )
 
         logger.info("GENERATING DAG")
 
         # Generate DAG
-        dag_raw = call_llm_safe(self.dag_translator_agent)
+        # dag_raw = call_llm_safe(self.dag_translator_agent)
+        dag_raw = self.dag_translator_agent.execute_tool("dag_translator", {"str_input": f"Instruction: {instruction}\nPlan: {plan}"})
 
         dag = parse_dag(dag_raw)
 
         logger.info("Generated DAG: %s", dag_raw)
 
-        self.dag_translator_agent.add_message(dag_raw, role="assistant")
+        # self.dag_translator_agent.add_message(dag_raw, role="assistant")
 
-        input_tokens, output_tokens = calculate_tokens(
-            self.dag_translator_agent.messages
-        )
+        # input_tokens, output_tokens = calculate_tokens(
+        #     self.dag_translator_agent.messages
+        # )
 
-        # Set Cost based on GPT-4o
-        cost = input_tokens * (0.0050 / 1000) + output_tokens * (0.0150 / 1000)
+        # # Set Cost based on GPT-4o
+        # cost = input_tokens * (0.0050 / 1000) + output_tokens * (0.0150 / 1000)
 
         dag_info = {
             "dag": dag_raw,
-            "num_input_tokens_dag": input_tokens,
-            "num_output_tokens_dag": output_tokens,
-            "dag_cost": cost,
+            # "num_input_tokens_dag": input_tokens,
+            # "num_output_tokens_dag": output_tokens,
+            # "dag_cost": cost,
         }
 
         assert type(dag) == Dag
@@ -294,26 +283,39 @@ class Manager(BaseModule):
 
     def get_action_queue(
         self,
-        instruction: str,
-        observation: Dict,
-        failed_subtask: Optional[Node] = None,
-        completed_subtasks_list: List[Node] = [],
-        remaining_subtasks_list: List[Node] = [],
+        Tu: str,
+        Screenshot: Image.Image,
+        Running_state: str,
+        Failed_subtask: Optional[Node] = None,
+        Completed_subtasks_list: List[Node] = [],
+        Remaining_subtasks_list: List[Node] = [],
     ):
         """Generate the action list based on the instruction
         instruction:str: Instruction for the task
         """
+        
+        Screenshot = Screenshot.resize((1920, 1080), Image.LANCZOS)
+
+        # Save the screenshot to a BytesIO object
+        buffered = io.BytesIO()
+        Screenshot.save(buffered, format="PNG")
+
+        # Get the byte value of the screenshot
+        screenshot_bytes = buffered.getvalue()
+
+        observation = {}
+        observation["screenshot"] = screenshot_bytes
 
         planner_info, plan = self._generate_step_by_step_plan(
             observation,
-            instruction,
-            failed_subtask,
-            completed_subtasks_list,
-            remaining_subtasks_list,
+            Tu,
+            Failed_subtask,
+            Completed_subtasks_list,
+            Remaining_subtasks_list,
         )
 
         # Generate the DAG
-        dag_info, dag = self._generate_dag(instruction, plan)
+        dag_info, dag = self._generate_dag(Tu, plan)
 
         # Topological sort of the DAG
         action_queue = self._topological_sort(dag)

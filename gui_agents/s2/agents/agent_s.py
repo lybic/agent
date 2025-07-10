@@ -7,13 +7,9 @@ from typing import Dict, List, Optional, Tuple
 from gui_agents.s2.agents.grounding import ACI
 from gui_agents.s2.agents.worker import Worker
 from gui_agents.s2.agents.manager import Manager
+from gui_agents.s2.agents.grounding import Grounding
 from gui_agents.s2.utils.common_utils import Node
-from gui_agents.utils import download_kb_data
-from gui_agents.s2.core.engine import (
-    OpenAIEmbeddingEngine,
-    GeminiEmbeddingEngine,
-    AzureOpenAIEmbeddingEngine,
-)
+from gui_agents.s2.agents.global_state import GlobalState
 
 logger = logging.getLogger("desktopenv.agent")
 
@@ -24,28 +20,24 @@ class UIAgent:
     def __init__(
         self,
         engine_params: Dict,
-        grounding_agent: ACI,
         platform: str = platform.system().lower(),
         action_space: str = "pyautogui",
         observation_type: str = "a11y_tree",
-        search_engine: str = "perplexica",
     ):
         """Initialize UIAgent
 
         Args:
             engine_params: Configuration parameters for the LLM engine
-            grounding_agent: Instance of ACI class for UI interaction
             platform: Operating system platform (macos, linux, windows)
             action_space: Type of action space to use (pyautogui, aci)
             observation_type: Type of observations to use (a11y_tree, mixed)
             engine: Search engine to use (perplexica, LLM)
         """
         self.engine_params = engine_params
-        self.grounding_agent = grounding_agent
         self.platform = platform
         self.action_space = action_space
         self.observation_type = observation_type
-        self.engine = search_engine
+        # self.engine = search_engine
 
     def reset(self) -> None:
         """Reset agent state"""
@@ -90,44 +82,50 @@ class AgentS2(UIAgent):
     def __init__(
         self,
         engine_params: Dict,
-        grounding_agent: ACI,
         platform: str = platform.system().lower(),
         action_space: str = "pyautogui",
         observation_type: str = "mixed",
-        search_engine: Optional[str] = None,
         memory_root_path: str = os.getcwd(),
         memory_folder_name: str = "kb_s2",
         kb_release_tag: str = "v0.2.2",
-        embedding_engine_type: str = "openai",
-        embedding_engine_params: Dict = {},
     ):
         """Initialize AgentS2
 
         Args:
             engine_params: Configuration parameters for the LLM engine
-            grounding_agent: Instance of ACI class for UI interaction
             platform: Operating system platform (darwin, linux, windows)
             action_space: Type of action space to use (pyautogui, other)
             observation_type: Type of observations to use (a11y_tree, screenshot, mixed)
-            search_engine: Search engine to use (LLM, perplexica)
             memory_root_path: Path to memory directory. Defaults to current working directory.
             memory_folder_name: Name of memory folder. Defaults to "kb_s2".
             kb_release_tag: Release tag for knowledge base. Defaults to "v0.2.2".
-            embedding_engine_type: Embedding engine to use for knowledge base. Defaults to "openai". Supports "openai" and "gemini".
-            embedding_engine_params: Parameters for embedding engine. Defaults to {}.
         """
         super().__init__(
             engine_params,
-            grounding_agent,
+            # grounding_agent,
             platform,
             action_space,
             observation_type,
-            search_engine,
+            # search_engine,
         )
 
         self.memory_root_path = memory_root_path
         self.memory_folder_name = memory_folder_name
         self.kb_release_tag = kb_release_tag
+
+        # Load tools configuration from tools_config.json
+        tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
+        with open(tools_config_path, "r") as f:
+            tools_config = json.load(f)
+            print(f"Loaded tools configuration from: {tools_config_path}")
+            self.Tools_dict = {}
+            for tool in tools_config["tools"]:
+                tool_name = tool["tool_name"]
+                self.Tools_dict[tool_name] = {
+                    "provider": tool["provider"],
+                    "model": tool["model_name"]
+                }
+            print(f"Tools configuration: {self.Tools_dict}")
 
         # Initialize agent's knowledge base path
         self.local_kb_path = os.path.join(
@@ -142,33 +140,34 @@ class AgentS2(UIAgent):
         else:
             print(f"Found local knowledge base path: {os.path.join(self.local_kb_path, self.platform)}")
 
-        if embedding_engine_type == "openai":
-            self.embedding_engine = OpenAIEmbeddingEngine(**embedding_engine_params)
-        elif embedding_engine_type == "gemini":
-            self.embedding_engine = GeminiEmbeddingEngine(**embedding_engine_params)
-        elif embedding_engine_type == "azure":
-            self.embedding_engine = AzureOpenAIEmbeddingEngine(
-                **embedding_engine_params
-            )
-
         self.reset()
 
     def reset(self) -> None:
         """Reset agent state and initialize components"""
         # Initialize core components
-        self.planner = Manager(
-            engine_params=self.engine_params,
-            grounding_agent=self.grounding_agent,
+        # self.planner = Manager(
+        #     engine_params=self.engine_params,
+        #     grounding_agent=self.grounding_agent,
+        #     local_kb_path=self.local_kb_path,
+        #     embedding_engine=self.embedding_engine,
+        #     search_engine=self.engine,
+        #     platform=self.platform,
+        # )
+        
+        self.manager = Manager(
+            Tools_dict=self.Tools_dict,
             local_kb_path=self.local_kb_path,
-            embedding_engine=self.embedding_engine,
-            search_engine=self.engine,
             platform=self.platform,
         )
-        self.executor = Worker(
-            engine_params=self.engine_params,
-            grounding_agent=self.grounding_agent,
+        
+        self.worker = Worker(
+            Tools_dict=self.Tools_dict,
             local_kb_path=self.local_kb_path,
-            embedding_engine=self.embedding_engine,
+            platform=self.platform,
+        )
+
+        self.grounding = Grounding(
+            Tools_dict=self.Tools_dict,
             platform=self.platform,
         )
 
@@ -184,6 +183,13 @@ class AgentS2(UIAgent):
         self.subtasks: List[Node] = []
         self.search_query: str = ""
         self.subtask_status: str = "Start"
+        self.global_state = GlobalState(
+            screenshot_dir=os.path.join(self.local_kb_path, self.platform, "screenshot"),
+            tu_path=os.path.join(self.local_kb_path, self.platform, "tu.txt"),
+            search_query_path=os.path.join(self.local_kb_path, self.platform, "search_query.txt"),
+            completed_subtask_path=os.path.join(self.local_kb_path, self.platform, "completed_subtask.txt"),
+            termination_flag_path=os.path.join(self.local_kb_path, self.platform, "termination_flag.txt"),
+        )
 
     def reset_executor_state(self) -> None:
         """Reset executor and step counter"""
@@ -208,13 +214,22 @@ class AgentS2(UIAgent):
             # If replan is true, generate a new plan. True at start, after a failed plan, or after subtask completion
             if self.requires_replan:
                 logger.info("(RE)PLANNING...")
-                planner_info, self.subtasks = self.planner.get_action_queue(
+                manager_info, self.subtasks = self.manager.get_action_queue(
                     instruction=instruction,
                     observation=observation,
                     failed_subtask=self.failure_subtask,
                     completed_subtasks_list=self.completed_tasks,
                     remaining_subtasks_list=self.subtasks,
                 )
+
+                # Manager_info, Subtasks = self.planner.get_action_queue(
+                #     Tu=self.global_state.get_tu(),
+                #     Screenshot=self.global_state.get_screenshot(),
+                #     Running_state=self.global_state.get_running_state(),
+                #     Failed_subtask=self.global_state.get_failed_subtask(),
+                #     Completed_subtasks_list=self.global_state.get_completed_subtask(),
+                #     Remaining_subtasks_list=self.global_state.get_remaining_subtask(),
+                # )
 
                 self.requires_replan = False
                 if "search_query" in planner_info:
@@ -250,8 +265,8 @@ class AgentS2(UIAgent):
                 self.needs_next_subtask = False
                 self.subtask_status = "Start"
 
-            # get the next action from the executor
-            executor_info, actions = self.executor.generate_next_action(
+            # get the next action from the worker
+            executor_info = self.worker.generate_next_action(
                 instruction=instruction,
                 search_query=self.search_query,
                 subtask=self.current_subtask.name,
@@ -260,6 +275,8 @@ class AgentS2(UIAgent):
                 done_task=self.completed_tasks,
                 obs=observation,
             )
+
+            actions = self.grounding.assign_coordinates(executor_info["executor_plan"], observation, self.grounding_agent)
 
             self.step_count += 1
 

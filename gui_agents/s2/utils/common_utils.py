@@ -23,25 +23,6 @@ class Dag(BaseModel):
 
 NUM_IMAGE_TOKEN = 1105  # Value set of screen of size 1920x1080 for openai vision
 
-
-def call_llm_safe(agent) -> Union[str, Dag]:
-    # Retry if fails
-    max_retries = 3  # Set the maximum number of retries
-    attempt = 0
-    response = ""
-    while attempt < max_retries:
-        try:
-            response = agent.get_response()
-            break  # If successful, break out of the loop
-        except Exception as e:
-            attempt += 1
-            print(f"Attempt {attempt} failed: {e}")
-            if attempt == max_retries:
-                print("Max retries reached. Handling failure.")
-        time.sleep(1.0)
-    return response
-
-
 def calculate_tokens(messages, num_image_token=NUM_IMAGE_TOKEN) -> Tuple[int, int]:
 
     num_input_images = 0

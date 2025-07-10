@@ -4,6 +4,9 @@ pandas
 openai
 anthropic
 fastapi
+zhipuai
+groq
+boto3
 uvicorn
 paddleocr
 paddlepaddle
@@ -13,6 +16,7 @@ websockets
 tiktoken
 pyautogui
 toml
+exa_py # If you encounter an error, you need to install exa_py manually through https://pypi.org/project/exa-py/#files
 black
 pytesseract
 google-genai

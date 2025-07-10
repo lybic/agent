@@ -185,52 +185,100 @@ class ToolsIntegration:
         """
         return self.execute_tool("action_generator", str_input=action_request, img_input=screenshot)
 
+    def dag_translator(self, dag_task: str, screenshot: Optional[bytes] = None) -> str:
+        """
+        Translate task descriptions into a DAG structure.
+        
+        Args:
+            task: Task description
+            screenshot: Optional screenshot as bytes
+        
+        Returns:
+            DAG representation as a string
+        """
+        return self.execute_tool("dag_translator", str_input=dag_task, img_input=screenshot)
+    
+    def embedding(self, text: str) -> List[float]:
+        """
+        Generate embeddings for the given text.
+        
+        Args:
+            text: Text to generate embeddings for
+        
+        Returns:
+            Embeddings as a list of floats
+        """
+        return self.execute_tool("embedding", str_input=text)
+
+    def query_formulator(self, task: str, screenshot: Optional[bytes] = None) -> str:
+        """
+        Formulate a query for a given task or context.
+        
+        Args:
+            task: Task or context description
+            screenshot: Optional screenshot as bytes
+        
+        Returns:
+            Formulated query as a string
+        """
+        return self.execute_tool("query_formulator", str_input=task, img_input=screenshot)
 
 # Example configuration file structure
 EXAMPLE_CONFIG = {
-    "tools": [
+  "tools": [
         {
-            "tool_name": "websearch",
-            "provider": "serper",
-            "model_name": "default"
+        "tool_name": "websearch",
+        "provider": "exa",
+        "model_name": "exa-research"
         },
         {
-            "tool_name": "context_fusion",
-            "provider": "openai",
-            "model_name": "gpt-4o"
+        "tool_name": "context_fusion",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         },
         {
-            "tool_name": "subtask_planner",
-            "provider": "anthropic",
-            "model_name": "claude-3-5-sonnet"
+        "tool_name": "subtask_planner",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         },
         {
-            "tool_name": "traj_reflector",
-            "provider": "anthropic",
-            "model_name": "claude-3-5-sonnet"
+        "tool_name": "traj_reflector",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         },
         {
-            "tool_name": "memory_retrival",
-            "provider": "openai",
-            "model_name": "gpt-4o"
+        "tool_name": "memory_retrival",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         },
         {
-            "tool_name": "grounding",
-            "provider": "gemini",
-            "model_name": "gemini-2.5-pro"
+        "tool_name": "grounding",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         },
         {
-            "tool_name": "evaluator",
-            "provider": "anthropic",
-            "model_name": "claude-3-7-sonnet"
+        "tool_name": "evaluator",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         },
         {
-            "tool_name": "action_generator",
-            "provider": "anthropic",
-            "model_name": "claude-3-7-sonnet"
+        "tool_name": "action_generator",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
+        }
+        ,
+        {
+        "tool_name": "dag_translator",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
+        },
+        {
+        "tool_name": "embedding",
+        "provider": "openai",
+        "model_name": "text-embedding-3-small"
         }
     ]
-}
+} 
 
 def create_example_config(config_path: str = "tools_config.json") -> None:
     """
@@ -261,8 +309,9 @@ def get_tools_integration(config_path: Optional[str] = None) -> ToolsIntegration
         integration.register_tools_from_config(config_path)
     else:
         # Register default tools
-        integration.register_tool("websearch", "serper", "default")
+        integration.register_tool("websearch", "bocha", "default")
         integration.register_tool("grounding", "anthropic", "claude-3-5-sonnet")
         integration.register_tool("action_generator", "anthropic", "claude-3-5-sonnet")
+        integration.register_tool("embedding", "openai", "text-embedding-3-small")
     
     return integration 

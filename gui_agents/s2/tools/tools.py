@@ -10,10 +10,11 @@ import os
 import json
 import base64
 import requests
+import time
 from typing import Dict, Any, Optional, List, Union
 from abc import ABC, abstractmethod
 import logging
-from gui_agents.s2.tools.api_client import APIClientFactory
+from gui_agents.s2.core.mllm import LLMAgent, WebSearchAgent, EmbeddingAgent
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,13 @@ class BaseTool(ABC):
         self.prompt_path = prompt_path
         self._prompt_template = self._load_prompt_template()
         
+        # Create LLMAgent instance for tool usage
+        self.engine_params = {
+            "engine_type": provider,
+            "model": model_name
+        }
+        self.llm_agent = LLMAgent(engine_params=self.engine_params, system_prompt=self._prompt_template)
+        
     def _load_prompt_template(self) -> str:
         """
         Load the prompt template from the specified path.
@@ -47,6 +55,45 @@ class BaseTool(ABC):
         except FileNotFoundError:
             logger.error(f"Prompt template file not found: {self.prompt_path}")
             return ""
+    
+    def _call_lmm(self, input_data: Dict[str, Any], temperature: float = 0.0) -> str:
+        """
+        Call the LMM model for inference using the prompt template with retry mechanism
+        
+        Args:
+            input_data: Dictionary containing input data to format the prompt template
+            temperature: Temperature parameter to control randomness of output
+            
+        Returns:
+            Model response as text
+        """
+        # self.llm_agent.reset()
+        
+        # Extract text and image inputs
+        text_input = input_data.get('str_input', '')
+        image_input = input_data.get('img_input', None)
+        
+        # Add the message with the formatted prompt
+        self.llm_agent.add_message(text_input, image_content=image_input, role="user")
+        
+        # Implement safe retry mechanism
+        max_retries = 3
+        attempt = 0
+        response = ""
+        
+        while attempt < max_retries:
+            try:
+                response = self.llm_agent.get_response(temperature=temperature)
+                break  # If successful, break out of the loop
+            except Exception as e:
+                attempt += 1
+                logger.error(f"LLM call attempt {attempt} failed: {str(e)}")
+                if attempt == max_retries:
+                    logger.error("Max retries reached. Returning error message.")
+                    return f"Error: LLM call failed after {max_retries} attempts: {str(e)}"
+                time.sleep(1.0)
+                
+        return response
     
     @abstractmethod
     def execute(self, tool_input: Dict[str, Any]) -> str:
@@ -88,20 +135,28 @@ class ToolFactory:
         
         # Map tool names to their respective classes and prompt file names
         tool_map = {
-            "websearch": (WebSearchTool, "websearch_prompt.txt"),
+            "websearch": (WebSearchTool, None),
             "context_fusion": (ContextFusionTool, "context_fusion_prompt.txt"),
             "subtask_planner": (SubtaskPlannerTool, "subtask_planner_prompt.txt"),
             "traj_reflector": (TrajReflectorTool, "traj_reflector_prompt.txt"),
             "memory_retrival": (MemoryRetrievalTool, "memory_retrieval_prompt.txt"),
             "grounding": (GroundingTool, "grounding_prompt.txt"),
             "evaluator": (EvaluatorTool, "evaluator_prompt.txt"),
-            "action_generator": (ActionGeneratorTool, "action_generator_prompt.txt")
+            "action_generator": (ActionGeneratorTool, "action_generator_prompt.txt"),
+            "dag_translator": (DAGTranslatorTool, "dag_translator_prompt.txt"),
+            "embedding": (EmbeddingTool, None),
+            "query_formulator": (QueryFormulatorTool, "query_formulator_prompt.txt")
         }
         
         if tool_name not in tool_map:
             raise ValueError(f"Unknown tool name: {tool_name}")
         
         tool_class, prompt_filename = tool_map[tool_name]
+        
+        # WebSearchTool and EmbeddingTool don't need a prompt file
+        if tool_name in ["websearch", "embedding"]:
+            return tool_class(provider, model_name, "")
+        
         prompt_path = os.path.join(base_prompt_dir, prompt_filename)
         
         # Create a placeholder prompt file if it doesn't exist
@@ -115,6 +170,26 @@ class ToolFactory:
 
 class WebSearchTool(BaseTool):
     """Tool for performing web searches."""
+    
+    def __init__(self, provider: str, model_name: str, prompt_path: str):
+        """
+        Initialize the web search tool.
+        
+        Args:
+            provider: API provider name (e.g., "bocha", "exa")
+            model_name: Model name to use (not used for WebSearchAgent)
+            prompt_path: Path to the prompt template file
+        """
+        self.provider = provider
+        
+        # Create WebSearchAgent instance for search
+        self.engine_params = {
+            "engine_type": provider,
+            "model": model_name,
+        }
+        
+        # Initialize WebSearchAgent
+        self.search_agent = WebSearchAgent(engine_params=self.engine_params)
     
     def execute(self, tool_input: Dict[str, Any]) -> str:
         """
@@ -131,41 +206,16 @@ class WebSearchTool(BaseTool):
         if not query:
             return "Error: No search query provided"
         
-        # Implement web search based on the provider
-        if self.provider == "serper":
-            return self._search_with_serper(query)
-        elif self.provider == "serpapi":
-            return self._search_with_serpapi(query)
-        else:
-            return f"Web search with provider {self.provider} is not implemented"
-    
-    def _search_with_serper(self, query: str) -> str:
-        """
-        Perform a web search using Serper API.
-        
-        Args:
-            query: Search query
+        try:
+            # Get the answer from the search results
+            answer = self.search_agent.get_answer(query)
             
-        Returns:
-            Search results as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Serper
-        return f"Serper search results for: {query}"
-    
-    def _search_with_serpapi(self, query: str) -> str:
-        """
-        Perform a web search using SerpAPI.
+            # Return just the answer
+            return answer
         
-        Args:
-            query: Search query
-            
-        Returns:
-            Search results as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to SerpAPI
-        return f"SerpAPI search results for: {query}"
+        except Exception as e:
+            logger.error(f"Error during web search: {str(e)}")
+            return f"Error: Web search failed: {str(e)}"
 
 
 class ContextFusionTool(BaseTool):
@@ -186,62 +236,8 @@ class ContextFusionTool(BaseTool):
         if not contexts:
             return "Error: No contexts provided"
         
-        try:
-            contexts_data = json.loads(contexts)
-        except json.JSONDecodeError:
-            return "Error: Invalid JSON format for contexts"
-        
-        # Call the appropriate model API based on the provider
-        if self.provider == "openai":
-            return self._fuse_with_openai(contexts_data)
-        elif self.provider == "anthropic":
-            return self._fuse_with_anthropic(contexts_data)
-        elif self.provider == "gemini":
-            return self._fuse_with_gemini(contexts_data)
-        else:
-            return f"Context fusion with provider {self.provider} is not implemented"
-    
-    def _fuse_with_openai(self, contexts_data: Dict[str, Any]) -> str:
-        """
-        Fuse contexts using OpenAI API.
-        
-        Args:
-            contexts_data: Dictionary containing the contexts to fuse
-            
-        Returns:
-            Fused context as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to OpenAI
-        return f"Fused context using OpenAI: {len(contexts_data)} contexts combined"
-    
-    def _fuse_with_anthropic(self, contexts_data: Dict[str, Any]) -> str:
-        """
-        Fuse contexts using Anthropic API.
-        
-        Args:
-            contexts_data: Dictionary containing the contexts to fuse
-            
-        Returns:
-            Fused context as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Anthropic
-        return f"Fused context using Anthropic: {len(contexts_data)} contexts combined"
-    
-    def _fuse_with_gemini(self, contexts_data: Dict[str, Any]) -> str:
-        """
-        Fuse contexts using Gemini API.
-        
-        Args:
-            contexts_data: Dictionary containing the contexts to fuse
-            
-        Returns:
-            Fused context as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Gemini
-        return f"Fused context using Gemini: {len(contexts_data)} contexts combined"
+        # Use the prompt template and LMM for context fusion
+        return self._call_lmm(tool_input)
 
 
 class SubtaskPlannerTool(BaseTool):
@@ -260,68 +256,34 @@ class SubtaskPlannerTool(BaseTool):
             Subtask plan as a string
         """
         task = tool_input.get('str_input', '')
-        screenshot = tool_input.get('img_input')
-        
         if not task:
             return "Error: No task description provided"
         
-        # Call the appropriate model API based on the provider
-        if self.provider == "openai":
-            return self._plan_with_openai(task, screenshot)
-        elif self.provider == "anthropic":
-            return self._plan_with_anthropic(task, screenshot)
-        elif self.provider == "gemini":
-            return self._plan_with_gemini(task, screenshot)
-        else:
-            return f"Subtask planning with provider {self.provider} is not implemented"
+        # Use the prompt template and LMM for subtask planning
+        return self._call_lmm(tool_input)
+
+
+class DAGTranslatorTool(BaseTool):
+    """Tool for translating task descriptions into a DAG (Directed Acyclic Graph) structure."""
     
-    def _plan_with_openai(self, task: str, screenshot: Optional[bytes] = None) -> str:
+    def execute(self, tool_input: Dict[str, Any]) -> str:
         """
-        Plan subtasks using OpenAI API.
+        Translate task descriptions into a DAG structure.
         
         Args:
-            task: Task description
-            screenshot: Optional screenshot as bytes
-            
-        Returns:
-            Subtask plan as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to OpenAI
-        has_image = "with screenshot" if screenshot else "without screenshot"
-        return f"Subtask plan using OpenAI {has_image} for: {task}"
-    
-    def _plan_with_anthropic(self, task: str, screenshot: Optional[bytes] = None) -> str:
-        """
-        Plan subtasks using Anthropic API.
+            tool_input: Dictionary containing the task description
+                        Expected to have 'str_input' key with the task description
+                        May also have 'img_input' key with a screenshot
         
-        Args:
-            task: Task description
-            screenshot: Optional screenshot as bytes
-            
         Returns:
-            Subtask plan as a string
+            DAG representation as a string
         """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Anthropic
-        has_image = "with screenshot" if screenshot else "without screenshot"
-        return f"Subtask plan using Anthropic {has_image} for: {task}"
-    
-    def _plan_with_gemini(self, task: str, screenshot: Optional[bytes] = None) -> str:
-        """
-        Plan subtasks using Gemini API.
+        task = tool_input.get('str_input', '')
+        if not task:
+            return "Error: No task description provided"
         
-        Args:
-            task: Task description
-            screenshot: Optional screenshot as bytes
-            
-        Returns:
-            Subtask plan as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Gemini
-        has_image = "with screenshot" if screenshot else "without screenshot"
-        return f"Subtask plan using Gemini {has_image} for: {task}"
+        # Use the prompt template and LMM for DAG translation
+        return self._call_lmm(tool_input)
 
 
 class TrajReflectorTool(BaseTool):
@@ -342,57 +304,8 @@ class TrajReflectorTool(BaseTool):
         if not trajectory:
             return "Error: No trajectory provided"
         
-        # Call the appropriate model API based on the provider
-        if self.provider == "openai":
-            return self._reflect_with_openai(trajectory)
-        elif self.provider == "anthropic":
-            return self._reflect_with_anthropic(trajectory)
-        elif self.provider == "gemini":
-            return self._reflect_with_gemini(trajectory)
-        else:
-            return f"Trajectory reflection with provider {self.provider} is not implemented"
-    
-    def _reflect_with_openai(self, trajectory: str) -> str:
-        """
-        Reflect on a trajectory using OpenAI API.
-        
-        Args:
-            trajectory: Execution trajectory
-            
-        Returns:
-            Reflection as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to OpenAI
-        return f"Reflection using OpenAI on trajectory of length {len(trajectory)}"
-    
-    def _reflect_with_anthropic(self, trajectory: str) -> str:
-        """
-        Reflect on a trajectory using Anthropic API.
-        
-        Args:
-            trajectory: Execution trajectory
-            
-        Returns:
-            Reflection as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Anthropic
-        return f"Reflection using Anthropic on trajectory of length {len(trajectory)}"
-    
-    def _reflect_with_gemini(self, trajectory: str) -> str:
-        """
-        Reflect on a trajectory using Gemini API.
-        
-        Args:
-            trajectory: Execution trajectory
-            
-        Returns:
-            Reflection as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Gemini
-        return f"Reflection using Gemini on trajectory of length {len(trajectory)}"
+        # Use the prompt template and LMM for trajectory reflection
+        return self._call_lmm(tool_input)
 
 
 class MemoryRetrievalTool(BaseTool):
@@ -413,57 +326,8 @@ class MemoryRetrievalTool(BaseTool):
         if not query:
             return "Error: No query provided"
         
-        # Call the appropriate model API based on the provider
-        if self.provider == "openai":
-            return self._retrieve_with_openai(query)
-        elif self.provider == "anthropic":
-            return self._retrieve_with_anthropic(query)
-        elif self.provider == "gemini":
-            return self._retrieve_with_gemini(query)
-        else:
-            return f"Memory retrieval with provider {self.provider} is not implemented"
-    
-    def _retrieve_with_openai(self, query: str) -> str:
-        """
-        Retrieve memories using OpenAI API.
-        
-        Args:
-            query: Query for memory retrieval
-            
-        Returns:
-            Retrieved memories as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to OpenAI
-        return f"Retrieved memories using OpenAI for query: {query}"
-    
-    def _retrieve_with_anthropic(self, query: str) -> str:
-        """
-        Retrieve memories using Anthropic API.
-        
-        Args:
-            query: Query for memory retrieval
-            
-        Returns:
-            Retrieved memories as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Anthropic
-        return f"Retrieved memories using Anthropic for query: {query}"
-    
-    def _retrieve_with_gemini(self, query: str) -> str:
-        """
-        Retrieve memories using Gemini API.
-        
-        Args:
-            query: Query for memory retrieval
-            
-        Returns:
-            Retrieved memories as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Gemini
-        return f"Retrieved memories using Gemini for query: {query}"
+        # Use the prompt template and LMM for memory retrieval
+        return self._call_lmm(tool_input)
 
 
 class GroundingTool(BaseTool):
@@ -489,60 +353,8 @@ class GroundingTool(BaseTool):
         if not screenshot:
             return "Error: No screenshot provided"
         
-        # Call the appropriate model API based on the provider
-        if self.provider == "openai":
-            return self._ground_with_openai(action, screenshot)
-        elif self.provider == "anthropic":
-            return self._ground_with_anthropic(action, screenshot)
-        elif self.provider == "gemini":
-            return self._ground_with_gemini(action, screenshot)
-        else:
-            return f"Grounding with provider {self.provider} is not implemented"
-    
-    def _ground_with_openai(self, action: str, screenshot: bytes) -> str:
-        """
-        Ground actions using OpenAI API.
-        
-        Args:
-            action: Action to ground
-            screenshot: Screenshot as bytes
-            
-        Returns:
-            Grounded action as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to OpenAI
-        return f"Grounded action using OpenAI: {action}"
-    
-    def _ground_with_anthropic(self, action: str, screenshot: bytes) -> str:
-        """
-        Ground actions using Anthropic API.
-        
-        Args:
-            action: Action to ground
-            screenshot: Screenshot as bytes
-            
-        Returns:
-            Grounded action as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Anthropic
-        return f"Grounded action using Anthropic: {action}"
-    
-    def _ground_with_gemini(self, action: str, screenshot: bytes) -> str:
-        """
-        Ground actions using Gemini API.
-        
-        Args:
-            action: Action to ground
-            screenshot: Screenshot as bytes
-            
-        Returns:
-            Grounded action as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Gemini
-        return f"Grounded action using Gemini: {action}"
+        # Use the prompt template and LMM for action grounding
+        return self._call_lmm(tool_input)
 
 
 class EvaluatorTool(BaseTool):
@@ -563,62 +375,8 @@ class EvaluatorTool(BaseTool):
         if not eval_data:
             return "Error: No evaluation data provided"
         
-        try:
-            eval_data_obj = json.loads(eval_data)
-        except json.JSONDecodeError:
-            return "Error: Invalid JSON format for evaluation data"
-        
-        # Call the appropriate model API based on the provider
-        if self.provider == "openai":
-            return self._evaluate_with_openai(eval_data_obj)
-        elif self.provider == "anthropic":
-            return self._evaluate_with_anthropic(eval_data_obj)
-        elif self.provider == "gemini":
-            return self._evaluate_with_gemini(eval_data_obj)
-        else:
-            return f"Evaluation with provider {self.provider} is not implemented"
-    
-    def _evaluate_with_openai(self, eval_data_obj: Dict[str, Any]) -> str:
-        """
-        Evaluate using OpenAI API.
-        
-        Args:
-            eval_data_obj: Evaluation data as a dictionary
-            
-        Returns:
-            Evaluation result as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to OpenAI
-        return f"Evaluation using OpenAI: {len(eval_data_obj)} data points analyzed"
-    
-    def _evaluate_with_anthropic(self, eval_data_obj: Dict[str, Any]) -> str:
-        """
-        Evaluate using Anthropic API.
-        
-        Args:
-            eval_data_obj: Evaluation data as a dictionary
-            
-        Returns:
-            Evaluation result as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Anthropic
-        return f"Evaluation using Anthropic: {len(eval_data_obj)} data points analyzed"
-    
-    def _evaluate_with_gemini(self, eval_data_obj: Dict[str, Any]) -> str:
-        """
-        Evaluate using Gemini API.
-        
-        Args:
-            eval_data_obj: Evaluation data as a dictionary
-            
-        Returns:
-            Evaluation result as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Gemini
-        return f"Evaluation using Gemini: {len(eval_data_obj)} data points analyzed"
+        # Use the prompt template and LMM for performance evaluation
+        return self._call_lmm(tool_input)
 
 
 class ActionGeneratorTool(BaseTool):
@@ -637,69 +395,83 @@ class ActionGeneratorTool(BaseTool):
             Generated action as a string
         """
         action_request = tool_input.get('str_input', '')
-        screenshot = tool_input.get('img_input')
-        
         if not action_request:
             return "Error: No action request provided"
         
-        # Call the appropriate model API based on the provider
-        if self.provider == "openai":
-            return self._generate_with_openai(action_request, screenshot)
-        elif self.provider == "anthropic":
-            return self._generate_with_anthropic(action_request, screenshot)
-        elif self.provider == "gemini":
-            return self._generate_with_gemini(action_request, screenshot)
-        else:
-            return f"Action generation with provider {self.provider} is not implemented"
-    
-    def _generate_with_openai(self, action_request: str, screenshot: Optional[bytes] = None) -> str:
-        """
-        Generate actions using OpenAI API.
-        
-        Args:
-            action_request: Action request
-            screenshot: Optional screenshot as bytes
-            
-        Returns:
-            Generated action as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to OpenAI
-        has_image = "with screenshot" if screenshot else "without screenshot"
-        return f"Generated action using OpenAI {has_image}: {action_request}"
-    
-    def _generate_with_anthropic(self, action_request: str, screenshot: Optional[bytes] = None) -> str:
-        """
-        Generate actions using Anthropic API.
-        
-        Args:
-            action_request: Action request
-            screenshot: Optional screenshot as bytes
-            
-        Returns:
-            Generated action as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Anthropic
-        has_image = "with screenshot" if screenshot else "without screenshot"
-        return f"Generated action using Anthropic {has_image}: {action_request}"
-    
-    def _generate_with_gemini(self, action_request: str, screenshot: Optional[bytes] = None) -> str:
-        """
-        Generate actions using Gemini API.
-        
-        Args:
-            action_request: Action request
-            screenshot: Optional screenshot as bytes
-            
-        Returns:
-            Generated action as a string
-        """
-        # Placeholder implementation
-        # In a real implementation, you would make an API call to Gemini
-        has_image = "with screenshot" if screenshot else "without screenshot"
-        return f"Generated action using Gemini {has_image}: {action_request}"
+        # Use the prompt template and LMM for action generation
+        return self._call_lmm(tool_input)
 
+
+class EmbeddingTool(BaseTool):
+    """Tool for generating text embeddings."""
+    
+    def __init__(self, provider: str, model_name: str, prompt_path: str):
+        """
+        Initialize the embedding tool.
+        
+        Args:
+            provider: API provider name (e.g., "openai", "gemini")
+            model_name: Model name to use
+            prompt_path: Path to the prompt template file (not used for this tool)
+        """
+        self.provider = provider
+        self.model_name = model_name
+        
+        # Create EmbeddingAgent instance
+        self.engine_params = {
+            "engine_type": provider,
+            "embedding_model": model_name
+        }
+        
+        # Initialize EmbeddingAgent
+        self.embedding_agent = EmbeddingAgent(engine_params=self.engine_params)
+    
+    def execute(self, tool_input: Dict[str, Any]) -> str:
+        """
+        Generate embeddings for the given text.
+        
+        Args:
+            tool_input: Dictionary containing the text to embed
+                        Expected to have 'str_input' key with the text
+        
+        Returns:
+            Embeddings as a JSON string
+        """
+        text = tool_input.get('str_input', '')
+        
+        if not text:
+            return "Error: No text provided for embedding"
+        
+        try:
+            # Get embeddings for the text
+            embeddings = self.embedding_agent.get_embeddings(text)
+            return embeddings
+                
+        except Exception as e:
+            logger.error(f"Error during embedding operation: {str(e)}")
+            return f"Error: Embedding operation failed: {str(e)}"
+
+class QueryFormulatorTool(BaseTool):
+    """Tool for formulating queries from tasks or contexts."""
+    
+    def execute(self, tool_input: Dict[str, Any]) -> str:
+        """
+        Formulate a query for a given task or context.
+        
+        Args:
+            tool_input: Dictionary containing the task or context description
+                        Expected to have 'str_input' key with the description
+                        May also have 'img_input' key with a screenshot
+        
+        Returns:
+            Formulated query as a string
+        """
+        task = tool_input.get('str_input', '')
+        if not task:
+            return "Error: No task or context description provided"
+        
+        # Use the prompt template and LMM for query formulation
+        return self._call_lmm(tool_input)
 
 class Tools:
     """Main Tools class that provides access to all available tools."""

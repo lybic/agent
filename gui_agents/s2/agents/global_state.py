@@ -68,6 +68,8 @@ class GlobalState:
         completed_subtask_path: str,
         termination_flag_path: str,
         running_state_path: str,
+        failed_subtask_path: str,      # ★ 新增
+        remaining_subtask_path: str,   # ★ 新增
     ):
         self.screenshot_dir = Path(screenshot_dir)
         self.tu_path = Path(tu_path)
@@ -75,12 +77,16 @@ class GlobalState:
         self.completed_subtask_path = Path(completed_subtask_path)
         self.termination_flag_path = Path(termination_flag_path)
         self.running_state_path = Path(running_state_path)
+        self.failed_subtask_path = Path(failed_subtask_path)
+        self.remaining_subtask_path = Path(remaining_subtask_path)
 
         # 保证必要目录存在
         self.screenshot_dir.mkdir(parents=True, exist_ok=True)
         for p in [
             self.tu_path,
             self.search_query_path,
+            self.failed_subtask_path,
+            self.remaining_subtask_path,
             self.completed_subtask_path,
             self.termination_flag_path,
             self.running_state_path,
@@ -137,8 +143,8 @@ class GlobalState:
             f.flush(), os.fsync(f.fileno())
         tmp.replace(self.search_query_path)
 
-    # ---------- completed_subtask ----------
-    def get_subtask(self) -> List[Node]:
+    # ====== completed_subtask (rename 原 set/get_subtask) ======
+    def get_completed_subtask(self) -> List[Node]:
         try:
             with locked(self.completed_subtask_path, "r") as f:
                 data = json.load(f)
@@ -146,13 +152,46 @@ class GlobalState:
         except Exception:
             return []
 
-    def set_subtask(self, nodes: List[Node]):
+    def set_completed_subtask(self, nodes: List[Node]):
         tmp = self.completed_subtask_path.with_suffix(".tmp")
         serialised = [node_to_dict(n) for n in nodes]
         with locked(tmp, "w") as f:
             json.dump(serialised, f, indent=2)
             f.flush(), os.fsync(f.fileno())
         tmp.replace(self.completed_subtask_path)
+    # ====== failed_subtask ======
+    def get_failed_subtask(self) -> List[Node]:
+        try:
+            with locked(self.failed_subtask_path, "r") as f:
+                data = json.load(f)
+            return [node_from_dict(d) for d in data]
+        except Exception:
+            return []
+
+    def set_failed_subtask(self, nodes: List[Node]):
+        tmp = self.failed_subtask_path.with_suffix(".tmp")
+        serialised = [node_to_dict(n) for n in nodes]
+        with locked(tmp, "w") as f:
+            json.dump(serialised, f, indent=2)
+            f.flush(), os.fsync(f.fileno())
+        tmp.replace(self.failed_subtask_path)
+    
+    # ====== remaining_subtask ======
+    def get_remaining_subtask(self) -> List[Node]:
+        try:
+            with locked(self.remaining_subtask_path, "r") as f:
+                data = json.load(f)
+            return [node_from_dict(d) for d in data]
+        except Exception:
+            return []
+
+    def set_remaining_subtask(self, nodes: List[Node]):
+        tmp = self.remaining_subtask_path.with_suffix(".tmp")
+        serialised = [node_to_dict(n) for n in nodes]
+        with locked(tmp, "w") as f:
+            json.dump(serialised, f, indent=2)
+            f.flush(), os.fsync(f.fileno())
+        tmp.replace(self.remaining_subtask_path)
 
     # ---------- termination_flag ----------
     def get_termination_flag(self) -> str:
@@ -201,6 +240,8 @@ class GlobalState:
     def get_obs_for_evaluator(self):
         return {
             "search_query": self.get_search_query(),
-            "Subtask": self.get_subtask(),
+            "failed_subtask": self.get_failed_subtask(),
+            "completed_subtask": self.get_completed_subtask(),
+            "remaining_subtask": self.get_remaining_subtask(),
             "Screenshot": self.get_screenshot(),
         }

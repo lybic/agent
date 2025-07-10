@@ -13,7 +13,7 @@ import requests
 from typing import Dict, Any, Optional, List, Union
 from abc import ABC, abstractmethod
 import logging
-from gui_agents.s2.core.mllm import LMMAgent, WebSearchAgent
+from gui_agents.s2.core.mllm import LLMAgent, WebSearchAgent
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +34,12 @@ class BaseTool(ABC):
         self.prompt_path = prompt_path
         self._prompt_template = self._load_prompt_template()
         
-        # Create LMMAgent instance for tool usage
+        # Create LLMAgent instance for tool usage
         self.engine_params = {
             "engine_type": provider,
             "model": model_name
         }
-        self.lmm_agent = LMMAgent(engine_params=self.engine_params, system_prompt=self._prompt_template)
+        self.llm_agent = LLMAgent(engine_params=self.engine_params, system_prompt=self._prompt_template)
         
     def _load_prompt_template(self) -> str:
         """
@@ -66,7 +66,7 @@ class BaseTool(ABC):
         Returns:
             Model response as text
         """
-        self.lmm_agent.reset()
+        self.llm_agent.reset()
         
         # Format the prompt template with the input data
         # The prompt template should have placeholders for the input data
@@ -77,10 +77,10 @@ class BaseTool(ABC):
         image_input = input_data.get('img_input', None)
         
         # Add the message with the formatted prompt
-        self.lmm_agent.add_message(text_input, image_content=image_input, role="user")
+        self.llm_agent.add_message(text_input, image_content=image_input, role="user")
         
         # Get the response from the LMM
-        return self.lmm_agent.get_response(temperature=temperature)
+        return self.llm_agent.get_response(temperature=temperature)
     
     @abstractmethod
     def execute(self, tool_input: Dict[str, Any]) -> str:
@@ -129,7 +129,8 @@ class ToolFactory:
             "memory_retrival": (MemoryRetrievalTool, "memory_retrieval_prompt.txt"),
             "grounding": (GroundingTool, "grounding_prompt.txt"),
             "evaluator": (EvaluatorTool, "evaluator_prompt.txt"),
-            "action_generator": (ActionGeneratorTool, "action_generator_prompt.txt")
+            "action_generator": (ActionGeneratorTool, "action_generator_prompt.txt"),
+            "dag_translator": (DAGTranslatorTool, "dag_translator_prompt.txt")
         }
         
         if tool_name not in tool_map:
@@ -249,6 +250,29 @@ class SubtaskPlannerTool(BaseTool):
             return "Error: No task description provided"
         
         # Use the prompt template and LMM for subtask planning
+        return self._call_lmm(tool_input)
+
+
+class DAGTranslatorTool(BaseTool):
+    """Tool for translating task descriptions into a DAG (Directed Acyclic Graph) structure."""
+    
+    def execute(self, tool_input: Dict[str, Any]) -> str:
+        """
+        Translate task descriptions into a DAG structure.
+        
+        Args:
+            tool_input: Dictionary containing the task description
+                        Expected to have 'str_input' key with the task description
+                        May also have 'img_input' key with a screenshot
+        
+        Returns:
+            DAG representation as a string
+        """
+        task = tool_input.get('str_input', '')
+        if not task:
+            return "Error: No task description provided"
+        
+        # Use the prompt template and LMM for DAG translation
         return self._call_lmm(tool_input)
 
 

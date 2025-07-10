@@ -17,7 +17,7 @@ from gui_agents.s2.utils.common_utils import (
     parse_dag,
 )
 from gui_agents.s2.store.registry import Registry
-store = Registry.get("store")
+# store = Registry.get("store")
 
 logger = logging.getLogger("desktopenv.agent")
 

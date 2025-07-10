@@ -49,6 +49,11 @@
       "tool_name": "embedding",
       "provider": "gemini",
       "model_name": "text-embedding-004"
+    },
+    {
+      "tool_name": "query_formulator",
+      "provider": "gemini",
+      "model_name": "gemini-2.5-pro"
     }
   ]
 } 

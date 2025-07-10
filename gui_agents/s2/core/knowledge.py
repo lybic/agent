@@ -49,10 +49,10 @@ class KnowledgeBase:
         )
         
         self.query_formulator = Tools()
-        self.query_formulator.register_tools("query_formulator", Tools_dict["query_formulator"]["provider"], Tools_dict["query_formulator"]["model"])
+        self.query_formulator.register_tool("query_formulator", Tools_dict["query_formulator"]["provider"], Tools_dict["query_formulator"]["model"])
         
         self.knowledge_fusion_agent = Tools()
-        self.knowledge_fusion_agent.register_tools("context_fusion", Tools_dict["context_fusion"]["provider"], Tools_dict["context_fusion"]["model"])
+        self.knowledge_fusion_agent.register_tool("context_fusion", Tools_dict["context_fusion"]["provider"], Tools_dict["context_fusion"]["model"])
 
         # self.narrative_summarization_agent = self._create_agent(
         #     PROCEDURAL_MEMORY.TASK_SUMMARIZATION_PROMPT

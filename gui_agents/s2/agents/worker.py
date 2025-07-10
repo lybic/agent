@@ -5,29 +5,29 @@ from typing import Dict, List, Tuple
 import platform
 
 from gui_agents.s2.agents.grounding import ACI
-from gui_agents.s2.core.module import BaseModule
 from gui_agents.s2.core.knowledge import KnowledgeBase
 from gui_agents.s2.memory.procedural_memory import PROCEDURAL_MEMORY
-from gui_agents.s2.core.engine import OpenAIEmbeddingEngine
 from gui_agents.s2.utils.common_utils import (
     Node,
     calculate_tokens,
-    call_llm_safe,
+    # call_llm_safe,
     parse_single_code_from_string,
     sanitize_code,
     extract_first_agent_function,
 )
+from gui_agents.s2.tools.tools import Tools
 
 logger = logging.getLogger("desktopenv.agent")
 
 
-class Worker(BaseModule):
+class Worker:
     def __init__(
         self,
-        engine_params: Dict,
-        grounding_agent: ACI,
+        Tools_dict: Dict,
+        # engine_params: Dict,
+        # grounding_agent: ACI,
         local_kb_path: str,
-        embedding_engine=OpenAIEmbeddingEngine(),
+        # embedding_engine=OpenAIEmbeddingEngine(),
         platform: str = platform.system().lower(),
         enable_reflection: bool = True,
         use_subtask_experience: bool = True,
@@ -37,8 +37,6 @@ class Worker(BaseModule):
         Args:
             engine_params: Dict
                 Parameters for the multimodal engine
-            grounding_agent: Agent
-                The grounding agent to use
             local_kb_path: str
                 Path to knowledge base
             platform: str
@@ -48,11 +46,17 @@ class Worker(BaseModule):
             use_subtask_experience: bool
                 Whether to use subtask experience
         """
-        super().__init__(engine_params, platform)
+        # super().__init__(engine_params, platform)
+        self.platform = platform
 
-        self.grounding_agent = grounding_agent
+        # self.grounding_agent = grounding_agent
         self.local_kb_path = local_kb_path
-        self.embedding_engine = embedding_engine
+        # self.embedding_engine = embedding_engine
+        self.Tools_dict = Tools_dict
+
+        self.embedding_engine = Tools()
+        self.embedding_engine.register_tool("embedding", self.Tools_dict["embedding"]["provider"], Tools_dict["embedding"]["model"])
+        
         self.enable_reflection = enable_reflection
         self.use_subtask_experience = use_subtask_experience
         self.reset()
@@ -63,20 +67,31 @@ class Worker(BaseModule):
         else:
             skipped_actions = []
 
-        sys_prompt = PROCEDURAL_MEMORY.construct_worker_procedural_memory(
-            type(self.grounding_agent), skipped_actions=skipped_actions
-        ).replace("CURRENT_OS", self.platform)
+        # sys_prompt = PROCEDURAL_MEMORY.construct_worker_procedural_memory(
+        #     type(self.grounding_agent), skipped_actions=skipped_actions
+        # ).replace("CURRENT_OS", self.platform)
 
-        self.generator_agent = self._create_agent(sys_prompt)
-        self.reflection_agent = self._create_agent(
-            PROCEDURAL_MEMORY.REFLECTION_ON_TRAJECTORY
-        )
+        # self.generator_agent = self._create_agent(sys_prompt)
+        # self.reflection_agent = self._create_agent(
+        #     PROCEDURAL_MEMORY.REFLECTION_ON_TRAJECTORY
+        # )
+
+        self.generator_agent = Tools()
+        self.generator_agent.register_tool("action_generator", self.Tools_dict["action_generator"]["provider"], self.Tools_dict["action_generator"]["model"])
+        self.reflection_agent = Tools()
+        self.reflection_agent.register_tool("traj_reflector", self.Tools_dict["traj_reflector"]["provider"], self.Tools_dict["traj_reflector"]["model"])
+
+        KB_Tools_dict = {
+            "embedding": self.Tools_dict["embedding"],
+            "query_formulator": self.Tools_dict["query_formulator"],
+            "context_fusion": self.Tools_dict["context_fusion"],
+        }
 
         self.knowledge_base = KnowledgeBase(
             embedding_engine=self.embedding_engine,
             local_kb_path=self.local_kb_path,
             platform=self.platform,
-            engine_params=self.engine_params,
+            Tools_dict=KB_Tools_dict,
         )
 
         self.turn_count = 0
@@ -110,11 +125,11 @@ class Worker(BaseModule):
         Predict the next action(s) based on the current observation.
         """
         # Provide the top_app to the Grounding Agent to remove all other applications from the tree. At t=0, top_app is None
-        agent = self.grounding_agent
+        # agent = self.grounding_agent
 
         # Get RAG knowledge, only update system message at t=0
         if self.turn_count == 0:
-            if self.use_subtask_experience:
+            if self.use_subtask_experience: 
                 subtask_query_key = (
                     "Task:\n"
                     + search_query
@@ -146,14 +161,14 @@ class Worker(BaseModule):
                     retrieved_similar_subtask + "\n" + retrieved_subtask_experience
                 )
 
-            self.generator_agent.add_system_prompt(
-                self.generator_agent.system_prompt.replace(
-                    "SUBTASK_DESCRIPTION", subtask
-                )
-                .replace("TASK_DESCRIPTION", instruction)
-                .replace("FUTURE_TASKS", ", ".join([f.name for f in future_tasks]))
-                .replace("DONE_TASKS", ",".join(d.name for d in done_task))
-            )
+            # self.generator_agent.add_system_prompt(
+            #     self.generator_agent.system_prompt.replace(
+            #         "SUBTASK_DESCRIPTION", subtask
+            #     )
+            #     .replace("TASK_DESCRIPTION", instruction)
+            #     .replace("FUTURE_TASKS", ", ".join([f.name for f in future_tasks]))
+            #     .replace("DONE_TASKS", ",".join(d.name for d in done_task))
+            # )
 
         # Reflection generation does not add its own response, it only gets the trajectory
         reflection = None
@@ -167,26 +182,27 @@ class Worker(BaseModule):
                     Current Trajectory below:
                     """
                 )
-                updated_sys_prompt = (
-                    self.reflection_agent.system_prompt + "\n" + text_content
-                )
-                self.reflection_agent.add_system_prompt(updated_sys_prompt)
-                self.reflection_agent.add_message(
-                    text_content="The initial screen is provided. No action has been taken yet.",
-                    image_content=obs["screenshot"],
-                    role="user",
-                )
+                # updated_sys_prompt = (
+                #     self.reflection_agent.system_prompt + "\n" + text_content
+                # )
+                # self.reflection_agent.add_system_prompt(updated_sys_prompt)
+                # self.reflection_agent.add_message(
+                #     text_content="The initial screen is provided. No action has been taken yet.",
+                #     image_content=obs["screenshot"],
+                #     role="user",
+                # )
             # Load the latest action
             else:
-                text_content = self.clean_worker_generation_for_reflection(
-                    self.planner_history[-1]
-                )
-                self.reflection_agent.add_message(
-                    text_content=text_content,
-                    image_content=obs["screenshot"],
-                    role="user",
-                )
-                reflection = call_llm_safe(self.reflection_agent)
+                # text_content = self.clean_worker_generation_for_reflection(
+                #     self.planner_history[-1]
+                # )
+                # self.reflection_agent.add_message(
+                #     text_content=text_content,
+                #     image_content=obs["screenshot"],
+                #     role="user",
+                # )
+                # reflection = call_llm_safe(self.reflection_agent)
+                reflection = self.reflection_agent.execute_tool("traj_reflector", {"str_input": text_content, "img_input": obs["screenshot"]})
                 self.reflections.append(reflection)
                 logger.info("REFLECTION: %s", reflection)
 
@@ -203,49 +219,51 @@ class Worker(BaseModule):
 
         # logger.info("GENERATOR MESSAGE: %s", generator_message)
 
-        self.generator_agent.add_message(
-            generator_message, image_content=obs["screenshot"], role="user"
-        )
+        # self.generator_agent.add_message(
+        #     generator_message, image_content=obs["screenshot"], role="user"
+        # )
 
-        plan = call_llm_safe(self.generator_agent)
+        # plan = call_llm_safe(self.generator_agent)
+        plan = self.generator_agent.execute_tool("action_generator", {"str_input": generator_message, "img_input": obs["screenshot"]})
+        
         self.planner_history.append(plan)
         logger.info("PLAN: %s", plan)
-        self.generator_agent.add_message(plan, role="assistant")
+        # self.generator_agent.add_message(plan, role="assistant")
 
         # Calculate input/output tokens and gpt-4o cost
-        input_tokens, output_tokens = calculate_tokens(self.generator_agent.messages)
-        cost = input_tokens * (0.0050 / 1000) + output_tokens * (0.0150 / 1000)
-        self.cost_this_turn += cost
-        logger.info("EXECTUOR COST: %s", self.cost_this_turn)
+        # input_tokens, output_tokens = calculate_tokens(self.generator_agent.messages)
+        # cost = input_tokens * (0.0050 / 1000) + output_tokens * (0.0150 / 1000)
+        # self.cost_this_turn += cost
+        # logger.info("EXECTUOR COST: %s", self.cost_this_turn)
 
-        # Use the DescriptionBasedACI to convert agent_action("desc") into agent_action([x, y])
-        try:
-            agent.assign_coordinates(plan, obs)
-            plan_code = parse_single_code_from_string(plan.split("Grounded Action")[-1])
-            plan_code = sanitize_code(plan_code)
-            plan_code = extract_first_agent_function(plan_code)
-            exec_code = eval(plan_code)
-        except Exception as e:
-            logger.error("Error in parsing plan code: %s", e)
-            plan_code = "agent.wait(1.0)"
-            exec_code = eval(plan_code)
+        # # Use the DescriptionBasedACI to convert agent_action("desc") into agent_action([x, y])
+        # try:
+        #     agent.assign_coordinates(plan, obs)
+        #     plan_code = parse_single_code_from_string(plan.split("Grounded Action")[-1])
+        #     plan_code = sanitize_code(plan_code)
+        #     plan_code = extract_first_agent_function(plan_code)
+        #     exec_code = eval(plan_code)
+        # except Exception as e:
+        #     logger.error("Error in parsing plan code: %s", e)
+        #     plan_code = "agent.wait(1.0)"
+        #     exec_code = eval(plan_code)
 
         executor_info = {
             "current_subtask": subtask,
             "current_subtask_info": subtask_info,
             "executor_plan": plan,
-            "plan_code": plan_code,
+            # "plan_code": plan_code,
             "reflection": reflection,
-            "num_input_tokens_executor": input_tokens,
-            "num_output_tokens_executor": output_tokens,
+            # "num_input_tokens_executor": input_tokens,
+            # "num_output_tokens_executor": output_tokens,
         }
         self.turn_count += 1
 
         self.screenshot_inputs.append(obs["screenshot"])
         self.flush_messages()
 
-        return executor_info, [exec_code]
-
+        # return executor_info, [exec_code]
+        return executor_info
     # Removes the previous action verification, and removes any extraneous grounded actions
     def clean_worker_generation_for_reflection(self, worker_generation: str) -> str:
         # Remove the previous action verification
@@ -255,3 +273,4 @@ class Worker(BaseModule):
         res = res[: res.find("(Grounded Action)")]
         res += f"(Grounded Action)\n```python\n{action}\n```\n"
         return res
+

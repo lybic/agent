@@ -210,6 +210,19 @@ class ToolsIntegration:
         """
         return self.execute_tool("embedding", str_input=text)
 
+    def query_formulator(self, task: str, screenshot: Optional[bytes] = None) -> str:
+        """
+        Formulate a query for a given task or context.
+        
+        Args:
+            task: Task or context description
+            screenshot: Optional screenshot as bytes
+        
+        Returns:
+            Formulated query as a string
+        """
+        return self.execute_tool("query_formulator", str_input=task, img_input=screenshot)
+
 # Example configuration file structure
 EXAMPLE_CONFIG = {
   "tools": [

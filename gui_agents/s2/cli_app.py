@@ -260,22 +260,22 @@ def main():
             "grounding_height": grounding_height,
         }
 
-    grounding_agent = OSWorldACI(
-        platform=current_platform,
-        engine_params_for_generation=engine_params,
-        engine_params_for_grounding=engine_params_for_grounding,
-        width=screen_width,
-        height=screen_height,
-    )
+    # grounding_agent = OSWorldACI(
+    #     platform=current_platform,
+    #     engine_params_for_generation=engine_params,
+    #     engine_params_for_grounding=engine_params_for_grounding,
+    #     width=screen_width,
+    #     height=screen_height,
+    # )
 
     agent = AgentS2(
         engine_params,
-        grounding_agent,
+        # grounding_agent,
         platform=current_platform,
         action_space="pyautogui",
         observation_type="mixed",
-        search_engine=None,
-        embedding_engine_type=args.embedding_engine_type,
+        # search_engine=None,
+        # embedding_engine_type=args.embedding_engine_type,
     )
 
     while True:

@@ -67,7 +67,7 @@ class BaseTool(ABC):
         Returns:
             Model response as text
         """
-        self.llm_agent.reset()
+        # self.llm_agent.reset()
         
         # Extract text and image inputs
         text_input = input_data.get('str_input', '')
@@ -235,11 +235,6 @@ class ContextFusionTool(BaseTool):
         contexts = tool_input.get('str_input', '')
         if not contexts:
             return "Error: No contexts provided"
-        
-        try:
-            json.loads(contexts)  # Validate JSON format
-        except json.JSONDecodeError:
-            return "Error: Invalid JSON format for contexts"
         
         # Use the prompt template and LMM for context fusion
         return self._call_lmm(tool_input)

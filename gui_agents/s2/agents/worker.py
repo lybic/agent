@@ -62,19 +62,6 @@ class Worker:
         self.reset()
 
     def reset(self):
-        if self.platform != "linux":
-            skipped_actions = ["set_cell_values"]
-        else:
-            skipped_actions = []
-
-        # sys_prompt = PROCEDURAL_MEMORY.construct_worker_procedural_memory(
-        #     type(self.grounding_agent), skipped_actions=skipped_actions
-        # ).replace("CURRENT_OS", self.platform)
-
-        # self.generator_agent = self._create_agent(sys_prompt)
-        # self.reflection_agent = self._create_agent(
-        #     PROCEDURAL_MEMORY.REFLECTION_ON_TRAJECTORY
-        # )
 
         self.generator_agent = Tools()
         self.generator_agent.register_tool("action_generator", self.Tools_dict["action_generator"]["provider"], self.Tools_dict["action_generator"]["model"])
@@ -102,14 +89,14 @@ class Worker:
         self.planner_history = []
         self.max_trajector_length = 8
 
-    def flush_messages(self):
-        # generator msgs are alternating [user, assistant], so 2 per round
-        if len(self.generator_agent.messages) > 2 * self.max_trajector_length + 1:
-            self.generator_agent.remove_message_at(1)
-            self.generator_agent.remove_message_at(1)
-        # reflector msgs are all [(user text, user image)], so 1 per round
-        if len(self.reflection_agent.messages) > self.max_trajector_length + 1:
-            self.reflection_agent.remove_message_at(1)
+    # def flush_messages(self):
+    #     # generator msgs are alternating [user, assistant], so 2 per round
+    #     if len(self.generator_agent.messages) > 2 * self.max_trajector_length + 1:
+    #         self.generator_agent.remove_message_at(1)
+    #         self.generator_agent.remove_message_at(1)
+    #     # reflector msgs are all [(user text, user image)], so 1 per round
+    #     if len(self.reflection_agent.messages) > self.max_trajector_length + 1:
+    #         self.reflection_agent.remove_message_at(1)
 
     def generate_next_action(
         self,
@@ -169,6 +156,7 @@ class Worker:
             #     .replace("FUTURE_TASKS", ", ".join([f.name for f in future_tasks]))
             #     .replace("DONE_TASKS", ",".join(d.name for d in done_task))
             # )
+            prefix_message = f"TASK_DESCRIPTION is {instruction}\n\nFUTURE_TASKS is {', '.join([f.name for f in future_tasks])}\n\nDONE_TASKS is {','.join(d.name for d in done_task)}"
 
         # Reflection generation does not add its own response, it only gets the trajectory
         reflection = None
@@ -186,6 +174,9 @@ class Worker:
                 #     self.reflection_agent.system_prompt + "\n" + text_content
                 # )
                 # self.reflection_agent.add_system_prompt(updated_sys_prompt)
+
+                self.reflection_agent.tools["traj_reflector"].llm_agent.add_message(text_content+ "\n\nThe initial screen is provided. No action has been taken yet.", image_content=obs["screenshot"], role="user")
+                
                 # self.reflection_agent.add_message(
                 #     text_content="The initial screen is provided. No action has been taken yet.",
                 #     image_content=obs["screenshot"],
@@ -193,27 +184,37 @@ class Worker:
                 # )
             # Load the latest action
             else:
-                # text_content = self.clean_worker_generation_for_reflection(
-                #     self.planner_history[-1]
-                # )
+                text_content = self.clean_worker_generation_for_reflection(
+                    self.planner_history[-1]
+                )
                 # self.reflection_agent.add_message(
                 #     text_content=text_content,
                 #     image_content=obs["screenshot"],
                 #     role="user",
                 # )
                 # reflection = call_llm_safe(self.reflection_agent)
+
+                # self.reflection_agent.tools["traj_reflector"].llm_agent.add_message(text_content, image_content=obs["screenshot"], role="user")
+                # reflection = self.reflection_agent.tools["traj_reflector"].llm_agent.get_response()
+
                 reflection = self.reflection_agent.execute_tool("traj_reflector", {"str_input": text_content, "img_input": obs["screenshot"]})
                 self.reflections.append(reflection)
                 logger.info("REFLECTION: %s", reflection)
 
+        # generator_message = (
+        #     f"\nYou may use this reflection on the previous action and overall trajectory: {reflection}\n"
+        #     if reflection and self.turn_count > 0
+        #     else ""
+        # ) + f"Text Buffer = [{','.join(agent.notes)}]."
         generator_message = (
             f"\nYou may use this reflection on the previous action and overall trajectory: {reflection}\n"
             if reflection and self.turn_count > 0
             else ""
-        ) + f"Text Buffer = [{','.join(agent.notes)}]."
+        )
 
         # Only provide subinfo in the very first message to avoid over influence and redundancy
         if self.turn_count == 0:
+            generator_message += prefix_message
             generator_message += f"Remember only complete the subtask: {subtask}\n"
             generator_message += f"You can use this extra information for completing the current subtask: {subtask_info}.\n"
 
@@ -260,7 +261,7 @@ class Worker:
         self.turn_count += 1
 
         self.screenshot_inputs.append(obs["screenshot"])
-        self.flush_messages()
+        # self.flush_messages()
 
         # return executor_info, [exec_code]
         return executor_info

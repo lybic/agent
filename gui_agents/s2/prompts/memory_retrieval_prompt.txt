@@ -1,2 +1,0 @@
-# Default prompt template for memory_retrival
-# Replace this with an actual prompt template

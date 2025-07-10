@@ -28,7 +28,7 @@ from gui_agents.s2.core.engine import (
     ExaResearchEngine,
 )
 
-class LMMAgent:
+class LLMAgent:
     def __init__(self, engine_params=None, system_prompt=None, engine=None):
         if engine is None:
             if engine_params is not None:

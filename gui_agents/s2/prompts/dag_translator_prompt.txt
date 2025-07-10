@@ -1,0 +1,2 @@
+# Default prompt template for dag_translator
+# Replace this with an actual prompt template

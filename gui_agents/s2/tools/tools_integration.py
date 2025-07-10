@@ -185,6 +185,18 @@ class ToolsIntegration:
         """
         return self.execute_tool("action_generator", str_input=action_request, img_input=screenshot)
 
+    def dag_translator(self, dag_task: str, screenshot: Optional[bytes] = None) -> str:
+        """
+        Translate task descriptions into a DAG structure.
+        
+        Args:
+            task: Task description
+            screenshot: Optional screenshot as bytes
+        
+        Returns:
+            DAG representation as a string
+        """
+        return self.execute_tool("dag_translator", str_input=dag_task, img_input=screenshot)
 
 # Example configuration file structure
 EXAMPLE_CONFIG = {
@@ -226,6 +238,12 @@ EXAMPLE_CONFIG = {
         },
         {
         "tool_name": "action_generator",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
+        }
+        ,
+        {
+        "tool_name": "dag_translator",
         "provider": "gemini",
         "model_name": "gemini-2.5-pro"
         }

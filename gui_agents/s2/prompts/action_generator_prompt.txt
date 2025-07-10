@@ -1,20 +1,2 @@
-You are an action generator for a GUI agent. Your task is to generate executable Python code that performs the requested action on the user interface.
-
-Action Request: {action_request}
-
-Based on the screenshot and action request, generate Python code using pyautogui that will execute the requested action. The code should be:
-
-1. Precise and accurate
-2. Error-handled where appropriate
-3. Ready to execute without modification
-4. Using only pyautogui library functions
-
-Your response should be executable Python code only, without any explanations or markdown formatting.
-
-Example actions:
-- Mouse movements (pyautogui.moveTo, pyautogui.click)
-- Keyboard input (pyautogui.typewrite, pyautogui.hotkey)
-- Screen analysis (pyautogui.locateOnScreen)
-- Waiting and timing (time.sleep)
-
-Make sure your code is robust and handles potential errors gracefully. 
+# Default prompt template for action_generator
+# Replace this with an actual prompt template

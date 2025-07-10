@@ -10,8 +10,23 @@ from gui_agents.s2.core.engine import (
     LMMEngineOpenRouter,
     LMMEnginevLLM,
     LMMEngineGemini,
+    LMMEngineQwen,
+    LMMEngineDoubao,
+    LMMEngineDeepSeek,
+    LMMEngineZhipu,
+    LMMEngineGroq,
+    LMMEngineSiliconflow,
+    LMMEngineMonica,
+    LMMEngineAWSBedrock,
+    OpenAIEmbeddingEngine,
+    GeminiEmbeddingEngine,
+    AzureOpenAIEmbeddingEngine,
+    DashScopeEmbeddingEngine,
+    DoubaoEmbeddingEngine,
+    JinaEmbeddingEngine,
+    BochaAISearchEngine,
+    ExaResearchEngine,
 )
-
 
 class LMMAgent:
     def __init__(self, engine_params=None, system_prompt=None, engine=None):
@@ -32,6 +47,22 @@ class LMMAgent:
                     self.engine = LMMEngineGemini(**engine_params)
                 elif engine_type == "open_router":
                     self.engine = LMMEngineOpenRouter(**engine_params)
+                elif engine_type == "dashscope":
+                    self.engine = LMMEngineQwen(**engine_params)
+                elif engine_type == "doubao":
+                    self.engine = LMMEngineDoubao(**engine_params)
+                elif engine_type == "deepseek":
+                    self.engine = LMMEngineDeepSeek(**engine_params)
+                elif engine_type == "zhipu":
+                    self.engine = LMMEngineZhipu(**engine_params)
+                elif engine_type == "groq":
+                    self.engine = LMMEngineGroq(**engine_params)
+                elif engine_type == "siliconflow":
+                    self.engine = LMMEngineSiliconflow(**engine_params)
+                elif engine_type == "monica":
+                    self.engine = LMMEngineMonica(**engine_params)
+                elif engine_type == "aws_bedrock":
+                    self.engine = LMMEngineAWSBedrock(**engine_params)
                 else:
                     raise ValueError("engine_type is not supported")
             else:
@@ -116,15 +147,25 @@ class LMMAgent:
     ):
         """Add a new message to the list of messages"""
 
-        # API-style inference from OpenAI and AzureOpenAI
+        # API-style inference from OpenAI and similar services
         if isinstance(
             self.engine,
             (
-                LMMEngineOpenAI,
+                LMMEngineAnthropic,
                 LMMEngineAzureOpenAI,
                 LMMEngineHuggingFace,
-                LMMEngineGemini,
+                LMMEngineOpenAI,
                 LMMEngineOpenRouter,
+                LMMEnginevLLM,
+                LMMEngineGemini,
+                LMMEngineQwen,
+                LMMEngineDoubao,
+                LMMEngineDeepSeek,
+                LMMEngineZhipu,
+                LMMEngineGroq,
+                LMMEngineSiliconflow,
+                LMMEngineMonica,
+                LMMEngineAWSBedrock,
             ),
         ):
             # infer role from previous message
@@ -177,7 +218,7 @@ class LMMAgent:
             self.messages.append(message)
 
         # For API-style inference from Anthropic
-        elif isinstance(self.engine, LMMEngineAnthropic):
+        elif isinstance(self.engine, (LMMEngineAnthropic, LMMEngineAWSBedrock)):
             # infer role from previous message
             if role != "user":
                 if self.messages[-1]["role"] == "system":
@@ -289,3 +330,213 @@ class LMMAgent:
             max_new_tokens=max_new_tokens,
             **kwargs,
         )
+
+class EmbeddingAgent:
+    def __init__(self, engine_params=None, engine=None):
+        if engine is None:
+            if engine_params is not None:
+                engine_type = engine_params.get("engine_type")
+                if engine_type == "openai":
+                    self.engine = OpenAIEmbeddingEngine(**engine_params)
+                elif engine_type == "gemini":
+                    self.engine = GeminiEmbeddingEngine(**engine_params)
+                elif engine_type == "azure":
+                    self.engine = AzureOpenAIEmbeddingEngine(**engine_params)
+                elif engine_type == "dashscope":
+                    self.engine = DashScopeEmbeddingEngine(**engine_params)
+                elif engine_type == "doubao":
+                    self.engine = DoubaoEmbeddingEngine(**engine_params)
+                elif engine_type == "jina":
+                    self.engine = JinaEmbeddingEngine(**engine_params)
+                else:
+                    raise ValueError(f"Embedding engine type '{engine_type}' is not supported")
+            else:
+                raise ValueError("engine_params must be provided")
+        else:
+            self.engine = engine
+
+    def get_embeddings(self, text):
+        """Get embeddings for the given text
+        
+        Args:
+            text (str): The text to get embeddings for
+            
+        Returns:
+            numpy.ndarray: The embeddings for the text
+        """
+        return self.engine.get_embeddings(text)
+    
+    def get_similarity(self, text1, text2):
+        """Calculate the cosine similarity between two texts
+        
+        Args:
+            text1 (str): First text
+            text2 (str): Second text
+            
+        Returns:
+            float: Cosine similarity score between the two texts
+        """
+        embedding1 = self.get_embeddings(text1)[0]
+        embedding2 = self.get_embeddings(text2)[0]
+        
+        # Calculate cosine similarity
+        dot_product = np.dot(embedding1, embedding2)
+        norm1 = np.linalg.norm(embedding1)
+        norm2 = np.linalg.norm(embedding2)
+        
+        return dot_product / (norm1 * norm2)
+    
+    def batch_get_embeddings(self, texts):
+        """Get embeddings for multiple texts
+        
+        Args:
+            texts (List[str]): List of texts to get embeddings for
+            
+        Returns:
+            List[numpy.ndarray]: List of embeddings for each text
+        """
+        embeddings = []
+        for text in texts:
+            embedding = self.get_embeddings(text)
+            embeddings.append(embedding[0])
+        return embeddings
+    
+    def find_most_similar(self, query_text, candidate_texts):
+        """Find the most similar text from a list of candidates
+        
+        Args:
+            query_text (str): The query text
+            candidate_texts (List[str]): List of candidate texts to compare against
+            
+        Returns:
+            Tuple[int, float, str]: Index, similarity score, and content of the most similar text
+        """
+        query_embedding = self.get_embeddings(query_text)[0]
+        
+        max_similarity = -1
+        max_index = -1
+        
+        for i, text in enumerate(candidate_texts):
+            candidate_embedding = self.get_embeddings(text)[0]
+            
+            # Calculate cosine similarity
+            dot_product = np.dot(query_embedding, candidate_embedding)
+            norm1 = np.linalg.norm(query_embedding)
+            norm2 = np.linalg.norm(candidate_embedding)
+            
+            similarity = dot_product / (norm1 * norm2)
+            
+            if similarity > max_similarity:
+                max_similarity = similarity
+                max_index = i
+        
+        if max_index >= 0:
+            return max_index, max_similarity, candidate_texts[max_index]
+        else:
+            return None, None, None
+
+class WebSearchAgent:
+    def __init__(self, engine_params=None, engine=None):
+        if engine is None:
+            if engine_params is not None:
+                engine_type = engine_params.get("engine_type")
+                if engine_type == "bocha":
+                    self.engine = BochaAISearchEngine(**engine_params)
+                elif engine_type == "exa":
+                    self.engine = ExaResearchEngine(**engine_params)
+                else:
+                    raise ValueError(f"Web search engine type '{engine_type}' is not supported")
+            else:
+                raise ValueError("engine_params must be provided")
+        else:
+            self.engine = engine
+
+    def search(self, query, **kwargs):
+        """Perform a web search with the given query
+        
+        Args:
+            query (str): The search query
+            **kwargs: Additional arguments to pass to the search engine
+            
+        Returns:
+            Dict or Any: Search results from the engine
+        """
+        return self.engine.search(query, **kwargs)
+    
+    def get_answer(self, query, **kwargs):
+        """Get a direct answer for the query
+        
+        Args:
+            query (str): The search query
+            **kwargs: Additional arguments to pass to the search engine
+            
+        Returns:
+            str: The answer text
+        """
+        if isinstance(self.engine, BochaAISearchEngine):
+            return self.engine.get_answer(query, **kwargs)
+        elif isinstance(self.engine, ExaResearchEngine):
+            # For Exa, we'll use the chat_research method which returns a complete answer
+            return self.engine.chat_research(query, **kwargs)
+        else:
+            # Generic fallback
+            results = self.search(query, **kwargs)
+            if isinstance(results, dict) and "messages" in results:
+                for message in results.get("messages", []):
+                    if message.get("type") == "answer":
+                        return message.get("content", "")
+            return str(results)
+    
+    def get_sources(self, query, **kwargs):
+        """Get source materials for the query
+        
+        Args:
+            query (str): The search query
+            **kwargs: Additional arguments to pass to the search engine
+            
+        Returns:
+            List: Source materials
+        """
+        if isinstance(self.engine, BochaAISearchEngine):
+            return self.engine.get_sources(query, **kwargs)
+        elif isinstance(self.engine, ExaResearchEngine):
+            # For Exa, we need to extract sources from the research results
+            results = self.search(query, **kwargs)
+            if isinstance(results, dict) and "sources" in results:
+                return results.get("sources", [])
+            return []
+        else:
+            # Generic fallback
+            results = self.search(query, **kwargs)
+            if isinstance(results, dict) and "sources" in results:
+                return results.get("sources", [])
+            return []
+    
+    def research(self, query, detailed=False, **kwargs):
+        """Perform comprehensive research on a topic
+        
+        Args:
+            query (str): The research query
+            detailed (bool): Whether to return detailed results
+            **kwargs: Additional arguments to pass to the search engine
+            
+        Returns:
+            Dict: Research results with answer and sources
+        """
+        if isinstance(self.engine, ExaResearchEngine):
+            if hasattr(self.engine, "research"):
+                return self.engine.research(instructions=query, **kwargs)
+            else:
+                return self.engine.chat_research(query, **kwargs)
+        else:
+            # For other engines, combine answer and sources
+            answer = self.get_answer(query, **kwargs)
+            sources = self.get_sources(query, **kwargs)
+            
+            if detailed:
+                return {
+                    "answer": answer,
+                    "sources": sources
+                }
+            else:
+                return answer

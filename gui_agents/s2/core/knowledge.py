@@ -15,6 +15,13 @@ from gui_agents.s2.utils.common_utils import (
 )
 from gui_agents.s2.utils.query_perplexica import query_to_perplexica
 
+from gui_agents.s2.core.engine import (
+    OpenAIEmbeddingEngine,
+    GeminiEmbeddingEngine,
+    DashScopeEmbeddingEngine,
+    DoubaoEmbeddingEngine,
+    JinaEmbeddingEngine,
+)
 
 class KnowledgeBase(BaseModule):
     def __init__(
@@ -29,8 +36,10 @@ class KnowledgeBase(BaseModule):
 
         self.local_kb_path = local_kb_path
 
-        # initialize embedding engine
-        self.embedding_engine = embedding_engine
+        if isinstance(embedding_engine, str):
+            self.embedding_engine = self._create_embedding_engine(embedding_engine)
+        else:
+            self.embedding_engine = embedding_engine
 
         # Initialize paths for different memory types
         self.episodic_memory_path = os.path.join(
@@ -66,6 +75,49 @@ class KnowledgeBase(BaseModule):
 
         self.save_knowledge = save_knowledge
 
+    def _create_embedding_engine(self, engine_type: str):
+
+        configs = {
+            "openai": {
+                "embedding_model": "text-embedding-3-small"
+            },
+            "gemini": {
+                "embedding_model": "text-embedding-004"
+            },
+            "dashscope": {
+                "embedding_model": "text-embedding-v4",
+                "dimensions": 1024
+            },
+            "doubao": {
+                "embedding_model": "doubao-embedding-256"
+            },
+            "jina": {
+                "embedding_model": "jina-embeddings-v4",
+                "task": "retrieval.query"
+            }
+        }
+
+        config = configs.get(engine_type, {})
+
+        try:
+            if engine_type == "openai":
+                engine = OpenAIEmbeddingEngine(**config)
+            elif engine_type == "gemini":
+                engine = GeminiEmbeddingEngine(**config)
+            elif engine_type == "dashscope":
+                engine = DashScopeEmbeddingEngine(**config)
+            elif engine_type == "doubao":
+                engine = DoubaoEmbeddingEngine(**config)
+            elif engine_type == "jina":
+                engine = JinaEmbeddingEngine(**config)
+            else:
+                engine = OpenAIEmbeddingEngine()
+
+            return engine
+
+        except Exception as e:
+            return OpenAIEmbeddingEngine()
+    
     def retrieve_knowledge(
         self, instruction: str, search_query: str, search_engine: str = "llm"
     ) -> Tuple[str, str]:

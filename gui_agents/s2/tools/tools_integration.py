@@ -188,49 +188,49 @@ class ToolsIntegration:
 
 # Example configuration file structure
 EXAMPLE_CONFIG = {
-    "tools": [
+  "tools": [
         {
-            "tool_name": "websearch",
-            "provider": "serper",
-            "model_name": "default"
+        "tool_name": "websearch",
+        "provider": "exa",
+        "model_name": "exa-research"
         },
         {
-            "tool_name": "context_fusion",
-            "provider": "openai",
-            "model_name": "gpt-4o"
+        "tool_name": "context_fusion",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         },
         {
-            "tool_name": "subtask_planner",
-            "provider": "anthropic",
-            "model_name": "claude-3-5-sonnet"
+        "tool_name": "subtask_planner",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         },
         {
-            "tool_name": "traj_reflector",
-            "provider": "anthropic",
-            "model_name": "claude-3-5-sonnet"
+        "tool_name": "traj_reflector",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         },
         {
-            "tool_name": "memory_retrival",
-            "provider": "openai",
-            "model_name": "gpt-4o"
+        "tool_name": "memory_retrival",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         },
         {
-            "tool_name": "grounding",
-            "provider": "gemini",
-            "model_name": "gemini-2.5-pro"
+        "tool_name": "grounding",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         },
         {
-            "tool_name": "evaluator",
-            "provider": "anthropic",
-            "model_name": "claude-3-7-sonnet"
+        "tool_name": "evaluator",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         },
         {
-            "tool_name": "action_generator",
-            "provider": "anthropic",
-            "model_name": "claude-3-7-sonnet"
+        "tool_name": "action_generator",
+        "provider": "gemini",
+        "model_name": "gemini-2.5-pro"
         }
     ]
-}
+} 
 
 def create_example_config(config_path: str = "tools_config.json") -> None:
     """
@@ -261,7 +261,7 @@ def get_tools_integration(config_path: Optional[str] = None) -> ToolsIntegration
         integration.register_tools_from_config(config_path)
     else:
         # Register default tools
-        integration.register_tool("websearch", "serper", "default")
+        integration.register_tool("websearch", "bocha", "default")
         integration.register_tool("grounding", "anthropic", "claude-3-5-sonnet")
         integration.register_tool("action_generator", "anthropic", "claude-3-5-sonnet")
     

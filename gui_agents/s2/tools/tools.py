@@ -13,7 +13,7 @@ import requests
 from typing import Dict, Any, Optional, List, Union
 from abc import ABC, abstractmethod
 import logging
-from gui_agents.s2.core.mllm import LLMAgent, WebSearchAgent
+from gui_agents.s2.core.mllm import LLMAgent, WebSearchAgent, EmbeddingAgent
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +130,8 @@ class ToolFactory:
             "grounding": (GroundingTool, "grounding_prompt.txt"),
             "evaluator": (EvaluatorTool, "evaluator_prompt.txt"),
             "action_generator": (ActionGeneratorTool, "action_generator_prompt.txt"),
-            "dag_translator": (DAGTranslatorTool, "dag_translator_prompt.txt")
+            "dag_translator": (DAGTranslatorTool, "dag_translator_prompt.txt"),
+            "embedding": (EmbeddingTool, None)
         }
         
         if tool_name not in tool_map:
@@ -138,8 +139,8 @@ class ToolFactory:
         
         tool_class, prompt_filename = tool_map[tool_name]
         
-        # WebSearchTool doesn't need a prompt file
-        if tool_name == "websearch":
+        # WebSearchTool and EmbeddingTool don't need a prompt file
+        if tool_name in ["websearch", "embedding"]:
             return tool_class(provider, model_name, "")
         
         prompt_path = os.path.join(base_prompt_dir, prompt_filename)
@@ -391,6 +392,55 @@ class ActionGeneratorTool(BaseTool):
         # Use the prompt template and LMM for action generation
         return self._call_lmm(tool_input)
 
+
+class EmbeddingTool(BaseTool):
+    """Tool for generating text embeddings."""
+    
+    def __init__(self, provider: str, model_name: str, prompt_path: str):
+        """
+        Initialize the embedding tool.
+        
+        Args:
+            provider: API provider name (e.g., "openai", "gemini")
+            model_name: Model name to use
+            prompt_path: Path to the prompt template file (not used for this tool)
+        """
+        self.provider = provider
+        self.model_name = model_name
+        
+        # Create EmbeddingAgent instance
+        self.engine_params = {
+            "engine_type": provider,
+            "embedding_model": model_name
+        }
+        
+        # Initialize EmbeddingAgent
+        self.embedding_agent = EmbeddingAgent(engine_params=self.engine_params)
+    
+    def execute(self, tool_input: Dict[str, Any]) -> str:
+        """
+        Generate embeddings for the given text.
+        
+        Args:
+            tool_input: Dictionary containing the text to embed
+                        Expected to have 'str_input' key with the text
+        
+        Returns:
+            Embeddings as a JSON string
+        """
+        text = tool_input.get('str_input', '')
+        
+        if not text:
+            return "Error: No text provided for embedding"
+        
+        try:
+            # Get embeddings for the text
+            embeddings = self.embedding_agent.get_embeddings(text)
+            return embeddings
+                
+        except Exception as e:
+            logger.error(f"Error during embedding operation: {str(e)}")
+            return f"Error: Embedding operation failed: {str(e)}"
 
 class Tools:
     """Main Tools class that provides access to all available tools."""

@@ -197,6 +197,18 @@ class ToolsIntegration:
             DAG representation as a string
         """
         return self.execute_tool("dag_translator", str_input=dag_task, img_input=screenshot)
+    
+    def embedding(self, text: str) -> List[float]:
+        """
+        Generate embeddings for the given text.
+        
+        Args:
+            text: Text to generate embeddings for
+        
+        Returns:
+            Embeddings as a list of floats
+        """
+        return self.execute_tool("embedding", str_input=text)
 
 # Example configuration file structure
 EXAMPLE_CONFIG = {
@@ -246,6 +258,11 @@ EXAMPLE_CONFIG = {
         "tool_name": "dag_translator",
         "provider": "gemini",
         "model_name": "gemini-2.5-pro"
+        },
+        {
+        "tool_name": "embedding",
+        "provider": "openai",
+        "model_name": "text-embedding-3-small"
         }
     ]
 } 
@@ -282,5 +299,6 @@ def get_tools_integration(config_path: Optional[str] = None) -> ToolsIntegration
         integration.register_tool("websearch", "bocha", "default")
         integration.register_tool("grounding", "anthropic", "claude-3-5-sonnet")
         integration.register_tool("action_generator", "anthropic", "claude-3-5-sonnet")
+        integration.register_tool("embedding", "openai", "text-embedding-3-small")
     
     return integration 

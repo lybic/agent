@@ -717,6 +717,7 @@ class OpenAIEmbeddingEngine(LMMEngine):
         self,
         embedding_model: str = "text-embedding-3-small",
         api_key=None,
+        **kwargs
     ):
         """Init an OpenAI Embedding engine
 
@@ -752,6 +753,7 @@ class GeminiEmbeddingEngine(LMMEngine):
         self,
         embedding_model: str = "text-embedding-004",
         api_key=None,
+        **kwargs
     ):
         """Init an Gemini Embedding engine
 
@@ -795,6 +797,7 @@ class AzureOpenAIEmbeddingEngine(LMMEngine):
         api_key=None,
         api_version=None,
         endpoint_url=None,
+        **kwargs
     ):
         """Init an Azure OpenAI Embedding engine
 
@@ -850,6 +853,7 @@ class DashScopeEmbeddingEngine(LMMEngine):
         embedding_model: str = "text-embedding-v4",
         api_key=None,
         dimensions: int = 1024,
+        **kwargs
     ):
         """Init a DashScope (阿里云百炼) Embedding engine
 
@@ -897,6 +901,7 @@ class DoubaoEmbeddingEngine(LMMEngine):
         self,
         embedding_model: str = "doubao-embedding-256",
         api_key=None,
+        **kwargs
     ):
         """Init a Doubao (字节跳动豆包) Embedding engine
 
@@ -942,7 +947,8 @@ class JinaEmbeddingEngine(LMMEngine):
         self,
         embedding_model: str = "jina-embeddings-v4",
         api_key=None,
-        task: str = "retrieval.query"
+        task: str = "retrieval.query",
+        **kwargs
     ):
         """Init a Jina AI Embedding engine
 

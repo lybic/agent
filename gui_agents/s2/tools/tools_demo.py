@@ -229,6 +229,25 @@ def demo_embedding(tools_integration):
     print(f"Embedding shape: {embeddings_array.shape}")
     print(f"First 5 dimensions: {embeddings_array[:5]}")
 
+def demo_query_formulator(tools_integration):
+    """
+    Demonstrate the query formulator tool.
+    
+    Args:
+        tools_integration: ToolsIntegration instance
+    """
+    print("\n=== Query Formulator Demo ===")
+    
+    task = "查找并打开桌面上的report.pdf文件"
+    print(f"Task: {task}")
+    
+    # Take a screenshot
+    screenshot = take_screenshot()
+    
+    result = tools_integration.query_formulator(task, screenshot)
+    print("Result:")
+    print(result)
+
 def main():
     """Main function."""
     parser = argparse.ArgumentParser(description="Demonstrate the Tools integration")
@@ -242,7 +261,7 @@ def main():
         "--demo", "-d",
         type=str,
         choices=["all", "websearch", "subtask_planner", "dag_translator", "grounding", "action_generator", 
-                 "trajectory_reflection", "memory_retrieval", "context_fusion", "evaluator", "embedding"],
+                 "trajectory_reflection", "memory_retrieval", "context_fusion", "evaluator", "embedding", "query_formulator"],
         default="all",
         help="Which demo to run"
     )
@@ -282,6 +301,9 @@ def main():
         
     if args.demo == "all" or args.demo == "embedding":
         demo_embedding(tools_integration)
+
+    if args.demo == "all" or args.demo == "query_formulator":
+        demo_query_formulator(tools_integration)
 
 if __name__ == "__main__":
     """Main function.

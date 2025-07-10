@@ -1,0 +1,2 @@
+# Default prompt template for query_formulator
+# Replace this with an actual prompt template

@@ -144,7 +144,8 @@ class ToolFactory:
             "evaluator": (EvaluatorTool, "evaluator_prompt.txt"),
             "action_generator": (ActionGeneratorTool, "action_generator_prompt.txt"),
             "dag_translator": (DAGTranslatorTool, "dag_translator_prompt.txt"),
-            "embedding": (EmbeddingTool, None)
+            "embedding": (EmbeddingTool, None),
+            "query_formulator": (QueryFormulatorTool, "query_formulator_prompt.txt")
         }
         
         if tool_name not in tool_map:
@@ -454,6 +455,28 @@ class EmbeddingTool(BaseTool):
         except Exception as e:
             logger.error(f"Error during embedding operation: {str(e)}")
             return f"Error: Embedding operation failed: {str(e)}"
+
+class QueryFormulatorTool(BaseTool):
+    """Tool for formulating queries from tasks or contexts."""
+    
+    def execute(self, tool_input: Dict[str, Any]) -> str:
+        """
+        Formulate a query for a given task or context.
+        
+        Args:
+            tool_input: Dictionary containing the task or context description
+                        Expected to have 'str_input' key with the description
+                        May also have 'img_input' key with a screenshot
+        
+        Returns:
+            Formulated query as a string
+        """
+        task = tool_input.get('str_input', '')
+        if not task:
+            return "Error: No task or context description provided"
+        
+        # Use the prompt template and LMM for query formulation
+        return self._call_lmm(tool_input)
 
 class Tools:
     """Main Tools class that provides access to all available tools."""

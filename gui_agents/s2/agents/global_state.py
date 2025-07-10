@@ -57,7 +57,7 @@ def node_from_dict(d: dict) -> Node:
 
 # ========= GlobalState =========
 class GlobalState:
-    """集中管理六类全局状态的读写"""
+    """集中管理全局状态的读写"""
 
     def __init__(
         self,

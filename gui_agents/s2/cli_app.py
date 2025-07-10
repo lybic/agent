@@ -282,8 +282,9 @@ def main():
         embedding_engine_type=args.embedding_engine_type,
     )
 
+    # GlobalStateStore 在main中才regist，因此只能在main初始化完成后才能访问到
     Registry.register(
-        "store",
+        "GlobalStateStore",
        GlobalState(
             screenshot_dir="runtime/cache/screens",
             tu_path="runtime/state/tu.json",

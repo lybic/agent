@@ -239,6 +239,7 @@ def main():
 
 if __name__ == "__main__":
     """Main function.
+    python gui_agents/s2/tools/tools_demo.py -d grounding --config /Users/haoguangfu/Downloads/深维智能/客户方案/gui-agent/lybicguiagents/gui_agents/s2/tools/tools_config.json
     python gui_agents/s2/tools/tools_demo.py -d all --config /Users/haoguangfu/Downloads/深维智能/客户方案/gui-agent/lybicguiagents/gui_agents/s2/tools/tools_config.json
     """
     main() 

@@ -109,8 +109,17 @@ class KnowledgeBase:
         # )
         # search_query = self.query_formulator.get_response().strip().replace('"', "")
 
-        search_query = self.query_formulator.execute_tool("query_formulator", {"str_input": f"The task is: {instruction}\n" + "To use google search to get some useful information, first carefully analyze " + "the screenshot of the current desktop UI state, then given the task " + "instruction, formulate a question that can be used to search on the Internet " + "for information in helping with the task execution.\n" + "The question should not be too general or too specific. Please ONLY provide " + "the question.\nQuestion:" + (observation["screenshot"] if "screenshot" in observation else None)}).strip().replace('"', "")
-        
+        search_query = self.query_formulator.execute_tool("query_formulator", {
+            "str_input": f"The task is: {instruction}\n" + 
+                "To use google search to get some useful information, first carefully analyze " + 
+                "the screenshot of the current desktop UI state, then given the task " + 
+                "instruction, formulate a question that can be used to search on the Internet " + 
+                "for information in helping with the task execution.\n" + 
+                "The question should not be too general or too specific. Please ONLY provide " + 
+                "the question.\nQuestion:",
+            "img_input": observation["screenshot"] if "screenshot" in observation else None
+        }).strip().replace('"', "")
+    
         print("search query: ", search_query)
         formulate_query[instruction] = search_query
         with open(query_path, "w") as f:
@@ -219,7 +228,16 @@ class KnowledgeBase:
         # )
         # return self.knowledge_fusion_agent.get_response()
 
-        return self.knowledge_fusion_agent.execute_tool("context_fusion", {"str_input": f"Task: {instruction}\n" + f"**Web search result**:\n{web_knowledge}\n\n" + f"**Retrieved similar task experience**:\n" + f"Similar task:{similar_task}\n{experience}\n\n" + f"Based on the web search result and the retrieved similar task experience, " + f"if you think the similar task experience is indeed useful to the main task, " + f"integrate it with the web search result. Provide the final knowledge in a numbered list." + (observation["screenshot"] if "screenshot" in observation else None)})
+        return self.knowledge_fusion_agent.execute_tool("context_fusion", {
+            "str_input": f"Task: {instruction}\n" + 
+                f"**Web search result**:\n{web_knowledge}\n\n" + 
+                f"**Retrieved similar task experience**:\n" + 
+                f"Similar task:{similar_task}\n{experience}\n\n" + 
+                f"Based on the web search result and the retrieved similar task experience, " + 
+                f"if you think the similar task experience is indeed useful to the main task, " + 
+                f"integrate it with the web search result. Provide the final knowledge in a numbered list.",
+            "img_input": observation["screenshot"] if "screenshot" in observation else None
+        })
         
 
     def save_episodic_memory(self, subtask_key: str, subtask_traj: str) -> None:

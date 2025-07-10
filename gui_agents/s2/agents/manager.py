@@ -45,8 +45,6 @@ class Manager:
         self.generator_agent = Tools()
         self.generator_agent.register_tool("subtask_planner", Tools_dict["subtask_planner"]["provider"], Tools_dict["subtask_planner"]["model"])
 
-        # self.generator_agent.tool["subtask_planner"].lmmagent.add_system_prompt(PROCEDURAL_MEMORY.COMBINED_MANAGER_PROMPT)
-
         # Initialize the remaining modules
         # self.dag_translator_agent = self._create_agent(
         #     PROCEDURAL_MEMORY.DAG_TRANSLATOR_PROMPT
@@ -155,6 +153,7 @@ class Manager:
             #         "TASK_DESCRIPTION", instruction
             #     )
             # )
+            prefix_message = f"TASK_DESCRIPTION is {instruction}"
 
         # Re-plan on failure case
         if failed_subtask:
@@ -172,7 +171,8 @@ class Manager:
         # Initial plan case
         else:
             generator_message = "Please generate the initial plan for the task.\n"
-
+        
+        generator_message = prefix_message + "\n" + generator_message
         logger.info("GENERATOR MESSAGE: %s", generator_message)
 
         # self.generator_agent.add_message(
@@ -302,7 +302,7 @@ class Manager:
 
         # Get the byte value of the screenshot
         screenshot_bytes = buffered.getvalue()
-        # Convert to base64 string.
+
         observation = {}
         observation["screenshot"] = screenshot_bytes
 

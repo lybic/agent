@@ -12,6 +12,7 @@ import sys
 import argparse
 import pyautogui
 from PIL import Image
+import numpy as np
 
 from gui_agents.s2.tools.tools_integration import ToolsIntegration, get_tools_integration
 
@@ -59,6 +60,25 @@ def demo_subtask_planner(tools_integration):
     screenshot = take_screenshot()
     
     result = tools_integration.subtask_planner(task, screenshot)
+    print("Result:")
+    print(result)
+
+def demo_dag_translator(tools_integration):
+    """
+    Demonstrate the DAG translator tool.
+    
+    Args:
+        tools_integration: ToolsIntegration instance
+    """
+    print("\n=== DAG Translator Demo ===")
+    
+    task = "Create a data visualization dashboard with user authentication, data import, and interactive charts"
+    print(f"Task: {task}")
+    
+    # Take a screenshot
+    screenshot = take_screenshot()
+    
+    result = tools_integration.dag_translator(task, screenshot)
     print("Result:")
     print(result)
 
@@ -189,6 +209,26 @@ def demo_evaluator(tools_integration):
     print("Result:")
     print(result)
 
+def demo_embedding(tools_integration):
+    """
+    Demonstrate the embedding tool.
+    
+    Args:
+        tools_integration: ToolsIntegration instance
+    """
+    print("\n=== Embedding Demo ===")
+    
+    text = "This is a sample text for embedding generation"
+    print(f"Text: {text}")
+    
+    embeddings = tools_integration.embedding(text)
+    
+    # Convert to numpy array for easier analysis
+    embeddings_array = np.array(embeddings)
+    
+    print(f"Embedding shape: {embeddings_array.shape}")
+    print(f"First 5 dimensions: {embeddings_array[:5]}")
+
 def main():
     """Main function."""
     parser = argparse.ArgumentParser(description="Demonstrate the Tools integration")
@@ -201,8 +241,8 @@ def main():
     parser.add_argument(
         "--demo", "-d",
         type=str,
-        choices=["all", "websearch", "subtask_planner", "grounding", "action_generator", 
-                 "trajectory_reflection", "memory_retrieval", "context_fusion", "evaluator"],
+        choices=["all", "websearch", "subtask_planner", "dag_translator", "grounding", "action_generator", 
+                 "trajectory_reflection", "memory_retrieval", "context_fusion", "evaluator", "embedding"],
         default="all",
         help="Which demo to run"
     )
@@ -218,6 +258,9 @@ def main():
     
     if args.demo == "all" or args.demo == "subtask_planner":
         demo_subtask_planner(tools_integration)
+    
+    if args.demo == "all" or args.demo == "dag_translator":
+        demo_dag_translator(tools_integration)
     
     if args.demo == "all" or args.demo == "grounding":
         demo_grounding(tools_integration)
@@ -236,10 +279,14 @@ def main():
     
     if args.demo == "all" or args.demo == "evaluator":
         demo_evaluator(tools_integration)
+        
+    if args.demo == "all" or args.demo == "embedding":
+        demo_embedding(tools_integration)
 
 if __name__ == "__main__":
     """Main function.
     python gui_agents/s2/tools/tools_demo.py -d grounding --config /Users/haoguangfu/Downloads/深维智能/客户方案/gui-agent/lybicguiagents/gui_agents/s2/tools/tools_config.json
     python gui_agents/s2/tools/tools_demo.py -d all --config /Users/haoguangfu/Downloads/深维智能/客户方案/gui-agent/lybicguiagents/gui_agents/s2/tools/tools_config.json
+    python gui_agents/s2/tools/tools_demo.py -d embedding --config /Users/haoguangfu/Downloads/深维智能/客户方案/gui-agent/lybicguiagents/gui_agents/s2/tools/tools_config.json
     """
     main() 

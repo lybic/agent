@@ -10,6 +10,7 @@ import os
 import json
 import base64
 import requests
+import time
 from typing import Dict, Any, Optional, List, Union
 from abc import ABC, abstractmethod
 import logging
@@ -57,7 +58,7 @@ class BaseTool(ABC):
     
     def _call_lmm(self, input_data: Dict[str, Any], temperature: float = 0.0) -> str:
         """
-        Call the LMM model for inference using the prompt template
+        Call the LMM model for inference using the prompt template with retry mechanism
         
         Args:
             input_data: Dictionary containing input data to format the prompt template
@@ -68,10 +69,6 @@ class BaseTool(ABC):
         """
         self.llm_agent.reset()
         
-        # Format the prompt template with the input data
-        # The prompt template should have placeholders for the input data
-        formatted_prompt = self._prompt_template
-        
         # Extract text and image inputs
         text_input = input_data.get('str_input', '')
         image_input = input_data.get('img_input', None)
@@ -79,8 +76,24 @@ class BaseTool(ABC):
         # Add the message with the formatted prompt
         self.llm_agent.add_message(text_input, image_content=image_input, role="user")
         
-        # Get the response from the LMM
-        return self.llm_agent.get_response(temperature=temperature)
+        # Implement safe retry mechanism
+        max_retries = 3
+        attempt = 0
+        response = ""
+        
+        while attempt < max_retries:
+            try:
+                response = self.llm_agent.get_response(temperature=temperature)
+                break  # If successful, break out of the loop
+            except Exception as e:
+                attempt += 1
+                logger.error(f"LLM call attempt {attempt} failed: {str(e)}")
+                if attempt == max_retries:
+                    logger.error("Max retries reached. Returning error message.")
+                    return f"Error: LLM call failed after {max_retries} attempts: {str(e)}"
+                time.sleep(1.0)
+                
+        return response
     
     @abstractmethod
     def execute(self, tool_input: Dict[str, Any]) -> str:

@@ -13,6 +13,10 @@ from PIL import Image
 from gui_agents.s2.agents.grounding import OSWorldACI
 from gui_agents.s2.agents.agent_s import AgentS2
 
+from gui_agents.s2.store.registry import Registry
+from gui_agents.s2.agents.global_state import GlobalState
+
+
 current_platform = platform.system().lower()
 
 logger = logging.getLogger()
@@ -276,6 +280,19 @@ def main():
         observation_type="mixed",
         # search_engine=None,
         # embedding_engine_type=args.embedding_engine_type,
+    )
+
+    # GlobalStateStore 在main中才regist，因此只能在main初始化完成后才能访问到
+    Registry.register(
+        "GlobalStateStore",
+       GlobalState(
+            screenshot_dir="runtime/cache/screens",
+            tu_path="runtime/state/tu.json",
+            search_query_path="runtime/state/search_query.json",
+            completed_subtask_path="runtime/state/completed_subtask.json",
+            termination_flag_path="runtime/state/termination_flag.json",
+            running_state_path="runtime/state/running_state.json",
+        )
     )
 
     while True:

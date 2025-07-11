@@ -166,11 +166,11 @@
 |-----|-----|-----|
 | tool_output | String | 工具输出，文本形式，python字符串 |
 
-# Mn/Me
+# KnowledgeBase
 ## 存储对象
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
-| Mn_path | String | 叙事记忆文件路径 |
+| local_kb_path | String | 本地叙事记忆和情景记忆的文件路径 |
 
 - 叙事记忆（Mn）：
   - 本地文件形式，json格式。Key是与环境观测有关的查询Query，Value是与Query相关的叙事记忆。
@@ -183,12 +183,12 @@
 ## 读取方法
 | 方法名 | 参数 | 返回值 | 描述 |
 |-----|-----|-----|-----|
-| get_Mn_dict | 无 | Dict | 从```Mn_path```文件中获取当前所有叙事记忆形成的字典 |
+
 
 ## 写入方法
 | 方法名 | 参数 | 描述 |
 |-----|-----|-----|
-| set_Mn_dict | Dict | 将叙事记忆保存到```Mn_path```文件中 |
+
 
 # Worker
 ## 输入
@@ -234,15 +234,6 @@
 | grounding_output | String | 与具体硬件环境无关的指令输出，统一成python代码形式。文本形式，python字符串 |
 - 示例1：
   {'action': 'click', 'coordinate': [10, 20]}
-
-# Evaluator
-## 输入
-| 字段名 | 类型 | 描述 |
-|-----|-----|-----|
-| evaluator_worker_plan_input | String | 由Worker模块得出的worker_plan全文，文本形式，python字符串。需解析成Grounded Action伪代码形式，解析方式参考[worker.py](./gui_agents/s2/agents/worker.py)第225行的实现 |
-
-## 输出
-无输出。每次执行完Worker模块后，调用Evaluator模块，更新情景记忆Me。当解析出当前任务已完成后，调用Evaluator模块，更新叙事记忆Mn。
 
 # HardwareInterface
 ## 输入

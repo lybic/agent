@@ -8,6 +8,19 @@ import os
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
 
+from pathlib import Path
+from dotenv import load_dotenv
+
+def load_env_variables():
+    env_path = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / '.env'
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path)
+        return True
+    else:
+        print(f".env file not found: {env_path}")
+        return False
+load_env_variables()
+
 def run_all_tests():
     """运行所有单元测试"""
     # 发现当前目录下的所有测试

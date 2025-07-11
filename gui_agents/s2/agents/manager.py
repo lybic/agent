@@ -100,7 +100,7 @@ class Manager:
                     res += f"   - {bullet}\n"
                 res += "\n"
             return res
-
+        prefix_message = ""
         # Perform Retrieval only at the first planning step
         if self.turn_count == 0:
 

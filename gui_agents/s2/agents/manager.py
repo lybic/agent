@@ -284,7 +284,7 @@ class Manager:
     def get_action_queue(
         self,
         Tu: str,
-        Screenshot: Image.Image,
+        observation: Dict,
         Running_state: str,
         Failed_subtask: Optional[Node] = None,
         Completed_subtasks_list: List[Node] = [],
@@ -293,18 +293,6 @@ class Manager:
         """Generate the action list based on the instruction
         instruction:str: Instruction for the task
         """
-        
-        Screenshot = Screenshot.resize((1920, 1080), Image.LANCZOS)
-
-        # Save the screenshot to a BytesIO object
-        buffered = io.BytesIO()
-        Screenshot.save(buffered, format="PNG")
-
-        # Get the byte value of the screenshot
-        screenshot_bytes = buffered.getvalue()
-
-        observation = {}
-        observation["screenshot"] = screenshot_bytes
 
         planner_info, plan = self._generate_step_by_step_plan(
             observation,

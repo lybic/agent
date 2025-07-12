@@ -161,17 +161,21 @@ class Grounding(ACI):
         self,
         Tools_dict: Dict,
         platform: str,
-        width: int = 1920,
-        height: int = 1080,
+        width: int = 1920, # Screenshot width
+        height: int = 1080, # Screenshot height
     ):
         self.platform = (
             platform  # Dictates how the switch_applications agent action works.
         )
         self.Tools_dict = Tools_dict
 
-        # Configure scaling
-        self.width = width
+        # Screenshot size
+        self.width = width 
         self.height = height
+
+        # Grounding model input size
+        self.grounding_width = self.Tools_dict["grounding"]["grounding_width"]
+        self.grounding_height = self.Tools_dict["grounding"]["grounding_height"]
 
         # Maintain state for save_to_knowledge
         self.notes = []
@@ -310,20 +314,9 @@ class Grounding(ACI):
 
     # Resize from grounding model dim into OSWorld dim (1920 * 1080)
     def resize_coordinates(self, coordinates: List[int]) -> List[int]:
-        # User explicitly passes the grounding model dimensions
-        if {"grounding_width", "grounding_height"}.issubset(
-            self.engine_params_for_grounding
-        ):
-            grounding_width = self.engine_params_for_grounding["grounding_width"]
-            grounding_height = self.engine_params_for_grounding["grounding_height"]
-        # Default to (1000, 1000), which is UI-TARS resizing
-        else:
-            grounding_width = 1000
-            grounding_height = 1000
-
         return [
-            round(coordinates[0] * self.width / grounding_width),
-            round(coordinates[1] * self.height / grounding_height),
+            round(coordinates[0] * self.width / self.grounding_width),
+            round(coordinates[1] * self.height / self.grounding_height),
         ]
 
     # Given a generated ACI function, returns a list of argument values, where descriptions are at the front of the list
@@ -369,16 +362,16 @@ class Grounding(ACI):
             hold_keys:List, list of keys to hold while clicking
         """
         x, y = self.resize_coordinates(self.coords1)
-        command = "import pyautogui; "
-
-        # TODO: specified duration?
-        for k in hold_keys:
-            command += f"pyautogui.keyDown({repr(k)}); "
-        command += f"""import pyautogui; pyautogui.click({x}, {y}, clicks={num_clicks}, button={repr(button_type)}); """
-        for k in hold_keys:
-            command += f"pyautogui.keyUp({repr(k)}); "
-        # Return pyautoguicode to click on the element
-        return command
+        
+        actionDict = {
+            "type": "Click",
+            "xy": [x, y], # List[int]
+            "element_description": element_description, # str
+            "num_clicks": num_clicks,
+            "button_type": button_type,
+            "hold_keys": hold_keys
+        }
+        return actionDict
 
     @agent_action
     def switch_applications(self, app_code):
@@ -386,12 +379,12 @@ class Grounding(ACI):
         Args:
             app_code:str the code name of the application to switch to from the provided list of open applications
         """
-        if self.platform == "darwin":
-            return f"import pyautogui; import time; pyautogui.hotkey('command', 'space', interval=0.5); pyautogui.typewrite({repr(app_code)}); pyautogui.press('enter'); time.sleep(1.0)"
-        elif self.platform == "linux":
-            return UBUNTU_APP_SETUP.replace("APP_NAME", app_code)
-        elif self.platform == "windows":
-            return f"import pyautogui; import time; pyautogui.hotkey('win', 'd', interval=0.5); pyautogui.typewrite({repr(app_code)}); pyautogui.press('enter'); time.sleep(1.0)"
+        
+        actionDict = {
+            "type": "SwitchApp",
+            "app_code": app_code
+        }
+        return actionDict
 
     @agent_action
     def open(self, app_or_filename: str):
@@ -399,7 +392,11 @@ class Grounding(ACI):
         Args:
             app_or_filename:str, the name of the application or filename to open
         """
-        return f"import pyautogui; pyautogui.hotkey('win'); time.sleep(0.5); pyautogui.write({repr(app_or_filename)}); time.sleep(1.0); pyautogui.hotkey('enter'); time.sleep(0.5)"
+        actionDict = {
+            "type": "Open",
+            "app_or_filename": app_or_filename
+        }
+        return actionDict
 
     @agent_action
     def type(
@@ -423,33 +420,25 @@ class Grounding(ACI):
 
             x, y = self.resize_coordinates(self.coords1)
 
-            command = "import pyautogui; "
-            command += f"pyautogui.click({x}, {y}); "
-
-            if overwrite:
-                command += (
-                    f"pyautogui.hotkey('ctrl', 'a'); pyautogui.press('backspace'); "
-                )
-
-            command += f"pyautogui.write({repr(text)}); "
-
-            if enter:
-                command += "pyautogui.press('enter'); "
+            actionDict = {
+                "type": "TypeText",
+                "element_description": element_description,
+                "text": text,
+                "xy": [x, y],
+                "overwrite": overwrite,
+                "press_enter": enter
+            }
         else:
-            # If no element is found, start typing at the current cursor location
-            command = "import pyautogui; "
+            actionDict = {
+                "type": "TypeText",
+                "element_description": element_description,
+                "text": text,
+                "xy": None,
+                "overwrite": overwrite,
+                "press_enter": enter
+            }
 
-            if overwrite:
-                command += (
-                    f"pyautogui.hotkey('ctrl', 'a'); pyautogui.press('backspace'); "
-                )
-
-            command += f"pyautogui.write({repr(text)}); "
-
-            if enter:
-                command += "pyautogui.press('enter'); "
-
-        return command
+        return actionDict
 
     @agent_action
     def save_to_knowledge(self, text: List[str]):
@@ -458,7 +447,11 @@ class Grounding(ACI):
             text:List[str] the text to save to the knowledge
         """
         self.notes.extend(text)
-        return """WAIT"""
+        actionDict = {
+            "type": "SaveToKnowledge",
+            "text": text
+        }
+        return actionDict
 
     @agent_action
     def drag_and_drop(
@@ -473,19 +466,15 @@ class Grounding(ACI):
         x1, y1 = self.resize_coordinates(self.coords1)
         x2, y2 = self.resize_coordinates(self.coords2)
 
-        command = "import pyautogui; "
-
-        command += f"pyautogui.moveTo({x1}, {y1}); "
-        # TODO: specified duration?
-        for k in hold_keys:
-            command += f"pyautogui.keyDown({repr(k)}); "
-        command += f"pyautogui.dragTo({x2}, {y2}, duration=1.); pyautogui.mouseUp(); "
-        for k in hold_keys:
-            command += f"pyautogui.keyUp({repr(k)}); "
-
-        # Return pyautoguicode to drag and drop the elements
-
-        return command
+        actionDict = {
+            "type": "Drag",
+            "start": [x1, y1],
+            "end": [x2, y2],
+            "hold_keys": hold_keys,
+            "starting_description": starting_description,
+            "ending_description": ending_description
+        }
+        return actionDict
 
     @agent_action
     def highlight_text_span(self, starting_phrase: str, ending_phrase: str):
@@ -498,12 +487,15 @@ class Grounding(ACI):
         x1, y1 = self.coords1
         x2, y2 = self.coords2
 
-        command = "import pyautogui; "
-        command += f"pyautogui.moveTo({x1}, {y1}); "
-        command += f"pyautogui.dragTo({x2}, {y2}, duration=1.); pyautogui.mouseUp(); "
+        actionDict = {
+            "type": "HighlightTextSpan",
+            "start": [x1, y1],
+            "end": [x2, y2],
+            "starting_phrase": starting_phrase,
+            "ending_phrase": ending_phrase
+        }
+        return actionDict
 
-        # Return pyautoguicode to drag and drop the elements
-        return command
 
     @agent_action
     def set_cell_values(
@@ -516,9 +508,13 @@ class Grounding(ACI):
             app_name: str, The name of the spreadsheet application. For example, "Some_sheet.xlsx".
             sheet_name: str, The name of the sheet in the spreadsheet. For example, "Sheet1".
         """
-        return SET_CELL_VALUES_CMD.format(
-            cell_values=cell_values, app_name=app_name, sheet_name=sheet_name
-        )
+        actionDict = {
+            "type": "SetCellValues",
+            "cell_values": cell_values,
+            "app_name": app_name,
+            "sheet_name": sheet_name
+        }
+        return actionDict
 
     @agent_action
     def scroll(self, element_description: str, clicks: int, shift: bool = False):
@@ -531,11 +527,15 @@ class Grounding(ACI):
 
         x, y = self.resize_coordinates(self.coords1)
 
-        if shift:
-            return f"import pyautogui; import time; pyautogui.moveTo({x}, {y}); time.sleep(0.5); pyautogui.hscroll({clicks})"
-        else:
-            return f"import pyautogui; import time; pyautogui.moveTo({x}, {y}); time.sleep(0.5); pyautogui.vscroll({clicks})"
-
+        actionDict = {
+            "type": "Scroll",
+            "xy": [x, y],
+            "element_description": element_description,
+            "clicks": clicks,
+            "shift": shift
+        }
+        return actionDict
+    
     @agent_action
     def hotkey(self, keys: List):
         """Press a hotkey combination
@@ -544,7 +544,11 @@ class Grounding(ACI):
         """
         # add quotes around the keys
         keys = [f"'{key}'" for key in keys]
-        return f"import pyautogui; pyautogui.hotkey({', '.join(keys)})"
+        actionDict = {
+            "type": "Hotkey",
+            "keys": keys
+        }
+        return actionDict
 
     @agent_action
     def hold_and_press(self, hold_keys: List, press_keys: List):
@@ -554,15 +558,12 @@ class Grounding(ACI):
             press_keys:List, list of keys to press in a sequence
         """
 
-        press_keys_str = "[" + ", ".join([f"'{key}'" for key in press_keys]) + "]"
-        command = "import pyautogui; "
-        for k in hold_keys:
-            command += f"pyautogui.keyDown({repr(k)}); "
-        command += f"pyautogui.press({press_keys_str}); "
-        for k in hold_keys:
-            command += f"pyautogui.keyUp({repr(k)}); "
-
-        return command
+        actionDict = {
+            "type": "HoldAndPress",
+            "hold_keys": hold_keys,
+            "press_keys": press_keys
+        }
+        return actionDict
 
     @agent_action
     def wait(self, time: float):
@@ -570,7 +571,11 @@ class Grounding(ACI):
         Args:
             time:float the amount of time to wait in seconds
         """
-        return f"""import time; time.sleep({time})"""
+        actionDict = {
+            "type": "Wait",
+            "seconds": time
+        }
+        return actionDict
 
     @agent_action
     def done(
@@ -579,9 +584,16 @@ class Grounding(ACI):
     ):
         """End the current task with a success and the required return value"""
         self.returned_info = return_value
-        return """DONE"""
+        actionDict = {
+            "type": "Done",
+            "return_value": return_value
+        }
+        return actionDict
 
     @agent_action
     def fail(self):
         """End the current task with a failure, and replan the whole task."""
-        return """FAIL"""
+        actionDict = {
+            "type": "Fail",
+        }
+        return actionDict

@@ -36,8 +36,7 @@ __all__ = [
     "MouseButton",
     "ScrollAxis",
     # concrete actions ↓
-    "Click", "Drag", "Scroll", "TypeText", "Hotkey", "HoldAndPress",
-    "Wait", "SetCellValues", "SwitchApp", "OpenApp", "Done", "Fail",
+    "Click", "SwitchApp", "Open", "TypeText", "SaveToKnowledge", "Drag", "HighlightTextSpan", "SetCellValues", "Scroll", "Hotkey", "HoldAndPress", "Wait", "Done", "Fail",
 ]
 
 T_Action = TypeVar("T_Action", bound="Action")
@@ -135,32 +134,67 @@ def _name_to_enum(expected_type: Any, raw: Any) -> Any:
 @dataclass(slots=True)
 class Click(Action):
     xy: Tuple[int, int]
-    button: MouseButton = MouseButton.LEFT
-    clicks: int = 1
+    element_description: str
+    num_clicks: int = 1
+    button_type: MouseButton = MouseButton.LEFT
     hold_keys: List[str] | None = None
 
 
 @dataclass(slots=True)
-class Drag(Action):
-    start: Tuple[int, int]
-    end: Tuple[int, int]
-    duration: float = 1.0
-    hold_keys: List[str] | None = None
+class SwitchApp(Action):
+    app_code: str
 
 
 @dataclass(slots=True)
-class Scroll(Action):
-    xy: Tuple[int, int]
-    clicks: int
-    axis: ScrollAxis = ScrollAxis.VERTICAL
+class Open(Action):
+    app_or_filename: str
 
 
 @dataclass(slots=True)
 class TypeText(Action):
     text: str
+    element_description: str
     xy: Tuple[int, int] | None = None
     overwrite: bool = False
     press_enter: bool = False
+
+
+@dataclass(slots=True)
+class SaveToKnowledge(Action):
+    text: List[str]
+    
+
+@dataclass(slots=True)
+class Drag(Action):
+    start: Tuple[int, int]
+    end: Tuple[int, int]
+    hold_keys: List[str]
+    starting_description: str
+    ending_description: str
+
+
+@dataclass(slots=True)
+class HighlightTextSpan(Action):
+    start: Tuple[int, int]
+    end: Tuple[int, int]
+    starting_phrase: str
+    ending_phrase: str
+
+
+@dataclass(slots=True)
+class SetCellValues(Action):
+    cell_values: Dict[str, Any]
+    app_name: str
+    sheet_name: str
+
+
+@dataclass(slots=True)
+class Scroll(Action):
+    xy: Tuple[int, int]
+    element_description: str
+    clicks: int
+    shift: bool = False
+    axis: ScrollAxis = ScrollAxis.VERTICAL
 
 
 @dataclass(slots=True)
@@ -176,25 +210,7 @@ class HoldAndPress(Action):
 
 @dataclass(slots=True)
 class Wait(Action):
-    seconds: float
-
-
-# ---------------- higher‑level / domain‑specific ---------------------
-@dataclass(slots=True)
-class SetCellValues(Action):
-    cell_values: Dict[str, Any]
-    app_name: str
-    sheet_name: str
-
-
-@dataclass(slots=True)
-class SwitchApp(Action):
-    app_code: str
-
-
-@dataclass(slots=True)
-class OpenApp(Action):
-    app_or_filename: str
+    time: float
 
 
 @dataclass(slots=True)
@@ -204,4 +220,4 @@ class Done(Action):
 
 @dataclass(slots=True)
 class Fail(Action):
-    reason: str | None = None
+    pass

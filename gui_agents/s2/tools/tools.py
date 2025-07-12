@@ -145,7 +145,8 @@ class ToolFactory:
             "action_generator": (ActionGeneratorTool, "action_generator_prompt.txt"),
             "dag_translator": (DAGTranslatorTool, "dag_translator_prompt.txt"),
             "embedding": (EmbeddingTool, None),
-            "query_formulator": (QueryFormulatorTool, "query_formulator_prompt.txt")
+            "query_formulator": (QueryFormulatorTool, "query_formulator_prompt.txt"),
+            "text_span": (TextSpanTool, "text_span_prompt.txt")
         }
         
         if tool_name not in tool_map:
@@ -260,6 +261,29 @@ class SubtaskPlannerTool(BaseTool):
             return "Error: No task description provided"
         
         # Use the prompt template and LMM for subtask planning
+        return self._call_lmm(tool_input)
+
+
+class TextSpanTool(BaseTool):
+    """Tool for processing text spans."""
+    
+    def execute(self, tool_input: Dict[str, Any]) -> str:
+        """
+        Process text spans for a given input.
+        
+        Args:
+            tool_input: Dictionary containing the text input
+                        Expected to have 'str_input' key with the text content
+                        May also have 'img_input' key with a screenshot
+        
+        Returns:
+            Processed text spans as a string
+        """
+        text = tool_input.get('str_input', '')
+        if not text:
+            return "Error: No text content provided"
+        
+        # Use the prompt template and LMM for text span processing
         return self._call_lmm(tool_input)
 
 

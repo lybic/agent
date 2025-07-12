@@ -54,12 +54,11 @@ class KnowledgeBase:
         self.knowledge_fusion_agent = Tools()
         self.knowledge_fusion_agent.register_tool("context_fusion", Tools_dict["context_fusion"]["provider"], Tools_dict["context_fusion"]["model"])
 
-        # self.narrative_summarization_agent = self._create_agent(
-        #     PROCEDURAL_MEMORY.TASK_SUMMARIZATION_PROMPT
-        # )
-        # self.episode_summarization_agent = self._create_agent(
-        #     PROCEDURAL_MEMORY.SUBTASK_SUMMARIZATION_PROMPT
-        # )
+        self.narrative_summarization_agent = Tools()
+        self.narrative_summarization_agent.register_tool("narrative_summarization", Tools_dict["narrative_summarization"]["provider"], Tools_dict["narrative_summarization"]["model"])
+
+        self.episode_summarization_agent = Tools()
+        self.episode_summarization_agent.register_tool("episode_summarization", Tools_dict["episode_summarization"]["provider"], Tools_dict["episode_summarization"]["model"])
 
         self.save_knowledge = save_knowledge
 
@@ -378,26 +377,23 @@ class KnowledgeBase:
         self.current_subtask_trajectory = ""
         self.current_search_query = ""
 
-    # def summarize_episode(self, trajectory):
-    #     """Summarize the episode experience for lifelong learning reflection
-    #     Args:
-    #         trajectory: str: The episode experience to be summarized
-    #     """
+    def summarize_episode(self, trajectory):
+        """Summarize the episode experience for lifelong learning reflection
+        Args:
+            trajectory: str: The episode experience to be summarized
+        """
 
-    #     # Create Reflection on whole trajectories for next round trial, keep earlier messages as exemplars
-    #     self.episode_summarization_agent.add_message(trajectory)
-    #     subtask_summarization = call_llm_safe(self.episode_summarization_agent)
-    #     self.episode_summarization_agent.add_message(subtask_summarization)
+        # Create Reflection on whole trajectories for next round trial, keep earlier messages as exemplars
+        subtask_summarization = self.episode_summarization_agent.execute_tool("episode_summarization", {"str_input": trajectory})
 
-    #     return subtask_summarization
+        return subtask_summarization
 
-    # def summarize_narrative(self, trajectory):
-    #     """Summarize the narrative experience for lifelong learning reflection
-    #     Args:
-    #         trajectory: str: The narrative experience to be summarized
-    #     """
-    #     # Create Reflection on whole trajectories for next round trial
-    #     self.narrative_summarization_agent.add_message(trajectory)
-    #     task_summarization = call_llm_safe(self.narrative_summarization_agent)
+    def summarize_narrative(self, trajectory):
+        """Summarize the narrative experience for lifelong learning reflection
+        Args:
+            trajectory: str: The narrative experience to be summarized
+        """
+        # Create Reflection on whole trajectories for next round trial
+        task_summarization = self.narrative_summarization_agent.execute_tool("narrative_summarization", {"str_input": trajectory})
 
-    #     return task_summarization
+        return task_summarization

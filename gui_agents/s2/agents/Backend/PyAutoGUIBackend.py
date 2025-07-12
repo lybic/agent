@@ -12,6 +12,8 @@ from gui_agents.s2.agents.Action import (
     Wait,
     MouseButton,
     ScrollAxis,
+    Open,
+    SwitchApp
 )
 
 from gui_agents.s2.agents.Backend import Backend
@@ -25,7 +27,7 @@ class PyAutoGUIBackend(Backend):
     Cons  : Requires an active, visible desktop session (won't work headless).
     """
 
-    _supported = {Click, Drag, TypeText, Scroll, Hotkey, HoldAndPress, Wait}
+    _supported = {Click, Drag, TypeText, Scroll, Hotkey, HoldAndPress, Wait, Open, SwitchApp}
 
     # ¶ PyAutoGUI sometimes throws exceptions if mouse is moved to a corner.
     def __init__(self, default_move_duration: float = 0.0):
@@ -52,8 +54,12 @@ class PyAutoGUIBackend(Backend):
             self._hotkey(action)
         elif isinstance(action, HoldAndPress):
             self._hold_and_press(action)
+        elif isinstance(action, Open):
+            self._open_app(action)
+        elif isinstance(action, SwitchApp):
+            self._switch_app(action)
         elif isinstance(action, Wait):
-            time.sleep(action.seconds)
+            time.sleep(action.time)
         else:
             # This shouldn't happen due to supports() check, but be safe.
             raise NotImplementedError(f"Unhandled action: {action}")
@@ -65,8 +71,8 @@ class PyAutoGUIBackend(Backend):
         self.pag.click(
             x=act.xy[0],
             y=act.xy[1],
-            clicks=act.clicks,
-            button=act.button.name.lower(),
+            clicks=act.num_clicks,
+            button=act.button_type.name.lower(),
             duration=self.default_move_duration,
         )
         for k in act.hold_keys or []:
@@ -107,3 +113,59 @@ class PyAutoGUIBackend(Backend):
         for k in act.hold_keys:
             self.pag.keyUp(k)
 
+    # ----- NEW: application helpers -----------------------------------------
+    def _switch_app(self, act: SwitchApp) -> None:
+        """跨平台切换到已打开的指定应用窗口"""
+        code = act.app_code
+        if self.platform.startswith("darwin"):          # macOS
+            self.pag.hotkey("command", "space")
+            time.sleep(0.5)
+            self.pag.typewrite(code)
+            self.pag.press("enter")
+            time.sleep(1.0)
+
+        elif self.platform.startswith("linux"):         # X11 + wmctrl
+            try:
+                output = subprocess.check_output(["wmctrl", "-lx"]).decode("utf-8").splitlines()
+                titles = [line.split(None, 4)[2] for line in output]
+                matches = difflib.get_close_matches(code, titles, n=1, cutoff=0.1)
+                if matches:
+                    target = matches[0]
+                    win_id = next((line.split()[0] for line in output if target in line), None)
+                    if win_id:
+                        subprocess.run(["wmctrl", "-ia", win_id])
+                        subprocess.run(["wmctrl", "-ir", win_id, "-b", "add,maximized_vert,maximized_horz"])
+            except FileNotFoundError:
+                # wmctrl 未安装时退化到 Alt+Tab
+                self.pag.keyDown("alt")
+                self.pag.press("tab")
+                self.pag.keyUp("alt")
+
+        else:                                           # Assume Windows
+            self.pag.hotkey("win", "d")
+            time.sleep(0.5)
+            self.pag.typewrite(code)
+            self.pag.press("enter")
+            time.sleep(1.0)
+
+    def _open_app(self, act: Open) -> None:
+        """在当前系统中打开应用 / 文件"""
+        target = act.app_or_filename
+        if self.platform.startswith("darwin"):
+            self.pag.hotkey("command", "space")
+            time.sleep(0.4)
+            self.pag.write(target)
+            self.pag.press("enter")
+        elif self.platform.startswith("linux"):
+            # Alt+F2 launcher（大部分桌面环境适用）
+            self.pag.hotkey("alt", "f2")
+            time.sleep(0.4)
+            self.pag.write(target)
+            self.pag.press("enter")
+        else:  # Windows
+            self.pag.hotkey("win")
+            time.sleep(0.5)
+            self.pag.write(target)
+            time.sleep(1.0)
+            self.pag.press("enter")
+            time.sleep(0.5)

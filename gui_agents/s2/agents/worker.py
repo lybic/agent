@@ -100,13 +100,14 @@ class Worker:
 
     def generate_next_action(
         self,
-        instruction: str,
-        search_query: str,
+        Tu: str,
+        Search_query: str,
         subtask: str,
         subtask_info: Dict,
         future_tasks: List[Node],
         done_task: List[Node],
         obs: Dict,
+        Running_state: str,
     ) -> Tuple[Dict, List]:
         """
         Predict the next action(s) based on the current observation.
@@ -119,7 +120,7 @@ class Worker:
             if self.use_subtask_experience: 
                 subtask_query_key = (
                     "Task:\n"
-                    + search_query
+                    + Search_query
                     + "\n\nSubtask: "
                     + subtask
                     + "\nSubtask Instruction: "
@@ -144,7 +145,7 @@ class Worker:
                     + "\n"
                     + retrieved_subtask_experience.strip(),
                 )
-                instruction += "\nYou may refer to some similar subtask experience if you think they are useful. {}".format(
+                Tu += "\nYou may refer to some similar subtask experience if you think they are useful. {}".format(
                     retrieved_similar_subtask + "\n" + retrieved_subtask_experience
                 )
 
@@ -156,7 +157,7 @@ class Worker:
             #     .replace("FUTURE_TASKS", ", ".join([f.name for f in future_tasks]))
             #     .replace("DONE_TASKS", ",".join(d.name for d in done_task))
             # )
-            prefix_message = f"TASK_DESCRIPTION is {instruction}\n\nFUTURE_TASKS is {', '.join([f.name for f in future_tasks])}\n\nDONE_TASKS is {','.join(d.name for d in done_task)}"
+            prefix_message = f"TASK_DESCRIPTION is {Tu}\n\nFUTURE_TASKS is {', '.join([f.name for f in future_tasks])}\n\nDONE_TASKS is {','.join(d.name for d in done_task)}"
 
         # Reflection generation does not add its own response, it only gets the trajectory
         reflection = None

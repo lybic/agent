@@ -3,14 +3,17 @@
 
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
-| Mn_dict | Dict | 由叙事记忆Mn类的readout方法得到的字典 | 
+| local_kb_path | String | 本地叙事记忆和情景记忆的文件路径 | 
 | Tu | String | 用户任务指令，文本形式 |
-| Screenshot | PIL (Pillow) 库的 Image 对象 | 由全局状态类Global_Instance的get_screenshot方法得到的图片对象|
-| Running_state | String | 运行状态标记，文本形式，"running" 或 "stopped"。由全局状态类Global_Instance的get_running_state方法得到 |
+| observation | Dict | 其中包含key“screenshot”，value为全局状态类Global_Instance的get_screenshot方法得到的图片对象 |
+| Running_state | String | 运行状态标记，文本形式，"running" 或 "stopped" |
 | Tools_dict | Dict | 工具字典配置参照Tools类的创建属性，应包含“memory_retrival”、“websearch”、“context_fusion”和“subtask_planner” |
+| Failed_subtask | Node | 失败子任务，Node对象 |
+| Completed_subtasks_list | List[Node] | 已完成子任务列表，Node对象列表 |
+| Remaining_subtasks_list | List[Node] | 剩余子任务列表，Node对象列表 |
 
 
-- 叙事记忆（Mn_dict）：
+- 叙事记忆：
   - 示例：
       ```python
       {
@@ -84,7 +87,7 @@
     }
      ```
 
-# Global_Instance
+# GlobalState
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
 | Screenshot_dir | String | 截图文件夹路径 |
@@ -148,7 +151,7 @@
 ## 属性
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
-| tool_name | String | 工具名称，有X种：“websearch”、“context_fusion”、“subtask_planner”、“traj_reflector”、“memory_retrival”、“grounding”、“summarizer”、 “action_generator”|
+| tool_name | String | 工具名称，有X种：“websearch”、“context_fusion”、“subtask_planner”、“traj_reflector”、“embedding”、“grounding”、“summarizer”、 “action_generator”、“dag_translator”、“text_span”|
 | provider | String | API供应商名称，如“gemini” |
 | model_name | String | 工具调用的模型名称，如“gemini-2.5-pro” |
 | prompt_path | String | 提示词文件路径，文本形式，python字符串。选定tool_name后，根据tool_name选择固定路径下的提示词文件 |
@@ -163,11 +166,11 @@
 |-----|-----|-----|
 | tool_output | String | 工具输出，文本形式，python字符串 |
 
-# Mn/Me
+# KnowledgeBase
 ## 存储对象
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
-| Mn_path | String | 叙事记忆文件路径 |
+| local_kb_path | String | 本地叙事记忆和情景记忆的文件路径 |
 
 - 叙事记忆（Mn）：
   - 本地文件形式，json格式。Key是与环境观测有关的查询Query，Value是与Query相关的叙事记忆。
@@ -180,21 +183,25 @@
 ## 读取方法
 | 方法名 | 参数 | 返回值 | 描述 |
 |-----|-----|-----|-----|
-| get_Mn_dict | 无 | Dict | 从```Mn_path```文件中获取当前所有叙事记忆形成的字典 |
+
 
 ## 写入方法
 | 方法名 | 参数 | 描述 |
 |-----|-----|-----|
-| set_Mn_dict | Dict | 将叙事记忆保存到```Mn_path```文件中 |
+
 
 # Worker
 ## 输入
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
-| Me_dict | Dict | 由叙事记忆Me类的readout方法得到的字典 | 
+| local_kb_path | String | 本地叙事记忆和情景记忆的文件路径 | 
 | Tu | String | 用户任务指令，文本形式 |
 | Search_query | String | 环境相关的任务总结查询，文本形式，由全局状态类Global_Instance的get_search_query方法得到 |
-| Screenshot | PIL (Pillow) 库的 Image 对象 | 由全局状态类Global_Instance的get_screenshot方法得到的图片对象|
+| subtask | String | 当前子任务，文本形式 |
+| subtask_info | Dict | 当前子任务的情境描述，字典形式，python字符串 |
+| future_tasks | List[Node] | 未来子任务列表，Node对象列表 |
+| done_task | List[Node] | 已完成子任务列表，Node对象列表 |
+| obs | Dict | 其中包含key“screenshot”，value为全局状态类Global_Instance的get_screenshot方法得到的图片对象 |
 | Running_state | String | 运行状态标记，文本形式，"running" 或 "stopped"。由全局状态类Global_Instance的get_running_state方法得到 |
 | Tools_dict | Dict | 工具字典配置参照Tools类的创建属性，应包含“memory_retrival”、“traj_reflector”和“action_generator” |
 
@@ -219,23 +226,14 @@
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
 | grounding_input | Dict | 环境观测，字典形式，python字符串，包含str_input和img_input两个key，str_input是文本输入，即为Worker输出的worker_plan全文，img_input是图像输入，即为全局状态类Global_Instance的get_screenshot方法得到的图片对象 |
-| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性，应包含“grounding” |
+| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性，应包含“grounding”、“text_span” |
 
 ## 输出
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
 | grounding_output | String | 与具体硬件环境无关的指令输出，统一成python代码形式。文本形式，python字符串 |
 - 示例1：
-  "import pyautogui; import pyautogui; pyautogui.click(769, 1006, clicks=1, button='left'); "
-
-# Evaluator
-## 输入
-| 字段名 | 类型 | 描述 |
-|-----|-----|-----|
-| evaluator_worker_plan_input | String | 由Worker模块得出的worker_plan全文，文本形式，python字符串。需解析成Grounded Action伪代码形式，解析方式参考[worker.py](./gui_agents/s2/agents/worker.py)第225行的实现 |
-
-## 输出
-无输出。每次执行完Worker模块后，调用Evaluator模块，更新情景记忆Me。当解析出当前任务已完成后，调用Evaluator模块，更新叙事记忆Mn。
+  {'action': 'click', 'coordinate': [10, 20]}
 
 # HardwareInterface
 ## 输入

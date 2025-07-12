@@ -53,6 +53,12 @@ class Manager:
         self.dag_translator_agent = Tools()
         self.dag_translator_agent.register_tool("dag_translator", self.Tools_dict["dag_translator"]["provider"], self.Tools_dict["dag_translator"]["model"])
 
+        self.narrative_summarization_agent = Tools()
+        self.narrative_summarization_agent.register_tool("narrative_summarization", self.Tools_dict["narrative_summarization"]["provider"], self.Tools_dict["narrative_summarization"]["model"])
+
+        self.episode_summarization_agent = Tools()
+        self.episode_summarization_agent.register_tool("episode_summarization", self.Tools_dict["episode_summarization"]["provider"], self.Tools_dict["episode_summarization"]["model"])
+
         # Stop at 2025.07.10 01:29
         # TODO: how to plug in knowledge base?
 
@@ -64,6 +70,8 @@ class Manager:
             "embedding": self.Tools_dict["embedding"],
             "query_formulator": self.Tools_dict["query_formulator"],
             "context_fusion": self.Tools_dict["context_fusion"],
+            "narrative_summarization": self.Tools_dict["narrative_summarization"],
+            "episode_summarization": self.Tools_dict["episode_summarization"],
         }
 
 
@@ -83,6 +91,27 @@ class Manager:
 
         self.multi_round = multi_round
 
+    def summarize_episode(self, trajectory):
+        """Summarize the episode experience for lifelong learning reflection
+        Args:
+            trajectory: str: The episode experience to be summarized
+        """
+
+        # Create Reflection on whole trajectories for next round trial, keep earlier messages as exemplars
+        subtask_summarization = self.episode_summarization_agent.execute_tool("episode_summarization", {"str_input": trajectory})
+
+        return subtask_summarization
+
+    def summarize_narrative(self, trajectory):
+        """Summarize the narrative experience for lifelong learning reflection
+        Args:
+            trajectory: str: The narrative experience to be summarized
+        """
+        # Create Reflection on whole trajectories for next round trial
+        lifelong_learning_reflection = self.narrative_summarization_agent.execute_tool("narrative_summarization", {"str_input": trajectory})
+
+        return lifelong_learning_reflection
+    
     def _generate_step_by_step_plan(
         self,
         observation: Dict,

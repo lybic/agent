@@ -1,61 +1,105 @@
-# hardware_interface.py
-"""
-执行 Translator 产出的 command list。
-目前支持 backend='pyautogui'；未来只需在 _exec_* 方法里换成 lybic_api 调用。
-"""
-
 from __future__ import annotations
-import time, pyautogui
-from typing import List, Dict, Callable
+
+from gui_agents.s2.agents.Backend.Backend import Backend
+from gui_agents.s2.agents.Backend.ADBBackend import ADBBackend
+from gui_agents.s2.agents.Backend.LybicBackend import LybicBackend
+from gui_agents.s2.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
+"""hardware_interface.py  ▸  Execute Action objects on real devices / emulators
+===============================================================================
+This module is the *single entry point* that upper‑layer planners / executors
+use to perform UI operations.  It is deliberately thin:
+
+*   Accepts one `Action` **or** a `List[Action]` (defined in *actions.py*).
+*   Delegates to a concrete *Backend* which knows how to translate the `Action`
+    into platform‑specific calls (PyAutoGUI, ADB, Lybic cloud device, …).
+*   Performs minimal capability checks + error propagation.
+
+The default backend implemented here is **PyAutoGUIBackend**.  Stubs for
+**ADBBackend** and **LybicBackend** show how to extend the system.
+
+--------------------------------------------------------------------------
+Quick usage
+--------------------------------------------------------------------------
+```python
+from actions import Click
+from hardware_interface import HardwareInterface
+
+hwi = HardwareInterface(backend="pyautogui")
+
+# Single action
+hwi.dispatch(Click(xy=(960, 540)))
+
+# Batch
+plan = [Click(xy=(100,200)), Click(xy=(300,400))]
+hwi.dispatch(plan)
+
+# actionDict
+hwi.dispatchDict({"type": "Click", "xy": [200, 300]})
+
+```
+"""
+
+from typing import List, Type, Dict, Set
+
+# Import your Action primitives
+from gui_agents.s2.agents.Action import (
+    Action,
+)
+
+__all__ = [
+    "HardwareInterface",
+    "Backend",
+    "PyAutoGUIBackend",
+    "ADBBackend",
+    "LybicBackend",
+]
 
 
-class HardwareInterfaceError(RuntimeError): ...
 
-
+# ---------------------------------------------------------------------------
+# Facade – single entry point
+# ---------------------------------------------------------------------------
 class HardwareInterface:
-    def __init__(self, backend: str = "pyautogui"):
-        backend = backend.lower()
-        if backend not in {"pyautogui", "lybic"}:
-            raise HardwareInterfaceError(f"Unsupported backend: {backend}")
-        self.backend = backend
-        self._dispatch: Dict[str, Callable[[Dict], None]] = {
-            "click": self._exec_click,
-            "doubleClick": self._exec_double,
-            "rightClick": self._exec_right,
-            "middleClick": self._exec_middle,
-            "move": self._exec_move,
-            "leftClickDrag": self._exec_drag,
-            "scroll": self._exec_scroll,
-            "type": self._exec_type,
-            "keyPress": self._exec_key,
-            "wait": self._exec_wait,
-        }
+    """High‑level facade that routes Action objects to a chosen backend."""
 
-    # ---------- 对外 ----------
-    def run(self, commands: List[Dict]) -> List[Dict]:
-        """
-        顺序执行整个 command list
-        returns 每条指令的 {"ok":bool, "error":str|None}
-        """
-        results = []
-        for cmd in commands:
-            try:
-                self._dispatch[cmd["action"]](cmd)
-                results.append({"ok": True, "error": None})
-            except Exception as e:
-                results.append({"ok": False, "error": str(e)})
-        return results
+    BACKEND_MAP: Dict[str, Type[Backend]] = {
+        "pyautogui": PyAutoGUIBackend,
+        "adb": ADBBackend,
+        "lybic": LybicBackend,
+    }
 
-    # ---------- backend=pyautogui 的具体实现 ----------
-    def _exec_click(self, c):   pyautogui.click(*c["coordinate"])
-    def _exec_double(self, c):  pyautogui.doubleClick(*c["coordinate"])
-    def _exec_right(self, c):   pyautogui.rightClick(*c["coordinate"])
-    def _exec_middle(self, c):  pyautogui.middleClick(*c["coordinate"])
-    def _exec_move(self, c):    pyautogui.moveTo(*c["coordinate"])
-    def _exec_drag(self, c):    pyautogui.dragTo(*c["coordinate"])
-    def _exec_scroll(self, c):  pyautogui.scroll(
-                                    c["scrollAmount"] * (1 if c["scrollDirection"]=="up" else -1),
-                                    *c["coordinate"])
-    def _exec_type(self, c):    pyautogui.typewrite(c["text"])
-    def _exec_key(self, c):     pyautogui.hotkey(*c["text"].split("+"))
-    def _exec_wait(self, c):    time.sleep(c["duration"])
+    # ------------------------------------------------------------------
+    def __init__(self, backend: str | Backend = "pyautogui", **backend_kwargs):
+        if isinstance(backend, Backend):
+            self.backend: Backend = backend
+        else:
+            key = backend.lower()
+            if key not in self.BACKEND_MAP:
+                raise ValueError(f"Unsupported backend '{backend}'. Available: {list(self.BACKEND_MAP)}")
+            self.backend = self.BACKEND_MAP[key](**backend_kwargs)
+
+    # ------------------------------------------------------------------
+    def dispatch(self, actions: Action | List[Action]) -> None:
+        """Execute one or multiple actions *in order*.
+
+        Args:
+            actions: `Action` instance or list thereof.
+        """
+        if isinstance(actions, Action):
+            actions = [actions]
+
+        for act in actions:
+            if not self.backend.supports(type(act)):
+                raise NotImplementedError(
+                    f"{type(act).__name__} is not supported by backend {self.backend.__class__.__name__}"
+                )
+            self.backend.execute(act)
+
+    def dispatchDict(self, actionDict: Dict) -> None:
+        """Execute one  actions *in order*.
+
+        Args:
+            actionDict: `Action` instance or list thereof.
+        """
+        action = Action.from_dict(actionDict)
+        self.dispatch(action)

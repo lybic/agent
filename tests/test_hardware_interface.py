@@ -1,14 +1,18 @@
 # run_actions_demo.py
+import platform
 from time import sleep
+import time
 from gui_agents.s2.agents.hardware_interface import HardwareInterface
 from gui_agents.s2.agents.Action import (
     Click, TypeText, Drag, Hotkey, Wait, Open
 )
 
+current_platform = platform.system().lower()
+
 # -------------------------------------------------------------
 dry_run = False          # ← True 时只打印，不执行
 backend_kwargs = dict(   # 传给 PyAutoGUIBackend 的额外参数
-    platform="win32",    # "darwin" / "linux" / "win32"，自动检测可删掉
+    platform=current_platform,    # "darwin" / "linux" / "win32"，自动检测可删掉
     default_move_duration=0.05,
 )
 
@@ -20,7 +24,9 @@ plan = [
     # Drag(start=(400, 300), end=(800, 300), hold_keys=[],
     #      starting_description="拖起点", ending_description="拖终点"),
     # Hotkey(keys=["ctrl", "s"]),
-    Open(app_or_filename='Maps')
+    # Open(app_or_filename='maps')
+    # Hotkey(keys=["command", "space"]),
+    # TypeText(text="Finder", element_description="", press_enter=True)
 ]
 
 # 2. 创建硬件接口

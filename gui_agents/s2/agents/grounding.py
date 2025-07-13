@@ -9,9 +9,9 @@ from PIL import Image
 from pytesseract import Output
 
 from gui_agents.s2.memory.procedural_memory import PROCEDURAL_MEMORY
-from gui_agents.s2.tools import Tools
+from gui_agents.s2.tools.tools import Tools
 from gui_agents.s2.utils.common_utils import (
-    call_llm_safe,
+    # call_llm_safe,
     parse_single_code_from_string,
 )
 

@@ -151,7 +151,7 @@
 ## 属性
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
-| tool_name | String | 工具名称，有X种：“websearch”、“context_fusion”、“subtask_planner”、“traj_reflector”、“embedding”、“grounding”、“summarizer”、 “action_generator”、“dag_translator”、“text_span”、“narrative_summarization”、“episode_summarization”|
+| tool_name | String | 工具名称，有种：“websearch”、“context_fusion”、“subtask_planner”、“traj_reflector”、"memory_retrival"、“grounding”、"evaluator"、“action_generator”、“dag_translator”、“embedding”、"query_formulator"、“text_span”、“narrative_summarization”、“episode_summarization”|
 | provider | String | API供应商名称，如“gemini” |
 | model_name | String | 工具调用的模型名称，如“gemini-2.5-pro” |
 | prompt_path | String | 提示词文件路径，文本形式，python字符串。选定tool_name后，根据tool_name选择固定路径下的提示词文件 |

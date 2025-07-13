@@ -146,7 +146,9 @@ class ToolFactory:
             "dag_translator": (DAGTranslatorTool, "dag_translator_prompt.txt"),
             "embedding": (EmbeddingTool, None),
             "query_formulator": (QueryFormulatorTool, "query_formulator_prompt.txt"),
-            "text_span": (TextSpanTool, "text_span_prompt.txt")
+            "text_span": (TextSpanTool, "text_span_prompt.txt"),
+            "narrative_summarization": (NarrativeSummarizationTool, "narrative_summarization_prompt.txt"),
+            "episode_summarization": (EpisodeSummarizationTool, "episode_summarization_prompt.txt")
         }
         
         if tool_name not in tool_map:
@@ -261,6 +263,52 @@ class SubtaskPlannerTool(BaseTool):
             return "Error: No task description provided"
         
         # Use the prompt template and LMM for subtask planning
+        return self._call_lmm(tool_input)
+
+
+class NarrativeSummarizationTool(BaseTool):
+    """Tool for summarizing narrative memories."""
+    
+    def execute(self, tool_input: Dict[str, Any]) -> str:
+        """
+        Summarize narrative memories.
+        
+        Args:
+            tool_input: Dictionary containing the narrative memory data
+                        Expected to have 'str_input' key with the narrative memory data
+                        May also have 'img_input' key with relevant images
+        
+        Returns:
+            Summarized narrative as a string
+        """
+        narrative_data = tool_input.get('str_input', '')
+        if not narrative_data:
+            return "Error: No narrative memory data provided"
+        
+        # Use the prompt template and LMM for narrative summarization
+        return self._call_lmm(tool_input)
+
+
+class EpisodeSummarizationTool(BaseTool):
+    """Tool for summarizing episodic memories."""
+    
+    def execute(self, tool_input: Dict[str, Any]) -> str:
+        """
+        Summarize episodic memories.
+        
+        Args:
+            tool_input: Dictionary containing the episodic memory data
+                        Expected to have 'str_input' key with the episodic memory data
+                        May also have 'img_input' key with relevant images
+        
+        Returns:
+            Summarized episode as a string
+        """
+        episode_data = tool_input.get('str_input', '')
+        if not episode_data:
+            return "Error: No episodic memory data provided"
+        
+        # Use the prompt template and LMM for episode summarization
         return self._call_lmm(tool_input)
 
 

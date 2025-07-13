@@ -13,8 +13,6 @@ from gui_agents.s2.utils.common_utils import (
     # call_llm_safe,
     parse_dag,
 )
-from gui_agents.s2.store.registry import Registry
-# store = Registry.get("store")
 from gui_agents.s2.tools.tools import Tools
 from PIL import Image
 import io
@@ -131,7 +129,7 @@ class Manager:
                     res += f"   - {bullet}\n"
                 res += "\n"
             return res
-
+        prefix_message = ""
         # Perform Retrieval only at the first planning step
         if self.turn_count == 0:
 

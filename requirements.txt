@@ -20,6 +20,7 @@ exa_py # If you encounter an error, you need to install exa_py manually through 
 black
 pytesseract
 google-genai
+python-dotenv
 
 # Platform-specific dependencies
 pyobjc; platform_system == "Darwin"

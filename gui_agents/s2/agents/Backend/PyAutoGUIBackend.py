@@ -1,6 +1,7 @@
 # ---------------------------------------------------------------------------
 # 1) Desktop automation backend (PyAutoGUI)
 # ---------------------------------------------------------------------------
+import subprocess, difflib
 from gui_agents.s2.agents.Action import (
     Action,
     Click,
@@ -72,7 +73,7 @@ class PyAutoGUIBackend(Backend):
             x=act.xy[0],
             y=act.xy[1],
             clicks=act.num_clicks,
-            button=act.button_type.name.lower(),
+            button=act.button_type.lower(),
             duration=self.default_move_duration,
         )
         for k in act.hold_keys or []:

@@ -127,18 +127,10 @@ class AgentS2(UIAgent):
             self.Tools_dict = {}
             for tool in tools_config["tools"]:
                 tool_name = tool["tool_name"]
-                if tool_name == "grounding":
-                    self.Tools_dict[tool_name] = {
-                        "provider": tool["provider"],
-                        "model": tool["model_name"],
-                        "grounding_width": 1920,
-                        "grounding_height": 1080
-                    }
-                else:   
-                    self.Tools_dict[tool_name] = {
-                        "provider": tool["provider"],
-                        "model": tool["model_name"]
-                    }
+                self.Tools_dict[tool_name] = {
+                    "provider": tool["provider"],
+                    "model": tool["model_name"]
+                }
             print(f"Tools configuration: {self.Tools_dict}")
 
         # Initialize agent's knowledge base path

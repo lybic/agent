@@ -27,8 +27,8 @@
     },
     {
       "tool_name": "grounding",
-      "provider": "gemini",
-      "model_name": "gemini-2.5-flash"
+      "provider": "doubao",
+      "model_name": "doubao-1-5-ui-tars-250428"
     },
     {
       "tool_name": "evaluator",

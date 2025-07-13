@@ -173,10 +173,6 @@ class Grounding(ACI):
         self.width = width 
         self.height = height
 
-        # Grounding model input size
-        self.grounding_width = self.Tools_dict["grounding"]["grounding_width"]
-        self.grounding_height = self.Tools_dict["grounding"]["grounding_height"]
-
         # Maintain state for save_to_knowledge
         self.notes = []
 
@@ -188,6 +184,8 @@ class Grounding(ACI):
         self.grounding_model = Tools()
         self.grounding_model.register_tool("grounding", self.Tools_dict["grounding"]["provider"], self.Tools_dict["grounding"]["model"])
 
+        self.grounding_width, self.grounding_height = self.grounding_model.get_grounding_wh()
+
         # Configure text grounding agent
         self.text_span_agent = Tools()
         self.text_span_agent.register_tool("text_span", self.Tools_dict["text_span"]["provider"], self.Tools_dict["text_span"]["model"])
@@ -196,7 +194,7 @@ class Grounding(ACI):
     def generate_coords(self, ref_expr: str, obs: Dict) -> List[int]:
 
         # Reset the grounding model state
-        self.grounding_model.reset()
+        self.grounding_model.tools["grounding"].llm_agent.reset()
 
         # Configure the context, UI-TARS demo does not use system prompt
         prompt = f"Query:{ref_expr}\nOutput only the coordinate of one point in your response.\n"

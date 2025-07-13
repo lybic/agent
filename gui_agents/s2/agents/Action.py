@@ -70,7 +70,7 @@ class Action(ABC):
     #  Reflection helpers
     # ---------------------------------------------------------------------
     def __init_subclass__(cls, **kwargs):  # noqa: D401 (docstring from base)
-        super().__init_subclass__(**kwargs)
+        # super().__init_subclass__(**kwargs)
         Action._registry[cls.__name__] = cls
 
     # ------------------------------------------------------------------

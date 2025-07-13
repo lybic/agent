@@ -151,6 +151,10 @@ class Manager:
 
             # Retrieve knowledge from the web if search_engine is provided
             if self.search_engine is not None:
+                print(f"=*"*20)
+                print(f"instruction: {instruction}")
+                print(f"search_query: {self.search_query}")
+                print(f"search_engine: {self.search_engine}")
                 retrieved_knowledge = self.knowledge_base.retrieve_knowledge(
                     instruction=instruction,
                     search_query=self.search_query,

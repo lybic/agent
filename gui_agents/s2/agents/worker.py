@@ -68,17 +68,19 @@ class Worker:
         self.reflection_agent = Tools()
         self.reflection_agent.register_tool("traj_reflector", self.Tools_dict["traj_reflector"]["provider"], self.Tools_dict["traj_reflector"]["model"])
 
-        KB_Tools_dict = {
-            "embedding": self.Tools_dict["embedding"],
-            "query_formulator": self.Tools_dict["query_formulator"],
-            "context_fusion": self.Tools_dict["context_fusion"],
-        }
+        # KB_Tools_dict = {
+        #     "embedding": self.Tools_dict["embedding"],
+        #     "query_formulator": self.Tools_dict["query_formulator"],
+        #     "context_fusion": self.Tools_dict["context_fusion"],
+        # }
 
+        self.embedding_engine = Tools()
+        self.embedding_engine.register_tool("embedding", self.Tools_dict["embedding"]["provider"], self.Tools_dict["embedding"]["model"])
         self.knowledge_base = KnowledgeBase(
             embedding_engine=self.embedding_engine,
+            Tools_dict=self.Tools_dict,
             local_kb_path=self.local_kb_path,
             platform=self.platform,
-            Tools_dict=KB_Tools_dict,
         )
 
         self.turn_count = 0
@@ -101,13 +103,13 @@ class Worker:
     def generate_next_action(
         self,
         Tu: str,
-        Search_query: str,
+        search_query: str,
         subtask: str,
         subtask_info: Dict,
         future_tasks: List[Node],
         done_task: List[Node],
         obs: Dict,
-        Running_state: str,
+        running_state: str = "running",
     ) -> Tuple[Dict, List]:
         """
         Predict the next action(s) based on the current observation.
@@ -120,7 +122,7 @@ class Worker:
             if self.use_subtask_experience: 
                 subtask_query_key = (
                     "Task:\n"
-                    + Search_query
+                    + search_query
                     + "\n\nSubtask: "
                     + subtask
                     + "\nSubtask Instruction: "

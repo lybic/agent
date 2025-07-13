@@ -185,6 +185,9 @@ class Grounding(ACI):
         self.grounding_model.register_tool("grounding", self.Tools_dict["grounding"]["provider"], self.Tools_dict["grounding"]["model"])
 
         self.grounding_width, self.grounding_height = self.grounding_model.get_grounding_wh()
+        if self.grounding_width is None or self.grounding_height is None:
+            self.grounding_width = self.width
+            self.grounding_height = self.height
 
         # Configure text grounding agent
         self.text_span_agent = Tools()

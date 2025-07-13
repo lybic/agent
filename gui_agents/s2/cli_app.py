@@ -124,11 +124,12 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
 
         else:
             time.sleep(1.0)
-            print("EXECUTING CODE:", code[0])
+            logger.info(f"EXECUTING CODE: {code[0]}")
 
             # Ask for permission before executing
             # exec(code[0])
             hwi.dispatchDict(code[0])
+            logger.info(f"HARDWARE INTERFACE: Executed")
 
             time.sleep(1.0)
 
@@ -232,7 +233,6 @@ def main():
     scaled_width, scaled_height = scale_screen_dimensions(
         screen_width, screen_height, max_dim_size=2400
     )
-
     # Load the general engine params
     engine_params = {
         "engine_type": args.provider,
@@ -241,27 +241,27 @@ def main():
         "api_key": args.model_api_key,
     }
 
-    # Load the grounding engine from a HuggingFace TGI endpoint
-    if args.endpoint_url:
-        engine_params_for_grounding = {
-            "engine_type": args.endpoint_provider,
-            "base_url": args.endpoint_url,
-            "api_key": args.endpoint_api_key,
-        }
-    else:
-        grounding_height = args.grounding_model_resize_height
-        # If not provided, use the aspect ratio of the screen to compute the height
-        if grounding_height is None:
-            grounding_height = (
-                screen_height * args.grounding_model_resize_width / screen_width
-            )
+    # # Load the grounding engine from a HuggingFace TGI endpoint
+    # if args.endpoint_url:
+    #     engine_params_for_grounding = {
+    #         "engine_type": args.endpoint_provider,
+    #         "base_url": args.endpoint_url,
+    #         "api_key": args.endpoint_api_key,
+    #     }
+    # else:
+    #     grounding_height = args.grounding_model_resize_height
+    #     # If not provided, use the aspect ratio of the screen to compute the height
+    #     if grounding_height is None:
+    #         grounding_height = (
+    #             screen_height * args.grounding_model_resize_width / screen_width
+    #         )
 
-        engine_params_for_grounding = {
-            "engine_type": args.grounding_model_provider,
-            "model": args.grounding_model,
-            "grounding_width": args.grounding_model_resize_width,
-            "grounding_height": grounding_height,
-        }
+    #     engine_params_for_grounding = {
+    #         "engine_type": args.grounding_model_provider,
+    #         "model": args.grounding_model,
+    #         "grounding_width": args.grounding_model_resize_width,
+    #         "grounding_height": grounding_height,
+    #     }
 
     # grounding_agent = OSWorldACI(
     #     platform=current_platform,
@@ -273,19 +273,6 @@ def main():
 
     now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     runtime_dir = f"runtime/{now_str}"
-
-    # # GlobalStateStore 在main中才regist，因此只能在main初始化完成后才能访问到
-    # Registry.register(
-    #     "GlobalStateStore",
-    #    GlobalState(
-    #         screenshot_dir="runtime/cache/screens",
-    #         tu_path="runtime/state/tu.json",
-    #         search_query_path="runtime/state/search_query.json",
-    #         completed_subtask_path="runtime/state/completed_subtask.json",
-    #         termination_flag_path="runtime/state/termination_flag.json",
-    #         running_state_path="runtime/state/running_state.json",
-    #     )
-    # )
 
     Registry.register(
         "GlobalStateStore",
@@ -307,8 +294,7 @@ def main():
         platform=current_platform,
         action_space="pyautogui",
         observation_type="mixed",
-        # search_engine=None,
-        # embedding_engine_type=args.embedding_engine_type,
+        screen_size = [scaled_width, scaled_height]
     )
 
     while True:

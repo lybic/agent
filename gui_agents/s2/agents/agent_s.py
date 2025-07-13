@@ -91,6 +91,7 @@ class AgentS2(UIAgent):
         platform: str = platform.system().lower(),
         action_space: str = "pyautogui",
         observation_type: str = "mixed",
+        screen_size: List[int] = [1920, 1080],
         memory_root_path: str = os.getcwd(),
         memory_folder_name: str = "kb_s2",
         kb_release_tag: str = "v0.2.2",
@@ -118,6 +119,7 @@ class AgentS2(UIAgent):
         self.memory_root_path = memory_root_path
         self.memory_folder_name = memory_folder_name
         self.kb_release_tag = kb_release_tag
+        self.screen_size = screen_size
 
         # Load tools configuration from tools_config.json
         tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
@@ -175,6 +177,8 @@ class AgentS2(UIAgent):
         self.grounding = Grounding(
             Tools_dict=self.Tools_dict,
             platform=self.platform,
+            width=self.screen_size[0],
+            height=self.screen_size[1]
         )
 
         # Reset state variables
@@ -282,13 +286,11 @@ class AgentS2(UIAgent):
                 plan_code = sanitize_code(plan_code)
                 plan_code = extract_first_agent_function(plan_code)
                 agent: Grounding = self.grounding
-                print(f"plan_code: {plan_code}")
                 exec_code = eval(plan_code)
             except Exception as e:
                 logger.error("Error in parsing plan code: %s", e)
                 plan_code = "agent.wait(1.0)"
                 agent: Grounding = self.grounding
-                print(f"plan_code: {plan_code}")
                 exec_code = eval(plan_code)
 
             actions = [exec_code]
@@ -367,7 +369,7 @@ class AgentS2(UIAgent):
                 reflections = {}
 
             if self.search_query not in reflections:
-                reflection = self.planner.summarize_narrative(trajectory)
+                reflection = self.manager.summarize_narrative(trajectory)
                 reflections[self.search_query] = reflection
 
             with open(reflection_path, "w") as f:
@@ -405,7 +407,7 @@ class AgentS2(UIAgent):
                 except:
                     kb = {}
                 if subtask_key not in kb.keys():
-                    subtask_summarization = self.planner.summarize_episode(
+                    subtask_summarization = self.manager.summarize_episode(
                         subtask_trajectory
                     )
                     kb[subtask_key] = subtask_summarization

@@ -91,7 +91,7 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
     subtask_traj = ""
     global_state: GlobalState = Registry.get("GlobalStateStore")
     global_state.set_Tu(instruction)
-    hwi = HardwareInterface(backend="pyautogui")
+    hwi = HardwareInterface(backend="pyautogui", platform=platform_os)
     for _ in range(15):
         # Get screen shot using pyautogui
         screenshot = pyautogui.screenshot()

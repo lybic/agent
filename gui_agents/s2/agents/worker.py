@@ -231,7 +231,7 @@ class Worker:
         plan = self.generator_agent.execute_tool("action_generator", {"str_input": generator_message, "img_input": obs["screenshot"]})
         
         self.planner_history.append(plan)
-        logger.info("PLAN: %s", plan)
+        logger.info("Action Plan: %s", plan)
         # self.generator_agent.add_message(plan, role="assistant")
 
         # Calculate input/output tokens and gpt-4o cost

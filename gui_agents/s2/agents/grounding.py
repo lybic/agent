@@ -1,5 +1,6 @@
 import ast
 import re
+import logging
 from collections import defaultdict
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -15,6 +16,7 @@ from gui_agents.s2.utils.common_utils import (
     parse_single_code_from_string,
 )
 
+logger = logging.getLogger("desktopenv.agent")
 
 class ACI:
     def __init__(self):
@@ -184,7 +186,7 @@ class Grounding(ACI):
         self.grounding_model = Tools()
         self.grounding_model.register_tool("grounding", self.Tools_dict["grounding"]["provider"], self.Tools_dict["grounding"]["model"])
 
-        self.grounding_width, self.grounding_height = self.grounding_model.get_grounding_wh()
+        self.grounding_width, self.grounding_height = self.grounding_model.tools["grounding"].get_grounding_wh()
         if self.grounding_width is None or self.grounding_height is None:
             self.grounding_width = self.width
             self.grounding_height = self.height
@@ -203,7 +205,7 @@ class Grounding(ACI):
         prompt = f"Query:{ref_expr}\nOutput only the coordinate of one point in your response.\n"
         response = self.grounding_model.execute_tool("grounding", {"str_input": prompt, "img_input": obs["screenshot"]})
 
-        print("RAW GROUNDING MODEL RESPONSE:", response)
+        logger.info(f"RAW GROUNDING MODEL RESPONSE: {response}")
         # Generate and parse coordinates
         numericals = re.findall(r"\d+", response)
         assert len(numericals) >= 2

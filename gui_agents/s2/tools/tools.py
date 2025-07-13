@@ -577,7 +577,7 @@ class Tools:
             provider: API provider name
             model_name: Model name to use
         """
-        tool = ToolFactory.create_tool(tool_name, provider, model_name)
+        tool: BaseTool = ToolFactory.create_tool(tool_name, provider, model_name)
         self.tools[tool_name] = tool
     
     def execute_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> str:

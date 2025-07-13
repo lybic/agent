@@ -427,6 +427,22 @@ class GroundingTool(BaseTool):
         
         # Use the prompt template and LMM for action grounding
         return self._call_lmm(tool_input)
+    
+    def get_grounding_wh(self):
+        """
+        Get grounding width and height based on provider and model name.
+        
+        Returns:
+            If provider is Doubao and model_name contains 'ui-tars', returns two values:
+            grounding_width (int): Width value (1024)
+            grounding_height (int): Height value (768)
+            Otherwise returns None, None
+        """
+        if self.provider == "Doubao" and "ui-tars" in self.model_name:
+            grounding_width = 1000
+            grounding_height = 1000
+            return grounding_width, grounding_height
+        return None, None
 
 
 class EvaluatorTool(BaseTool):

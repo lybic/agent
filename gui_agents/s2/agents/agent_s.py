@@ -11,7 +11,7 @@ from gui_agents.s2.agents.grounding import Grounding
 from gui_agents.s2.utils.common_utils import Node
 from gui_agents.s2.agents.global_state import GlobalState
 from gui_agents.s2.utils.common_utils import (
-    call_llm_safe,
+    # call_llm_safe,
     parse_single_code_from_string,
     sanitize_code,
     extract_first_agent_function,

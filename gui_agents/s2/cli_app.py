@@ -10,7 +10,7 @@ import time
 
 from PIL import Image
 
-from gui_agents.s2.agents.grounding import OSWorldACI
+# from gui_agents.s2.agents.grounding import OSWorldACI
 from gui_agents.s2.agents.agent_s import AgentS2
 
 from gui_agents.s2.store.registry import Registry

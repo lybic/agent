@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pyautogui
 from gui_agents.s2.agents.Backend.Backend import Backend
 from gui_agents.s2.agents.Backend.ADBBackend import ADBBackend
 from gui_agents.s2.agents.Backend.LybicBackend import LybicBackend

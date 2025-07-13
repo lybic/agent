@@ -1,44 +1,37 @@
-from unittest.mock import patch, call
-
+# run_actions_demo.py
+from time import sleep
 from gui_agents.s2.agents.hardware_interface import HardwareInterface
-# pytest -s tests/test_hardware_interface.py
+from gui_agents.s2.agents.Action import (
+    Click, TypeText, Drag, Hotkey, Wait, Open
+)
 
-# 构造一串典型命令序列
-COMMANDS = [
-    {"action": "click", "coordinate": [10, 20]},
-    {"action": "doubleClick", "coordinate": [30, 40]},
-    {"action": "move", "coordinate": [50, 60]},
-    {"action": "type", "text": "test"},
-    {"action": "keyPress", "text": "ctrl+s"},
-    {"action": "wait", "duration": 0.1},
+# -------------------------------------------------------------
+dry_run = False          # ← True 时只打印，不执行
+backend_kwargs = dict(   # 传给 PyAutoGUIBackend 的额外参数
+    platform="win32",    # "darwin" / "linux" / "win32"，自动检测可删掉
+    default_move_duration=0.05,
+)
+
+# 1. 构建动作序列
+plan = [
+    # Click(xy=(400, 300), element_description="点击输入框", num_clicks=1),
+    # TypeText(text="Hello Action!", element_description="输入文字", press_enter=True),
+    # Wait(time=0.5),
+    # Drag(start=(400, 300), end=(800, 300), hold_keys=[],
+    #      starting_description="拖起点", ending_description="拖终点"),
+    # Hotkey(keys=["ctrl", "s"]),
+    Open(app_or_filename='Maps')
 ]
 
+# 2. 创建硬件接口
+hwi = HardwareInterface(backend="pyautogui", **backend_kwargs)
 
-@patch("gui_agents.s2.agents.hardware_interface.pyautogui")
-def test_run_success(mock_gui):
-    """确保 HardwareInterface 能逐条调度到 pyautogui"""
-    hi = HardwareInterface(backend="pyautogui")
-    result = hi.run(COMMANDS)
-
-    # 每条都 ok
-    assert all(r["ok"] for r in result)
-
-    # pyautogui 的调用顺序应与 COMMANDS 保持一致
-    exp_calls = [
-        call.click(10, 20),
-        call.doubleClick(30, 40),
-        call.moveTo(50, 60),
-        call.typewrite("test"),
-        call.hotkey("ctrl", "s"),
-    ]
-    mock_gui.assert_has_calls(exp_calls, any_order=False)
-
-
-@patch("gui_agents.s2.agents.hardware_interface.pyautogui.click", side_effect=RuntimeError("click failed"))
-def test_run_partial_failure(mock_click):
-    """若其中一步失败，结果应正确标注错误而不抛异常"""
-    hi = HardwareInterface(backend="pyautogui")
-    commands = [{"action": "click", "coordinate": [1, 1]}]
-    result = hi.run(commands)
-
-    assert result == [{"ok": False, "error": "click failed"}]
+# 3. 执行
+if dry_run:
+    print("Dry-run 模式，仅打印 Action：")
+    for a in plan:
+        print(a)
+else:
+    print("开始执行 Action 序列…")
+    hwi.dispatch(plan)
+    print("执行完毕")

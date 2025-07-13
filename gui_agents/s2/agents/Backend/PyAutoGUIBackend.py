@@ -2,6 +2,7 @@
 # 1) Desktop automation backend (PyAutoGUI)
 # ---------------------------------------------------------------------------
 import subprocess, difflib
+import sys
 from gui_agents.s2.agents.Action import (
     Action,
     Click,
@@ -31,12 +32,13 @@ class PyAutoGUIBackend(Backend):
     _supported = {Click, Drag, TypeText, Scroll, Hotkey, HoldAndPress, Wait, Open, SwitchApp}
 
     # ¶ PyAutoGUI sometimes throws exceptions if mouse is moved to a corner.
-    def __init__(self, default_move_duration: float = 0.0):
+    def __init__(self, default_move_duration: float = 0.0, platform: str | None = None):
         import pyautogui as pag  # local import to avoid hard requirement
-
         pag.FAILSAFE = False
         self.pag = pag
         self.default_move_duration = default_move_duration
+        # ↙️ 关键修补：保存平台标识
+        self.platform = (platform or sys.platform).lower()
 
     # ------------------------------------------------------------------
     def execute(self, action: Action) -> None:
@@ -83,7 +85,7 @@ class PyAutoGUIBackend(Backend):
         for k in act.hold_keys or []:
             self.pag.keyDown(k)
         self.pag.moveTo(*act.start)
-        self.pag.dragTo(*act.end, duration=act.duration)
+        self.pag.dragTo(*act.end)
         for k in act.hold_keys or []:
             self.pag.keyUp(k)
 

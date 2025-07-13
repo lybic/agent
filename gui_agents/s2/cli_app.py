@@ -10,7 +10,7 @@ import time
 
 from PIL import Image
 
-from gui_agents.s2.agents.grounding import OSWorldACI
+# from gui_agents.s2.agents.grounding import OSWorldACI
 from gui_agents.s2.agents.agent_s import AgentS2
 
 from gui_agents.s2.store.registry import Registry
@@ -101,6 +101,7 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
         screenshot_bytes = buffered.getvalue()
         # Convert to base64 string.
         obs["screenshot"] = screenshot_bytes
+        # TODO: Combined with the get_screenshot method of the global state
 
         # Get next action code from the agent
         info, code = agent.predict(instruction=instruction, observation=obs)

@@ -10,7 +10,12 @@ from gui_agents.s2.agents.manager import Manager
 from gui_agents.s2.agents.grounding import Grounding
 from gui_agents.s2.utils.common_utils import Node
 from gui_agents.s2.agents.global_state import GlobalState
-
+from gui_agents.s2.utils.common_utils import (
+    # call_llm_safe,
+    parse_single_code_from_string,
+    sanitize_code,
+    extract_first_agent_function,
+)
 logger = logging.getLogger("desktopenv.agent")
 
 
@@ -224,7 +229,7 @@ class AgentS2(UIAgent):
 
                 # Manager_info, Subtasks = self.planner.get_action_queue(
                 #     Tu=self.global_state.get_tu(),
-                #     Screenshot=self.global_state.get_screenshot(),
+                #     observation=self.global_state.get_screenshot(),
                 #     Running_state=self.global_state.get_running_state(),
                 #     Failed_subtask=self.global_state.get_failed_subtask(),
                 #     Completed_subtasks_list=self.global_state.get_completed_subtask(),
@@ -267,8 +272,8 @@ class AgentS2(UIAgent):
 
             # get the next action from the worker
             executor_info = self.worker.generate_next_action(
-                instruction=instruction,
-                search_query=self.search_query,
+                Tu=instruction,
+                Search_query=self.search_query,
                 subtask=self.current_subtask.name,
                 subtask_info=self.current_subtask.info,
                 future_tasks=self.subtasks,
@@ -276,7 +281,18 @@ class AgentS2(UIAgent):
                 obs=observation,
             )
 
-            actions = self.grounding.assign_coordinates(executor_info["executor_plan"], observation, self.grounding_agent)
+            try:
+                self.grounding.assign_coordinates(executor_info["executor_plan"], observation)
+                plan_code = parse_single_code_from_string(executor_info["executor_plan"].split("Grounded Action")[-1])
+                plan_code = sanitize_code(plan_code)
+                plan_code = extract_first_agent_function(plan_code)
+                exec_code = eval(plan_code)
+            except Exception as e:
+                logger.error("Error in parsing plan code: %s", e)
+                plan_code = "agent.wait(1.0)"
+                exec_code = eval(plan_code)
+
+            actions = [exec_code]
 
             self.step_count += 1
 

@@ -1,0 +1,2 @@
+# Default prompt template for narrative_summarization
+# Replace this with an actual prompt template

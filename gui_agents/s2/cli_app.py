@@ -7,6 +7,7 @@ import platform
 import pyautogui
 import sys
 import time
+import datetime
 
 from PIL import Image
 
@@ -15,7 +16,7 @@ from gui_agents.s2.agents.agent_s import AgentS2
 
 from gui_agents.s2.store.registry import Registry
 from gui_agents.s2.agents.global_state import GlobalState
-
+from gui_agents.s2.agents.hardware_interface import HardwareInterface
 
 current_platform = platform.system().lower()
 
@@ -88,25 +89,20 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
     obs = {}
     traj = "Task:\n" + instruction
     subtask_traj = ""
+    global_state: GlobalState = Registry.get("GlobalStateStore")
+    hwi = HardwareInterface(backend="pyautogui")
     for _ in range(15):
         # Get screen shot using pyautogui
         screenshot = pyautogui.screenshot()
         screenshot = screenshot.resize((scaled_width, scaled_height), Image.LANCZOS)
-
-        # Save the screenshot to a BytesIO object
-        buffered = io.BytesIO()
-        screenshot.save(buffered, format="PNG")
-
-        # Get the byte value of the screenshot
-        screenshot_bytes = buffered.getvalue()
-        # Convert to base64 string.
-        obs["screenshot"] = screenshot_bytes
-        # TODO: Combined with the get_screenshot method of the global state
+        global_state.set_screenshot(screenshot)
+        screenshot = global_state.get_screenshot()
+        obs = global_state.get_obs_for_manager()
 
         # Get next action code from the agent
         info, code = agent.predict(instruction=instruction, observation=obs)
 
-        if "done" in code[0].lower() or "fail" in code[0].lower():
+        if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower():
             if platform.system() == "Darwin":
                 os.system(
                     f'osascript -e \'display dialog "Task Completed" with title "OpenACI Agent" buttons "OK" default button "OK"\''
@@ -119,10 +115,10 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
             agent.update_narrative_memory(traj)
             break
 
-        if "next" in code[0].lower():
+        if "next" in code[0]["type"].lower():
             continue
 
-        if "wait" in code[0].lower():
+        if "wait" in code[0]["type"].lower():
             time.sleep(5)
             continue
 
@@ -131,7 +127,9 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
             print("EXECUTING CODE:", code[0])
 
             # Ask for permission before executing
-            exec(code[0])
+            # exec(code[0])
+            hwi.dispatchDict(code[0])
+
             time.sleep(1.0)
 
             # Update task and subtask trajectories and optionally the episodic memory
@@ -273,6 +271,36 @@ def main():
     #     height=screen_height,
     # )
 
+    now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    runtime_dir = f"runtime/{now_str}"
+
+    # # GlobalStateStore 在main中才regist，因此只能在main初始化完成后才能访问到
+    # Registry.register(
+    #     "GlobalStateStore",
+    #    GlobalState(
+    #         screenshot_dir="runtime/cache/screens",
+    #         tu_path="runtime/state/tu.json",
+    #         search_query_path="runtime/state/search_query.json",
+    #         completed_subtask_path="runtime/state/completed_subtask.json",
+    #         termination_flag_path="runtime/state/termination_flag.json",
+    #         running_state_path="runtime/state/running_state.json",
+    #     )
+    # )
+
+    Registry.register(
+        "GlobalStateStore",
+        GlobalState(
+            screenshot_dir=os.path.join(runtime_dir, "cache", "screens"),
+            tu_path=os.path.join(runtime_dir, "state", "tu.json"),
+            search_query_path=os.path.join(runtime_dir, "state", "search_query.json"),
+            completed_subtask_path=os.path.join(runtime_dir, "state", "completed_subtask.json"),
+            failed_subtask_path=os.path.join(runtime_dir, "state", "failed_subtask.json"),
+            remaining_subtask_path=os.path.join(runtime_dir, "state", "remaining_subtask.json"),
+            termination_flag_path=os.path.join(runtime_dir, "state", "termination_flag.json"),
+            running_state_path=os.path.join(runtime_dir, "state", "running_state.json"),
+        )
+    )
+
     agent = AgentS2(
         engine_params,
         # grounding_agent,
@@ -281,19 +309,6 @@ def main():
         observation_type="mixed",
         # search_engine=None,
         # embedding_engine_type=args.embedding_engine_type,
-    )
-
-    # GlobalStateStore 在main中才regist，因此只能在main初始化完成后才能访问到
-    Registry.register(
-        "GlobalStateStore",
-       GlobalState(
-            screenshot_dir="runtime/cache/screens",
-            tu_path="runtime/state/tu.json",
-            search_query_path="runtime/state/search_query.json",
-            completed_subtask_path="runtime/state/completed_subtask.json",
-            termination_flag_path="runtime/state/termination_flag.json",
-            running_state_path="runtime/state/running_state.json",
-        )
     )
 
     while True:

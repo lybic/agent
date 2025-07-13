@@ -1,0 +1,2 @@
+# Default prompt template for episode_summarization
+# Replace this with an actual prompt template

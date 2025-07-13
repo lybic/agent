@@ -1,0 +1,2 @@
+# Default prompt template for text_span
+# Replace this with an actual prompt template

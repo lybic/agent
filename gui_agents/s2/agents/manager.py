@@ -312,10 +312,10 @@ class Manager:
         self,
         Tu: str,
         observation: Dict,
-        Running_state: str,
-        Failed_subtask: Optional[Node] = None,
-        Completed_subtasks_list: List[Node] = [],
-        Remaining_subtasks_list: List[Node] = [],
+        running_state: str,
+        failed_subtask: Optional[Node] = None,
+        completed_subtasks_list: List[Node] = [],
+        remaining_subtasks_list: List[Node] = [],
     ):
         """Generate the action list based on the instruction
         instruction:str: Instruction for the task
@@ -324,9 +324,9 @@ class Manager:
         planner_info, plan = self._generate_step_by_step_plan(
             observation,
             Tu,
-            Failed_subtask,
-            Completed_subtasks_list,
-            Remaining_subtasks_list,
+            failed_subtask,
+            completed_subtasks_list,
+            remaining_subtasks_list,
         )
 
         # Generate the DAG

@@ -1,5 +1,5 @@
 # global_state.py
-import json, os, time, logging
+import json, os, time, logging, io
 from pathlib import Path
 from typing import List, Optional
 
@@ -102,7 +102,14 @@ class GlobalState:
             logger.warning("No screenshot found in %s", self.screenshot_dir)
             return None
         latest = pngs[-1]
-        return Image.open(latest)
+        screenshot = Image.open(latest)
+        # Save the screenshot to a BytesIO object
+        buffered = io.BytesIO()
+        screenshot.save(buffered, format="PNG")
+
+        # Get the byte value of the screenshot
+        screenshot_bytes = buffered.getvalue()
+        return screenshot_bytes
 
     def set_screenshot(self, img: Image.Image) -> Path:
         ts = int(time.time() * 1000)
@@ -230,12 +237,12 @@ class GlobalState:
     # ---------- 高层封装 ----------
     def get_obs_for_manager(self):
         return {
-            "Screenshot": self.get_screenshot(),
+            "screenshot": self.get_screenshot(),
             "termination_flag": self.get_termination_flag(),
         }
 
     def get_obs_for_grounding(self):
-        return {"Screenshot": self.get_screenshot()}
+        return {"screenshot": self.get_screenshot()}
 
     def get_obs_for_evaluator(self):
         return {
@@ -243,5 +250,5 @@ class GlobalState:
             "failed_subtask": self.get_failed_subtask(),
             "completed_subtask": self.get_completed_subtask(),
             "remaining_subtask": self.get_remaining_subtask(),
-            "Screenshot": self.get_screenshot(),
+            "screenshot": self.get_screenshot(),
         }

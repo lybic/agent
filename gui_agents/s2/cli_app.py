@@ -90,13 +90,13 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
     traj = "Task:\n" + instruction
     subtask_traj = ""
     global_state: GlobalState = Registry.get("GlobalStateStore")
+    global_state.set_Tu(instruction)
     hwi = HardwareInterface(backend="pyautogui")
     for _ in range(15):
         # Get screen shot using pyautogui
         screenshot = pyautogui.screenshot()
         screenshot = screenshot.resize((scaled_width, scaled_height), Image.LANCZOS)
         global_state.set_screenshot(screenshot)
-        screenshot = global_state.get_screenshot()
         obs = global_state.get_obs_for_manager()
 
         # Get next action code from the agent

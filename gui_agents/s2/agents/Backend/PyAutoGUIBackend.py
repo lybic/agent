@@ -16,7 +16,7 @@ from gui_agents.s2.agents.Action import (
     SwitchApp
 )
 
-from gui_agents.s2.agents.Backend import Backend
+from gui_agents.s2.agents.Backend.Backend import Backend
 import time
 
 

@@ -15,7 +15,7 @@ from gui_agents.s2.agents.Action import (
     ScrollAxis,
 )
 
-from gui_agents.s2.agents.Backend import Backend
+from gui_agents.s2.agents.Backend.Backend import Backend
 
 
 

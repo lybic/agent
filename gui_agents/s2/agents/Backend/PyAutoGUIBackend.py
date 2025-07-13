@@ -1,6 +1,7 @@
 # ---------------------------------------------------------------------------
 # 1) Desktop automation backend (PyAutoGUI)
 # ---------------------------------------------------------------------------
+import os
 import subprocess, difflib
 import sys
 from gui_agents.s2.agents.Action import (
@@ -107,7 +108,8 @@ class PyAutoGUIBackend(Backend):
             self.pag.hscroll(act.clicks)
 
     def _hotkey(self, act: Hotkey) -> None:
-        self.pag.hotkey(*act.keys)
+        # self.pag.hotkey(*act.keys)
+        self.pag.hotkey(*act.keys, interval=0.1)
 
     def _hold_and_press(self, act: HoldAndPress) -> None:
         for k in act.hold_keys:
@@ -152,23 +154,26 @@ class PyAutoGUIBackend(Backend):
             time.sleep(1.0)
 
     def _open_app(self, act: Open) -> None:
-        """在当前系统中打开应用 / 文件"""
         target = act.app_or_filename
+
         if self.platform.startswith("darwin"):
-            self.pag.hotkey("command", "space")
-            time.sleep(0.4)
-            self.pag.write(target)
-            self.pag.press("enter")
+            # ① 尝试直接用 `open -a`
+            try:
+                subprocess.run(["open", "-a", target], check=True)
+            except subprocess.CalledProcessError:
+                # ② fallback：用 AppleScript 激活，Finder.app ⇄ Finder
+                script = f'tell application "{target}" to activate'
+                subprocess.run(["osascript", "-e", script], check=True)
+
         elif self.platform.startswith("linux"):
-            # Alt+F2 launcher（大部分桌面环境适用）
-            self.pag.hotkey("alt", "f2")
-            time.sleep(0.4)
-            self.pag.write(target)
-            self.pag.press("enter")
+            # 如果 target 是可执行名，用 gtk-launch；否则尝试 xdg-open
+            try:
+                subprocess.run(["gtk-launch", target], check=True)
+            except FileNotFoundError:
+                subprocess.run(["xdg-open", target], check=True)
+
         else:  # Windows
-            self.pag.hotkey("win")
-            time.sleep(0.5)
-            self.pag.write(target)
-            time.sleep(1.0)
-            self.pag.press("enter")
-            time.sleep(0.5)
+            try:
+                os.startfile(target)                 # Python 3.9+
+            except OSError:
+                subprocess.Popen(["start", "", target], shell=True)

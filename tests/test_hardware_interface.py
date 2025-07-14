@@ -24,7 +24,7 @@ plan = [
     # Drag(start=(400, 300), end=(800, 300), hold_keys=[],
     #      starting_description="拖起点", ending_description="拖终点"),
     # Hotkey(keys=["ctrl", "s"]),
-    # Open(app_or_filename='maps')
+    Open(app_or_filename='maps')
     # Hotkey(keys=["command", "space"]),
     # TypeText(text="Finder", element_description="", press_enter=True)
 ]

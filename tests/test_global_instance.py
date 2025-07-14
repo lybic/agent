@@ -1,3 +1,4 @@
+# pytest -s tests/test_global_instance.py
 from pathlib import Path
 import json
 import pytest
@@ -16,9 +17,9 @@ def build_store(tmp_path: Path) -> GlobalState:
         screenshot_dir=tmp_path / "screens",
         tu_path=tmp_path / "tu.json",
         search_query_path=tmp_path / "search_query.json",
-        failed_subtask_path=tmp_path / "failed_subtask.json",
-        completed_subtask_path=tmp_path / "completed_subtask.json",
-        remaining_subtask_path=tmp_path / "remaining_subtask.json",
+        failed_subtasks_path=tmp_path / "failed_subtasks.json",
+        completed_subtasks_path=tmp_path / "completed_subtasks.json",
+        remaining_subtasks_path=tmp_path / "remaining_subtasks.json",
         termination_flag_path=tmp_path / "termination_flag.json",
         running_state_path=tmp_path / "running_state.json",
     )

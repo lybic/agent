@@ -16,7 +16,8 @@ from gui_agents.s2.agents.Action import (
     MouseButton,
     ScrollAxis,
     Open,
-    SwitchApp
+    SwitchApp,
+    Screenshot
 )
 
 from gui_agents.s2.agents.Backend.Backend import Backend
@@ -30,7 +31,7 @@ class PyAutoGUIBackend(Backend):
     Cons  : Requires an active, visible desktop session (won't work headless).
     """
 
-    _supported = {Click, Drag, TypeText, Scroll, Hotkey, HoldAndPress, Wait, Open, SwitchApp}
+    _supported = {Click, Drag, TypeText, Scroll, Hotkey, HoldAndPress, Wait, Open, SwitchApp, Screenshot}
 
     # ¶ PyAutoGUI sometimes throws exceptions if mouse is moved to a corner.
     def __init__(self, default_move_duration: float = 0.0, platform: str | None = None):
@@ -62,6 +63,8 @@ class PyAutoGUIBackend(Backend):
             self._open_app(action)
         elif isinstance(action, SwitchApp):
             self._switch_app(action)
+        elif isinstance(action, Screenshot):
+            self._screenshot(action)
         elif isinstance(action, Wait):
             time.sleep(action.time)
         else:
@@ -177,3 +180,7 @@ class PyAutoGUIBackend(Backend):
                 os.startfile(target)                 # Python 3.9+
             except OSError:
                 subprocess.Popen(["start", "", target], shell=True)
+    
+    def _screenshot(self, act: HoldAndPress) -> None:
+        screenshot = self.pag.screenshot()
+        return screenshot

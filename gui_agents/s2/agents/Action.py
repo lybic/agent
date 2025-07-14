@@ -221,3 +221,7 @@ class Done(Action):
 @dataclass(slots=True)
 class Fail(Action):
     pass
+
+@dataclass(slots=True)
+class Screenshot(Action):
+    pass

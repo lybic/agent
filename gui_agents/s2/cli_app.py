@@ -12,6 +12,7 @@ import datetime
 from PIL import Image
 
 # from gui_agents.s2.agents.grounding import OSWorldACI
+from gui_agents.s2.agents.Action import Screenshot
 from gui_agents.s2.agents.agent_s import AgentS2
 
 from gui_agents.s2.store.registry import Registry
@@ -94,7 +95,9 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
     hwi = HardwareInterface(backend="pyautogui", platform=platform_os)
     for _ in range(15):
         # Get screen shot using pyautogui
-        screenshot = pyautogui.screenshot()
+        screenshot: Image.Image = hwi.dispatch(Screenshot())
+        # w, h = screenshot.size  
+        # screenshot = pyautogui.screenshot()
         screenshot = screenshot.resize((scaled_width, scaled_height), Image.LANCZOS)
         global_state.set_screenshot(screenshot)
         obs = global_state.get_obs_for_manager()

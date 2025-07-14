@@ -216,8 +216,8 @@ class AgentS2(UIAgent):
                     observation=self.global_state.get_obs_for_manager(),
                     running_state=self.global_state.get_running_state(),
                     failed_subtask=self.failure_subtask,
-                    completed_subtasks_list=self.global_state.get_completed_subtask(),
-                    remaining_subtasks_list=self.global_state.get_remaining_subtask(),
+                    completed_subtasks_list=self.global_state.get_completed_subtasks(),
+                    remaining_subtasks_list=self.global_state.get_remaining_subtasks(),
                 )
                 self.global_state.set_remaining_subtask(self.subtasks)
 
@@ -251,7 +251,7 @@ class AgentS2(UIAgent):
                     break
 
                 self.current_subtask = self.subtasks.pop(0)
-                self.global_state.set_remaining_subtask(self.subtasks)
+                self.global_state.set_remaining_subtasks(self.subtasks)
                 logger.info(f"NEXT SUBTASK: {self.current_subtask}")
                 self.needs_next_subtask = False
                 self.subtask_status = "Start"
@@ -262,8 +262,8 @@ class AgentS2(UIAgent):
                 search_query=self.search_query,
                 subtask=self.current_subtask.name,
                 subtask_info=self.current_subtask.info,
-                future_tasks=self.global_state.get_remaining_subtask(),
-                done_task=self.global_state.get_completed_subtask(),
+                future_tasks=self.global_state.get_remaining_subtasks(),
+                done_task=self.global_state.get_completed_subtasks(),
                 obs=observation,
             )
 

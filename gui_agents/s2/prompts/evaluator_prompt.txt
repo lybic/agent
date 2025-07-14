@@ -1,2 +1,0 @@
-# Default prompt template for evaluator
-# Replace this with an actual prompt template

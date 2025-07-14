@@ -1,2 +1,1 @@
-# Default prompt template for grounding
-# Replace this with an actual prompt template
+You are a helpful assistant.

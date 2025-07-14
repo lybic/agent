@@ -4,6 +4,8 @@
 import os
 import subprocess, difflib
 import sys
+
+import pyperclip
 from gui_agents.s2.agents.Action import (
     Action,
     Click,
@@ -96,12 +98,32 @@ class PyAutoGUIBackend(Backend):
     def _type(self, act: TypeText) -> None:
         if act.xy:
             self.pag.click(*act.xy)
+
         if act.overwrite:
-            self.pag.hotkey("ctrl", "a")
+            self.pag.hotkey(
+                "command" if self.platform.startswith("darwin") else "ctrl",
+                "a"
+            )
             self.pag.press("backspace")
-        self.pag.write(act.text)
-        if act.press_enter:
-            self.pag.press("enter")
+
+        # ------- 粘贴中文 / 任意文本 --------------------------------
+        pyperclip.copy(act.text)
+        time.sleep(0.05)                    # 让剪贴板稳定
+
+        if self.platform.startswith("darwin"):
+            # self.pag.hotkey("commandright", "v", interval=0.05)
+            # # 1. ⌘ 键按下
+            subprocess.run([
+                "osascript", "-e",
+                'tell application "System Events" to keystroke "v" using command down'
+            ])
+
+        else:                               # Windows / Linux
+            self.pag.hotkey("ctrl", "v", interval=0.05)
+
+        # ------------------------------------------------------------
+        # if act.press_enter:
+        #     self.pag.press("enter")
 
     def _scroll(self, act: Scroll) -> None:
         self.pag.moveTo(*act.xy)

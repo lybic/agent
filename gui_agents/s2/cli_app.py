@@ -283,9 +283,9 @@ def main():
             screenshot_dir=os.path.join(runtime_dir, "cache", "screens"),
             tu_path=os.path.join(runtime_dir, "state", "tu.json"),
             search_query_path=os.path.join(runtime_dir, "state", "search_query.json"),
-            completed_subtask_path=os.path.join(runtime_dir, "state", "completed_subtask.json"),
-            failed_subtask_path=os.path.join(runtime_dir, "state", "failed_subtask.json"),
-            remaining_subtask_path=os.path.join(runtime_dir, "state", "remaining_subtask.json"),
+            completed_subtasks_path=os.path.join(runtime_dir, "state", "completed_subtasks.json"),
+            failed_subtasks_path=os.path.join(runtime_dir, "state", "failed_subtasks.json"),
+            remaining_subtasks_path=os.path.join(runtime_dir, "state", "remaining_subtasks.json"),
             termination_flag_path=os.path.join(runtime_dir, "state", "termination_flag.json"),
             running_state_path=os.path.join(runtime_dir, "state", "running_state.json"),
         )

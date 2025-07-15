@@ -148,6 +148,7 @@ class AgentS2(UIAgent):
     def reset(self) -> None:
         """Reset agent state and initialize components"""
         # Initialize core components
+        
         self.manager = Manager(
             Tools_dict=self.Tools_dict,
             local_kb_path=self.local_kb_path,
@@ -234,8 +235,8 @@ class AgentS2(UIAgent):
                     self.requires_replan = True
                     self.needs_next_subtask = True
                     self.failure_subtask = None
-                    self.global_state.add_completed_subtask(self.current_subtask) # type: ignore
-
+                    if self.current_subtask is not None:
+                        self.global_state.add_completed_subtask(self.current_subtask)
                     # reset executor state
                     self.reset_executor_state()
                     self.should_send_action = True
@@ -245,7 +246,7 @@ class AgentS2(UIAgent):
                         "plan_code": "agent.done()",
                         "reflection": "agent.done()",
                     }
-                    actions = ["DONE"]
+                    actions = [{"type": "DONE"}]
                     break
 
                 self.current_subtask = self.subtasks.pop(0)
@@ -286,7 +287,7 @@ class AgentS2(UIAgent):
             self.should_send_action = True
 
             # replan on failure
-            if "FAIL" in actions:
+            if "fail" in actions[0]["type"].lower():
                 self.requires_replan = True
                 self.needs_next_subtask = True
 
@@ -302,7 +303,7 @@ class AgentS2(UIAgent):
                     self.should_send_action = False
 
             # replan on subtask completion
-            elif "DONE" in actions:
+            elif "done" in actions[0]["type"].lower():
                 self.requires_replan = True
                 self.needs_next_subtask = True
                 self.failure_subtask = None

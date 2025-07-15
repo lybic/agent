@@ -4,7 +4,7 @@
 import os
 import subprocess, difflib
 import sys
-
+import pyperclip
 from PIL import Image
 from numpy import imag
 from gui_agents.s2.agents.Action import (
@@ -108,9 +108,9 @@ class PyAutoGUIBackend(Backend):
             )
             self.pag.press("backspace")
 
-        # ------- 粘贴中文 / 任意文本 --------------------------------
+        # ------- Paste Chinese / any text --------------------------------
         pyperclip.copy(act.text)
-        time.sleep(0.05)                    # 让剪贴板稳定
+        time.sleep(0.05)  # let clipboard stabilize
 
         if self.platform.startswith("darwin"):
             # self.pag.hotkey("commandright", "v", interval=0.05)

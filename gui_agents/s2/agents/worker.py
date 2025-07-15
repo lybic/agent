@@ -105,15 +105,17 @@ class Worker:
         Tu: str,
         search_query: str,
         subtask: str,
-        subtask_info: Dict,
+        subtask_info: str,
         future_tasks: List[Node],
         done_task: List[Node],
         obs: Dict,
         running_state: str = "running",
-    ) -> Tuple[Dict, List]:
+    ) -> Dict:
         """
         Predict the next action(s) based on the current observation.
         """
+        import time
+        action_start = time.time()
         # Provide the top_app to the Grounding Agent to remove all other applications from the tree. At t=0, top_app is None
         # agent = self.grounding_agent
 
@@ -229,6 +231,8 @@ class Worker:
 
         # plan = call_llm_safe(self.generator_agent)
         plan = self.generator_agent.execute_tool("action_generator", {"str_input": generator_message, "img_input": obs["screenshot"]})
+        action_time = time.time() - action_start
+        logger.info(f"[Timing] Worker.generate_next_action execution time: {action_time:.2f} seconds")
         
         self.planner_history.append(plan)
         logger.info("Action Plan: %s", plan)

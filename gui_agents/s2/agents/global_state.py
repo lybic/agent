@@ -44,7 +44,10 @@ else:
 
 # ========= Node 编解码 =========
 def node_to_dict(node: Node):
-    return node.to_dict() if hasattr(node, "to_dict") else vars(node)
+    if hasattr(node, "to_dict"):
+        return node.to_dict() # type: ignore
+    else:
+        return vars(node)
 
 def node_from_dict(d: dict) -> Node:
     if hasattr(Node, "from_dict"):

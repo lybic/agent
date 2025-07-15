@@ -49,28 +49,6 @@ def calculate_tokens(messages, num_image_token=NUM_IMAGE_TOKEN) -> Tuple[int, in
 
 
 def parse_dag(text):
-    pattern = r"<json>(.*?)</json>"
-    match = re.search(pattern, text, re.DOTALL)
-    if match:
-        json_str = match.group(1)
-        try:
-            json_data = json.loads(json_str)
-            return Dag(**json_data["dag"])
-        except json.JSONDecodeError:
-            print("Error: Invalid JSON")
-            return None
-        except KeyError:
-            print("Error: 'dag' key not found in JSON")
-            return None
-        except ValidationError as e:
-            print(f"Error: Invalid data structure - {e}")
-            return None
-    else:
-        print("Error: JSON not found")
-        return None
-
-
-def parse_dag(text):
     """
     Try extracting JSON from <json>…</json> tags first;
     if not found, try ```json … ``` Markdown fences.

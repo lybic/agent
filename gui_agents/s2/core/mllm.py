@@ -327,7 +327,7 @@ class LLMAgent:
         return self.engine.generate(
             messages,
             temperature=temperature,
-            max_new_tokens=max_new_tokens,
+            max_new_tokens=max_new_tokens, # type: ignore
             **kwargs,
         )
 
@@ -439,29 +439,17 @@ class WebSearchAgent:
     def __init__(self, engine_params=None, engine=None):
         if engine is None:
             if engine_params is not None:
-                engine_type = engine_params.get("engine_type")
-                if engine_type == "bocha":
+                self.engine_type = engine_params.get("engine_type")
+                if self.engine_type == "bocha":
                     self.engine = BochaAISearchEngine(**engine_params)
-                elif engine_type == "exa":
+                elif self.engine_type == "exa":
                     self.engine = ExaResearchEngine(**engine_params)
                 else:
-                    raise ValueError(f"Web search engine type '{engine_type}' is not supported")
+                    raise ValueError(f"Web search engine type '{self.engine_type}' is not supported")
             else:
                 raise ValueError("engine_params must be provided")
         else:
             self.engine = engine
-
-    def search(self, query, **kwargs):
-        """Perform a web search with the given query
-        
-        Args:
-            query (str): The search query
-            **kwargs: Additional arguments to pass to the search engine
-            
-        Returns:
-            Dict or Any: Search results from the engine
-        """
-        return self.engine.search(query, **kwargs)
     
     def get_answer(self, query, **kwargs):
         """Get a direct answer for the query
@@ -479,64 +467,4 @@ class WebSearchAgent:
             # For Exa, we'll use the chat_research method which returns a complete answer
             return self.engine.chat_research(query, **kwargs)
         else:
-            # Generic fallback
-            results = self.search(query, **kwargs)
-            if isinstance(results, dict) and "messages" in results:
-                for message in results.get("messages", []):
-                    if message.get("type") == "answer":
-                        return message.get("content", "")
-            return str(results)
-    
-    def get_sources(self, query, **kwargs):
-        """Get source materials for the query
-        
-        Args:
-            query (str): The search query
-            **kwargs: Additional arguments to pass to the search engine
-            
-        Returns:
-            List: Source materials
-        """
-        if isinstance(self.engine, BochaAISearchEngine):
-            return self.engine.get_sources(query, **kwargs)
-        elif isinstance(self.engine, ExaResearchEngine):
-            # For Exa, we need to extract sources from the research results
-            results = self.search(query, **kwargs)
-            if isinstance(results, dict) and "sources" in results:
-                return results.get("sources", [])
-            return []
-        else:
-            # Generic fallback
-            results = self.search(query, **kwargs)
-            if isinstance(results, dict) and "sources" in results:
-                return results.get("sources", [])
-            return []
-    
-    def research(self, query, detailed=False, **kwargs):
-        """Perform comprehensive research on a topic
-        
-        Args:
-            query (str): The research query
-            detailed (bool): Whether to return detailed results
-            **kwargs: Additional arguments to pass to the search engine
-            
-        Returns:
-            Dict: Research results with answer and sources
-        """
-        if isinstance(self.engine, ExaResearchEngine):
-            if hasattr(self.engine, "research"):
-                return self.engine.research(instructions=query, **kwargs)
-            else:
-                return self.engine.chat_research(query, **kwargs)
-        else:
-            # For other engines, combine answer and sources
-            answer = self.get_answer(query, **kwargs)
-            sources = self.get_sources(query, **kwargs)
-            
-            if detailed:
-                return {
-                    "answer": answer,
-                    "sources": sources
-                }
-            else:
-                return answer
+            raise ValueError(f"Web search engine type '{self.engine_type}' is not supported")

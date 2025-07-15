@@ -5,7 +5,8 @@ import os
 import subprocess, difflib
 import sys
 
-import pyperclip
+from PIL import Image
+from numpy import imag
 from gui_agents.s2.agents.Action import (
     Action,
     Click,
@@ -66,7 +67,8 @@ class PyAutoGUIBackend(Backend):
         elif isinstance(action, SwitchApp):
             self._switch_app(action)
         elif isinstance(action, Screenshot):
-            self._screenshot(action)
+            screenshot = self._screenshot()
+            return screenshot # type: ignore
         elif isinstance(action, Wait):
             time.sleep(action.time)
         else:
@@ -81,7 +83,7 @@ class PyAutoGUIBackend(Backend):
             x=act.xy[0],
             y=act.xy[1],
             clicks=act.num_clicks,
-            button=act.button_type.lower(),
+            button=act.button_type.lower(), # type: ignore
             duration=self.default_move_duration,
         )
         for k in act.hold_keys or []:
@@ -203,6 +205,6 @@ class PyAutoGUIBackend(Backend):
             except OSError:
                 subprocess.Popen(["start", "", target], shell=True)
     
-    def _screenshot(self, act: HoldAndPress) -> None:
+    def _screenshot(self):
         screenshot = self.pag.screenshot()
         return screenshot

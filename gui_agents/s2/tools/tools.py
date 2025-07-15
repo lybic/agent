@@ -15,46 +15,55 @@ from typing import Dict, Any, Optional, List, Union
 from abc import ABC, abstractmethod
 import logging
 from gui_agents.s2.core.mllm import LLMAgent, WebSearchAgent, EmbeddingAgent
+import threading
 
 logger = logging.getLogger(__name__)
 
 class BaseTool(ABC):
     """Base class for all tools."""
-    
-    def __init__(self, provider: str, model_name: str, prompt_path: str):
+    _prompts_json = None
+    _prompts_json_lock = threading.Lock()
+
+    @classmethod
+    def _load_prompts_json(cls):
+        if cls._prompts_json is None:
+            with cls._prompts_json_lock:
+                if cls._prompts_json is None:
+                    prompts_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts", "prompts.json")
+                    try:
+                        with open(prompts_path, 'r', encoding='utf-8') as f:
+                            cls._prompts_json = json.load(f)
+                    except Exception as e:
+                        logger.error(f"Failed to load prompts.json: {e}")
+                        cls._prompts_json = {}
+
+    def __init__(self, provider: str, model_name: str, tool_name: str):
         """
         Initialize the base tool.
-        
         Args:
             provider: API provider name (e.g., "gemini", "openai")
             model_name: Model name to use (e.g., "gemini-2.5-pro")
-            prompt_path: Path to the prompt template file
+            tool_name: Name of the tool (used as key in prompts.json)
         """
         self.provider = provider
         self.model_name = model_name
-        self.prompt_path = prompt_path
-        self._prompt_template = self._load_prompt_template()
-        
+        self.tool_name = tool_name
+        self._load_prompts_json()
+        self._prompt_template = self._get_prompt_template()
         # Create LLMAgent instance for tool usage
         self.engine_params = {
             "engine_type": provider,
             "model": model_name
         }
         self.llm_agent = LLMAgent(engine_params=self.engine_params, system_prompt=self._prompt_template)
-        
-    def _load_prompt_template(self) -> str:
-        """
-        Load the prompt template from the specified path.
-        
-        Returns:
-            The prompt template as a string
-        """
-        try:
-            with open(self.prompt_path, 'r', encoding='utf-8') as f:
-                return f.read()
-        except FileNotFoundError:
-            logger.error(f"Prompt template file not found: {self.prompt_path}")
+
+    def _get_prompt_template(self) -> str:
+        if self.tool_name is None:
             return ""
+        prompts = self.__class__._prompts_json
+        if prompts is None:
+            return ""
+        return prompts.get(self.tool_name, "")
     
     def _call_lmm(self, input_data: Dict[str, Any], temperature: float = 0.0):
         """
@@ -129,59 +138,47 @@ class ToolFactory:
         Raises:
             ValueError: If the tool name is not recognized
         """
-        # Define the base directory for prompt templates
-        base_prompt_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
-        os.makedirs(base_prompt_dir, exist_ok=True)
-        
-        # Map tool names to their respective classes and prompt file names
         tool_map = {
             "websearch": (WebSearchTool, None),
-            "context_fusion": (ContextFusionTool, "context_fusion_prompt.txt"),
-            "subtask_planner": (SubtaskPlannerTool, "subtask_planner_prompt.txt"),
-            "traj_reflector": (TrajReflectorTool, "traj_reflector_prompt.txt"),
-            "memory_retrival": (MemoryRetrievalTool, "memory_retrieval_prompt.txt"),
-            "grounding": (GroundingTool, "grounding_prompt.txt"),
-            "evaluator": (EvaluatorTool, "evaluator_prompt.txt"),
-            "action_generator": (ActionGeneratorTool, "action_generator_prompt.txt"),
-            "dag_translator": (DAGTranslatorTool, "dag_translator_prompt.txt"),
+            "context_fusion": (ContextFusionTool, "context_fusion"),
+            "subtask_planner": (SubtaskPlannerTool, "subtask_planner"),
+            "traj_reflector": (TrajReflectorTool, "traj_reflector"),
+            "grounding": (GroundingTool, "grounding"),
+            "evaluator": (EvaluatorTool, "evaluator"),
+            "action_generator": (ActionGeneratorTool, "action_generator"),
+            "dag_translator": (DAGTranslatorTool, "dag_translator"),
             "embedding": (EmbeddingTool, None),
-            "query_formulator": (QueryFormulatorTool, "query_formulator_prompt.txt"),
-            "text_span": (TextSpanTool, "text_span_prompt.txt"),
-            "narrative_summarization": (NarrativeSummarizationTool, "narrative_summarization_prompt.txt"),
-            "episode_summarization": (EpisodeSummarizationTool, "episode_summarization_prompt.txt")
+            "query_formulator": (QueryFormulatorTool, "query_formulator"),
+            "text_span": (TextSpanTool, "text_span"),
+            "narrative_summarization": (NarrativeSummarizationTool, "narrative_summarization"),
+            "episode_summarization": (EpisodeSummarizationTool, "episode_summarization")
         }
         
         if tool_name not in tool_map:
             raise ValueError(f"Unknown tool name: {tool_name}")
         
-        tool_class, prompt_filename = tool_map[tool_name]
+        tool_class, prompt_key = tool_map[tool_name]
         
-        # WebSearchTool and EmbeddingTool don't need a prompt file
-        if tool_name in ["websearch", "embedding"]:
-            return tool_class(provider, model_name, "")
+        # WebSearchTool and EmbeddingTool don't need a prompt
+        if tool_name == "websearch":
+            return tool_class(provider, model_name, None)
+        if tool_name == "embedding":
+            return tool_class(provider, model_name, None)
         
-        prompt_path = os.path.join(base_prompt_dir, prompt_filename)
-        
-        # Create a placeholder prompt file if it doesn't exist
-        if not os.path.exists(prompt_path):
-            with open(prompt_path, 'w', encoding='utf-8') as f:
-                f.write(f"# Default prompt template for {tool_name}\n")
-                f.write("# Replace this with an actual prompt template\n")
-        
-        return tool_class(provider, model_name, prompt_path)
+        return tool_class(provider, model_name, prompt_key)
 
 
 class WebSearchTool(BaseTool):
     """Tool for performing web searches."""
     
-    def __init__(self, provider: str, model_name: str, prompt_path: str):
+    def __init__(self, provider: str, model_name: str, tool_name: str):
         """
         Initialize the web search tool.
         
         Args:
             provider: API provider name (e.g., "bocha", "exa")
             model_name: Model name to use (not used for WebSearchAgent)
-            prompt_path: Path to the prompt template file
+            tool_name: Name of the tool (used as key in prompts.json)
         """
         self.provider = provider
         
@@ -379,29 +376,6 @@ class TrajReflectorTool(BaseTool):
         # Use the prompt template and LMM for trajectory reflection
         return self._call_lmm(tool_input)
 
-
-class MemoryRetrievalTool(BaseTool):
-    """Tool for retrieving relevant memories."""
-    
-    def execute(self, tool_input: Dict[str, Any]):
-        """
-        Retrieve relevant memories based on a query.
-        
-        Args:
-            tool_input: Dictionary containing the query
-                        Expected to have 'str_input' key with the query
-        
-        Returns:
-            Retrieved memories as a string
-        """
-        query = tool_input.get('str_input', '')
-        if not query:
-            return "Error: No query provided"
-        
-        # Use the prompt template and LMM for memory retrieval
-        return self._call_lmm(tool_input)
-
-
 class GroundingTool(BaseTool):
     """Tool for grounding agent actions in the environment."""
     
@@ -493,17 +467,18 @@ class ActionGeneratorTool(BaseTool):
 class EmbeddingTool(BaseTool):
     """Tool for generating text embeddings."""
     
-    def __init__(self, provider: str, model_name: str, prompt_path: str):
+    def __init__(self, provider: str, model_name: str, tool_name: str):
         """
         Initialize the embedding tool.
         
         Args:
             provider: API provider name (e.g., "openai", "gemini")
             model_name: Model name to use
-            prompt_path: Path to the prompt template file (not used for this tool)
+            tool_name: Name of the tool (used as key in prompts.json)
         """
         self.provider = provider
         self.model_name = model_name
+        self.tool_name = tool_name
         
         # Create EmbeddingAgent instance
         self.engine_params = {

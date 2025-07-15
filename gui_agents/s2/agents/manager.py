@@ -143,9 +143,13 @@ class Manager:
             retrieved_experience = ""
             integrated_knowledge = ""
             # Retrieve most similar narrative (task) experience
+            narrative_start = time.time()
             most_similar_task, retrieved_experience = (
                 self.knowledge_base.retrieve_narrative_experience(instruction)
             )
+            narrative_time = time.time() - narrative_start
+            logger.info(f"[Timing] Manager.retrieve_narrative_experience execution time: {narrative_time:.2f} seconds")
+            
             logger.info(
                 "SIMILAR TASK EXPERIENCE: %s",
                 most_similar_task + "\n" + retrieved_experience.strip(),
@@ -157,15 +161,21 @@ class Manager:
                 print(f"instruction: {instruction}")
                 print(f"search_query: {self.search_query}")
                 print(f"search_engine: {self.search_engine}")
+                
+                knowledge_start = time.time()
                 retrieved_knowledge = self.knowledge_base.retrieve_knowledge(
                     instruction=instruction,
                     search_query=self.search_query,
                     search_engine=self.search_engine,
                 )
+                knowledge_time = time.time() - knowledge_start
+                logger.info(f"[Timing] Manager.retrieve_knowledge execution time: {knowledge_time:.2f} seconds")
+                
                 logger.info("RETRIEVED KNOWLEDGE: %s", retrieved_knowledge)
 
                 if retrieved_knowledge is not None:
                     # Fuse the retrieved knowledge and experience
+                    fusion_start = time.time()
                     integrated_knowledge = self.knowledge_base.knowledge_fusion(
                         observation=observation,
                         instruction=instruction,
@@ -173,6 +183,9 @@ class Manager:
                         similar_task=most_similar_task,
                         experience=retrieved_experience,
                     )
+                    fusion_time = time.time() - fusion_start
+                    logger.info(f"[Timing] Manager.knowledge_fusion execution time: {fusion_time:.2f} seconds")
+                    
                     logger.info("INTEGRATED KNOWLEDGE: %s", integrated_knowledge)
 
             integrated_knowledge = integrated_knowledge or retrieved_experience
@@ -217,7 +230,11 @@ class Manager:
         logger.info("GENERATING HIGH LEVEL PLAN")
 
         # plan = call_llm_safe(self.generator_agent)
+        subtask_planner_start = time.time()
         plan = self.generator_agent.execute_tool("subtask_planner", {"str_input": generator_message, "img_input": observation.get("screenshot", None)})
+        subtask_planner_time = time.time() - subtask_planner_start
+        logger.info(f"[Timing] Manager.subtask_planner execution time: {subtask_planner_time:.2f} seconds")
+        
         step_time = time.time() - step_start
         logger.info(f"[Timing] Manager._generate_step_by_step_plan execution time: {step_time:.2f} seconds")
 

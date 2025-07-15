@@ -130,9 +130,12 @@ class Worker:
                     + "\nSubtask Instruction: "
                     + subtask_info
                 )
+                retrieve_start = time.time()
                 retrieved_similar_subtask, retrieved_subtask_experience = (
                     self.knowledge_base.retrieve_episodic_experience(subtask_query_key)
                 )
+                retrieve_time = time.time() - retrieve_start
+                logger.info(f"[Timing] Worker.retrieve_episodic_experience execution time: {retrieve_time:.2f} seconds")
 
                 # Dirty fix to replace id with element description during subtask retrieval
                 pattern = r"\(\d+"
@@ -202,7 +205,10 @@ class Worker:
                 # self.reflection_agent.tools["traj_reflector"].llm_agent.add_message(text_content, image_content=obs["screenshot"], role="user")
                 # reflection = self.reflection_agent.tools["traj_reflector"].llm_agent.get_response()
 
+                reflection_start = time.time()
                 reflection = self.reflection_agent.execute_tool("traj_reflector", {"str_input": text_content, "img_input": obs["screenshot"]})
+                reflection_time = time.time() - reflection_start
+                logger.info(f"[Timing] Worker.traj_reflector execution time: {reflection_time:.2f} seconds")
                 self.reflections.append(reflection)
                 logger.info("REFLECTION: %s", reflection)
 
@@ -230,9 +236,12 @@ class Worker:
         # )
 
         # plan = call_llm_safe(self.generator_agent)
+        action_generator_start = time.time()
         plan = self.generator_agent.execute_tool("action_generator", {"str_input": generator_message, "img_input": obs["screenshot"]})
+        action_generator_time = time.time() - action_generator_start
+        logger.info(f"[Timing] Worker.action_generator execution time: {action_generator_time:.2f} seconds")
         action_time = time.time() - action_start
-        logger.info(f"[Timing] Worker.generate_next_action execution time: {action_time:.2f} seconds")
+        logger.info(f"[Timing] Worker.generate_next_action total execution time: {action_time:.2f} seconds")
         
         self.planner_history.append(plan)
         logger.info("Action Plan: %s", plan)

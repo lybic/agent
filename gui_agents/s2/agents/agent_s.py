@@ -201,6 +201,9 @@ class AgentS2(UIAgent):
         # If the DONE response by the executor is for a subtask, then the agent should continue with the next subtask without sending the action to the environment
         while not self.should_send_action:
             self.subtask_status = "In"
+            # Always time get_action_queue, even if not called
+            import time
+            manager_start = time.time()
             # If replan is true, generate a new plan. True at start, after a failed plan, or after subtask completion
             if self.requires_replan:
                 logger.info("(RE)PLANNING...")
@@ -219,6 +222,8 @@ class AgentS2(UIAgent):
                     self.search_query = Manager_info["search_query"]
                 else:
                     self.search_query = ""
+            get_action_queue_time = time.time() - manager_start
+            logger.info(f"[Timing] manager.get_action_queue execution time: {get_action_queue_time:.2f} seconds")
 
             # use the exectuor to complete the topmost subtask
             if self.needs_next_subtask:

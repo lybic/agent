@@ -10,6 +10,8 @@ from gui_agents.s2.utils.common_utils import (
     save_embeddings,
 )
 from gui_agents.s2.tools.tools import Tools
+from gui_agents.s2.agents.global_state import GlobalState
+from gui_agents.s2.store.registry import Registry
 
 class KnowledgeBase:
     def __init__(
@@ -91,22 +93,7 @@ class KnowledgeBase:
         if instruction in formulate_query:
             return formulate_query[instruction]
 
-        # self.query_formulator.reset()
-
-        # self.query_formulator.add_message(
-        #     f"The task is: {instruction}\n"
-        #     "To use google search to get some useful information, first carefully analyze "
-        #     "the screenshot of the current desktop UI state, then given the task "
-        #     "instruction, formulate a question that can be used to search on the Internet "
-        #     "for information in helping with the task execution.\n"
-        #     "The question should not be too general or too specific. Please ONLY provide "
-        #     "the question.\nQuestion:",
-        #     image_content=(
-        #         observation["screenshot"] if "screenshot" in observation else None
-        #     ),
-        #     role="user",
-        # )
-        # search_query = self.query_formulator.get_response().strip().replace('"', "")
+        self.query_formulator.tools["query_formulator"].llm_agent.reset()
 
         search_query = self.query_formulator.execute_tool("query_formulator", {
             "str_input": f"The task is: {instruction}\n" + 

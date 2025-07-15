@@ -124,8 +124,8 @@ class PyAutoGUIBackend(Backend):
             self.pag.hotkey("ctrl", "v", interval=0.05)
 
         # ------------------------------------------------------------
-        # if act.press_enter:
-        #     self.pag.press("enter")
+        if act.press_enter:
+            self.pag.press("enter")
 
     def _scroll(self, act: Scroll) -> None:
         self.pag.moveTo(*act.xy)

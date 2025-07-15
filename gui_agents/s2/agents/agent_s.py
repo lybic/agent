@@ -1,5 +1,6 @@
 import json
 import logging
+from math import log
 import os
 import platform
 from typing import Dict, List, Optional, Tuple
@@ -252,6 +253,8 @@ class AgentS2(UIAgent):
                 self.current_subtask = self.subtasks.pop(0)
                 self.global_state.set_remaining_subtasks(self.subtasks)
                 logger.info(f"NEXT SUBTASK: {self.current_subtask}")
+                logger.info(f"REMAINING SUBTASKS: {self.subtasks}")
+                logger.info(f"REMAINING SUBTASKS FROM GLOBAL STATE: {self.global_state.get_remaining_subtasks()}")
                 self.needs_next_subtask = False
                 self.subtask_status = "Start"
 

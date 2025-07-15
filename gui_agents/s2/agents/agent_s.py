@@ -153,14 +153,6 @@ class AgentS2(UIAgent):
     def reset(self) -> None:
         """Reset agent state and initialize components"""
         # Initialize core components
-        # self.planner = Manager(
-        #     engine_params=self.engine_params,
-        #     grounding_agent=self.grounding_agent,
-        #     local_kb_path=self.local_kb_path,
-        #     embedding_engine=self.embedding_engine,
-        #     search_engine=self.engine,
-        #     platform=self.platform,
-        # )
         
         self.manager = Manager(
             Tools_dict=self.Tools_dict,
@@ -218,22 +210,16 @@ class AgentS2(UIAgent):
             # If replan is true, generate a new plan. True at start, after a failed plan, or after subtask completion
             if self.requires_replan:
                 logger.info("(RE)PLANNING...")
-                # manager_info, self.subtasks = self.manager.get_action_queue(
-                #     instruction=instruction,
-                #     observation=observation,
-                #     failed_subtask=self.failure_subtask,
-                #     completed_subtasks_list=self.completed_tasks,
-                #     remaining_subtasks_list=self.subtasks,
-                # )
 
                 Manager_info, self.subtasks = self.manager.get_action_queue(
                     Tu=self.global_state.get_Tu(),
                     observation=self.global_state.get_obs_for_manager(),
                     running_state=self.global_state.get_running_state(),
-                    failed_subtask=self.global_state.get_failed_subtask(),
-                    completed_subtasks_list=self.global_state.get_completed_subtask(),
-                    remaining_subtasks_list=self.global_state.get_remaining_subtask(),
+                    failed_subtask=self.failure_subtask,
+                    completed_subtasks_list=self.global_state.get_completed_subtasks(),
+                    remaining_subtasks_list=self.global_state.get_remaining_subtasks(),
                 )
+                self.global_state.set_remaining_subtask(self.subtasks)
 
                 self.requires_replan = False
                 if "search_query" in Manager_info:
@@ -250,7 +236,7 @@ class AgentS2(UIAgent):
                     self.requires_replan = True
                     self.needs_next_subtask = True
                     self.failure_subtask = None
-                    self.completed_tasks.append(self.current_subtask)
+                    self.global_state.add_completed_subtask(self.current_subtask)
 
                     # reset executor state
                     self.reset_executor_state()
@@ -265,6 +251,7 @@ class AgentS2(UIAgent):
                     break
 
                 self.current_subtask = self.subtasks.pop(0)
+                self.global_state.set_remaining_subtasks(self.subtasks)
                 logger.info(f"NEXT SUBTASK: {self.current_subtask}")
                 self.needs_next_subtask = False
                 self.subtask_status = "Start"
@@ -275,8 +262,8 @@ class AgentS2(UIAgent):
                 search_query=self.search_query,
                 subtask=self.current_subtask.name,
                 subtask_info=self.current_subtask.info,
-                future_tasks=self.subtasks,
-                done_task=self.completed_tasks,
+                future_tasks=self.global_state.get_remaining_subtasks(),
+                done_task=self.global_state.get_completed_subtasks(),
                 obs=observation,
             )
 
@@ -306,7 +293,8 @@ class AgentS2(UIAgent):
                 self.needs_next_subtask = True
 
                 # assign the failed subtask
-                self.failure_subtask = self.current_subtask
+                self.global_state.add_failed_subtask(self.current_subtask)
+                self.failure_subtask = self.global_state.get_latest_failed_subtask()
 
                 # reset the step count, executor, and evaluator
                 self.reset_executor_state()
@@ -320,7 +308,7 @@ class AgentS2(UIAgent):
                 self.requires_replan = True
                 self.needs_next_subtask = True
                 self.failure_subtask = None
-                self.completed_tasks.append(self.current_subtask)
+                self.global_state.add_completed_subtask(self.current_subtask)
 
                 # reset the step count, executor, and evaluator
                 self.reset_executor_state()

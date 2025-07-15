@@ -40,7 +40,7 @@ hwi.dispatchDict({"type": "Click", "xy": [200, 300]})
 ```
 """
 
-from typing import List, Type, Dict, Set
+from typing import List, Type, Dict, Set, Union
 
 # Import your Action primitives
 from gui_agents.s2.agents.Action import (
@@ -106,5 +106,17 @@ class HardwareInterface:
         Args:
             actionDict: `Action` instance or list thereof.
         """
-        action = Action.from_dict(actionDict)
-        self.dispatch(action)
+        Convenience helper – accept JSON-style dict(s) instead of Action objects.
+
+        Parameters
+        ----------
+        payload : Dict | List[Dict]
+            - Dict:  single action, e.g. {"type": "Click", "xy": [100,200], ...}
+            - List:  sequence of actions in the above format
+        """
+        if isinstance(actionDict, list):
+            actions = [Action.from_dict(item) for item in actionDict]
+        else:
+            actions = Action.from_dict(actionDict)
+
+        self.dispatch(actions)

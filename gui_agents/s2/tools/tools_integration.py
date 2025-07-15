@@ -9,6 +9,7 @@ import os
 import json
 import logging
 from typing import Dict, Any, Optional, List, Union
+import numpy as np
 
 from gui_agents.s2.tools.tools import Tools
 
@@ -60,7 +61,7 @@ class ToolsIntegration:
         except Exception as e:
             logger.error(f"Failed to load tools from config: {e}")
     
-    def execute_tool(self, tool_name: str, str_input: Optional[str] = None, img_input: Optional[bytes] = None) -> str:
+    def execute_tool(self, tool_name: str, str_input: Optional[str] = None, img_input: Optional[bytes] = None):
         """
         Execute a tool with the given input.
         
@@ -198,7 +199,7 @@ class ToolsIntegration:
         """
         return self.execute_tool("dag_translator", str_input=dag_task, img_input=screenshot)
     
-    def embedding(self, text: str) -> List[float]:
+    def embedding(self, text: str) -> np.ndarray:
         """
         Generate embeddings for the given text.
         

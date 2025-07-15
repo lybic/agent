@@ -484,7 +484,7 @@ class LMMEngineZhipu(LMMEngine):
             temperature=temperature,
             **kwargs,
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.content # type: ignore
 
 
 class LMMEngineGroq(LMMEngine):
@@ -518,7 +518,7 @@ class LMMEngineGroq(LMMEngine):
             temperature=temperature,
             **kwargs,
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.content # type: ignore
 
 
 class LMMEngineSiliconflow(LMMEngine):
@@ -787,7 +787,7 @@ class GeminiEmbeddingEngine(LMMEngine):
             config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY"),
         )
 
-        return np.array([i.values for i in result.embeddings])
+        return np.array([i.values for i in result.embeddings]) # type: ignore
 
 
 class AzureOpenAIEmbeddingEngine(LMMEngine):
@@ -1014,7 +1014,7 @@ class SearchEngine:
 class BochaAISearchEngine(SearchEngine):
     def __init__(
             self,
-            api_key: str = None,
+            api_key: str|None = None,
             base_url: str = "https://api.bochaai.com/v1",
             rate_limit: int = -1,
             **kwargs
@@ -1093,7 +1093,7 @@ class BochaAISearchEngine(SearchEngine):
         )
 
         if response.status_code != 200:
-            raise APIError(f"Bocha AI Search API error: {response.text}")
+            raise APIError(f"Bocha AI Search API error: {response.text}") # type: ignore
 
         return response.json()
 
@@ -1107,7 +1107,7 @@ class BochaAISearchEngine(SearchEngine):
         )
 
         if response.status_code != 200:
-            raise APIError(f"Bocha AI Search API error: {response.text}")
+            raise APIError(f"Bocha AI Search API error: {response.text}") # type: ignore
 
         for line in response.iter_lines():
             if line:
@@ -1167,7 +1167,7 @@ class BochaAISearchEngine(SearchEngine):
 class ExaResearchEngine(SearchEngine):
     def __init__(
             self,
-            api_key: str = None,
+            api_key: str|None = None,
             base_url: str = "https://api.exa.ai",
             rate_limit: int = -1,
             **kwargs
@@ -1236,7 +1236,7 @@ class ExaResearchEngine(SearchEngine):
         if stream:
             completion = self.chat_client.chat.completions.create(
                 model=model,
-                messages=messages,
+                messages=messages, # type: ignore
                 stream=True,
                 **kwargs
             )
@@ -1244,10 +1244,10 @@ class ExaResearchEngine(SearchEngine):
         else:
             completion = self.chat_client.chat.completions.create(
                 model=model,
-                messages=messages,
+                messages=messages, # type: ignore
                 **kwargs
             )
-            return completion.choices[0].message.content
+            return completion.choices[0].message.content # type: ignore
 
     def create_research_task(
             self,
@@ -1272,13 +1272,13 @@ class ExaResearchEngine(SearchEngine):
         try:
             task_stub = self.exa_client.research.create_task(
                 instructions=instructions,
-                model=model,
+                model=model, # type: ignore
                 output_infer_schema=output_infer_schema,
                 **kwargs
             )
             return task_stub
         except Exception as e:
-            raise APIError(f"Exa Research API error: {str(e)}")
+            raise APIError(f"Exa Research API error: {str(e)}") # type: ignore
 
     def poll_research_task(self, task_id: str) -> Optional[Any]:
         """Poll a research task for completion
@@ -1296,7 +1296,7 @@ class ExaResearchEngine(SearchEngine):
             task = self.exa_client.research.poll_task(task_id)
             return task
         except Exception as e:
-            raise APIError(f"Exa Research API error: {str(e)}")
+            raise APIError(f"Exa Research API error: {str(e)}") # type: ignore
 
     def research(
             self,

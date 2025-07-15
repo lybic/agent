@@ -43,7 +43,7 @@ class ADBBackend(Backend):
                 "input", "swipe",
                 str(action.start[0]), str(action.start[1]),
                 str(action.end[0]), str(action.end[1]),
-                str(int(action.duration * 1000)),
+                str(int(action.duration * 1000)), # type: ignore
             ]
         elif isinstance(action, TypeText):
             text = action.text.replace(" ", "%s")  # escape spaces
@@ -56,7 +56,7 @@ class ADBBackend(Backend):
             key = action.keys[0].upper()
             cmd = prefix + ["input", "keyevent", key]
         elif isinstance(action, Wait):
-            time.sleep(action.seconds)
+            time.sleep(action.seconds) # type: ignore
             return
         else:
             raise NotImplementedError

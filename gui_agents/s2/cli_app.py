@@ -87,23 +87,29 @@ def scale_screen_dimensions(width: int, height: int, max_dim_size: int):
 
 
 def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
+    import time  # Ensure time is imported
     obs = {}
     traj = "Task:\n" + instruction
     subtask_traj = ""
-    global_state: GlobalState = Registry.get("GlobalStateStore")
+    global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
     global_state.set_Tu(instruction)
     hwi = HardwareInterface(backend="pyautogui", platform=platform_os)
+    
+    total_start_time = time.time()  # Record total start time
     for _ in range(15):
         # Get screen shot using pyautogui
-        screenshot: Image.Image = hwi.dispatch(Screenshot())
+        screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
         # w, h = screenshot.size  
         # screenshot = pyautogui.screenshot()
-        screenshot = screenshot.resize((scaled_width, scaled_height), Image.LANCZOS)
+        screenshot = screenshot.resize((scaled_width, scaled_height), Image.LANCZOS) # type: ignore
         global_state.set_screenshot(screenshot)
         obs = global_state.get_obs_for_manager()
 
-        # Get next action code from the agent
+        # Time predict step
+        step_start_time = time.time()
         info, code = agent.predict(instruction=instruction, observation=obs)
+        step_predict_time = time.time() - step_start_time
+        logger.info(f"[Step Timing] agent.predict execution time: {step_predict_time:.2f} seconds")
 
         if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower():
             if platform.system() == "Darwin":
@@ -129,9 +135,11 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
             time.sleep(1.0)
             logger.info(f"EXECUTING CODE: {code[0]}")
 
-            # Ask for permission before executing
-            # exec(code[0])
+            # Time dispatchDict step
+            step_dispatch_start = time.time()
             hwi.dispatchDict(code[0])
+            step_dispatch_time = time.time() - step_dispatch_start
+            logger.info(f"[Step Timing] hwi.dispatchDict execution time: {step_dispatch_time:.2f} seconds")
             logger.info(f"HARDWARE INTERFACE: Executed")
 
             time.sleep(1.0)
@@ -144,135 +152,18 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
                 + info["executor_plan"]
             )
             subtask_traj = agent.update_episodic_memory(info, subtask_traj)
+    total_end_time = time.time()
+    total_duration = total_end_time - total_start_time
+    logger.info(f"[Total Timing] Total execution time for this task: {total_duration:.2f} seconds")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run AgentS2 with specified model.")
-    parser.add_argument(
-        "--provider",
-        type=str,
-        default="anthropic",
-        help="Specify the provider to use (e.g., openai, anthropic, etc.)",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        default="claude-3-7-sonnet-20250219",
-        help="Specify the model to use (e.g., gpt-4o)",
-    )
-    parser.add_argument(
-        "--model_url",
-        type=str,
-        default="",
-        help="The URL of the main generation model API.",
-    )
-    parser.add_argument(
-        "--model_api_key",
-        type=str,
-        default="",
-        help="The API key of the main generation model.",
-    )
-
-    # Grounding model config option 1: API based
-    parser.add_argument(
-        "--grounding_model_provider",
-        type=str,
-        default="anthropic",
-        help="Specify the provider to use for the grounding model (e.g., openai, anthropic, etc.)",
-    )
-    parser.add_argument(
-        "--grounding_model",
-        type=str,
-        default="claude-3-7-sonnet-20250219",
-        help="Specify the grounding model to use (e.g., claude-3-5-sonnet-20241022)",
-    )
-    parser.add_argument(
-        "--grounding_model_resize_width",
-        type=int,
-        default=1366,
-        help="Width of screenshot image after processor rescaling",
-    )
-    parser.add_argument(
-        "--grounding_model_resize_height",
-        type=int,
-        default=None,
-        help="Height of screenshot image after processor rescaling",
-    )
-
-    # Grounding model config option 2: Self-hosted endpoint based
-    parser.add_argument(
-        "--endpoint_provider",
-        type=str,
-        default="",
-        help="Specify the endpoint provider for your grounding model, only HuggingFace TGI support for now",
-    )
-    parser.add_argument(
-        "--endpoint_url",
-        type=str,
-        default="",
-        help="Specify the endpoint URL for your grounding model",
-    )
-    parser.add_argument(
-        "--endpoint_api_key",
-        type=str,
-        default="",
-        help="The API key of the grounding model.",
-    )
-
-    parser.add_argument(
-        "--embedding_engine_type",
-        type=str,
-        default="openai",
-        help="Specify the embedding engine type (supports openai, gemini)",
-    )
-
-    args = parser.parse_args()
-    assert (
-        args.grounding_model_provider and args.grounding_model
-    ) or args.endpoint_url, "Error: No grounding model was provided. Either provide an API based model, or a self-hosted HuggingFace endpoint"
-
+    
     # Re-scales screenshot size to ensure it fits in UI-TARS context limit
     screen_width, screen_height = pyautogui.size()
     scaled_width, scaled_height = scale_screen_dimensions(
         screen_width, screen_height, max_dim_size=2400
     )
-    # Load the general engine params
-    engine_params = {
-        "engine_type": args.provider,
-        "model": args.model,
-        "base_url": args.model_url,
-        "api_key": args.model_api_key,
-    }
-
-    # # Load the grounding engine from a HuggingFace TGI endpoint
-    # if args.endpoint_url:
-    #     engine_params_for_grounding = {
-    #         "engine_type": args.endpoint_provider,
-    #         "base_url": args.endpoint_url,
-    #         "api_key": args.endpoint_api_key,
-    #     }
-    # else:
-    #     grounding_height = args.grounding_model_resize_height
-    #     # If not provided, use the aspect ratio of the screen to compute the height
-    #     if grounding_height is None:
-    #         grounding_height = (
-    #             screen_height * args.grounding_model_resize_width / screen_width
-    #         )
-
-    #     engine_params_for_grounding = {
-    #         "engine_type": args.grounding_model_provider,
-    #         "model": args.grounding_model,
-    #         "grounding_width": args.grounding_model_resize_width,
-    #         "grounding_height": grounding_height,
-    #     }
-
-    # grounding_agent = OSWorldACI(
-    #     platform=current_platform,
-    #     engine_params_for_generation=engine_params,
-    #     engine_params_for_grounding=engine_params_for_grounding,
-    #     width=screen_width,
-    #     height=screen_height,
-    # )
 
     now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     runtime_dir = f"runtime/{now_str}"
@@ -290,10 +181,8 @@ def main():
             running_state_path=os.path.join(runtime_dir, "state", "running_state.json"),
         )
     )
-
+    global current_platform
     agent = AgentS2(
-        engine_params,
-        # grounding_agent,
         platform=current_platform,
         action_space="pyautogui",
         observation_type="mixed",

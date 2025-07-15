@@ -213,7 +213,7 @@ class Grounding(ACI):
 
     # Calls pytesseract to generate word level bounding boxes for text grounding
     def get_ocr_elements(self, b64_image_data: str) -> Tuple[str, List]:
-        image = Image.open(BytesIO(b64_image_data))
+        image = Image.open(BytesIO(b64_image_data)) # type: ignore
         image_data = pytesseract.image_to_data(image, output_type=Output.DICT)
 
         # Clean text by removing leading and trailing spaces and non-alphabetical characters, but keeping punctuation
@@ -294,7 +294,7 @@ class Grounding(ACI):
         try:
             # Extract the function name and args
             action = parse_single_code_from_string(plan.split("Grounded Action")[-1])
-            function_name = re.match(r"(\w+\.\w+)\(", action).group(1)
+            function_name = re.match(r"(\w+\.\w+)\(", action).group(1) # type: ignore
             args = self.parse_function_args(action)
         except Exception as e:
             raise RuntimeError(f"Error in parsing grounded action: {e}") from e
@@ -325,7 +325,7 @@ class Grounding(ACI):
     # Given a generated ACI function, returns a list of argument values, where descriptions are at the front of the list
     def parse_function_args(self, function: str) -> List[str]:
         tree = ast.parse(function)
-        call_node = tree.body[0].value
+        call_node = tree.body[0].value # type: ignore
 
         def safe_eval(node):
             if isinstance(
@@ -364,7 +364,7 @@ class Grounding(ACI):
             button_type:str, which mouse button to press can be "left", "middle", or "right"
             hold_keys:List, list of keys to hold while clicking
         """
-        x, y = self.resize_coordinates(self.coords1)
+        x, y = self.resize_coordinates(self.coords1) # type: ignore
         
         actionDict = {
             "type": "Click",
@@ -466,8 +466,8 @@ class Grounding(ACI):
             ending_description:str, a very detailed description of where to end the drag action. This description should be at least a full sentence.
             hold_keys:List list of keys to hold while dragging
         """
-        x1, y1 = self.resize_coordinates(self.coords1)
-        x2, y2 = self.resize_coordinates(self.coords2)
+        x1, y1 = self.resize_coordinates(self.coords1) # type: ignore
+        x2, y2 = self.resize_coordinates(self.coords2) # type: ignore
 
         actionDict = {
             "type": "Drag",
@@ -487,8 +487,8 @@ class Grounding(ACI):
             ending_phrase:str, the phrase that denotes the end of the text span you want to highlight. If you only want to highlight one word, just pass in that single word.
         """
 
-        x1, y1 = self.coords1
-        x2, y2 = self.coords2
+        x1, y1 = self.coords1 # type: ignore
+        x2, y2 = self.coords2 # type: ignore
 
         actionDict = {
             "type": "HighlightTextSpan",
@@ -528,7 +528,7 @@ class Grounding(ACI):
             shift:bool, whether to use shift+scroll for horizontal scrolling
         """
 
-        x, y = self.resize_coordinates(self.coords1)
+        x, y = self.resize_coordinates(self.coords1) # type: ignore
 
         actionDict = {
             "type": "Scroll",

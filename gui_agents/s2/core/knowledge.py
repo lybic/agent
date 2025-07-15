@@ -64,7 +64,7 @@ class KnowledgeBase:
 
     def retrieve_knowledge(
         self, instruction: str, search_query: str, search_engine: Tools
-    ) -> Tuple[str, str]:
+    ) -> str:
         """Retrieve knowledge using search engine
         Args:
             instruction (str): task instruction
@@ -75,7 +75,7 @@ class KnowledgeBase:
         # search_results = self._search(instruction, search_query, search_engine)
         search_results = search_engine.execute_tool("websearch", {"str_input": instruction + " " + search_query})
 
-        return search_query, search_results
+        return search_results
 
     def formulate_query(self, instruction: str, observation: Dict) -> str:
         """Formulate search query based on instruction and current state"""
@@ -317,7 +317,7 @@ class KnowledgeBase:
             + meta_data["executor_plan"]
         )
 
-    def handle_subtask_trajectory(self, meta_data: Dict) -> None:
+    def handle_subtask_trajectory(self, meta_data: Dict):
         """Handle subtask trajectory updates based on subtask status.
 
         Args:

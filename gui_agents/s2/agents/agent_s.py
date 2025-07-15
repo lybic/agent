@@ -25,7 +25,6 @@ class UIAgent:
 
     def __init__(
         self,
-        engine_params: Dict,
         platform: str = platform.system().lower(),
         action_space: str = "pyautogui",
         observation_type: str = "a11y_tree",
@@ -39,7 +38,6 @@ class UIAgent:
             observation_type: Type of observations to use (a11y_tree, mixed)
             engine: Search engine to use (perplexica, LLM)
         """
-        self.engine_params = engine_params
         self.platform = platform
         self.action_space = action_space
         self.observation_type = observation_type
@@ -49,7 +47,7 @@ class UIAgent:
         """Reset agent state"""
         pass
 
-    def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:
+    def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]|None:
         """Generate next action prediction
 
         Args:
@@ -69,7 +67,7 @@ class UIAgent:
         """
         pass
 
-    def update_episodic_memory(self, meta_data: Dict, subtask_trajectory: str) -> str:
+    def update_episodic_memory(self, meta_data: Dict, subtask_trajectory: str) -> str|None:
         """Update episodic memory with subtask trajectory
 
         Args:
@@ -87,7 +85,6 @@ class AgentS2(UIAgent):
 
     def __init__(
         self,
-        engine_params: Dict,
         platform: str = platform.system().lower(),
         action_space: str = "pyautogui",
         observation_type: str = "mixed",
@@ -108,8 +105,6 @@ class AgentS2(UIAgent):
             kb_release_tag: Release tag for knowledge base. Defaults to "v0.2.2".
         """
         super().__init__(
-            engine_params,
-            # grounding_agent,
             platform,
             action_space,
             observation_type,
@@ -153,15 +148,6 @@ class AgentS2(UIAgent):
     def reset(self) -> None:
         """Reset agent state and initialize components"""
         # Initialize core components
-        # self.planner = Manager(
-        #     engine_params=self.engine_params,
-        #     grounding_agent=self.grounding_agent,
-        #     local_kb_path=self.local_kb_path,
-        #     embedding_engine=self.embedding_engine,
-        #     search_engine=self.engine,
-        #     platform=self.platform,
-        # )
-        
         self.manager = Manager(
             Tools_dict=self.Tools_dict,
             local_kb_path=self.local_kb_path,
@@ -193,11 +179,11 @@ class AgentS2(UIAgent):
         self.subtasks: List[Node] = []
         self.search_query: str = ""
         self.subtask_status: str = "Start"
-        self.global_state: GlobalState = Registry.get("GlobalStateStore")
+        self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
 
     def reset_executor_state(self) -> None:
         """Reset executor and step counter"""
-        self.executor.reset()
+        self.worker.reset()
         self.step_count = 0
 
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:
@@ -218,22 +204,15 @@ class AgentS2(UIAgent):
             # If replan is true, generate a new plan. True at start, after a failed plan, or after subtask completion
             if self.requires_replan:
                 logger.info("(RE)PLANNING...")
-                # manager_info, self.subtasks = self.manager.get_action_queue(
-                #     instruction=instruction,
-                #     observation=observation,
-                #     failed_subtask=self.failure_subtask,
-                #     completed_subtasks_list=self.completed_tasks,
-                #     remaining_subtasks_list=self.subtasks,
-                # )
-
                 Manager_info, self.subtasks = self.manager.get_action_queue(
                     Tu=self.global_state.get_Tu(),
                     observation=self.global_state.get_obs_for_manager(),
                     running_state=self.global_state.get_running_state(),
-                    failed_subtask=self.global_state.get_failed_subtask(),
-                    completed_subtasks_list=self.global_state.get_completed_subtask(),
-                    remaining_subtasks_list=self.global_state.get_remaining_subtask(),
+                    failed_subtask=self.failure_subtask,
+                    completed_subtasks_list=self.global_state.get_completed_subtasks(),
+                    remaining_subtasks_list=self.global_state.get_remaining_subtasks(),
                 )
+                self.global_state.set_remaining_subtasks(self.subtasks) # type: ignore
 
                 self.requires_replan = False
                 if "search_query" in Manager_info:
@@ -250,7 +229,7 @@ class AgentS2(UIAgent):
                     self.requires_replan = True
                     self.needs_next_subtask = True
                     self.failure_subtask = None
-                    self.completed_tasks.append(self.current_subtask)
+                    self.global_state.add_completed_subtask(self.current_subtask) # type: ignore
 
                     # reset executor state
                     self.reset_executor_state()
@@ -265,6 +244,7 @@ class AgentS2(UIAgent):
                     break
 
                 self.current_subtask = self.subtasks.pop(0)
+                self.global_state.set_remaining_subtasks(self.subtasks)
                 logger.info(f"NEXT SUBTASK: {self.current_subtask}")
                 self.needs_next_subtask = False
                 self.subtask_status = "Start"
@@ -273,10 +253,10 @@ class AgentS2(UIAgent):
             executor_info = self.worker.generate_next_action(
                 Tu=instruction,
                 search_query=self.search_query,
-                subtask=self.current_subtask.name,
-                subtask_info=self.current_subtask.info,
-                future_tasks=self.subtasks,
-                done_task=self.completed_tasks,
+                subtask=self.current_subtask.name, # type: ignore
+                subtask_info=self.current_subtask.info, # type: ignore
+                future_tasks=self.global_state.get_remaining_subtasks(),
+                done_task=self.global_state.get_completed_subtasks(),
                 obs=observation,
             )
 
@@ -285,13 +265,13 @@ class AgentS2(UIAgent):
                 plan_code = parse_single_code_from_string(executor_info["executor_plan"].split("Grounded Action")[-1])
                 plan_code = sanitize_code(plan_code)
                 plan_code = extract_first_agent_function(plan_code)
-                agent: Grounding = self.grounding
-                exec_code = eval(plan_code)
+                agent: Grounding = self.grounding # type: ignore
+                exec_code = eval(plan_code) # type: ignore
             except Exception as e:
                 logger.error("Error in parsing plan code: %s", e)
                 plan_code = "agent.wait(1.0)"
-                agent: Grounding = self.grounding
-                exec_code = eval(plan_code)
+                agent: Grounding = self.grounding # this agent will be used in next code
+                exec_code = eval(plan_code) # type: ignore
 
             actions = [exec_code]
 
@@ -306,7 +286,8 @@ class AgentS2(UIAgent):
                 self.needs_next_subtask = True
 
                 # assign the failed subtask
-                self.failure_subtask = self.current_subtask
+                self.global_state.add_failed_subtask(self.current_subtask) # type: ignore
+                self.failure_subtask = self.global_state.get_latest_failed_subtask()
 
                 # reset the step count, executor, and evaluator
                 self.reset_executor_state()
@@ -320,7 +301,7 @@ class AgentS2(UIAgent):
                 self.requires_replan = True
                 self.needs_next_subtask = True
                 self.failure_subtask = None
-                self.completed_tasks.append(self.current_subtask)
+                self.global_state.add_completed_subtask(self.current_subtask) # type: ignore
 
                 # reset the step count, executor, and evaluator
                 self.reset_executor_state()
@@ -345,8 +326,8 @@ class AgentS2(UIAgent):
         }
         info.update(
             {
-                "subtask": self.current_subtask.name,
-                "subtask_info": self.current_subtask.info,
+                "subtask": self.current_subtask.name, # type: ignore
+                "subtask_info": self.current_subtask.info, # type: ignore
                 "subtask_status": self.subtask_status,
             }
         )

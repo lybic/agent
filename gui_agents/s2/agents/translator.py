@@ -35,7 +35,7 @@ class _CommandBuilder(ast.NodeVisitor):
     def _handle_call(self, call: ast.Call):
         if not isinstance(call.func, ast.Attribute):
             raise TranslateError("不支持复杂表达式")
-        lib, fn = self._split_attr(call.func)
+        lib, fn = self._split_attr(call.func) # type: ignore
         if lib != "pyautogui":
             raise TranslateError("只允许 pyautogui 调用")
 
@@ -104,8 +104,11 @@ class _CommandBuilder(ast.NodeVisitor):
         parts = []
         while isinstance(attr, ast.Attribute):
             parts.insert(0, attr.attr)
-            attr = attr.value
-        parts.insert(0, attr.id)
+            attr = attr.value # type: ignore
+            if isinstance(attr, ast.Name):
+                parts.insert(0, attr.id)
+            else:
+                raise TranslateError("不支持复杂表达式")
         return parts[0], parts[1]
 
     def _literal(self, node):

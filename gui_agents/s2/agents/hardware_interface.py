@@ -45,6 +45,7 @@ from typing import List, Type, Dict, Set
 # Import your Action primitives
 from gui_agents.s2.agents.Action import (
     Action,
+    Screenshot,
 )
 
 __all__ = [
@@ -80,7 +81,7 @@ class HardwareInterface:
             self.backend = self.BACKEND_MAP[key](**backend_kwargs)
 
     # ------------------------------------------------------------------
-    def dispatch(self, actions: Action | List[Action]) -> None:
+    def dispatch(self, actions: Action | List[Action]):
         """Execute one or multiple actions *in order*.
 
         Args:
@@ -94,9 +95,12 @@ class HardwareInterface:
                 raise NotImplementedError(
                     f"{type(act).__name__} is not supported by backend {self.backend.__class__.__name__}"
                 )
-            self.backend.execute(act)
+            if str(act) == "Screenshot()" and len(actions)==1:
+                return self.backend.execute(act)
+            else:
+                self.backend.execute(act)
 
-    def dispatchDict(self, actionDict: Dict) -> None:
+    def dispatchDict(self, actionDict: Dict):
         """Execute one  actions *in order*.
 
         Args:

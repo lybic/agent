@@ -56,7 +56,7 @@ class BaseTool(ABC):
             logger.error(f"Prompt template file not found: {self.prompt_path}")
             return ""
     
-    def _call_lmm(self, input_data: Dict[str, Any], temperature: float = 0.0) -> str:
+    def _call_lmm(self, input_data: Dict[str, Any], temperature: float = 0.0):
         """
         Call the LMM model for inference using the prompt template with retry mechanism
         
@@ -224,7 +224,7 @@ class WebSearchTool(BaseTool):
 class ContextFusionTool(BaseTool):
     """Tool for fusing multiple contexts together."""
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Fuse multiple contexts together.
         
@@ -246,7 +246,7 @@ class ContextFusionTool(BaseTool):
 class SubtaskPlannerTool(BaseTool):
     """Tool for planning subtasks."""
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Plan subtasks for a given task.
         
@@ -269,7 +269,7 @@ class SubtaskPlannerTool(BaseTool):
 class NarrativeSummarizationTool(BaseTool):
     """Tool for summarizing narrative memories."""
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Summarize narrative memories.
         
@@ -292,7 +292,7 @@ class NarrativeSummarizationTool(BaseTool):
 class EpisodeSummarizationTool(BaseTool):
     """Tool for summarizing episodic memories."""
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Summarize episodic memories.
         
@@ -315,7 +315,7 @@ class EpisodeSummarizationTool(BaseTool):
 class TextSpanTool(BaseTool):
     """Tool for processing text spans."""
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Process text spans for a given input.
         
@@ -338,7 +338,7 @@ class TextSpanTool(BaseTool):
 class DAGTranslatorTool(BaseTool):
     """Tool for translating task descriptions into a DAG (Directed Acyclic Graph) structure."""
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Translate task descriptions into a DAG structure.
         
@@ -361,7 +361,7 @@ class DAGTranslatorTool(BaseTool):
 class TrajReflectorTool(BaseTool):
     """Tool for reflecting on execution trajectories."""
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Reflect on an execution trajectory.
         
@@ -383,7 +383,7 @@ class TrajReflectorTool(BaseTool):
 class MemoryRetrievalTool(BaseTool):
     """Tool for retrieving relevant memories."""
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Retrieve relevant memories based on a query.
         
@@ -405,7 +405,7 @@ class MemoryRetrievalTool(BaseTool):
 class GroundingTool(BaseTool):
     """Tool for grounding agent actions in the environment."""
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Ground agent actions in the environment.
         
@@ -433,12 +433,12 @@ class GroundingTool(BaseTool):
         Get grounding width and height based on provider and model name.
         
         Returns:
-            If provider is Doubao and model_name contains 'ui-tars', returns two values:
+            If provider is doubao and model_name contains 'ui-tars', returns two values:
             grounding_width (int): Width value (1024)
             grounding_height (int): Height value (768)
             Otherwise returns None, None
         """
-        if self.provider == "Doubao" and "ui-tars" in self.model_name:
+        if self.provider == "doubao" and "ui-tars" in self.model_name:
             grounding_width = 1000
             grounding_height = 1000
             return grounding_width, grounding_height
@@ -448,7 +448,7 @@ class GroundingTool(BaseTool):
 class EvaluatorTool(BaseTool):
     """Tool for evaluating agent performance."""
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Evaluate agent performance.
         
@@ -470,7 +470,7 @@ class EvaluatorTool(BaseTool):
 class ActionGeneratorTool(BaseTool):
     """Tool for generating executable actions."""
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Generate executable actions.
         
@@ -514,7 +514,7 @@ class EmbeddingTool(BaseTool):
         # Initialize EmbeddingAgent
         self.embedding_agent = EmbeddingAgent(engine_params=self.engine_params)
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Generate embeddings for the given text.
         
@@ -542,7 +542,7 @@ class EmbeddingTool(BaseTool):
 class QueryFormulatorTool(BaseTool):
     """Tool for formulating queries from tasks or contexts."""
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]):
         """
         Formulate a query for a given task or context.
         
@@ -568,7 +568,7 @@ class Tools:
         """Initialize the Tools class."""
         self.tools = {}
     
-    def register_tool(self, tool_name: str, provider: str, model_name: str) -> None:
+    def register_tool(self, tool_name: str, provider: str, model_name: str):
         """
         Register a tool with the specified parameters.
         
@@ -580,7 +580,7 @@ class Tools:
         tool: BaseTool = ToolFactory.create_tool(tool_name, provider, model_name)
         self.tools[tool_name] = tool
     
-    def execute_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> str:
+    def execute_tool(self, tool_name: str, tool_input: Dict[str, Any]):
         """
         Execute a tool with the given input.
         

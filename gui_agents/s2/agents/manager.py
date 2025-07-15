@@ -119,6 +119,8 @@ class Manager:
         remaining_subtasks_list: List[Node] = [],
     ) -> Tuple[Dict, str]:
 
+        import time
+        step_start = time.time()
         # Converts a list of DAG Nodes into a natural langauge list
         def format_subtask_list(subtasks: List[Node]) -> str:
             res = ""
@@ -215,8 +217,9 @@ class Manager:
         logger.info("GENERATING HIGH LEVEL PLAN")
 
         # plan = call_llm_safe(self.generator_agent)
-
         plan = self.generator_agent.execute_tool("subtask_planner", {"str_input": generator_message, "img_input": observation.get("screenshot", None)})
+        step_time = time.time() - step_start
+        logger.info(f"[Timing] Manager._generate_step_by_step_plan execution time: {step_time:.2f} seconds")
 
         if plan == "":
             raise Exception("Plan Generation Failed - Fix the Prompt")
@@ -244,6 +247,8 @@ class Manager:
         return planner_info, plan
 
     def _generate_dag(self, instruction: str, plan: str) -> Tuple[Dict, Dag]:
+        import time
+        dag_start = time.time()
         # For the re-planning case, remove the prior input since this should only translate the new plan
         # self.dag_translator_agent.reset()
 
@@ -259,6 +264,8 @@ class Manager:
         dag_raw = self.dag_translator_agent.execute_tool("dag_translator", {"str_input": f"Instruction: {instruction}\nPlan: {plan}"})
 
         dag = parse_dag(dag_raw)
+        dag_time = time.time() - dag_start
+        logger.info(f"[Timing] Manager._generate_dag execution time: {dag_time:.2f} seconds")
 
         logger.info("Generated DAG: %s", dag_raw)
 

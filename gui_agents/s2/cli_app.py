@@ -24,20 +24,20 @@ current_platform = platform.system().lower()
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-datetime_str: str = datetime.datetime.now().strftime("%Y%m%d@%H%M%S")
+datetime_str: str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-log_dir = "logs"
-os.makedirs(log_dir, exist_ok=True)
+log_dir = "runtime"
+os.makedirs(os.path.join(log_dir, datetime_str), exist_ok=True)
 
 file_handler = logging.FileHandler(
-    os.path.join("logs", "normal-{:}.log".format(datetime_str)), encoding="utf-8"
+    os.path.join(log_dir, datetime_str, "normal.log"), encoding="utf-8"
 )
 debug_handler = logging.FileHandler(
-    os.path.join("logs", "debug-{:}.log".format(datetime_str)), encoding="utf-8"
+    os.path.join(log_dir, datetime_str, "debug.log"), encoding="utf-8"
 )
 stdout_handler = logging.StreamHandler(sys.stdout)
 sdebug_handler = logging.FileHandler(
-    os.path.join("logs", "sdebug-{:}.log".format(datetime_str)), encoding="utf-8"
+    os.path.join(log_dir, datetime_str, "sdebug.log"), encoding="utf-8"
 )
 
 file_handler.setLevel(logging.INFO)
@@ -165,20 +165,17 @@ def main():
         screen_width, screen_height, max_dim_size=2400
     )
 
-    now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    runtime_dir = f"runtime/{now_str}"
-
     Registry.register(
         "GlobalStateStore",
         GlobalState(
-            screenshot_dir=os.path.join(runtime_dir, "cache", "screens"),
-            tu_path=os.path.join(runtime_dir, "state", "tu.json"),
-            search_query_path=os.path.join(runtime_dir, "state", "search_query.json"),
-            completed_subtasks_path=os.path.join(runtime_dir, "state", "completed_subtasks.json"),
-            failed_subtasks_path=os.path.join(runtime_dir, "state", "failed_subtasks.json"),
-            remaining_subtasks_path=os.path.join(runtime_dir, "state", "remaining_subtasks.json"),
-            termination_flag_path=os.path.join(runtime_dir, "state", "termination_flag.json"),
-            running_state_path=os.path.join(runtime_dir, "state", "running_state.json"),
+            screenshot_dir=os.path.join(log_dir, datetime_str, "cache", "screens"),
+            tu_path=os.path.join(log_dir, datetime_str, "state", "tu.json"),
+            search_query_path=os.path.join(log_dir, datetime_str, "state", "search_query.json"),
+            completed_subtasks_path=os.path.join(log_dir, datetime_str, "state", "completed_subtasks.json"),
+            failed_subtasks_path=os.path.join(log_dir, datetime_str, "state", "failed_subtasks.json"),
+            remaining_subtasks_path=os.path.join(log_dir, datetime_str, "state", "remaining_subtasks.json"),
+            termination_flag_path=os.path.join(log_dir, datetime_str, "state", "termination_flag.json"),
+            running_state_path=os.path.join(log_dir, datetime_str, "state", "running_state.json"),
         )
     )
     global current_platform

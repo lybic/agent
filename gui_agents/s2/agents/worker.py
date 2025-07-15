@@ -164,7 +164,7 @@ class Worker:
             #     .replace("FUTURE_TASKS", ", ".join([f.name for f in future_tasks]))
             #     .replace("DONE_TASKS", ",".join(d.name for d in done_task))
             # )
-            prefix_message = f"TASK_DESCRIPTION is {Tu}\n\nFUTURE_TASKS is {', '.join([f.name for f in future_tasks])}\n\nDONE_TASKS is {','.join(d.name for d in done_task)}"
+            prefix_message = f"SUBTASK_DESCRIPTION is {subtask}\n\nTASK_DESCRIPTION is {Tu}\n\nFUTURE_TASKS is {', '.join([f.name for f in future_tasks])}\n\nDONE_TASKS is {','.join(d.name for d in done_task)}"
 
         # Reflection generation does not add its own response, it only gets the trajectory
         reflection = None

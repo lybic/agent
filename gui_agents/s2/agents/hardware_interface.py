@@ -105,7 +105,7 @@ class HardwareInterface:
 
         Args:
             actionDict: `Action` instance or list thereof.
-        """
+        
         Convenience helper – accept JSON-style dict(s) instead of Action objects.
 
         Parameters

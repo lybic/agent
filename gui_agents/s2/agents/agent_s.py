@@ -246,7 +246,7 @@ class AgentS2(UIAgent):
                         "plan_code": "agent.done()",
                         "reflection": "agent.done()",
                     }
-                    actions = ["DONE"]
+                    actions = [{"type": "DONE"}]
                     break
 
                 self.current_subtask = self.subtasks.pop(0)
@@ -287,7 +287,7 @@ class AgentS2(UIAgent):
             self.should_send_action = True
 
             # replan on failure
-            if "FAIL" in actions:
+            if "fail" in actions[0]["type"].lower():
                 self.requires_replan = True
                 self.needs_next_subtask = True
 
@@ -303,7 +303,7 @@ class AgentS2(UIAgent):
                     self.should_send_action = False
 
             # replan on subtask completion
-            elif "DONE" in actions:
+            elif "done" in actions[0]["type"].lower():
                 self.requires_replan = True
                 self.needs_next_subtask = True
                 self.failure_subtask = None

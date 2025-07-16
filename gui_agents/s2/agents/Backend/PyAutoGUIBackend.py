@@ -130,13 +130,13 @@ class PyAutoGUIBackend(Backend):
     def _scroll(self, act: Scroll) -> None:
         self.pag.moveTo(*act.xy)
         if act.axis is ScrollAxis.VERTICAL:
-            self.pag.vscroll(act.clicks)
+            self.pag.vscroll(act.num_clicks)
         else:
-            self.pag.hscroll(act.clicks)
+            self.pag.hscroll(act.num_clicks)
 
     def _hotkey(self, act: Hotkey) -> None:
         # self.pag.hotkey(*act.keys)
-        self.pag.hotkey(*act.keys, interval=0.1)
+        self.pag.hotkey(*act.hold_keys, interval=0.1)
 
     def _hold_and_press(self, act: HoldAndPress) -> None:
         for k in act.hold_keys:

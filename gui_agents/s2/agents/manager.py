@@ -6,6 +6,8 @@ import platform
 
 from gui_agents.s2.agents.grounding import ACI
 from gui_agents.s2.core.knowledge import KnowledgeBase
+from gui_agents.s2.agents.global_state import GlobalState
+from gui_agents.s2.store.registry import Registry
 from gui_agents.s2.utils.common_utils import (
     Dag,
     Node,   
@@ -57,9 +59,6 @@ class Manager:
         self.episode_summarization_agent = Tools()
         self.episode_summarization_agent.register_tool("episode_summarization", self.Tools_dict["episode_summarization"]["provider"], self.Tools_dict["episode_summarization"]["model"])
 
-        # Stop at 2025.07.10 01:29
-        # TODO: how to plug in knowledge base?
-
         self.local_kb_path = local_kb_path
 
         self.embedding_engine = Tools()
@@ -79,6 +78,8 @@ class Manager:
             platform=platform,
             Tools_dict=KB_Tools_dict,
         )
+
+        self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
 
         self.planner_history = []
 
@@ -138,6 +139,7 @@ class Manager:
             self.search_query = self.knowledge_base.formulate_query(
                 instruction, observation
             )
+            self.global_state.set_search_query(self.search_query)
 
             most_similar_task = ""
             retrieved_experience = ""
@@ -157,11 +159,6 @@ class Manager:
 
             # Retrieve knowledge from the web if search_engine is provided
             if self.search_engine is not None:
-                print(f"=*"*20)
-                print(f"instruction: {instruction}")
-                print(f"search_query: {self.search_query}")
-                print(f"search_engine: {self.search_engine}")
-                
                 knowledge_start = time.time()
                 retrieved_knowledge = self.knowledge_base.retrieve_knowledge(
                     instruction=instruction,

@@ -1,0 +1,103 @@
+{
+    "llm_models": {
+      "openai": {
+        "gpt-4": {"input": "30.0$", "output": "60.0$"},
+        "gpt-4-turbo": {"input": "10.0$", "output": "30.0$"},
+        "gpt-3.5-turbo": {"input": "0.5$", "output": "1.5$"},
+        "gpt-3.5-turbo-instruct": {"input": "1.5$", "output": "2.0$"}
+      },
+      "anthropic": {
+        "claude-3-opus": {"input": "15.0$", "output": "75.0$"},
+        "claude-3-sonnet": {"input": "3.0$", "output": "15.0$"},
+        "claude-3-haiku": {"input": "0.25$", "output": "1.25$"},
+        "claude-3-5-sonnet": {"input": "3.0$", "output": "15.0$"},
+        "claude-3-5-haiku": {"input": "0.25$", "output": "1.25$"}
+      },
+      "qwen": {
+        "qwen-plus": {"input": "0.4￥", "output": "0.8￥"},
+        "qwen-turbo": {"input": "0.3￥", "output": "0.6￥"},
+        "qwen-max": {"input": "20.0￥", "output": "60.0￥"},
+        "qwen-long": {"input": "0.5￥", "output": "2.0￥"}
+      },
+      "doubao": {
+        "doubao-1-5-ui-tars-250428": {"input": "3.5￥", "output": "12￥"},
+        "doubao-pro-32k": {"input": "5.0￥", "output": "9.0￥"},
+        "doubao-lite-4k": {"input": "0.3￥", "output": "0.6￥"},
+        "doubao-lite-32k": {"input": "0.8￥", "output": "1.0￥"}
+      },
+      "deepseek": {
+        "deepseek-chat": {"input": "0.14￥", "output": "0.28￥"},
+        "deepseek-coder": {"input": "0.14￥", "output": "0.28￥"}
+      },
+      "zhipu": {
+        "glm-4": {"input": "0.1￥", "output": "0.1￥"},
+        "glm-4-air": {"input": "0.1￥", "output": "0.1￥"},
+        "glm-4-flash": {"input": "0.1￥", "output": "0.1￥"}
+      },
+      "groq": {
+        "llama-2-70b": {"input": "0.7$", "output": "0.8$"},
+        "mixtral-8x7b": {"input": "0.27$", "output": "0.27$"},
+        "gemma-7b": {"input": "0.1$", "output": "0.1$"}
+      },
+      "siliconflow": {
+        "qwen-7b": {"input": "0.35￥", "output": "0.35￥"},
+        "llama-3-8b": {"input": "0.35￥", "output": "0.35￥"},
+        "deepseek-coder-6.7b": {"input": "0.35￥", "output": "0.35￥"}
+      },
+      "monica": {
+        "claude-3-sonnet": {"input": "3.0$", "output": "15.0$"},
+        "gpt-4": {"input": "30.0$", "output": "60.0$"}
+      },
+      "gemini": {
+        "gemini-2.5-pro": {"input": "1.25$", "output": "10$"},
+        "gemini-2.5-flash": {"input": "0.3$", "output": "2.5$"}
+      },
+      "bedrock": {
+        "claude-3-sonnet": {"input": "3.0$", "output": "15.0$"},
+        "claude-3-haiku": {"input": "0.25$", "output": "1.25$"}
+      }
+    },
+    "embedding_models": {
+      "openai": {
+        "text-embedding-ada-002": {"input": "0.1$", "output": "0.0$"},
+        "text-embedding-3-small": {"input": "0.02$", "output": "0.0$"},
+        "text-embedding-3-large": {"input": "0.13$", "output": "0.0$"}
+      },
+      "qwen": {
+        "text-embedding-v1": {"input": "0.7￥", "output": "0.0￥"},
+        "text-embedding-v2": {"input": "0.7￥", "output": "0.0￥"},
+        "text-embedding-v3": {"input": "0.7￥", "output": "0.0￥"}
+      },
+      "doubao": {
+        "doubao-embedding-256": {"input": "0.0002￥", "output": "0.0￥"},
+        "doubao-embedding-1024": {"input": "0.0002￥", "output": "0.0￥"}
+      },
+      "azure": {
+        "text-embedding-ada-002": {"input": "0.1$", "output": "0.0$"},
+        "text-embedding-3-small": {"input": "0.02$", "output": "0.0$"},
+        "text-embedding-3-large": {"input": "0.13$", "output": "0.0$"}
+      },
+      "jina": {
+        "jina-embeddings-v2": {"input": "0.02$", "output": "0.0$"},
+        "jina-embeddings-v3": {"input": "0.02$", "output": "0.0$"}
+      },
+      "gemini": {
+        "text-embedding-004": {"input": "0.00001$", "output": "0.0$"},
+        "text-embedding-005": {"input": "0.00001$", "output": "0.0$"}
+      }
+    },
+    "search_models": {
+      "bocha": {
+        "ai-search": {"cost_type": "balance", "unit": "per_query"}
+      },
+      "exa": {
+        "search": {"cost_type": "direct", "unit": "per_query"},
+        "research": {"cost_type": "direct", "unit": "per_task"}
+      }
+    },
+    "default": {
+      "llm": {"input": "0.1$", "output": "0.1$"},
+      "embedding": {"input": "0.1$", "output": "0.0$"},
+      "search": {"cost_type": "unknown", "unit": "per_query"}
+    }
+  }

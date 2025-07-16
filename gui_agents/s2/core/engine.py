@@ -19,7 +19,85 @@ from zhipuai import ZhipuAI
 from groq import Groq
 import boto3
 import exa_py
+from typing import List, Dict, Any, Optional, Union, Tuple
 
+class ModelPricing:
+    def __init__(self, pricing_file: str = "model_pricing.json"):
+        self.pricing_file = pricing_file
+        self.pricing_data = self._load_pricing()
+    
+    def _load_pricing(self) -> Dict:
+        if os.path.exists(self.pricing_file):
+            try:
+                with open(self.pricing_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"Warning: Failed to load pricing file {self.pricing_file}: {e}")
+        
+        return {
+            "default": {"input": 0.1, "output": 0.1}
+        }
+    
+    def get_price(self, model: str) -> Dict[str, float]:
+        if model in self.pricing_data:
+            return self.pricing_data[model]
+        
+        for pricing_model in self.pricing_data:
+            if pricing_model in model or model in pricing_model:
+                return self.pricing_data[pricing_model]
+        
+        return self.pricing_data.get("default", {"input": 0.1, "output": 0.1})
+    
+    def calculate_cost(self, model: str, input_tokens: int, output_tokens: int) -> float:
+        pricing = self.get_price(model)
+        input_cost = (input_tokens / 1000000) * pricing["input"]
+        output_cost = (output_tokens / 1000000) * pricing["output"]
+        return input_cost + output_cost
+
+pricing_manager = ModelPricing()
+
+def extract_token_usage(response, provider: str) -> Tuple[int, int]:
+    if "-" in provider:
+        api_type, vendor = provider.split("-", 1)
+    else:
+        api_type, vendor = "llm", provider
+
+    if api_type == "llm":
+        if vendor in ["openai", "qwen", "deepseek", "doubao", "siliconflow", "monica", "vllm", "groq", "zhipu", "gemini", "openrouter", "azureopenai", "huggingface", "exa"]:
+            if hasattr(response, 'usage') and response.usage:
+                return response.usage.prompt_tokens, response.usage.completion_tokens
+        
+        elif vendor == "anthropic":
+            if hasattr(response, 'usage') and response.usage:
+                return response.usage.input_tokens, response.usage.output_tokens
+        
+        elif vendor == "bedrock":
+            if isinstance(response, dict) and "usage" in response:
+                usage = response["usage"]
+                return usage.get("input_tokens", 0), usage.get("output_tokens", 0)
+    
+    elif api_type == "embedding":
+        if vendor in ["openai", "azureopenai", "qwen", "doubao"]:
+            if hasattr(response, 'usage') and response.usage:
+                return response.usage.prompt_tokens, 0
+        
+        elif vendor == "jina":
+            if isinstance(response, dict) and "usage" in response:
+                total_tokens = response["usage"].get("total_tokens", 0)
+                return total_tokens, 0
+        
+        elif vendor == "gemini":
+            if hasattr(response, 'usage') and response.usage:
+                return response.usage.prompt_tokens, 0
+
+    return 0, 0
+
+def calculate_tokens_and_cost(response, provider: str, model: str) -> Tuple[List[int], float]:
+    input_tokens, output_tokens = extract_token_usage(response, provider)
+    total_tokens = input_tokens + output_tokens
+    cost = pricing_manager.calculate_cost(model, input_tokens, output_tokens)
+    
+    return [input_tokens, output_tokens, total_tokens], cost
 
 class LMMEngine:
     pass
@@ -32,6 +110,7 @@ class LMMEngineOpenAI(LMMEngine):
     ):
         assert model is not None, "model must be provided"
         self.model = model
+        self.provider = "llm-openai"
 
         api_key = api_key or os.getenv("OPENAI_API_KEY")
         if api_key is None:
@@ -54,17 +133,18 @@ class LMMEngineOpenAI(LMMEngine):
     )
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
-        return (
-            self.llm_client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=max_new_tokens if max_new_tokens else 4096,
-                temperature=temperature,
-                **kwargs,
-            )
-            .choices[0]
-            .message.content
+        response = self.llm_client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            temperature=temperature,
+            **kwargs,
         )
+        
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        return content, total_tokens, cost
 
 
 class LMMEngineQwen(LMMEngine):
@@ -74,6 +154,7 @@ class LMMEngineQwen(LMMEngine):
         assert model is not None, "model must be provided"
         self.model = model
         self.enable_thinking = enable_thinking
+        self.provider = "llm-qwen"
 
         api_key = api_key or os.getenv("DASHSCOPE_API_KEY")
         if api_key is None:
@@ -97,18 +178,19 @@ class LMMEngineQwen(LMMEngine):
         if self.model.startswith("qwen3") and not self.enable_thinking:
             extra_body["enable_thinking"] = False
 
-        return (
-            self.llm_client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=max_new_tokens if max_new_tokens else 4096,
-                temperature=temperature,
-                extra_body=extra_body if extra_body else None,
-                **kwargs,
-            )
-            .choices[0]
-            .message.content
+        response = self.llm_client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            temperature=temperature,
+            **extra_body,
+            **kwargs,
         )
+        
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        return content, total_tokens, cost
 
 
 class LMMEngineDoubao(LMMEngine):
@@ -117,6 +199,7 @@ class LMMEngineDoubao(LMMEngine):
     ):
         assert model is not None, "model must be provided"
         self.model = model
+        self.provider = "llm-doubao"
 
         api_key = api_key or os.getenv("ARK_API_KEY")
         if api_key is None:
@@ -135,17 +218,18 @@ class LMMEngineDoubao(LMMEngine):
     )
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
-        return (
-            self.llm_client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=max_new_tokens if max_new_tokens else 4096,
-                temperature=temperature,
-                **kwargs,
-            )
-            .choices[0]
-            .message.content
+        response = self.llm_client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            temperature=temperature,
+            **kwargs,
         )
+        
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        return content, total_tokens, cost
 
 
 class LMMEngineAnthropic(LMMEngine):
@@ -155,6 +239,7 @@ class LMMEngineAnthropic(LMMEngine):
         assert model is not None, "model must be provided"
         self.model = model
         self.thinking = thinking
+        self.provider = "llm-anthropic"
 
         api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if api_key is None:
@@ -172,7 +257,7 @@ class LMMEngineAnthropic(LMMEngine):
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
         if self.thinking:
-            full_response = self.llm_client.messages.create(
+            response = self.llm_client.messages.create(
                 system=messages[0]["content"][0]["text"],
                 model=self.model,
                 messages=messages[1:],
@@ -180,13 +265,11 @@ class LMMEngineAnthropic(LMMEngine):
                 thinking={"type": "enabled", "budget_tokens": 4096},
                 **kwargs,
             )
-
-            thoughts = full_response.content[0].thinking
+            thoughts = response.content[0].thinking
             print("CLAUDE 3.7 THOUGHTS:", thoughts)
-            return full_response.content[1].text
-
-        return (
-            self.llm_client.messages.create(
+            content = response.content[1].text
+        else:
+            response = self.llm_client.messages.create(
                 system=messages[0]["content"][0]["text"],
                 model=self.model,
                 messages=messages[1:],
@@ -194,9 +277,10 @@ class LMMEngineAnthropic(LMMEngine):
                 temperature=temperature,
                 **kwargs,
             )
-            .content[0]
-            .text
-        )
+            content = response.content[0].text
+        
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        return content, total_tokens, cost
 
 
 class LMMEngineGemini(LMMEngine):
@@ -205,6 +289,7 @@ class LMMEngineGemini(LMMEngine):
     ):
         assert model is not None, "model must be provided"
         self.model = model
+        self.provider = "llm-gemini"
 
         api_key = api_key or os.getenv("GEMINI_API_KEY")
         if api_key is None:
@@ -228,17 +313,19 @@ class LMMEngineGemini(LMMEngine):
     )
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
-        return (
-            self.llm_client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=max_new_tokens if max_new_tokens else 4096,
-                temperature=temperature,
-                **kwargs,
-            )
-            .choices[0]
-            .message.content
+        response = self.llm_client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            temperature=temperature,
+            **kwargs,
         )
+        
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        return content, total_tokens, cost
+
 
 
 class LMMEngineOpenRouter(LMMEngine):
@@ -247,6 +334,7 @@ class LMMEngineOpenRouter(LMMEngine):
     ):
         assert model is not None, "model must be provided"
         self.model = model
+        self.provider = "llm-openrouter"
 
         api_key = api_key or os.getenv("OPENROUTER_API_KEY")
         if api_key is None:
@@ -270,17 +358,18 @@ class LMMEngineOpenRouter(LMMEngine):
     )
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
-        return (
-            self.llm_client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=max_new_tokens if max_new_tokens else 4096,
-                temperature=temperature,
-                **kwargs,
-            )
-            .choices[0]
-            .message.content
+        response = self.llm_client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            temperature=temperature,
+            **kwargs,
         )
+        
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        return content, total_tokens, cost
 
 
 class LMMEngineAzureOpenAI(LMMEngine):
@@ -296,6 +385,7 @@ class LMMEngineAzureOpenAI(LMMEngine):
     ):
         assert model is not None, "model must be provided"
         self.model = model
+        self.provider = "llm-azureopenai"
 
         assert api_version is not None, "api_version must be provided"
         self.api_version = api_version
@@ -327,16 +417,16 @@ class LMMEngineAzureOpenAI(LMMEngine):
     # @backoff.on_exception(backoff.expo, (APIConnectionError, APIError, RateLimitError), max_tries=10)
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
-        completion = self.llm_client.chat.completions.create(
+        response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
             max_tokens=max_new_tokens if max_new_tokens else 4096,
             temperature=temperature,
             **kwargs,
         )
-        total_tokens = completion.usage.total_tokens
-        self.cost += 0.02 * ((total_tokens + 500) / 1000)
-        return completion.choices[0].message.content
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        return content, total_tokens, cost
 
 
 class LMMEnginevLLM(LMMEngine):
@@ -346,6 +436,7 @@ class LMMEnginevLLM(LMMEngine):
         assert model is not None, "model must be provided"
         self.model = model
         self.api_key = api_key
+        self.provider = "llm-vllm"
 
         self.base_url = base_url or os.getenv("vLLM_ENDPOINT_URL")
         if self.base_url is None:
@@ -369,7 +460,7 @@ class LMMEnginevLLM(LMMEngine):
         **kwargs
     ):
         """Generate the next message based on previous messages"""
-        completion = self.llm_client.chat.completions.create(
+        response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
             max_tokens=max_new_tokens if max_new_tokens else 4096,
@@ -377,13 +468,17 @@ class LMMEnginevLLM(LMMEngine):
             top_p=top_p,
             extra_body={"repetition_penalty": repetition_penalty},
         )
-        return completion.choices[0].message.content
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        return content, total_tokens, cost
 
 
 class LMMEngineHuggingFace(LMMEngine):
     def __init__(self, base_url=None, api_key=None, rate_limit=-1, **kwargs):
         assert base_url is not None, "HuggingFace endpoint must be provided"
         self.base_url = base_url
+        self.model = base_url.split('/')[-1] if base_url else "huggingface-tgi"
+        self.provider = "llm-huggingface"
 
         api_key = api_key or os.getenv("HF_TOKEN")
         if api_key is None:
@@ -401,20 +496,19 @@ class LMMEngineHuggingFace(LMMEngine):
     )
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
-        return (
-            self.llm_client.chat.completions.create(
-                model="tgi",
-                messages=messages,
-                max_tokens=max_new_tokens if max_new_tokens else 4096,
-                temperature=temperature,
-                **kwargs,
-            )
-            .choices[0]
-            .message.content
+        response = self.llm_client.chat.completions.create(
+            model="tgi",
+            messages=messages,
+            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            temperature=temperature,
+            **kwargs,
         )
+        
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        return content, total_tokens, cost
 
-
-# ==================== NEW ENGINE CLASSES ====================
 
 class LMMEngineDeepSeek(LMMEngine):
     def __init__(
@@ -422,6 +516,7 @@ class LMMEngineDeepSeek(LMMEngine):
     ):
         assert model is not None, "model must be provided"
         self.model = model
+        self.provider = "llm-deepseek"
 
         api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
         if api_key is None:
@@ -440,17 +535,17 @@ class LMMEngineDeepSeek(LMMEngine):
     )
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
-        return (
-            self.llm_client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=max_new_tokens if max_new_tokens else 4096,
-                temperature=temperature,
-                **kwargs,
-            )
-            .choices[0]
-            .message.content
+        response = self.llm_client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            temperature=temperature,
+            **kwargs,
         )
+        
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        return content, total_tokens, cost
 
 
 class LMMEngineZhipu(LMMEngine):
@@ -459,6 +554,7 @@ class LMMEngineZhipu(LMMEngine):
     ):
         assert model is not None, "model must be provided"
         self.model = model
+        self.provider = "llm-zhipu"
 
         api_key = api_key or os.getenv("ZHIPU_API_KEY")
         if api_key is None:
@@ -484,7 +580,11 @@ class LMMEngineZhipu(LMMEngine):
             temperature=temperature,
             **kwargs,
         )
-        return response.choices[0].message.content # type: ignore
+        
+        content = response.choices[0].message.content # type: ignore
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        return content, total_tokens, cost
+
 
 
 class LMMEngineGroq(LMMEngine):
@@ -493,6 +593,7 @@ class LMMEngineGroq(LMMEngine):
     ):
         assert model is not None, "model must be provided"
         self.model = model
+        self.provider = "llm-groq"
 
         api_key = api_key or os.getenv("GROQ_API_KEY")
         if api_key is None:
@@ -518,7 +619,10 @@ class LMMEngineGroq(LMMEngine):
             temperature=temperature,
             **kwargs,
         )
-        return response.choices[0].message.content # type: ignore
+        
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        return content, total_tokens, cost
 
 
 class LMMEngineSiliconflow(LMMEngine):
@@ -527,6 +631,7 @@ class LMMEngineSiliconflow(LMMEngine):
     ):
         assert model is not None, "model must be provided"
         self.model = model
+        self.provider = "llm-siliconflow"
 
         api_key = api_key or os.getenv("SILICONFLOW_API_KEY")
         if api_key is None:
@@ -545,17 +650,17 @@ class LMMEngineSiliconflow(LMMEngine):
     )
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
-        return (
-            self.llm_client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=max_new_tokens if max_new_tokens else 4096,
-                temperature=temperature,
-                **kwargs,
-            )
-            .choices[0]
-            .message.content
+        response = self.llm_client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            temperature=temperature,
+            **kwargs,
         )
+        
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        return content, total_tokens, cost
 
 
 class LMMEngineMonica(LMMEngine):
@@ -564,6 +669,7 @@ class LMMEngineMonica(LMMEngine):
     ):
         assert model is not None, "model must be provided"
         self.model = model
+        self.provider = "llm-monica"
 
         api_key = api_key or os.getenv("MONICA_API_KEY")
         if api_key is None:
@@ -582,17 +688,17 @@ class LMMEngineMonica(LMMEngine):
     )
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
-        return (
-            self.llm_client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=max_new_tokens if max_new_tokens else 4096,
-                temperature=temperature,
-                **kwargs,
-            )
-            .choices[0]
-            .message.content
+        response = self.llm_client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            temperature=temperature,
+            **kwargs,
         )
+        
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        return content, total_tokens, cost
 
 
 class LMMEngineAWSBedrock(LMMEngine):
@@ -607,6 +713,7 @@ class LMMEngineAWSBedrock(LMMEngine):
     ):
         assert model is not None, "model must be provided"
         self.model = model
+        self.provider = "llm-bedrock"
 
         # Claude model mapping for AWS Bedrock
         self.claude_model_map = {
@@ -700,11 +807,13 @@ class LMMEngineAWSBedrock(LMMEngine):
 
             response_body = json.loads(response.get("body").read())
 
-            # Extract the text response
             if "content" in response_body and response_body["content"]:
-                return response_body["content"][0]["text"]
+                content = response_body["content"][0]["text"]
             else:
                 raise ValueError("No content in response")
+            
+            total_tokens, cost = calculate_tokens_and_cost(response_body, self.provider, self.model)
+            return content, total_tokens, cost
 
         except Exception as e:
             print(f"AWS Bedrock error: {e}")
@@ -726,6 +835,7 @@ class OpenAIEmbeddingEngine(LMMEngine):
             api_key (_type_, optional): Auth key from OpenAI. Defaults to None.
         """
         self.model = embedding_model
+        self.provider = "embedding-openai"
 
         api_key = api_key or os.getenv("OPENAI_API_KEY")
         if api_key is None:
@@ -742,10 +852,15 @@ class OpenAIEmbeddingEngine(LMMEngine):
             APIConnectionError,
         ),
     )
-    def get_embeddings(self, text: str) -> np.ndarray:
+    def get_embeddings(self, text: str) -> Tuple[np.ndarray, List[int], float]:
         client = OpenAI(api_key=self.api_key)
         response = client.embeddings.create(model=self.model, input=text)
-        return np.array([data.embedding for data in response.data])
+        
+        embeddings = np.array([data.embedding for data in response.data])
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        return embeddings, total_tokens, cost
+
 
 
 class GeminiEmbeddingEngine(LMMEngine):
@@ -762,6 +877,7 @@ class GeminiEmbeddingEngine(LMMEngine):
             api_key (_type_, optional): Auth key from Gemini. Defaults to None.
         """
         self.model = embedding_model
+        self.provider = "embedding-gemini"
 
         api_key = api_key or os.getenv("GEMINI_API_KEY")
         if api_key is None:
@@ -778,7 +894,7 @@ class GeminiEmbeddingEngine(LMMEngine):
             APIConnectionError,
         ),
     )
-    def get_embeddings(self, text: str) -> np.ndarray:
+    def get_embeddings(self, text: str) -> Tuple[np.ndarray, List[int], float]:
         client = genai.Client(api_key=self.api_key)
 
         result = client.models.embed_content(
@@ -787,7 +903,11 @@ class GeminiEmbeddingEngine(LMMEngine):
             config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY"),
         )
 
-        return np.array([i.values for i in result.embeddings]) # type: ignore
+        embeddings = np.array([i.values for i in result.embeddings]) # type: ignore
+        total_tokens, cost = calculate_tokens_and_cost(result, self.provider, self.model)
+        
+        return embeddings, total_tokens, cost
+
 
 
 class AzureOpenAIEmbeddingEngine(LMMEngine):
@@ -808,6 +928,7 @@ class AzureOpenAIEmbeddingEngine(LMMEngine):
             endpoint_url (_type_, optional): Endpoint URL. Defaults to None.
         """
         self.model = embedding_model
+        self.provider = "embedding-azureopenai"
 
         api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
         if api_key is None:
@@ -838,14 +959,19 @@ class AzureOpenAIEmbeddingEngine(LMMEngine):
             APIConnectionError,
         ),
     )
-    def get_embeddings(self, text: str) -> np.ndarray:
+    def get_embeddings(self, text: str) -> Tuple[np.ndarray, List[int], float]:
         client = AzureOpenAI(
             api_key=self.api_key,
             api_version=self.api_version,
             azure_endpoint=self.endpoint_url,
         )
         response = client.embeddings.create(input=text, model=self.model)
-        return np.array([data.embedding for data in response.data])
+        
+        embeddings = np.array([data.embedding for data in response.data])
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        return embeddings, total_tokens, cost
+
 
 class DashScopeEmbeddingEngine(LMMEngine):
     def __init__(
@@ -864,6 +990,7 @@ class DashScopeEmbeddingEngine(LMMEngine):
         """
         self.model = embedding_model
         self.dimensions = dimensions
+        self.provider = "embedding-qwen"
 
         api_key = api_key or os.getenv("DASHSCOPE_API_KEY")
         if api_key is None:
@@ -886,14 +1013,19 @@ class DashScopeEmbeddingEngine(LMMEngine):
                 APIConnectionError,
         ),
     )
-    def get_embeddings(self, text: str) -> np.ndarray:
+    def get_embeddings(self, text: str) -> Tuple[np.ndarray, List[int], float]:
         response = self.client.embeddings.create(
             model=self.model,
             input=text,
             dimensions=self.dimensions,
             encoding_format="float"
         )
-        return np.array([data.embedding for data in response.data])
+        
+        embeddings = np.array([data.embedding for data in response.data])
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        return embeddings, total_tokens, cost
+
 
 
 class DoubaoEmbeddingEngine(LMMEngine):
@@ -910,6 +1042,7 @@ class DoubaoEmbeddingEngine(LMMEngine):
             api_key (_type_, optional): Auth key from Doubao. Defaults to None.
         """
         self.model = embedding_model
+        self.provider = "embedding-doubao"
 
         api_key = api_key or os.getenv("ARK_API_KEY")
         if api_key is None:
@@ -933,13 +1066,17 @@ class DoubaoEmbeddingEngine(LMMEngine):
                 APIConnectionError,
         ),
     )
-    def get_embeddings(self, text: str) -> np.ndarray:
+    def get_embeddings(self, text: str) -> Tuple[np.ndarray, List[int], float]:
         response = self.client.embeddings.create(
             model=self.model,
             input=text,
             encoding_format="float"
         )
-        return np.array([data.embedding for data in response.data])
+        
+        embeddings = np.array([data.embedding for data in response.data])
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        return embeddings, total_tokens, cost
 
 
 class JinaEmbeddingEngine(LMMEngine):
@@ -959,6 +1096,7 @@ class JinaEmbeddingEngine(LMMEngine):
         """
         self.model = embedding_model
         self.task = task
+        self.provider = "embedding-jina" 
 
         api_key = api_key or os.getenv("JINA_API_KEY")
         if api_key is None:
@@ -976,7 +1114,7 @@ class JinaEmbeddingEngine(LMMEngine):
                 APIConnectionError,
         ),
     )
-    def get_embeddings(self, text: str) -> np.ndarray:
+    def get_embeddings(self, text: str) -> Tuple[np.ndarray, List[int], float]:
         import requests
 
         headers = {
@@ -1004,7 +1142,12 @@ class JinaEmbeddingEngine(LMMEngine):
             raise Exception(f"Jina AI API error: {response.text}")
 
         result = response.json()
-        return np.array([data["embedding"] for data in result["data"]])
+        embeddings = np.array([data["embedding"] for data in result["data"]])
+        
+        total_tokens, cost = calculate_tokens_and_cost(result, self.provider, self.model)
+    
+        return embeddings, total_tokens, cost
+
 
 # ==================== webSearch ====================
 class SearchEngine:
@@ -1080,9 +1223,17 @@ class BochaAISearchEngine(SearchEngine):
         }
 
         if stream:
-            return self._stream_search(headers, payload)
+            result = self._stream_search(headers, payload)
+            return result, [0, 0, 0], 0.0
         else:
-            return self._regular_search(headers, payload)
+            result = self._regular_search(headers, payload)
+            
+            remaining_balance = 0.0
+            if isinstance(result, dict) and "data" in result:
+                remaining_balance = result["data"].get("remaining", 0.0)
+            
+            return result, [0, 0, 0], -remaining_balance
+
 
     def _regular_search(self, headers: Dict[str, str], payload: Dict[str, Any]) -> Dict[str, Any]:
         """Regular non-streaming search"""
@@ -1120,25 +1271,28 @@ class BochaAISearchEngine(SearchEngine):
                         except json.JSONDecodeError:
                             continue
 
-    def get_answer(self, query: str, **kwargs) -> str:
+    def get_answer(self, query: str, **kwargs) -> Tuple[str, int, float]:
         """Get AI generated answer only"""
-        result = self.search(query, answer=True, **kwargs)
+        result, _, remaining_balance = self.search(query, answer=True, **kwargs)
 
         # Extract answer from messages
-        messages = result.get("messages", [])
+        messages = result.get("messages", []) # type: ignore
+        answer = ""
         for message in messages:
             if message.get("type") == "answer":
-                return message.get("content", "")
+                answer = message.get("content", "")
+                break
 
-        return ""
+        return answer, 0, remaining_balance # type: ignore
+
 
     def get_sources(self, query: str, **kwargs) -> List[Dict[str, Any]]:
         """Get source materials only"""
-        result = self.search(query, **kwargs)
+        result, _, remaining_balance = self.search(query, **kwargs)
 
         # Extract sources from messages
         sources = []
-        messages = result.get("messages", [])
+        messages = result.get("messages", []) # type: ignore
         for message in messages:
             if message.get("type") == "source":
                 content_type = message.get("content_type", "")
@@ -1148,20 +1302,21 @@ class BochaAISearchEngine(SearchEngine):
                         "content": json.loads(message.get("content", "{}"))
                     })
 
-        return sources
+        return sources, 0, remaining_balance # type: ignore
+
 
     def get_follow_up_questions(self, query: str, **kwargs) -> List[str]:
         """Get follow-up questions"""
-        result = self.search(query, **kwargs)
+        result, _, remaining_balance = self.search(query, **kwargs)
 
         # Extract follow-up questions from messages
         follow_ups = []
-        messages = result.get("messages", [])
+        messages = result.get("messages", []) # type: ignore
         for message in messages:
             if message.get("type") == "follow_up":
                 follow_ups.append(message.get("content", ""))
 
-        return follow_ups
+        return follow_ups, 0, remaining_balance # type: ignore
 
 
 class ExaResearchEngine(SearchEngine):
@@ -1212,6 +1367,43 @@ class ExaResearchEngine(SearchEngine):
         ),
         max_time=60
     )
+    def search(self, query: str, **kwargs):
+        """Standard Exa search with direct cost from API
+
+        Args:
+            query (str): Search query
+            **kwargs: Additional search parameters
+
+        Returns:
+            tuple: (result, tokens, cost) where cost is actual API cost
+        """
+        headers = {
+            'x-api-key': self.api_key,
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            "query": query,
+            **kwargs
+        }
+        
+        response = requests.post(
+            f"{self.base_url}/search",
+            headers=headers,
+            json=payload
+        )
+        
+        if response.status_code != 200:
+            raise APIError(f"Exa Search API error: {response.text}") # type: ignore
+        
+        result = response.json()
+        
+        cost = 0.0
+        if "costDollars" in result:
+            cost = result["costDollars"].get("total", 0.0)
+        
+        return result, [0, 0, 0], cost
+    
     def chat_research(
             self,
             query: str,

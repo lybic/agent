@@ -139,7 +139,7 @@ def main():
 
 if __name__ == "__main__":
     """
-    python gui_agents/s2/utils/log_timing_parser.py logs/normal-20250715@164749.log
+    python gui_agents/s2/utils/log_timing_parser.py runtime/20250716_164754/normal.log
     """
     main()
 

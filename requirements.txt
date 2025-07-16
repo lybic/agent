@@ -18,6 +18,7 @@ pyautogui
 toml
 exa_py # If you encounter an error, you need to install exa_py manually through https://pypi.org/project/exa-py/#files
 black
+certifi
 pytesseract
 google-genai
 python-dotenv

@@ -341,7 +341,7 @@ class AgentS2(UIAgent):
             }
         )
 
-        return info, actions
+        return info, actions # type: ignore
 
     def update_narrative_memory(self, trajectory: str) -> None:
         """Update narrative memory from task trajectory

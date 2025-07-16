@@ -203,7 +203,8 @@ class Grounding(ACI):
 
         # Configure the context, UI-TARS demo does not use system prompt
         prompt = f"Query:{ref_expr}\nOutput only the coordinate of one point in your response.\n"
-        response = self.grounding_model.execute_tool("grounding", {"str_input": prompt, "img_input": obs["screenshot"]})
+        response, total_tokens, cost_string = self.grounding_model.execute_tool("grounding", {"str_input": prompt, "img_input": obs["screenshot"]})
+        logger.info(f"Grounding model tokens: {total_tokens}, cost: {cost_string}")
 
         logger.info(f"RAW GROUNDING MODEL RESPONSE: {response}")
         # Generate and parse coordinates
@@ -263,8 +264,9 @@ class Grounding(ACI):
 
         self.text_span_agent.tools["text_span"].llm_agent.reset()
         # Obtain the target element
-        response = self.text_span_agent.execute_tool("text_span", {"str_input": alignment_prompt + "Phrase: " + phrase + "\n" + ocr_table, "img_input": obs["screenshot"]})
-        print("TEXT SPAN AGENT RESPONSE:", response)
+        response, total_tokens, cost_string = self.text_span_agent.execute_tool("text_span", {"str_input": alignment_prompt + "Phrase: " + phrase + "\n" + ocr_table, "img_input": obs["screenshot"]})
+        logger.info(f"Text span agent tokens: {total_tokens}, cost: {cost_string}")
+        # print("TEXT SPAN AGENT RESPONSE:", response)
         numericals = re.findall(r"\d+", response)
         if len(numericals) > 0:
             text_id = int(numericals[-1])

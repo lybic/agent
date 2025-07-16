@@ -11,7 +11,7 @@ import json
 import base64
 import requests
 import time
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List, Union, Tuple
 from abc import ABC, abstractmethod
 import logging
 from gui_agents.s2.core.mllm import LLMAgent, WebSearchAgent, EmbeddingAgent
@@ -88,11 +88,11 @@ class BaseTool(ABC):
         # Implement safe retry mechanism
         max_retries = 3
         attempt = 0
-        response = ""
+        content, total_tokens, cost_string = "", [0, 0, 0], ""
         
         while attempt < max_retries:
             try:
-                response = self.llm_agent.get_response(temperature=temperature)
+                content, total_tokens, cost_string = self.llm_agent.get_response(temperature=temperature)
                 break  # If successful, break out of the loop
             except Exception as e:
                 attempt += 1
@@ -101,11 +101,10 @@ class BaseTool(ABC):
                     logger.error("Max retries reached. Returning error message.")
                     return f"Error: LLM call failed after {max_retries} attempts: {str(e)}"
                 time.sleep(1.0)
-                
-        return response
+        return content, total_tokens, cost_string
     
     @abstractmethod
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]) -> Tuple[str, List[int], str]:
         """
         Execute the tool with the given input.
         
@@ -191,7 +190,7 @@ class WebSearchTool(BaseTool):
         # Initialize WebSearchAgent
         self.search_agent = WebSearchAgent(engine_params=self.engine_params)
     
-    def execute(self, tool_input: Dict[str, Any]) -> str:
+    def execute(self, tool_input: Dict[str, Any]) -> Tuple[str, List[int], str]:
         """
         Execute a web search with the given query.
         
@@ -204,18 +203,18 @@ class WebSearchTool(BaseTool):
         """
         query = tool_input.get('str_input', '')
         if not query:
-            return "Error: No search query provided"
+            return "Error: No search query provided", [0, 0, 0], ""
         
         try:
             # Get the answer from the search results
-            answer = self.search_agent.get_answer(query)
+            answer, total_tokens, cost = self.search_agent.get_answer(query)
             
             # Return just the answer
-            return answer
+            return answer, total_tokens, cost # type: ignore
         
         except Exception as e:
             logger.error(f"Error during web search: {str(e)}")
-            return f"Error: Web search failed: {str(e)}"
+            return f"Error: Web search failed: {str(e)}", [0, 0, 0], ""
 
 
 class ContextFusionTool(BaseTool):
@@ -503,16 +502,16 @@ class EmbeddingTool(BaseTool):
         text = tool_input.get('str_input', '')
         
         if not text:
-            return "Error: No text provided for embedding"
+            return "Error: No text provided for embedding", [0, 0, 0], ""
         
         try:
             # Get embeddings for the text
-            embeddings = self.embedding_agent.get_embeddings(text)
-            return embeddings
+            embeddings, total_tokens, cost_string = self.embedding_agent.get_embeddings(text)
+            return embeddings, total_tokens, cost_string
                 
         except Exception as e:
             logger.error(f"Error during embedding operation: {str(e)}")
-            return f"Error: Embedding operation failed: {str(e)}"
+            return f"Error: Embedding operation failed: {str(e)}", [0, 0, 0], ""
 
 class QueryFormulatorTool(BaseTool):
     """Tool for formulating queries from tasks or contexts."""

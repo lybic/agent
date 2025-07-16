@@ -97,7 +97,8 @@ class Manager:
         """
 
         # Create Reflection on whole trajectories for next round trial, keep earlier messages as exemplars
-        subtask_summarization = self.episode_summarization_agent.execute_tool("episode_summarization", {"str_input": trajectory})
+        subtask_summarization, total_tokens, cost_string = self.episode_summarization_agent.execute_tool("episode_summarization", {"str_input": trajectory})
+        logger.info(f"Episode summarization tokens: {total_tokens}, cost: {cost_string}")
 
         return subtask_summarization
 
@@ -107,7 +108,8 @@ class Manager:
             trajectory: str: The narrative experience to be summarized
         """
         # Create Reflection on whole trajectories for next round trial
-        lifelong_learning_reflection = self.narrative_summarization_agent.execute_tool("narrative_summarization", {"str_input": trajectory})
+        lifelong_learning_reflection, total_tokens, cost_string = self.narrative_summarization_agent.execute_tool("narrative_summarization", {"str_input": trajectory})
+        logger.info(f"Narrative summarization tokens: {total_tokens}, cost: {cost_string}")
 
         return lifelong_learning_reflection
     
@@ -136,9 +138,10 @@ class Manager:
         # Perform Retrieval only at the first planning step
         if self.turn_count == 0:
 
-            self.search_query = self.knowledge_base.formulate_query(
+            self.search_query, total_tokens, cost_string = self.knowledge_base.formulate_query(
                 instruction, observation
             )
+            logger.info(f"Formulate query tokens: {total_tokens}, cost: {cost_string}")
             self.global_state.set_search_query(self.search_query)
 
             most_similar_task = ""
@@ -146,9 +149,10 @@ class Manager:
             integrated_knowledge = ""
             # Retrieve most similar narrative (task) experience
             narrative_start = time.time()
-            most_similar_task, retrieved_experience = (
+            most_similar_task, retrieved_experience, total_tokens, cost_string = (
                 self.knowledge_base.retrieve_narrative_experience(instruction)
             )
+            logger.info(f"Retrieve narrative experience tokens: {total_tokens}, cost: {cost_string}")
             narrative_time = time.time() - narrative_start
             logger.info(f"[Timing] Manager.retrieve_narrative_experience execution time: {narrative_time:.2f} seconds")
             
@@ -160,11 +164,12 @@ class Manager:
             # Retrieve knowledge from the web if search_engine is provided
             if self.search_engine is not None:
                 knowledge_start = time.time()
-                retrieved_knowledge = self.knowledge_base.retrieve_knowledge(
+                retrieved_knowledge, total_tokens, cost_string = self.knowledge_base.retrieve_knowledge(
                     instruction=instruction,
                     search_query=self.search_query,
                     search_engine=self.search_engine,
                 )
+                logger.info(f"Retrieve knowledge tokens: {total_tokens}, cost: {cost_string}")
                 knowledge_time = time.time() - knowledge_start
                 logger.info(f"[Timing] Manager.retrieve_knowledge execution time: {knowledge_time:.2f} seconds")
                 
@@ -173,13 +178,14 @@ class Manager:
                 if retrieved_knowledge is not None:
                     # Fuse the retrieved knowledge and experience
                     fusion_start = time.time()
-                    integrated_knowledge = self.knowledge_base.knowledge_fusion(
+                    integrated_knowledge, total_tokens, cost_string = self.knowledge_base.knowledge_fusion(
                         observation=observation,
                         instruction=instruction,
                         web_knowledge=retrieved_knowledge,
                         similar_task=most_similar_task,
                         experience=retrieved_experience,
                     )
+                    logger.info(f"Knowledge fusion tokens: {total_tokens}, cost: {cost_string}")
                     fusion_time = time.time() - fusion_start
                     logger.info(f"[Timing] Manager.knowledge_fusion execution time: {fusion_time:.2f} seconds")
                     
@@ -228,7 +234,8 @@ class Manager:
 
         # plan = call_llm_safe(self.generator_agent)
         subtask_planner_start = time.time()
-        plan = self.generator_agent.execute_tool("subtask_planner", {"str_input": generator_message, "img_input": observation.get("screenshot", None)})
+        plan, total_tokens, cost_string = self.generator_agent.execute_tool("subtask_planner", {"str_input": generator_message, "img_input": observation.get("screenshot", None)})
+        logger.info(f"Subtask planner tokens: {total_tokens}, cost: {cost_string}")
         subtask_planner_time = time.time() - subtask_planner_start
         logger.info(f"[Timing] Manager.subtask_planner execution time: {subtask_planner_time:.2f} seconds")
         
@@ -275,7 +282,8 @@ class Manager:
 
         # Generate DAG
         # dag_raw = call_llm_safe(self.dag_translator_agent)
-        dag_raw = self.dag_translator_agent.execute_tool("dag_translator", {"str_input": f"Instruction: {instruction}\nPlan: {plan}"})
+        dag_raw, total_tokens, cost_string = self.dag_translator_agent.execute_tool("dag_translator", {"str_input": f"Instruction: {instruction}\nPlan: {plan}"})
+        logger.info(f"DAG translator tokens: {total_tokens}, cost: {cost_string}")
 
         dag = parse_dag(dag_raw)
         dag_time = time.time() - dag_start

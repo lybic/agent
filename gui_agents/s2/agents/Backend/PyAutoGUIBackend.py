@@ -70,7 +70,7 @@ class PyAutoGUIBackend(Backend):
             screenshot = self._screenshot()
             return screenshot # type: ignore
         elif isinstance(action, Wait):
-            time.sleep(action.time)
+            time.sleep(action.seconds)
         else:
             # This shouldn't happen due to supports() check, but be safe.
             raise NotImplementedError(f"Unhandled action: {action}")
@@ -124,19 +124,20 @@ class PyAutoGUIBackend(Backend):
             self.pag.hotkey("ctrl", "v", interval=0.05)
 
         # ------------------------------------------------------------
-        if act.press_enter:
+        if act.enter:
             self.pag.press("enter")
 
     def _scroll(self, act: Scroll) -> None:
         self.pag.moveTo(*act.xy)
-        if act.axis is ScrollAxis.VERTICAL:
-            self.pag.vscroll(act.num_clicks)
+        if not act.vertical:
+            self.pag.hscroll(act.clicks)
         else:
-            self.pag.hscroll(act.num_clicks)
+            self.pag.vscroll(act.clicks)
 
     def _hotkey(self, act: Hotkey) -> None:
         # self.pag.hotkey(*act.keys)
-        self.pag.hotkey(*act.hold_keys, interval=0.1)
+        print(act.keys)
+        self.pag.hotkey(*act.keys, interval=0.1)
 
     def _hold_and_press(self, act: HoldAndPress) -> None:
         for k in act.hold_keys:
@@ -152,7 +153,7 @@ class PyAutoGUIBackend(Backend):
         if self.platform.startswith("darwin"):          # macOS
             self.pag.hotkey("command", "space")
             time.sleep(0.5)
-            self.pag.typewrite(code)
+            self.pag.typewrite(code) # TODO: 兼容中文
             self.pag.press("enter")
             time.sleep(1.0)
 

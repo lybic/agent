@@ -176,7 +176,7 @@ class Grounding(ACI):
         self.height = height
 
         # Maintain state for save_to_knowledge
-        self.notes = []
+        self.notes = [] # TODO: 需要修改为保存到本地global_state中
 
         # Coordinates used during ACI execution
         self.coords1 = None
@@ -431,7 +431,7 @@ class Grounding(ACI):
                 "text": text,
                 "xy": [x, y],
                 "overwrite": overwrite,
-                "press_enter": enter
+                "enter": enter
             }
         else:
             actionDict = {
@@ -440,7 +440,7 @@ class Grounding(ACI):
                 "text": text,
                 "xy": None,
                 "overwrite": overwrite,
-                "press_enter": enter
+                "enter": enter
             }
 
         return actionDict
@@ -481,6 +481,7 @@ class Grounding(ACI):
         }
         return actionDict
 
+    # TODO: 开始/终止词有多个的时候，如何处理？
     @agent_action
     def highlight_text_span(self, starting_phrase: str, ending_phrase: str):
         """Highlight a text span between a provided starting phrase and ending phrase. Use this to highlight words, lines, and paragraphs.
@@ -502,32 +503,32 @@ class Grounding(ACI):
         return actionDict
 
 
-    @agent_action
-    def set_cell_values(
-        self, cell_values: Dict[str, Any], app_name: str, sheet_name: str
-    ):
-        """Use this to set individual cell values in a spreadsheet. For example, setting A2 to "hello" would be done by passing {"A2": "hello"} as cell_values. The sheet must be opened before this command can be used.
-        Args:
-            cell_values: Dict[str, Any], A dictionary of cell values to set in the spreadsheet. The keys are the cell coordinates in the format "A1", "B2", etc.
-                Supported value types include: float, int, string, bool, formulas.
-            app_name: str, The name of the spreadsheet application. For example, "Some_sheet.xlsx".
-            sheet_name: str, The name of the sheet in the spreadsheet. For example, "Sheet1".
-        """
-        actionDict = {
-            "type": "SetCellValues",
-            "cell_values": cell_values,
-            "app_name": app_name,
-            "sheet_name": sheet_name
-        }
-        return actionDict
+    # @agent_action
+    # def set_cell_values(
+    #     self, cell_values: Dict[str, Any], app_name: str, sheet_name: str
+    # ):
+    #     """Use this to set individual cell values in a spreadsheet. For example, setting A2 to "hello" would be done by passing {"A2": "hello"} as cell_values. The sheet must be opened before this command can be used.
+    #     Args:
+    #         cell_values: Dict[str, Any], A dictionary of cell values to set in the spreadsheet. The keys are the cell coordinates in the format "A1", "B2", etc.
+    #             Supported value types include: float, int, string, bool, formulas.
+    #         app_name: str, The name of the spreadsheet application. For example, "Some_sheet.xlsx".
+    #         sheet_name: str, The name of the sheet in the spreadsheet. For example, "Sheet1".
+    #     """
+    #     actionDict = {
+    #         "type": "SetCellValues",
+    #         "cell_values": cell_values,
+    #         "app_name": app_name,
+    #         "sheet_name": sheet_name
+    #     }
+    #     return actionDict
 
     @agent_action
-    def scroll(self, element_description: str, clicks: int, shift: bool = False):
+    def scroll(self, element_description: str, clicks: int, vertical: bool = True):
         """Scroll the element in the specified direction
         Args:
             element_description:str, a very detailed description of which element to enter scroll in. This description should be at least a full sentence.
             clicks:int, the number of clicks to scroll can be positive (up) or negative (down).
-            shift:bool, whether to use shift+scroll for horizontal scrolling
+            vertical:bool, whether to vertical scrolling
         """
 
         x, y = self.resize_coordinates(self.coords1) # type: ignore
@@ -536,8 +537,8 @@ class Grounding(ACI):
             "type": "Scroll",
             "xy": [x, y],
             "element_description": element_description,
-            "num_clicks": clicks,
-            "shift": shift
+            "clicks": clicks,
+            "vertical": vertical
         }
         return actionDict
     
@@ -548,10 +549,10 @@ class Grounding(ACI):
             keys:List the keys to press in combination in a list format (e.g. ['ctrl', 'c'])
         """
         # add quotes around the keys
-        keys = [f"'{key}'" for key in keys]
+        keys = [f"{key}" for key in keys]
         actionDict = {
             "type": "Hotkey",
-            "hold_keys": keys
+            "keys": keys
         }
         return actionDict
 
@@ -571,14 +572,14 @@ class Grounding(ACI):
         return actionDict
 
     @agent_action
-    def wait(self, time: float):
-        """Wait for a specified amount of time
+    def wait(self, seconds: float):
+        """Wait for a specified amount of time in seconds
         Args:
-            time:float the amount of time to wait in seconds
+            seconds:float the amount of time to wait in seconds
         """
         actionDict = {
             "type": "Wait",
-            "seconds": time
+            "seconds": seconds
         }
         return actionDict
 
@@ -588,6 +589,7 @@ class Grounding(ACI):
         return_value: Optional[Union[Dict, str, List, Tuple, int, float, bool]] = None,
     ):
         """End the current task with a success and the required return value"""
+        # TODO: 后续看是否需要使用
         self.returned_info = return_value
         actionDict = {
             "type": "Done",

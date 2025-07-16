@@ -1,2 +1,3 @@
 {
+  "Task:\nmacOS keyboard shortcut to open Safari\n\nSubtask: Open Spotlight Search\nSubtask Instruction: Press Command and Space keys to open Spotlight Search.": "Action: Press the Command and Space keys to open Spotlight Search.\nGrounded Action: agent.hotkey(['command', 'space'])"
 }

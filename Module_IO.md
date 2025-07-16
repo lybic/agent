@@ -181,31 +181,117 @@
 |-----|-----|-----|
 | grounding_output | Dict | 与具体硬件环境无关的指令输出，字典形式|
 - 示例1：
-  {'type': 'click', 'coordinate': [10, 20]}
+  {'type': 'Click', 'xy': [10, 20]}
 
 ## action schema
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
-| type | String | 必须项。动作，文本形式，包含“Click”、“SwitchApp”、“Open”、“TypeText”、“SaveToKnowledge”、“Drag”、“HighlightTextSpan”、“SetCellValues”、“Scroll”、“Hotkey”、“HoldAndPress”、“Wait”、“Fail”、“Done” |
+| type | String | 必须项。动作，文本形式，包含“Click”、“SwitchApp”、“Open”、“TypeText”、“Drag”、“Scroll”、“Hotkey”、“HoldAndPress”、“Wait”、“Fail”、“Done” |
 | xy | List[int] | 坐标，列表形式，包含x和y两个元素 |
-| element_description | String | 元素描述，文本形式，python字符串 |
 | num_clicks | int | 点击次数，整数形式 |
+| clicks | int | 滚动的点击次数，可以是正数（向上）或负数（向下），整数形式 |
 | button_type | String | 按钮类型，文本形式，包含“left”、“middle”、“right” |
-| hold_keys | List[str] | 按键列表，列表形式，包含按键名称 |
-| app_code | String | 应用代码，文本形式，python字符串 |
+| hold_keys | List[str] | 在操作中需要按住的按键，列表形式，包含按键名称 |
+| press_keys | List[str] | 在操作中需要依次按下的按键，列表形式，包含按键名称 |
+| keys | List[str] | 组合键，列表形式，包含按键名称 |
+| app_code | String | 从提供的打开的应用程序列表中切换到的应用程序的代码名称，python字符串 |
 | app_or_filename | String | 应用名称或文件名，文本形式，python字符串 |
 | text | String | 文本，文本形式，python字符串 |
 | overwrite | bool | 是否覆盖，布尔形式 |
-| press_enter | bool | 是否按下回车键，布尔形式 |
+| enter | bool | 是否按下回车键，布尔形式 |
 | start | List[int] | 开始坐标，列表形式，包含x和y两个元素 |
 | end | List[int] | 结束坐标，列表形式，包含x和y两个元素 |
-| starting_phrase | String | 开始文本，文本形式，python字符串 |
-| ending_phrase | String | 结束文本，文本形式，python字符串 |
-| cell_values | Dict[str, Any] | 单元格值，字典形式，包含单元格坐标和值 |
-| shift | bool | 是否使用shift键，布尔形式 |
+| vertical | bool | 是否进行纵向滚动，布尔形式，默认True |
 | seconds | float | 等待时间，浮点数形式 |
 | return_value | Any | 返回值，Any类型 |
 
+```python
+# --------------------------------------
+#  Concrete Action subclasses
+# --------------------------------------
+@dataclass(slots=True)
+class Click(Action):
+    xy: Tuple[int, int]
+    element_description: str
+    num_clicks: int = 1
+    button_type: MouseButton = MouseButton.LEFT
+    hold_keys: List[str] | None = None
+
+
+@dataclass(slots=True)
+class SwitchApp(Action):
+    app_code: str
+
+
+@dataclass(slots=True)
+class Open(Action):
+    app_or_filename: str
+
+
+@dataclass(slots=True)
+class TypeText(Action):
+    text: str
+    element_description: str
+    xy: Tuple[int, int] | None = None
+    overwrite: bool = False
+    enter: bool = False
+
+
+@dataclass(slots=True)
+class SaveToKnowledge(Action):
+    text: List[str]
+    
+
+@dataclass(slots=True)
+class Drag(Action):
+    start: Tuple[int, int]
+    end: Tuple[int, int]
+    hold_keys: List[str]
+    starting_description: str
+    ending_description: str
+
+
+@dataclass(slots=True)
+class HighlightTextSpan(Action):
+    start: Tuple[int, int]
+    end: Tuple[int, int]
+    starting_phrase: str
+    ending_phrase: str
+
+
+@dataclass(slots=True)
+class Scroll(Action):
+    xy: Tuple[int, int]
+    element_description: str
+    clicks: int
+    vertical: bool = True
+
+
+@dataclass(slots=True)
+class Hotkey(Action):
+    keys: List[str]
+
+
+@dataclass(slots=True)
+class HoldAndPress(Action):
+    hold_keys: List[str]
+    press_keys: List[str]
+
+
+@dataclass(slots=True)
+class Wait(Action):
+    seconds: float
+
+
+@dataclass(slots=True)
+class Done(Action):
+    return_value: Any | None = None
+
+
+@dataclass(slots=True)
+class Fail(Action):
+    pass
+```
 
 # HardwareInterface
 ## 输入

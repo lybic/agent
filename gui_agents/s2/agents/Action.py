@@ -156,7 +156,7 @@ class TypeText(Action):
     element_description: str
     xy: Tuple[int, int] | None = None
     overwrite: bool = False
-    press_enter: bool = False
+    enter: bool = False
 
 
 @dataclass(slots=True)
@@ -181,25 +181,24 @@ class HighlightTextSpan(Action):
     ending_phrase: str
 
 
-@dataclass(slots=True)
-class SetCellValues(Action):
-    cell_values: Dict[str, Any]
-    app_name: str
-    sheet_name: str
+# @dataclass(slots=True)
+# class SetCellValues(Action):
+#     cell_values: Dict[str, Any]
+#     app_name: str
+#     sheet_name: str
 
 
 @dataclass(slots=True)
 class Scroll(Action):
     xy: Tuple[int, int]
     element_description: str
-    num_clicks: int
-    shift: bool = False
-    axis: ScrollAxis = ScrollAxis.VERTICAL
+    clicks: int
+    vertical: bool = True
 
 
 @dataclass(slots=True)
 class Hotkey(Action):
-    hold_keys: List[str]
+    keys: List[str]
 
 
 @dataclass(slots=True)
@@ -210,7 +209,7 @@ class HoldAndPress(Action):
 
 @dataclass(slots=True)
 class Wait(Action):
-    time: float
+    seconds: float
 
 
 @dataclass(slots=True)

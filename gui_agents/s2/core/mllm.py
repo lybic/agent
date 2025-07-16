@@ -28,6 +28,87 @@ from gui_agents.s2.core.engine import (
     ExaResearchEngine,
 )
 
+class CostManager:
+    """Cost manager, responsible for adding currency symbols based on engine type"""
+    
+    # Chinese engines use CNY
+    CNY_ENGINES = {
+        LMMEngineQwen, LMMEngineDoubao, LMMEngineDeepSeek, LMMEngineZhipu, 
+        LMMEngineSiliconflow, DashScopeEmbeddingEngine, DoubaoEmbeddingEngine
+    }
+    # Other engines use USD
+    USD_ENGINES = {
+        LMMEngineOpenAI, LMMEngineAnthropic, LMMEngineAzureOpenAI, LMMEngineGemini,
+        LMMEngineOpenRouter, LMMEnginevLLM, LMMEngineHuggingFace, LMMEngineGroq,
+        LMMEngineMonica, LMMEngineAWSBedrock, OpenAIEmbeddingEngine, 
+        GeminiEmbeddingEngine, AzureOpenAIEmbeddingEngine, JinaEmbeddingEngine
+    }
+    
+    @classmethod
+    def get_currency_symbol(cls, engine) -> str:
+        engine_type = type(engine)
+        
+        if engine_type in cls.CNY_ENGINES:
+            return "￥"
+        elif engine_type in cls.USD_ENGINES:
+            return "$"
+        else:
+            return "$"
+    
+    @classmethod
+    def format_cost(cls, cost: float, engine) -> str:
+        currency = cls.get_currency_symbol(engine)
+        return f"{cost:.6f}{currency}"
+    
+    @classmethod
+    def add_costs(cls, cost1: str, cost2: str) -> str:
+        currency_symbols = ["$", "￥", "¥", "€", "£"]
+        currency1 = currency2 = "$"
+        value1 = value2 = 0.0
+        
+        if isinstance(cost1, (int, float)):
+            value1 = float(cost1)
+            currency1 = "$"
+        else:
+            cost1_str = str(cost1)
+            for symbol in currency_symbols:
+                if symbol in cost1_str:
+                    value1 = float(cost1_str.replace(symbol, "").strip())
+                    currency1 = symbol
+                    break
+            else:
+                try:
+                    value1 = float(cost1_str)
+                    currency1 = "$"
+                except:
+                    value1 = 0.0
+        
+        if isinstance(cost2, (int, float)):
+            value2 = float(cost2)
+            currency2 = "$"
+        else:
+            cost2_str = str(cost2)
+            for symbol in currency_symbols:
+                if symbol in cost2_str:
+                    value2 = float(cost2_str.replace(symbol, "").strip())
+                    currency2 = symbol
+                    break
+            else:
+                try:
+                    value2 = float(cost2_str)
+                    currency2 = "$"
+                except:
+                    value2 = 0.0
+        
+        if currency1 != currency2:
+            print(f"Warning: Different currencies in cost accumulation: {currency1} and {currency2}")
+            currency = currency1
+        else:
+            currency = currency1
+        
+        total_value = value1 + value2
+        return f"{total_value:.6f}{currency}"
+
 class LLMAgent:
     def __init__(self, engine_params=None, system_prompt=None, engine=None):
         if engine is None:
@@ -324,12 +405,16 @@ class LLMAgent:
                 {"role": "user", "content": [{"type": "text", "text": user_message}]}
             )
 
-        return self.engine.generate(
+        content, total_tokens, cost = self.engine.generate(
             messages,
             temperature=temperature,
             max_new_tokens=max_new_tokens, # type: ignore
             **kwargs,
         )
+        
+        cost_string = CostManager.format_cost(cost, self.engine)
+        
+        return content, total_tokens, cost_string
 
 class EmbeddingAgent:
     def __init__(self, engine_params=None, engine=None):
@@ -364,7 +449,10 @@ class EmbeddingAgent:
         Returns:
             numpy.ndarray: The embeddings for the text
         """
-        return self.engine.get_embeddings(text)
+        embeddings, total_tokens, cost = self.engine.get_embeddings(text)
+        cost_string = CostManager.format_cost(cost, self.engine)
+        return embeddings, total_tokens, cost_string
+
     
     def get_similarity(self, text1, text2):
         """Calculate the cosine similarity between two texts
@@ -376,15 +464,19 @@ class EmbeddingAgent:
         Returns:
             float: Cosine similarity score between the two texts
         """
-        embedding1 = self.get_embeddings(text1)[0]
-        embedding2 = self.get_embeddings(text2)[0]
+        embeddings1, tokens1, cost1 = self.get_embeddings(text1)
+        embeddings2, tokens2, cost2 = self.get_embeddings(text2)
         
         # Calculate cosine similarity
-        dot_product = np.dot(embedding1, embedding2)
-        norm1 = np.linalg.norm(embedding1)
-        norm2 = np.linalg.norm(embedding2)
+        dot_product = np.dot(embeddings1, embeddings2)
+        norm1 = np.linalg.norm(embeddings1)
+        norm2 = np.linalg.norm(embeddings2)
         
-        return dot_product / (norm1 * norm2)
+        similarity = dot_product / (norm1 * norm2)
+        total_tokens = tokens1 + tokens2
+        total_cost = CostManager.add_costs(cost1, cost2)
+        
+        return similarity, total_tokens, total_cost
     
     def batch_get_embeddings(self, texts):
         """Get embeddings for multiple texts
@@ -396,44 +488,28 @@ class EmbeddingAgent:
             List[numpy.ndarray]: List of embeddings for each text
         """
         embeddings = []
-        for text in texts:
-            embedding = self.get_embeddings(text)
-            embeddings.append(embedding[0])
-        return embeddings
-    
-    def find_most_similar(self, query_text, candidate_texts):
-        """Find the most similar text from a list of candidates
-        
-        Args:
-            query_text (str): The query text
-            candidate_texts (List[str]): List of candidate texts to compare against
+        total_tokens = [0, 0, 0]
+        if texts:
+            first_embedding, first_tokens, first_cost = self.get_embeddings(texts[0])
+            embeddings.append(first_embedding)
+            total_tokens[0] += first_tokens[0]
+            total_tokens[1] += first_tokens[1]
+            total_tokens[2] += first_tokens[2]
+            total_cost = first_cost
             
-        Returns:
-            Tuple[int, float, str]: Index, similarity score, and content of the most similar text
-        """
-        query_embedding = self.get_embeddings(query_text)[0]
-        
-        max_similarity = -1
-        max_index = -1
-        
-        for i, text in enumerate(candidate_texts):
-            candidate_embedding = self.get_embeddings(text)[0]
-            
-            # Calculate cosine similarity
-            dot_product = np.dot(query_embedding, candidate_embedding)
-            norm1 = np.linalg.norm(query_embedding)
-            norm2 = np.linalg.norm(candidate_embedding)
-            
-            similarity = dot_product / (norm1 * norm2)
-            
-            if similarity > max_similarity:
-                max_similarity = similarity
-                max_index = i
-        
-        if max_index >= 0:
-            return max_index, max_similarity, candidate_texts[max_index]
+            for text in texts[1:]:
+                embedding, tokens, cost = self.get_embeddings(text)
+                embeddings.append(embedding)
+                total_tokens[0] += tokens[0]
+                total_tokens[1] += tokens[1]
+                total_tokens[2] += tokens[2]
+                total_cost = CostManager.add_costs(total_cost, cost)
         else:
-            return None, None, None
+            currency = CostManager.get_currency_symbol(self.engine)
+            total_cost = f"0.0{currency}"
+        
+        return embeddings, total_tokens, total_cost
+
 
 class WebSearchAgent:
     def __init__(self, engine_params=None, engine=None):
@@ -462,9 +538,17 @@ class WebSearchAgent:
             str: The answer text
         """
         if isinstance(self.engine, BochaAISearchEngine):
-            return self.engine.get_answer(query, **kwargs)
+            answer, tokens, cost = self.engine.get_answer(query, **kwargs)
+            return answer, tokens, str(cost)
+
         elif isinstance(self.engine, ExaResearchEngine):
             # For Exa, we'll use the chat_research method which returns a complete answer
-            return self.engine.chat_research(query, **kwargs)
+            results, tokens, cost = self.engine.search(query, **kwargs)
+            if isinstance(results, dict) and "messages" in results:
+                for message in results.get("messages", []):
+                    if message.get("type") == "answer":
+                        return message.get("content", ""), tokens, str(cost)
+            return str(results), tokens, str(cost)
+
         else:
             raise ValueError(f"Web search engine type '{self.engine_type}' is not supported")

@@ -131,9 +131,10 @@ class Worker:
                     + subtask_info
                 )
                 retrieve_start = time.time()
-                retrieved_similar_subtask, retrieved_subtask_experience = (
+                retrieved_similar_subtask, retrieved_subtask_experience, total_tokens, cost_string = (
                     self.knowledge_base.retrieve_episodic_experience(subtask_query_key)
                 )
+                logger.info(f"Retrieve episodic experience tokens: {total_tokens}, cost: {cost_string}")
                 retrieve_time = time.time() - retrieve_start
                 logger.info(f"[Timing] Worker.retrieve_episodic_experience execution time: {retrieve_time:.2f} seconds")
 
@@ -206,7 +207,8 @@ class Worker:
                 # reflection = self.reflection_agent.tools["traj_reflector"].llm_agent.get_response()
 
                 reflection_start = time.time()
-                reflection = self.reflection_agent.execute_tool("traj_reflector", {"str_input": text_content, "img_input": obs["screenshot"]})
+                reflection, total_tokens, cost_string = self.reflection_agent.execute_tool("traj_reflector", {"str_input": text_content, "img_input": obs["screenshot"]})
+                logger.info(f"Trajectory reflector tokens: {total_tokens}, cost: {cost_string}")
                 reflection_time = time.time() - reflection_start
                 logger.info(f"[Timing] Worker.traj_reflector execution time: {reflection_time:.2f} seconds")
                 self.reflections.append(reflection)
@@ -237,7 +239,8 @@ class Worker:
 
         # plan = call_llm_safe(self.generator_agent)
         action_generator_start = time.time()
-        plan = self.generator_agent.execute_tool("action_generator", {"str_input": generator_message, "img_input": obs["screenshot"]})
+        plan, total_tokens, cost_string = self.generator_agent.execute_tool("action_generator", {"str_input": generator_message, "img_input": obs["screenshot"]})
+        logger.info(f"Action generator tokens: {total_tokens}, cost: {cost_string}")
         action_generator_time = time.time() - action_generator_start
         logger.info(f"[Timing] Worker.action_generator execution time: {action_generator_time:.2f} seconds")
         action_time = time.time() - action_start

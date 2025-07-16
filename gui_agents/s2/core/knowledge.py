@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List, Union
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from gui_agents.s2.memory.procedural_memory import PROCEDURAL_MEMORY
@@ -12,6 +12,7 @@ from gui_agents.s2.utils.common_utils import (
 from gui_agents.s2.tools.tools import Tools
 from gui_agents.s2.agents.global_state import GlobalState
 from gui_agents.s2.store.registry import Registry
+from gui_agents.s2.core.mllm import CostManager
 
 class KnowledgeBase:
     def __init__(
@@ -66,21 +67,33 @@ class KnowledgeBase:
 
     def retrieve_knowledge(
         self, instruction: str, search_query: str, search_engine: Tools
-    ) -> str:
+    ) -> Tuple[str, List[int], str]:
         """Retrieve knowledge using search engine
         Args:
             instruction (str): task instruction
-            observation (Dict): current observation
-            search_engine (str): search engine to use"""
+            search_query (str): search query to use
+            search_engine (Tools): search engine tool to use
+            
+        Returns:
+            Tuple[str, List[int], float]: The search results, token usage, and cost
+        """
 
         # Use search engine to retrieve knowledge based on the formulated query
         # search_results = self._search(instruction, search_query, search_engine)
-        search_results = search_engine.execute_tool("websearch", {"str_input": instruction + " " + search_query})
+        search_results, total_tokens, cost_string = search_engine.execute_tool("websearch", {"str_input": instruction + " " + search_query})
 
-        return search_results
+        return search_results, total_tokens, cost_string
 
-    def formulate_query(self, instruction: str, observation: Dict) -> str:
-        """Formulate search query based on instruction and current state"""
+    def formulate_query(self, instruction: str, observation: Dict) -> Tuple[str, List[int], str]:
+        """Formulate search query based on instruction and current state
+        
+        Args:
+            instruction (str): The task instruction
+            observation (Dict): Current observation including screenshot
+            
+        Returns:
+            Tuple[str, List[int], float]: The formulated query, token usage, and cost
+        """
         query_path = os.path.join(
             self.local_kb_path, self.platform, "formulate_query.json"
         )
@@ -91,11 +104,11 @@ class KnowledgeBase:
             formulate_query = {}
 
         if instruction in formulate_query:
-            return formulate_query[instruction]
+            return formulate_query[instruction], [0, 0, 0], ""
 
         self.query_formulator.tools["query_formulator"].llm_agent.reset()
 
-        search_query = self.query_formulator.execute_tool("query_formulator", {
+        content, total_tokens, cost_string = self.query_formulator.execute_tool("query_formulator", {
             "str_input": f"The task is: {instruction}\n" + 
                 "To use google search to get some useful information, first carefully analyze " + 
                 "the screenshot of the current desktop UI state, then given the task " + 
@@ -104,38 +117,51 @@ class KnowledgeBase:
                 "The question should not be too general or too specific. Please ONLY provide " + 
                 "the question.\nQuestion:",
             "img_input": observation["screenshot"] if "screenshot" in observation else None
-        }).strip().replace('"', "")
+        })
+        
+        search_query = content.strip().replace('"', "")
     
         print("search query: ", search_query)
         formulate_query[instruction] = search_query
         with open(query_path, "w") as f:
             json.dump(formulate_query, f, indent=2)
 
-        return search_query
+        return search_query, total_tokens, cost_string
 
-    def retrieve_narrative_experience(self, instruction: str) -> Tuple[str, str]:
-        """Retrieve narrative experience using embeddings"""
+    def retrieve_narrative_experience(self, instruction: str) -> Tuple[str, str, List[int], str]:
+        """Retrieve narrative experience using embeddings
+        
+        Args:
+            instruction (str): The task instruction
+            
+        Returns:
+            Tuple[str, str]: The similar task key and its narrative experience
+        """
 
         knowledge_base = load_knowledge_base(self.narrative_memory_path)
         if not knowledge_base:
-            return "None", "None"
+            return "None", "None", [0, 0, 0], ""
 
         embeddings = load_embeddings(self.embeddings_path)
 
         # Get or create instruction embedding
         instruction_embedding = embeddings.get(instruction)
+        total_tokens, cost_string = [0, 0, 0], ""
 
         if instruction_embedding is None:
-            instruction_embedding = self.embedding_engine.execute_tool("embedding", {"str_input": instruction})
+            instruction_embedding, tokens, cost_string_now = self.embedding_engine.execute_tool("embedding", {"str_input": instruction})
             embeddings[instruction] = instruction_embedding
-
+            total_tokens += tokens
+            cost_string = cost_string_now
         # Get or create embeddings for knowledge base entries
         candidate_embeddings = []
         for key in knowledge_base:
             candidate_embedding = embeddings.get(key)
             if candidate_embedding is None:
-                candidate_embedding = self.embedding_engine.execute_tool("embedding", {"str_input": key})
-                embeddings[key] = candidate_embedding
+                candidate_embedding, tokens, cost_string_now = self.embedding_engine.execute_tool("embedding", {"str_input": key})
+            embeddings[key] = candidate_embedding
+            total_tokens += tokens
+            cost_string = CostManager.add_costs(cost_string, cost_string_now)
 
             candidate_embeddings.append(candidate_embedding)
 
@@ -148,31 +174,45 @@ class KnowledgeBase:
 
         keys = list(knowledge_base.keys())
         idx = 1 if keys[sorted_indices[0]] == instruction else 0
-        return keys[sorted_indices[idx]], knowledge_base[keys[sorted_indices[idx]]]
+        return keys[sorted_indices[idx]], knowledge_base[keys[sorted_indices[idx]]], total_tokens, cost_string
 
-    def retrieve_episodic_experience(self, instruction: str) -> Tuple[str, str]:
-        """Retrieve similar task experience using embeddings"""
+    def retrieve_episodic_experience(self, instruction: str) -> Tuple[str, str, List[int], str]:
+        """Retrieve similar task experience using embeddings
+        
+        Args:
+            instruction (str): The task instruction
+            
+        Returns:
+            Tuple[str, str]: The similar task key and its episodic experience
+        """
 
         knowledge_base = load_knowledge_base(self.episodic_memory_path)
         if not knowledge_base:
-            return "None", "None"
+            return "None", "None", [0, 0, 0], ""
 
         embeddings = load_embeddings(self.embeddings_path)
 
         # Get or create instruction embedding
         instruction_embedding = embeddings.get(instruction)
+        total_tokens, cost_string = [0, 0, 0], ""
 
         if instruction_embedding is None:
-            instruction_embedding = self.embedding_engine.execute_tool("embedding", {"str_input": instruction})
+            instruction_embedding, tokens, cost_string_now = self.embedding_engine.execute_tool("embedding", {"str_input": instruction})
             embeddings[instruction] = instruction_embedding
+
+            total_tokens += tokens
+            cost_string = cost_string_now
 
         # Get or create embeddings for knowledge base entries
         candidate_embeddings = []
         for key in knowledge_base:
             candidate_embedding = embeddings.get(key)
             if candidate_embedding is None:
-                candidate_embedding = self.embedding_engine.execute_tool("embedding", {"str_input": key})
-                embeddings[key] = candidate_embedding
+                candidate_embedding, tokens, cost_string_now = self.embedding_engine.execute_tool("embedding", {"str_input": key})
+            embeddings[key] = candidate_embedding
+
+            total_tokens += tokens
+            cost_string = CostManager.add_costs(cost_string, cost_string_now)
 
             candidate_embeddings.append(candidate_embedding)
 
@@ -185,7 +225,7 @@ class KnowledgeBase:
 
         keys = list(knowledge_base.keys())
         idx = 1 if keys[sorted_indices[0]] == instruction else 0
-        return keys[sorted_indices[idx]], knowledge_base[keys[sorted_indices[idx]]]
+        return keys[sorted_indices[idx]], knowledge_base[keys[sorted_indices[idx]]], total_tokens, cost_string
 
     def knowledge_fusion(
         self,
@@ -194,7 +234,7 @@ class KnowledgeBase:
         web_knowledge: str,
         similar_task: str,
         experience: str,
-    ) -> str:
+    ) -> Tuple[str, list, str]:
         """Combine web knowledge with similar task experience"""
 
         # self.knowledge_fusion_agent.reset()
@@ -214,7 +254,7 @@ class KnowledgeBase:
         # )
         # return self.knowledge_fusion_agent.get_response()
 
-        return self.knowledge_fusion_agent.execute_tool("context_fusion", {
+        content, total_tokens, cost = self.knowledge_fusion_agent.execute_tool("context_fusion", {
             "str_input": f"Task: {instruction}\n" + 
                 f"**Web search result**:\n{web_knowledge}\n\n" + 
                 f"**Retrieved similar task experience**:\n" + 
@@ -224,6 +264,8 @@ class KnowledgeBase:
                 f"integrate it with the web search result. Provide the final knowledge in a numbered list.",
             "img_input": observation["screenshot"] if "screenshot" in observation else None
         })
+        
+        return content, total_tokens, cost
         
 
     def save_episodic_memory(self, subtask_key: str, subtask_traj: str) -> None:
@@ -364,23 +406,31 @@ class KnowledgeBase:
         self.current_subtask_trajectory = ""
         self.current_search_query = ""
 
-    def summarize_episode(self, trajectory):
+    def summarize_episode(self, trajectory: str) -> Tuple[str, List[int], str]:
         """Summarize the episode experience for lifelong learning reflection
+        
         Args:
-            trajectory: str: The episode experience to be summarized
+            trajectory (str): The episode experience to be summarized
+            
+        Returns:
+            str: The summarized episode experience
         """
 
         # Create Reflection on whole trajectories for next round trial, keep earlier messages as exemplars
-        subtask_summarization = self.episode_summarization_agent.execute_tool("episode_summarization", {"str_input": trajectory})
+        content, total_tokens, cost = self.episode_summarization_agent.execute_tool("episode_summarization", {"str_input": trajectory})
 
-        return subtask_summarization
+        return content, total_tokens, cost
 
-    def summarize_narrative(self, trajectory):
+    def summarize_narrative(self, trajectory: str) -> Tuple[str, List[int], str]:
         """Summarize the narrative experience for lifelong learning reflection
+        
         Args:
-            trajectory: str: The narrative experience to be summarized
+            trajectory (str): The narrative experience to be summarized
+            
+        Returns:
+            str: The summarized narrative experience
         """
         # Create Reflection on whole trajectories for next round trial
-        task_summarization = self.narrative_summarization_agent.execute_tool("narrative_summarization", {"str_input": trajectory})
+        content, total_tokens, cost = self.narrative_summarization_agent.execute_tool("narrative_summarization", {"str_input": trajectory})
 
-        return task_summarization
+        return content, total_tokens, cost

@@ -192,14 +192,14 @@ class SetCellValues(Action):
 class Scroll(Action):
     xy: Tuple[int, int]
     element_description: str
-    clicks: int
+    num_clicks: int
     shift: bool = False
     axis: ScrollAxis = ScrollAxis.VERTICAL
 
 
 @dataclass(slots=True)
 class Hotkey(Action):
-    keys: List[str]
+    hold_keys: List[str]
 
 
 @dataclass(slots=True)

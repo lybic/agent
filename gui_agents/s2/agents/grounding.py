@@ -534,7 +534,7 @@ class Grounding(ACI):
             "type": "Scroll",
             "xy": [x, y],
             "element_description": element_description,
-            "clicks": clicks,
+            "num_clicks": clicks,
             "shift": shift
         }
         return actionDict
@@ -549,7 +549,7 @@ class Grounding(ACI):
         keys = [f"'{key}'" for key in keys]
         actionDict = {
             "type": "Hotkey",
-            "keys": keys
+            "hold_keys": keys
         }
         return actionDict
 

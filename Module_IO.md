@@ -13,52 +13,6 @@
 | Remaining_subtasks_list | List[Node] | 剩余子任务列表，Node对象列表 |
 
 
-- 叙事记忆：
-  - 示例：
-      ```python
-      {
-        "How to open App Store on Mac?": "The task was successfully executed.\n\n**Successful Plan:**\n1. Open Spotlight Search using `command + space`.\n2. Type \"App Store\" and press enter."
-      }
-      ```
-- 用户任务指令（Tu）：
-  - 文本形式，python字符串
-  - 示例：
-    ```
-    "Open AppStore"
-    ```
-- 全局状态（Global Instance）：
-  - 环境观测（obs）里的截屏（Screenshot）：
-    - 图片形式， PIL (Pillow) 库的 Image 对象
-    - 示例：
-      ```python
-      # Get screen shot using pyautogui
-      screenshot = pyautogui.screenshot()
-      screenshot = screenshot.resize((scaled_width, scaled_height), Image.LANCZOS)
-
-      # Save the screenshot to a BytesIO object
-      buffered = io.BytesIO()
-      screenshot.save(buffered, format="PNG")
-
-      # Get the byte value of the screenshot
-      screenshot_bytes = buffered.getvalue()
-      # Convert to base64 string.
-      obs["screenshot"] = screenshot_bytes
-      ```
-  - 运行状态标记（running_state）：
-    - 文本形式，python字符串，"running" 或 "stopped"
-    - 示例：
-      ```python
-      "running"
-      ```
-- 工具调用（Tools_dict）：
-  - 用Dict的key做工具匹配，value选择工具使用的模型名称
-  - 示例：
-     ```python
-     class Tools:
-       def __init__(self, tool_name, model_name):
-         self.model_name = model_name
-         self.tool_name = tool_name
-     ```
 ## 输出
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
@@ -90,14 +44,14 @@
 # GlobalState
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
-| Screenshot_dir | String | 截图文件夹路径 |
-| Tu_path | String | 用户任务指令文件路径 |
-| Search_query_path | String | 环境相关的任务总结查询文件路径 |
-| Failed_subtask_path | String | 失败子任务文件路径 |
-| Completed_subtask_path | String | 已完成子任务文件路径 |
-| Remaining_subtask_path | String | 剩余子任务文件路径 |
-| Termination_flag_path | String | 终止标记文件路径 |
-| Running_state_path | String | 运行状态标记文件路径 |
+| screenshot_dir | String | 截图文件夹路径 |
+| tu_path | String | 用户任务指令文件路径 |
+| search_query_path | String | 环境相关的任务总结查询文件路径 |
+| failed_subtasks_path | String | 失败子任务文件路径 |
+| completed_subtasks_path | String | 已完成子任务文件路径 |
+| remaining_subtasks_path | String | 剩余子任务文件路径 |
+| termination_flag_path | String | 终止标记文件路径 |
+| running_state_path | String | 运行状态标记文件路径 |
 
 ## 存储对象
 - 环境观测（obs）：
@@ -105,6 +59,8 @@
   - 用户任务指令（Tu）：json格式存储，通过方法读取文件并返回文本形式，python字符串
   - 环境相关的任务总结查询（search_query）：json格式存储，通过方法读取文件并返回文本形式，python字符串
   - 已完成子任务（Completed_subtask）：json格式存储，Node对象列表，通过方法读取并返回Node对象列表。仅存储当前任务真正执行过的子任务，不存储未来规划中的任务。
+  - 剩余子任务（Remaining_subtask）：json格式存储，Node对象列表，通过方法读取并返回Node对象列表。仅存储当前任务未来规划中的任务，不存储真正执行过的子任务。
+  - 失败子任务（Failed_subtask）：json格式存储，Node对象列表，通过方法读取并返回Node对象列表。仅存储当前任务真正执行过的子任务，不存储未来规划中的任务。
   - 终止标记（termination_flag）：json格式存储，通过方法读取并返回文本形式，python字符串，"terminated" 或 "not_terminated"，作为终止按钮的标记。
 - 运行状态标记（running_state）：json格式存储，通过方法读取并返回文本形式，python字符串，"running" 或 "stopped"，作为暂停按钮的标记。
 
@@ -114,19 +70,13 @@
 | get_screenshot | 无 | PIL (Pillow) 库的 Image 对象 | 从```Screenshot_dir```文件夹中获取当前最新时间戳的截图 |
 | get_Tu | 无 | String | 从```Tu_path```文件中获取用户任务指令 |
 | get_search_query | 无 | String | 从```Search_query_path```文件中获取环境相关的任务总结查询 |
-| get_failed_subtask | 无 | List[Node] | 从```Failed_subtask_path```文件中获取失败子任务 |
-| get_completed_subtask | 无 | List[Node] | 从```Completed_subtask_path```文件中获取已完成子任务 |
-| get_remaining_subtask | 无 | List[Node] | 从```Remaining_subtask_path```文件中获取剩余子任务 |
+| get_failed_subtasks | 无 | List[Node] | 从```Failed_subtask_path```文件中获取失败子任务 |
+| get_completed_subtasks | 无 | List[Node] | 从```Completed_subtask_path```文件中获取已完成子任务 |
+| get_remaining_subtasks | 无 | List[Node] | 从```Remaining_subtask_path```文件中获取剩余子任务 |
 | get_termination_flag | 无 | String | 从```Termination_flag_path```文件中获取终止标记 |
 | get_running_state | 无 | String | 从```Running_state_path```文件中获取运行状态标记 |
 
-- Manager：
-  - 环境观测（obs）中的截屏（Screenshot）
-  - 环境观测（obs）中的终止标记（termination_flag）
-- Grounding：
-  - 环境观测（obs）中的截屏（Screenshot）
-- Evaluator：
-  - 环境观测（obs）中的环境相关的任务总结查询（search_query）、子任务（Subtask）和截屏（Screenshot）
+
 
 ## 写入方法
 | 方法名 | 参数 | 描述 |
@@ -134,9 +84,12 @@
 | set_screenshot | PIL (Pillow) 库的 Image 对象 | 将截图保存到```Screenshot_dir```文件夹中，以时间戳命名 |
 | set_Tu | String | 将用户任务指令保存到```Tu_path```文件中 |
 | set_search_query | String | 将环境相关的任务总结查询保存到```Search_query_path```文件中 |
-| set_failed_subtask | List[Node] | 将失败子任务保存到```Failed_subtask_path```文件中 |
-| set_completed_subtask | List[Node] | 将已完成子任务保存到```Completed_subtask_path```文件中 |
-| set_remaining_subtask | List[Node] | 将剩余子任务保存到```Remaining_subtask_path```文件中 |
+| set_failed_subtasks | List[Node] | 将失败子任务保存到```Failed_subtask_path```文件中 |
+| add_failed_subtask | Node | 将失败子任务保存到```Failed_subtask_path```文件中 |
+| set_completed_subtasks | List[Node] | 将已完成子任务保存到```Completed_subtask_path```文件中 |
+| add_completed_subtask | Node | 将已完成子任务保存到```Completed_subtask_path```文件中 |
+| set_remaining_subtasks | List[Node] | 将剩余子任务保存到```Remaining_subtask_path```文件中 |
+| add_remaining_subtask | Node | 将剩余子任务保存到```Remaining_subtask_path```文件中 |
 | set_termination_flag | String | 将终止标记保存到```Termination_flag_path```文件中 |
 | set_running_state | String | 将运行状态标记保存到```Running_state_path```文件中 |
 
@@ -171,23 +124,18 @@
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
 | local_kb_path | String | 本地叙事记忆和情景记忆的文件路径 |
+| embedding_engine | Tools | 嵌入引擎，Tools对象 |
+| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性，应包含“query_formulator”、“narrative_summarization”、“context_fusion”和“episode_summarization” |
 
-- 叙事记忆（Mn）：
-  - 本地文件形式，json格式。Key是与环境观测有关的查询Query，Value是与Query相关的叙事记忆。
-  - 示例：{"How to open Finder on Mac?": "The task was successfully executed.\n\n**Successful Plan:**\n1. Open Spotlight Search using `command + space`.\n2. Type \"Finder\" into the Spotlight search bar.\n3. Press `enter` to launch Finder."}
 
-- 情景记忆（Me）：
-  - 本地文件形式，json格式。Key任务与子任务的描述；Value是与子任务的执行过程，包含Action自然语言描述与Grounded Action伪代码形式。
-  - 示例：{"Task:\nHow to open Finder on Mac?\n\nSubtask: Open Spotlight\nSubtask Instruction: Press `command + space` to open Spotlight.": "Action: Click the Spotlight icon in the menu bar to open Spotlight.\nGrounded Action: agent.click(\"element1_description\", 1, \"left\")"}
-
-## 读取方法
+## 方法
 | 方法名 | 参数 | 返回值 | 描述 |
 |-----|-----|-----|-----|
+| formulate_query | String | String | 根据用户任务指令和环境相关的任务总结查询，生成环境相关的任务总结查询 |
+| retrieve_narrative_experience | String | String | 根据用户任务指令，生成叙事记忆 |
+| retrieve_episode_experience | String | String | 根据用户任务指令，生成情景记忆 |
+| retrieve_knowledge | String | String | 根据用户任务指令和环境相关的任务总结查询，生成知识 |
 
-
-## 写入方法
-| 方法名 | 参数 | 描述 |
-|-----|-----|-----|
 
 
 # Worker
@@ -231,15 +179,39 @@
 ## 输出
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
-| grounding_output | String | 与具体硬件环境无关的指令输出，统一成python代码形式。文本形式，python字符串 |
+| grounding_output | Dict | 与具体硬件环境无关的指令输出，字典形式|
 - 示例1：
-  {'action': 'click', 'coordinate': [10, 20]}
+  {'type': 'click', 'coordinate': [10, 20]}
+
+## action schema
+| 字段名 | 类型 | 描述 |
+|-----|-----|-----|
+| type | String | 必须项。动作，文本形式，包含“Click”、“SwitchApp”、“Open”、“TypeText”、“SaveToKnowledge”、“Drag”、“HighlightTextSpan”、“SetCellValues”、“Scroll”、“Hotkey”、“HoldAndPress”、“Wait”、“Fail”、“Done” |
+| xy | List[int] | 坐标，列表形式，包含x和y两个元素 |
+| element_description | String | 元素描述，文本形式，python字符串 |
+| num_clicks | int | 点击次数，整数形式 |
+| button_type | String | 按钮类型，文本形式，包含“left”、“middle”、“right” |
+| hold_keys | List[str] | 按键列表，列表形式，包含按键名称 |
+| app_code | String | 应用代码，文本形式，python字符串 |
+| app_or_filename | String | 应用名称或文件名，文本形式，python字符串 |
+| text | String | 文本，文本形式，python字符串 |
+| overwrite | bool | 是否覆盖，布尔形式 |
+| press_enter | bool | 是否按下回车键，布尔形式 |
+| start | List[int] | 开始坐标，列表形式，包含x和y两个元素 |
+| end | List[int] | 结束坐标，列表形式，包含x和y两个元素 |
+| starting_phrase | String | 开始文本，文本形式，python字符串 |
+| ending_phrase | String | 结束文本，文本形式，python字符串 |
+| cell_values | Dict[str, Any] | 单元格值，字典形式，包含单元格坐标和值 |
+| shift | bool | 是否使用shift键，布尔形式 |
+| seconds | float | 等待时间，浮点数形式 |
+| return_value | Any | 返回值，Any类型 |
+
 
 # HardwareInterface
 ## 输入
 | 字段名 | 类型 | 描述 |
 |-----|-----|-----|
-| hardware_input | String | 由Grounding输出的与具体硬件环境无关的指令输出，统一成python代码形式。文本形式，python字符串 |
+| hardware_input | Dict | 由Grounding输出的与具体硬件环境无关的指令输出，字典形式 |
 
 ## 输出
 | 字段名 | 类型 | 描述 |

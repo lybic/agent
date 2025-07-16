@@ -36,7 +36,7 @@ __all__ = [
     "MouseButton",
     "ScrollAxis",
     # concrete actions ↓
-    "Click", "SwitchApp", "Open", "TypeText", "SaveToKnowledge", "Drag", "HighlightTextSpan", "SetCellValues", "Scroll", "Hotkey", "HoldAndPress", "Wait", "Done", "Fail", "Screenshot",
+    "Click", "SwitchApp", "Open", "TypeText", "SaveToKnowledge", "Drag", "HighlightTextSpan", "Scroll", "Hotkey", "HoldAndPress", "Wait", "Done", "Fail", "Screenshot",
 ]
 
 T_Action = TypeVar("T_Action", bound="Action")

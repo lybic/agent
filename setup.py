@@ -1,37 +1,14 @@
 from setuptools import find_packages, setup
 
 setup(
-    name="gui-agents",
-    version="0.2.5",
+    name="lybicguiagents",
+    version="0.1.0",
     description="A library for creating general purpose GUI agents using multimodal LLMs.",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    author="Simular AI",
-    author_email="eric@simular.ai",
+    author="Deepmatrix",
+    author_email="guoliangxuan@deepmatrix.com.cn",
     packages=find_packages(),
-    install_requires=[
-        "numpy",
-        "backoff",
-        "pandas",
-        "openai",
-        "anthropic",
-        "fastapi",
-        "uvicorn",
-        "paddleocr",
-        "paddlepaddle",
-        "together",
-        "scikit-learn",
-        "websockets",
-        "tiktoken",
-        "selenium",
-        'pyobjc; platform_system == "Darwin"',
-        "pyautogui",
-        "toml",
-        "pytesseract",
-        "google-genai",
-        'pywinauto; platform_system == "Windows"',  # Only for Windows
-        'pywin32; platform_system == "Windows"',  # Only for Windows
-    ],
     extras_require={"dev": ["black"]},  # Code formatter for linting
     entry_points={
         "console_scripts": [
@@ -50,8 +27,8 @@ setup(
     ],
     keywords="ai, llm, gui, agent, multimodal",
     project_urls={
-        "Source": "https://github.com/simular-ai/Agent-S",
-        "Bug Reports": "https://github.com/simular-ai/Agent-S/issues",
+        "Source": "https://git.flam.dev/lybic/agent/lybicguiagents",
+        "Bug Reports": "https://git.flam.dev/lybic/agent/lybicguiagents/-/issues",
     },
     python_requires=">=3.9, <=3.12",
 )

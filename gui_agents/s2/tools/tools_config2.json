@@ -1,0 +1,74 @@
+{
+  "tools": [
+    {
+      "tool_name": "websearch",
+      "provider": "exa",
+      "model_name": "exa-research"
+    },
+    {
+      "tool_name": "context_fusion",
+      "provider": "doubao",
+      "model_name": "Doubao-1.5-thinking-vision-pro"
+    },
+    {
+      "tool_name": "subtask_planner",
+      "provider": "doubao",
+      "model_name": "Doubao-1.5-thinking-vision-pro"
+    },
+    {
+      "tool_name": "traj_reflector",
+      "provider": "doubao",
+      "model_name": "Doubao-1.5-thinking-vision-pro"
+    },
+    {
+      "tool_name": "memory_retrival",
+      "provider": "doubao",
+      "model_name": "Doubao-1.5-thinking-vision-pro"
+    },
+    {
+      "tool_name": "grounding",
+      "provider": "doubao",
+      "model_name": "doubao-1-5-ui-tars-250428"
+    },
+    {
+      "tool_name": "evaluator",
+      "provider": "doubao",
+      "model_name": "Doubao-1.5-thinking-vision-pro"
+    },
+    {
+      "tool_name": "action_generator",
+      "provider": "doubao",
+      "model_name": "Doubao-1.5-thinking-vision-pro"
+    },
+    {
+      "tool_name": "dag_translator",
+      "provider": "doubao",
+      "model_name": "Doubao-1.5-thinking-vision-pro"
+    },
+    {
+      "tool_name": "embedding",
+      "provider": "gemini",
+      "model_name": "text-embedding-004"
+    },
+    {
+      "tool_name": "query_formulator",
+      "provider": "doubao",
+      "model_name": "Doubao-1.5-thinking-vision-pro"
+    },
+    {
+      "tool_name": "narrative_summarization",
+      "provider": "doubao",
+      "model_name": "Doubao-1.5-thinking-vision-pro"
+    },
+    {
+      "tool_name": "text_span",
+      "provider": "doubao",
+      "model_name": "Doubao-1.5-thinking-vision-pro"
+    },
+    {
+      "tool_name": "episode_summarization",
+      "provider": "doubao",
+      "model_name": "Doubao-1.5-thinking-vision-pro"
+    }
+  ]
+} 

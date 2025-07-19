@@ -16,6 +16,8 @@ from gui_agents.s2.utils.common_utils import (
     extract_first_agent_function,
 )
 from gui_agents.s2.tools.tools import Tools
+from gui_agents.s2.store.registry import Registry
+from gui_agents.s2.agents.global_state import GlobalState
 
 logger = logging.getLogger("desktopenv.agent")
 
@@ -55,10 +57,11 @@ class Worker:
         self.Tools_dict = Tools_dict
 
         self.embedding_engine = Tools()
-        self.embedding_engine.register_tool("embedding", self.Tools_dict["embedding"]["provider"], Tools_dict["embedding"]["model"])
+        self.embedding_engine.register_tool("embedding", self.Tools_dict["embedding"]["provider"], self.Tools_dict["embedding"]["model"])
         
         self.enable_reflection = enable_reflection
         self.use_subtask_experience = use_subtask_experience
+        self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
         self.reset()
 
     def reset(self):
@@ -153,6 +156,16 @@ class Worker:
                     + "\n"
                     + retrieved_subtask_experience.strip(),
                 )
+                self.global_state.log_operation(
+                    module="worker",
+                    operation="Worker.retrieve_episodic_experience",
+                    data={
+                        "tokens": total_tokens,
+                        "cost": cost_string,
+                        "content": "Retrieved similar subtask: " + retrieved_similar_subtask + "\n" + "Retrieved subtask experience: " + retrieved_subtask_experience.strip(),
+                        "duration": retrieve_time
+                    }
+                )
                 Tu += "\nYou may refer to some similar subtask experience if you think they are useful. {}".format(
                     retrieved_similar_subtask + "\n" + retrieved_subtask_experience
                 )
@@ -213,6 +226,16 @@ class Worker:
                 logger.info(f"[Timing] Worker.traj_reflector execution time: {reflection_time:.2f} seconds")
                 self.reflections.append(reflection)
                 logger.info("REFLECTION: %s", reflection)
+                self.global_state.log_operation(
+                    module="manager",
+                    operation="reflection",
+                    data={
+                        "tokens": total_tokens,
+                        "cost": cost_string,
+                        "content": reflection,
+                        "duration": reflection_time
+                    }
+                )
 
         # generator_message = (
         #     f"\nYou may use this reflection on the previous action and overall trajectory: {reflection}\n"
@@ -243,12 +266,19 @@ class Worker:
         logger.info(f"Action generator tokens: {total_tokens}, cost: {cost_string}")
         action_generator_time = time.time() - action_generator_start
         logger.info(f"[Timing] Worker.action_generator execution time: {action_generator_time:.2f} seconds")
-        action_time = time.time() - action_start
-        logger.info(f"[Timing] Worker.generate_next_action total execution time: {action_time:.2f} seconds")
         
         self.planner_history.append(plan)
         logger.info("Action Plan: %s", plan)
-        # self.generator_agent.add_message(plan, role="assistant")
+        self.global_state.log_operation(
+            module="worker",
+            operation="action_plan",
+            data={
+                "tokens": total_tokens,
+                "cost": cost_string,
+                "content": plan,
+                "duration": action_generator_time
+            }
+        )
 
         # Calculate input/output tokens and gpt-4o cost
         # input_tokens, output_tokens = calculate_tokens(self.generator_agent.messages)

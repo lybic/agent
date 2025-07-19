@@ -151,7 +151,9 @@ class KnowledgeBase:
         if instruction_embedding is None:
             instruction_embedding, tokens, cost_string_now = self.embedding_engine.execute_tool("embedding", {"str_input": instruction})
             embeddings[instruction] = instruction_embedding
-            total_tokens += tokens
+            # total_tokens += tokens
+            for i in range(len(total_tokens)):
+                total_tokens[i] += tokens[i]
             cost_string = cost_string_now
         # Get or create embeddings for knowledge base entries
         candidate_embeddings = []
@@ -159,9 +161,11 @@ class KnowledgeBase:
             candidate_embedding = embeddings.get(key)
             if candidate_embedding is None:
                 candidate_embedding, tokens, cost_string_now = self.embedding_engine.execute_tool("embedding", {"str_input": key})
+                for i in range(len(tokens)):
+                    total_tokens[i] += tokens[i]
+                # total_tokens += tokens
+                cost_string = CostManager.add_costs(cost_string, cost_string_now)
             embeddings[key] = candidate_embedding
-            total_tokens += tokens
-            cost_string = CostManager.add_costs(cost_string, cost_string_now)
 
             candidate_embeddings.append(candidate_embedding)
 
@@ -200,7 +204,9 @@ class KnowledgeBase:
             instruction_embedding, tokens, cost_string_now = self.embedding_engine.execute_tool("embedding", {"str_input": instruction})
             embeddings[instruction] = instruction_embedding
 
-            total_tokens += tokens
+            # total_tokens += tokens
+            for i in range(len(total_tokens)):
+                total_tokens[i] += tokens[i]
             cost_string = cost_string_now
 
         # Get or create embeddings for knowledge base entries
@@ -209,10 +215,11 @@ class KnowledgeBase:
             candidate_embedding = embeddings.get(key)
             if candidate_embedding is None:
                 candidate_embedding, tokens, cost_string_now = self.embedding_engine.execute_tool("embedding", {"str_input": key})
+                # total_tokens += tokens
+                for i in range(len(total_tokens)):
+                    total_tokens[i] += tokens[i]
+                cost_string = CostManager.add_costs(cost_string, cost_string_now)
             embeddings[key] = candidate_embedding
-
-            total_tokens += tokens
-            cost_string = CostManager.add_costs(cost_string, cost_string_now)
 
             candidate_embeddings.append(candidate_embedding)
 

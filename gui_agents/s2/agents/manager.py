@@ -100,6 +100,17 @@ class Manager:
         subtask_summarization, total_tokens, cost_string = self.episode_summarization_agent.execute_tool("episode_summarization", {"str_input": trajectory})
         logger.info(f"Episode summarization tokens: {total_tokens}, cost: {cost_string}")
 
+        # 记录tokens和cost信息
+        self.global_state.log_operation(
+            module="manager",
+            operation="episode_summarization",
+            data={
+                "tokens": total_tokens,
+                "cost": cost_string,
+                "content": subtask_summarization
+            }
+        )
+
         return subtask_summarization
 
     def summarize_narrative(self, trajectory):
@@ -110,6 +121,17 @@ class Manager:
         # Create Reflection on whole trajectories for next round trial
         lifelong_learning_reflection, total_tokens, cost_string = self.narrative_summarization_agent.execute_tool("narrative_summarization", {"str_input": trajectory})
         logger.info(f"Narrative summarization tokens: {total_tokens}, cost: {cost_string}")
+        
+        # 记录tokens和cost信息
+        self.global_state.log_operation(
+            module="manager",
+            operation="narrative_summarization",
+            data={
+                "tokens": total_tokens,
+                "cost": cost_string,
+                "content": lifelong_learning_reflection
+            }
+        )
 
         return lifelong_learning_reflection
     
@@ -137,11 +159,23 @@ class Manager:
         prefix_message = ""
         # Perform Retrieval only at the first planning step
         if self.turn_count == 0:
-
+            formulate_query_start = time.time()
             self.search_query, total_tokens, cost_string = self.knowledge_base.formulate_query(
                 instruction, observation
             )
+            formulate_query_time = time.time() - formulate_query_start
             logger.info(f"Formulate query tokens: {total_tokens}, cost: {cost_string}")
+            # self.global_state.log_tokens_and_cost("formulate_query", total_tokens, cost_string)
+            self.global_state.log_operation(
+                module="manager",
+                operation="formulate_query",
+                data={
+                    "tokens": total_tokens,
+                    "cost": cost_string,
+                    "content": self.search_query,
+                    "duration": formulate_query_time
+                }
+            )
             self.global_state.set_search_query(self.search_query)
 
             most_similar_task = ""
@@ -155,12 +189,22 @@ class Manager:
             logger.info(f"Retrieve narrative experience tokens: {total_tokens}, cost: {cost_string}")
             narrative_time = time.time() - narrative_start
             logger.info(f"[Timing] Manager.retrieve_narrative_experience execution time: {narrative_time:.2f} seconds")
+            self.global_state.log_operation(
+                module="manager", 
+                operation="retrieve_narrative_experience",
+                data={
+                    "tokens": total_tokens,
+                    "cost": cost_string,
+                    "content": "Most similar task: " + most_similar_task + "\n" + "Retrieved experience: " + retrieved_experience.strip(),
+                    "duration": narrative_time
+                }
+            )
             
             logger.info(
                 "SIMILAR TASK EXPERIENCE: %s",
                 most_similar_task + "\n" + retrieved_experience.strip(),
             )
-
+            
             # Retrieve knowledge from the web if search_engine is provided
             if self.search_engine is not None:
                 knowledge_start = time.time()
@@ -170,8 +214,19 @@ class Manager:
                     search_engine=self.search_engine,
                 )
                 logger.info(f"Retrieve knowledge tokens: {total_tokens}, cost: {cost_string}")
+                
                 knowledge_time = time.time() - knowledge_start
                 logger.info(f"[Timing] Manager.retrieve_knowledge execution time: {knowledge_time:.2f} seconds")
+                self.global_state.log_operation(
+                    module="manager",
+                    operation="retrieve_knowledge",
+                    data={
+                        "tokens": total_tokens,
+                        "cost": cost_string,
+                        "content": retrieved_knowledge,
+                        "duration": knowledge_time
+                    }
+                )
                 
                 logger.info("RETRIEVED KNOWLEDGE: %s", retrieved_knowledge)
 
@@ -188,6 +243,16 @@ class Manager:
                     logger.info(f"Knowledge fusion tokens: {total_tokens}, cost: {cost_string}")
                     fusion_time = time.time() - fusion_start
                     logger.info(f"[Timing] Manager.knowledge_fusion execution time: {fusion_time:.2f} seconds")
+                    self.global_state.log_operation(
+                        module="manager",
+                        operation="knowledge_fusion",
+                        data={
+                            "tokens": total_tokens,
+                            "cost": cost_string,
+                            "content": integrated_knowledge,
+                            "duration": fusion_time
+                        }
+                    )
                     
                     logger.info("INTEGRATED KNOWLEDGE: %s", integrated_knowledge)
 
@@ -238,9 +303,24 @@ class Manager:
         logger.info(f"Subtask planner tokens: {total_tokens}, cost: {cost_string}")
         subtask_planner_time = time.time() - subtask_planner_start
         logger.info(f"[Timing] Manager.subtask_planner execution time: {subtask_planner_time:.2f} seconds")
+        self.global_state.log_operation(
+            module="manager",
+            operation="subtask_planner",
+            data={
+                "tokens": total_tokens,
+                "cost": cost_string,
+                "content": plan,
+                "duration": subtask_planner_time
+            }
+        )
         
         step_time = time.time() - step_start
         logger.info(f"[Timing] Manager._generate_step_by_step_plan execution time: {step_time:.2f} seconds")
+        self.global_state.log_operation(
+            module="manager",
+            operation="Manager._generate_step_by_step_plan",
+            data={"duration": step_time}
+        )
 
         if plan == "":
             raise Exception("Plan Generation Failed - Fix the Prompt")
@@ -290,6 +370,16 @@ class Manager:
         logger.info(f"[Timing] Manager._generate_dag execution time: {dag_time:.2f} seconds")
 
         logger.info("Generated DAG: %s", dag_raw)
+        self.global_state.log_operation(
+            module="manager",
+            operation="generated_dag",
+            data={
+                "tokens": total_tokens,
+                "cost": cost_string,
+                "content": dag_raw,
+                "duration": dag_time
+            }
+        )
 
         # self.dag_translator_agent.add_message(dag_raw, role="assistant")
 
@@ -353,6 +443,8 @@ class Manager:
         """Generate the action list based on the instruction
         instruction:str: Instruction for the task
         """
+        import time
+        action_queue_start = time.time()
 
         planner_info, plan = self._generate_step_by_step_plan(
             observation,
@@ -369,5 +461,30 @@ class Manager:
         action_queue = self._topological_sort(dag)
 
         planner_info.update(dag_info)
+        
+        # 记录下一个子任务和剩余子任务
+        if action_queue:
+            logger.info(f"NEXT SUBTASK: {action_queue[0]}")
+            self.global_state.log_operation(
+                module="manager",
+                operation="next_subtask",
+                data={"content": str(action_queue[0])}
+            )
+            
+            if len(action_queue) > 1:
+                logger.info(f"REMAINING SUBTASKS: {action_queue[1:]}")
+                self.global_state.log_operation(
+                    module="manager",
+                    operation="remaining_subtasks",
+                    data={"content": str(action_queue[1:])}
+                )
+        
+        action_queue_time = time.time() - action_queue_start
+        logger.info(f"[Timing] manager.get_action_queue execution time: {action_queue_time:.2f} seconds")
+        self.global_state.log_operation(
+            module="manager",
+            operation="manager.get_action_queue",
+            data={"duration": action_queue_time}
+        )
 
         return planner_info, action_queue

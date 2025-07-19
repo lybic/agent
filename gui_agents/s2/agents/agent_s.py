@@ -200,6 +200,10 @@ class AgentS2(UIAgent):
         }
         actions = []
 
+        # 记录预测开始时间
+        import time
+        predict_start_time = time.time()
+
         # If the DONE response by the executor is for a subtask, then the agent should continue with the next subtask without sending the action to the environment
         while not self.should_send_action:
             self.subtask_status = "In"
@@ -226,6 +230,11 @@ class AgentS2(UIAgent):
                     self.search_query = ""
             get_action_queue_time = time.time() - manager_start
             logger.info(f"[Timing] manager.get_action_queue execution time: {get_action_queue_time:.2f} seconds")
+            self.global_state.log_operation(
+                module="manager",
+                operation="manager.get_action_queue",
+                data={"duration": get_action_queue_time}
+            )
 
             # use the exectuor to complete the topmost subtask
             if self.needs_next_subtask:
@@ -248,6 +257,16 @@ class AgentS2(UIAgent):
                         "reflection": "agent.done()",
                     }
                     actions = [{"type": "DONE"}]
+                    
+                    # 记录任务完成
+                    self.global_state.log_operation(
+                        module="agent",
+                        operation="task_complete",
+                        data={
+                            "content": "All subtasks completed, task finished",
+                            "status": "done"
+                        }
+                    )
                     break
 
                 self.current_subtask = self.subtasks.pop(0)
@@ -257,7 +276,20 @@ class AgentS2(UIAgent):
                 logger.info(f"REMAINING SUBTASKS FROM GLOBAL STATE: {self.global_state.get_remaining_subtasks()}")
                 self.needs_next_subtask = False
                 self.subtask_status = "Start"
+                
+                # 记录当前子任务信息
+                self.global_state.log_operation(
+                    module="agent",
+                    operation="current_subtask",
+                    data={
+                        "content": str(self.current_subtask),
+                        "status": "start"
+                    }
+                )
 
+            # 记录worker执行开始时间
+            worker_start_time = time.time()
+            
             # get the next action from the worker
             executor_info = self.worker.generate_next_action(
                 Tu=instruction,
@@ -268,19 +300,53 @@ class AgentS2(UIAgent):
                 done_task=self.global_state.get_completed_subtasks(),
                 obs=observation,
             )
+            
+            worker_execution_time = time.time() - worker_start_time
+            
+            # 记录worker执行时间
+            self.global_state.log_operation(
+                module="agent",
+                operation="worker_execution",
+                data={
+                    "duration": worker_execution_time,
+                    "subtask": self.current_subtask.name # type: ignore
+                }
+            )
 
             try:
+                grounding_start_time = time.time()
                 self.grounding.assign_coordinates(executor_info["executor_plan"], observation)
                 plan_code = parse_single_code_from_string(executor_info["executor_plan"].split("Grounded Action")[-1])
                 plan_code = sanitize_code(plan_code)
                 plan_code = extract_first_agent_function(plan_code)
                 agent: Grounding = self.grounding # type: ignore
                 exec_code = eval(plan_code) # type: ignore
+                grounding_execution_time = time.time() - grounding_start_time
+                
+                # 记录grounding执行时间
+                self.global_state.log_operation(
+                    module="agent",
+                    operation="grounding_execution",
+                    data={
+                        "duration": grounding_execution_time,
+                        "content": plan_code
+                    }
+                )
             except Exception as e:
                 logger.error("Error in parsing plan code: %s", e)
                 plan_code = "agent.wait(1.0)"
                 agent: Grounding = self.grounding # this agent will be used in next code
                 exec_code = eval(plan_code) # type: ignore
+                
+                # 记录grounding错误
+                self.global_state.log_operation(
+                    module="agent",
+                    operation="grounding_error",
+                    data={
+                        "content": str(e),
+                        "fallback_action": plan_code
+                    }
+                )
 
             actions = [exec_code]
 
@@ -297,6 +363,16 @@ class AgentS2(UIAgent):
                 # assign the failed subtask
                 self.global_state.add_failed_subtask(self.current_subtask) # type: ignore
                 self.failure_subtask = self.global_state.get_latest_failed_subtask()
+                
+                # 记录失败的子任务
+                self.global_state.log_operation(
+                    module="agent",
+                    operation="subtask_failed",
+                    data={
+                        "content": str(self.current_subtask),
+                        "status": "failed"
+                    }
+                )
 
                 # reset the step count, executor, and evaluator
                 self.reset_executor_state()
@@ -311,6 +387,16 @@ class AgentS2(UIAgent):
                 self.needs_next_subtask = True
                 self.failure_subtask = None
                 self.global_state.add_completed_subtask(self.current_subtask) # type: ignore
+                
+                # 记录完成的子任务
+                self.global_state.log_operation(
+                    module="agent",
+                    operation="subtask_completed",
+                    data={
+                        "content": str(self.current_subtask),
+                        "status": "completed"
+                    }
+                )
 
                 # reset the step count, executor, and evaluator
                 self.reset_executor_state()
@@ -338,6 +424,19 @@ class AgentS2(UIAgent):
                 "subtask": self.current_subtask.name, # type: ignore
                 "subtask_info": self.current_subtask.info, # type: ignore
                 "subtask_status": self.subtask_status,
+            }
+        )
+        
+        # 记录predict函数总执行时间
+        predict_total_time = time.time() - predict_start_time
+        self.global_state.log_operation(
+            module="agent",
+            operation="predict_execution",
+            data={
+                "duration": predict_total_time,
+                "step_count": self.step_count,
+                "turn_count": self.turn_count,
+                "subtask_status": self.subtask_status
             }
         )
 

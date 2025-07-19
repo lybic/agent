@@ -106,10 +106,7 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
         obs = global_state.get_obs_for_manager()
 
         # Time predict step
-        step_start_time = time.time()
         info, code = agent.predict(instruction=instruction, observation=obs)
-        step_predict_time = time.time() - step_start_time
-        logger.info(f"[Step Timing] agent.predict execution time: {step_predict_time:.2f} seconds")
 
         if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower():
             if platform.system() == "Darwin":
@@ -141,6 +138,18 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
             step_dispatch_time = time.time() - step_dispatch_start
             logger.info(f"[Step Timing] hwi.dispatchDict execution time: {step_dispatch_time:.2f} seconds")
             logger.info(f"HARDWARE INTERFACE: Executed")
+            
+            # 记录执行的代码和时间
+            global_state.log_operation(
+                module="hardware",
+                operation="executing_code", 
+                data={"content": str(code[0])}
+            )
+            global_state.log_operation(
+                module="hardware",
+                operation="hwi.dispatchDict", 
+                data={"duration": step_dispatch_time}
+            )
 
             time.sleep(1.0)
 
@@ -152,9 +161,18 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
                 + info["executor_plan"]
             )
             subtask_traj = agent.update_episodic_memory(info, subtask_traj)
+    
     total_end_time = time.time()
     total_duration = total_end_time - total_start_time
     logger.info(f"[Total Timing] Total execution time for this task: {total_duration:.2f} seconds")
+    global_state.log_operation(
+        module="other",
+        operation="total_execution_time", 
+        data={"duration": total_duration}
+    )
+    
+    # 确保所有日志记录都已合并
+    global_state.consolidate_display_info()
 
 
 def main():
@@ -165,17 +183,26 @@ def main():
         screen_width, screen_height, max_dim_size=2400
     )
 
+    # 确保必要的目录结构存在
+    timestamp_dir = os.path.join(log_dir, datetime_str)
+    cache_dir = os.path.join(timestamp_dir, "cache", "screens")
+    state_dir = os.path.join(timestamp_dir, "state")
+    
+    os.makedirs(cache_dir, exist_ok=True)
+    os.makedirs(state_dir, exist_ok=True)
+
     Registry.register(
         "GlobalStateStore",
         GlobalState(
-            screenshot_dir=os.path.join(log_dir, datetime_str, "cache", "screens"),
-            tu_path=os.path.join(log_dir, datetime_str, "state", "tu.json"),
-            search_query_path=os.path.join(log_dir, datetime_str, "state", "search_query.json"),
-            completed_subtasks_path=os.path.join(log_dir, datetime_str, "state", "completed_subtasks.json"),
-            failed_subtasks_path=os.path.join(log_dir, datetime_str, "state", "failed_subtasks.json"),
-            remaining_subtasks_path=os.path.join(log_dir, datetime_str, "state", "remaining_subtasks.json"),
-            termination_flag_path=os.path.join(log_dir, datetime_str, "state", "termination_flag.json"),
-            running_state_path=os.path.join(log_dir, datetime_str, "state", "running_state.json"),
+            screenshot_dir=cache_dir,
+            tu_path=os.path.join(state_dir, "tu.json"),
+            search_query_path=os.path.join(state_dir, "search_query.json"),
+            completed_subtasks_path=os.path.join(state_dir, "completed_subtasks.json"),
+            failed_subtasks_path=os.path.join(state_dir, "failed_subtasks.json"),
+            remaining_subtasks_path=os.path.join(state_dir, "remaining_subtasks.json"),
+            termination_flag_path=os.path.join(state_dir, "termination_flag.json"),
+            running_state_path=os.path.join(state_dir, "running_state.json"),
+            display_info_path=os.path.join(timestamp_dir, "display.json"),
         )
     )
     global current_platform

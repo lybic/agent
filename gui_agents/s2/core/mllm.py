@@ -543,7 +543,8 @@ class WebSearchAgent:
 
         elif isinstance(self.engine, ExaResearchEngine):
             # For Exa, we'll use the chat_research method which returns a complete answer
-            results, tokens, cost = self.engine.search(query, **kwargs)
+            # results, tokens, cost = self.engine.search(query, **kwargs)
+            results, tokens, cost = self.engine.chat_research(query, **kwargs)
             if isinstance(results, dict) and "messages" in results:
                 for message in results.get("messages", []):
                     if message.get("type") == "answer":

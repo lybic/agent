@@ -1439,7 +1439,8 @@ class ExaResearchEngine(SearchEngine):
                 messages=messages, # type: ignore
                 **kwargs
             )
-            return completion.choices[0].message.content # type: ignore
+            result = completion.choices[0].message.content # type: ignore
+            return result,[0,0,0],0.005
 
     def create_research_task(
             self,

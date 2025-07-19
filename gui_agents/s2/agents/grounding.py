@@ -4,7 +4,7 @@ import logging
 from collections import defaultdict
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple, Union
-
+import time
 import pytesseract
 from PIL import Image
 from pytesseract import Output
@@ -15,6 +15,8 @@ from gui_agents.s2.utils.common_utils import (
     # call_llm_safe,
     parse_single_code_from_string,
 )
+from gui_agents.s2.store.registry import Registry
+from gui_agents.s2.agents.global_state import GlobalState
 
 logger = logging.getLogger("desktopenv.agent")
 
@@ -194,10 +196,13 @@ class Grounding(ACI):
         # Configure text grounding agent
         self.text_span_agent = Tools()
         self.text_span_agent.register_tool("text_span", self.Tools_dict["text_span"]["provider"], self.Tools_dict["text_span"]["model"])
+        
+        # 获取GlobalState实例
+        self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
 
     # Given the state and worker's referring expression, use the grounding model to generate (x,y)
     def generate_coords(self, ref_expr: str, obs: Dict) -> List[int]:
-
+        grounding_start_time = time.time()
         # Reset the grounding model state
         self.grounding_model.tools["grounding"].llm_agent.reset()
 
@@ -205,8 +210,20 @@ class Grounding(ACI):
         prompt = f"Query:{ref_expr}\nOutput only the coordinate of one point in your response.\n"
         response, total_tokens, cost_string = self.grounding_model.execute_tool("grounding", {"str_input": prompt, "img_input": obs["screenshot"]})
         logger.info(f"Grounding model tokens: {total_tokens}, cost: {cost_string}")
-
+        grounding_end_time = time.time()
+        grounding_duration = grounding_end_time - grounding_start_time
+        logger.info(f"Grounding model execution time: {grounding_duration:.2f} seconds")
         logger.info(f"RAW GROUNDING MODEL RESPONSE: {response}")
+        self.global_state.log_operation(
+            module="grounding",
+            operation="grounding_model_response",
+            data={
+                "tokens": total_tokens,
+                "cost": cost_string,
+                "content": response,
+                "duration": grounding_duration
+            }
+        )
         # Generate and parse coordinates
         numericals = re.findall(r"\d+", response)
         assert len(numericals) >= 2
@@ -253,7 +270,7 @@ class Grounding(ACI):
     def generate_text_coords(
         self, phrase: str, obs: Dict, alignment: str = ""
     ) -> List[int]:
-
+        text_span_start_time = time.time()
         ocr_table, ocr_elements = self.get_ocr_elements(obs["screenshot"])
 
         alignment_prompt = ""
@@ -266,6 +283,19 @@ class Grounding(ACI):
         # Obtain the target element
         response, total_tokens, cost_string = self.text_span_agent.execute_tool("text_span", {"str_input": alignment_prompt + "Phrase: " + phrase + "\n" + ocr_table, "img_input": obs["screenshot"]})
         logger.info(f"Text span agent tokens: {total_tokens}, cost: {cost_string}")
+        text_span_end_time = time.time()
+        text_span_duration = text_span_end_time - text_span_start_time
+        logger.info(f"Text span agent execution time: {text_span_duration:.2f} seconds")
+        self.global_state.log_operation(
+            module="grounding",
+            operation="text_span_agent",
+            data={
+                "tokens": total_tokens,
+                "cost": cost_string,
+                "content": response,
+                "duration": text_span_duration
+            }
+        )
         # print("TEXT SPAN AGENT RESPONSE:", response)
         numericals = re.findall(r"\d+", response)
         if len(numericals) > 0:

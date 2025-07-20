@@ -3,6 +3,7 @@ import re
 from typing import List
 import time
 import tiktoken
+import numpy as np
 
 from typing import Tuple, List, Union, Dict
 
@@ -165,17 +166,36 @@ def load_knowledge_base(kb_path: str) -> Dict:
         return {}
 
 
+def clean_empty_embeddings(embeddings: Dict) -> Dict:
+    """清理掉 shape==0、shape==()、内容为异常字符串的 embedding。"""
+    to_delete = []
+    for k, v in embeddings.items():
+        arr = np.array(v)
+        if arr.size == 0 or arr.shape == () or (
+            isinstance(v, list) and v and isinstance(v[0], str) and v[0].startswith('Error:')
+        ) or (isinstance(v, str) and v.startswith('Error:')):
+            to_delete.append(k)
+    for k in to_delete:
+        del embeddings[k]
+    return embeddings
+
+
 def load_embeddings(embeddings_path: str) -> Dict:
     try:
         with open(embeddings_path, "rb") as f:
-            return pickle.load(f)
+            embeddings = pickle.load(f)
+        embeddings = clean_empty_embeddings(embeddings)
+        return embeddings
     except Exception as e:
-        print(f"Error loading embeddings: {e}")
+        # print(f"Error loading embeddings: {e}")
+        print(f"Empty embeddings file: {embeddings_path}")
         return {}
 
 
 def save_embeddings(embeddings_path: str, embeddings: Dict):
     try:
+        import os
+        os.makedirs(os.path.dirname(embeddings_path), exist_ok=True)
         with open(embeddings_path, "wb") as f:
             pickle.dump(embeddings, f)
     except Exception as e:

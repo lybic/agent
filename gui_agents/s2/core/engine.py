@@ -1224,15 +1224,10 @@ class BochaAISearchEngine(SearchEngine):
 
         if stream:
             result = self._stream_search(headers, payload)
-            return result, [0, 0, 0], 0.0
+            return result, [0, 0, 0], 0.06
         else:
             result = self._regular_search(headers, payload)
-            
-            remaining_balance = 0.0
-            if isinstance(result, dict) and "data" in result:
-                remaining_balance = result["data"].get("remaining", 0.0)
-            
-            return result, [0, 0, 0], -remaining_balance
+            return result, [0, 0, 0], 0.06
 
 
     def _regular_search(self, headers: Dict[str, str], payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -1283,7 +1278,7 @@ class BochaAISearchEngine(SearchEngine):
                 answer = message.get("content", "")
                 break
 
-        return answer, 0, remaining_balance # type: ignore
+        return answer, [0,0,0], remaining_balance # type: ignore
 
 
     def get_sources(self, query: str, **kwargs) -> List[Dict[str, Any]]:
@@ -1441,81 +1436,3 @@ class ExaResearchEngine(SearchEngine):
             )
             result = completion.choices[0].message.content # type: ignore
             return result,[0,0,0],0.005
-
-    def create_research_task(
-            self,
-            instructions: str,
-            model: str = "exa-research",
-            output_infer_schema: bool = True,
-            **kwargs
-    ) -> Optional[Any]:
-        """Create a research task using Exa SDK
-
-        Args:
-            instructions (str): Research instructions
-            model (str, optional): Model name. Defaults to "exa-research".
-            output_infer_schema (bool, optional): Whether to infer output schema. Defaults to True.
-
-        Returns:
-            Optional[Any]: Task stub or None if SDK not available
-        """
-        if self.exa_client is None:
-            raise ImportError("exa_py SDK is required for research tasks. Install with: pip install exa_py")
-
-        try:
-            task_stub = self.exa_client.research.create_task(
-                instructions=instructions,
-                model=model, # type: ignore
-                output_infer_schema=output_infer_schema,
-                **kwargs
-            )
-            return task_stub
-        except Exception as e:
-            raise APIError(f"Exa Research API error: {str(e)}") # type: ignore
-
-    def poll_research_task(self, task_id: str) -> Optional[Any]:
-        """Poll a research task for completion
-
-        Args:
-            task_id (str): Task ID to poll
-
-        Returns:
-            Optional[Any]: Task result or None if SDK not available
-        """
-        if self.exa_client is None:
-            raise ImportError("exa_py SDK is required for research tasks. Install with: pip install exa_py")
-
-        try:
-            task = self.exa_client.research.poll_task(task_id)
-            return task
-        except Exception as e:
-            raise APIError(f"Exa Research API error: {str(e)}") # type: ignore
-
-    def research(
-            self,
-            instructions: str,
-            model: str = "exa-research",
-            output_infer_schema: bool = True,
-            **kwargs
-    ) -> Optional[Any]:
-        """Complete research task (create and poll until completion)
-
-        Args:
-            instructions (str): Research instructions
-            model (str, optional): Model name. Defaults to "exa-research".
-            output_infer_schema (bool, optional): Whether to infer output schema. Defaults to True.
-
-        Returns:
-            Optional[Any]: Research result or None if SDK not available
-        """
-        task_stub = self.create_research_task(
-            instructions=instructions,
-            model=model,
-            output_infer_schema=output_infer_schema,
-            **kwargs
-        )
-
-        if task_stub:
-            return self.poll_research_task(task_stub.id)
-
-        return None

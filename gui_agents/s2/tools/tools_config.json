@@ -2,28 +2,28 @@
   "tools": [
     {
       "tool_name": "websearch",
-      "provider": "exa",
-      "model_name": "exa-research"
+      "provider": "bocha",
+      "model_name": ""
     },
     {
       "tool_name": "context_fusion",
-      "provider": "gemini",
-      "model_name": "gemini-2.5-pro"
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
     },
     {
       "tool_name": "subtask_planner",
-      "provider": "gemini",
-      "model_name": "gemini-2.5-pro"
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
     },
     {
       "tool_name": "traj_reflector",
-      "provider": "gemini",
-      "model_name": "gemini-2.5-pro"
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
     },
     {
       "tool_name": "memory_retrival",
-      "provider": "gemini",
-      "model_name": "gemini-2.5-pro"
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
     },
     {
       "tool_name": "grounding",
@@ -32,43 +32,43 @@
     },
     {
       "tool_name": "evaluator",
-      "provider": "gemini",
-      "model_name": "gemini-2.5-pro"
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
     },
     {
       "tool_name": "action_generator",
-      "provider": "gemini",
-      "model_name": "gemini-2.5-pro"
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
     },
     {
       "tool_name": "dag_translator",
-      "provider": "gemini",
-      "model_name": "gemini-2.5-pro"
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
     },
     {
       "tool_name": "embedding",
-      "provider": "gemini",
-      "model_name": "text-embedding-004"
+      "provider": "doubao",
+      "model_name": "doubao-embedding-text-240715"
     },
     {
       "tool_name": "query_formulator",
-      "provider": "gemini",
-      "model_name": "gemini-2.5-pro"
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
     },
     {
       "tool_name": "narrative_summarization",
-      "provider": "gemini",
-      "model_name": "gemini-2.5-pro"
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
     },
     {
       "tool_name": "text_span",
-      "provider": "gemini",
-      "model_name": "gemini-2.5-pro"
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
     },
     {
       "tool_name": "episode_summarization",
-      "provider": "gemini",
-      "model_name": "gemini-2.5-pro"
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
     }
   ]
 } 

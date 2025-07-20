@@ -137,12 +137,14 @@ class AgentS2(UIAgent):
         )
 
         # Check if knowledge base exists
-        if not os.path.exists(os.path.join(self.local_kb_path, self.platform)):
+        kb_platform_path = os.path.join(self.local_kb_path, self.platform)
+        if not os.path.exists(kb_platform_path):
             print(f"Warning: Knowledge base for {self.platform} platform not found in {self.local_kb_path}")
-            print(f"Or ensure the directory {os.path.join(self.local_kb_path, self.platform)} exists")
-            raise FileNotFoundError(f"Knowledge base path does not exist: {os.path.join(self.local_kb_path, self.platform)}")
+            os.makedirs(kb_platform_path, exist_ok=True)
+            print(f"Created directory: {kb_platform_path}")
+            # raise FileNotFoundError(f"Knowledge base path does not exist: {kb_platform_path}")
         else:
-            print(f"Found local knowledge base path: {os.path.join(self.local_kb_path, self.platform)}")
+            print(f"Found local knowledge base path: {kb_platform_path}")
 
         self.reset()
 

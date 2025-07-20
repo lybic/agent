@@ -19,27 +19,26 @@ import lib_run_single
 from desktop_env.desktop_env import DesktopEnv
 from gui_agents.s2.store.registry import Registry
 from gui_agents.s2.agents.global_state import GlobalState
-from gui_agents.s2.agents.hardware_interface import HardwareInterface
 
 current_platform = "linux"
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-datetime_str: str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+vm_datetime_str: str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 log_dir = "runtime"
-os.makedirs(os.path.join(log_dir, datetime_str), exist_ok=True)
+os.makedirs(os.path.join(log_dir, f"vmrun_{vm_datetime_str}"), exist_ok=True)
 
 file_handler = logging.FileHandler(
-    os.path.join(log_dir, datetime_str, "normal.log"), encoding="utf-8"
+    os.path.join(log_dir, f"vmrun_{vm_datetime_str}", "vmrun_normal.log"), encoding="utf-8"
 )
 debug_handler = logging.FileHandler(
-    os.path.join(log_dir, datetime_str, "debug.log"), encoding="utf-8"
+    os.path.join(log_dir, f"vmrun_{vm_datetime_str}", "vmrun_debug.log"), encoding="utf-8"
 )
 stdout_handler = logging.StreamHandler(sys.stdout)
 sdebug_handler = logging.FileHandler(
-    os.path.join(log_dir, datetime_str, "sdebug.log"), encoding="utf-8"
+    os.path.join(log_dir, f"vmrun_{vm_datetime_str}", "vmrun_sdebug.log"), encoding="utf-8"
 )
 
 file_handler.setLevel(logging.INFO)
@@ -63,6 +62,7 @@ logger.addHandler(debug_handler)
 logger.addHandler(stdout_handler)
 logger.addHandler(sdebug_handler)
 
+logger = logging.getLogger("desktopenv.experiment")
 
 def config() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -85,7 +85,7 @@ def config() -> argparse.Namespace:
     )
     parser.add_argument("--screen_width", type=int, default=1920)
     parser.add_argument("--screen_height", type=int, default=1080)
-    parser.add_argument("--sleep_after_execution", type=float, default=0.0)
+    parser.add_argument("--sleep_after_execution", type=float, default=1.0)
     parser.add_argument("--max_steps", type=int, default=15)
 
     # agent config
@@ -113,7 +113,6 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
     scores = []
     max_steps = args.max_steps
     scaled_width, scaled_height = args.screen_width, args.screen_height
-    hwi = HardwareInterface(backend="pyautogui_vmware", platform=current_platform)
 
     # log args
     logger.info("Args: %s", args)
@@ -128,37 +127,11 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
         "max_steps": args.max_steps,
         "result_dir": args.result_dir,
     }
-    
-    timestamp_dir = os.path.join(log_dir, datetime_str)
-    cache_dir = os.path.join(timestamp_dir, "cache", "screens")
-    state_dir = os.path.join(timestamp_dir, "state")
-    
-    os.makedirs(cache_dir, exist_ok=True)
-    os.makedirs(state_dir, exist_ok=True)
-
-    Registry.register(
-        "GlobalStateStore",
-        GlobalState(
-            screenshot_dir=cache_dir,
-            tu_path=os.path.join(state_dir, "tu.json"),
-            search_query_path=os.path.join(state_dir, "search_query.json"),
-            completed_subtasks_path=os.path.join(state_dir, "completed_subtasks.json"),
-            failed_subtasks_path=os.path.join(state_dir, "failed_subtasks.json"),
-            remaining_subtasks_path=os.path.join(state_dir, "remaining_subtasks.json"),
-            termination_flag_path=os.path.join(state_dir, "termination_flag.json"),
-            running_state_path=os.path.join(state_dir, "running_state.json"),
-            display_info_path=os.path.join(timestamp_dir, "display.json"),
-        )
-    )
-
-    agent = AgentS2(
-        platform=current_platform,
-        screen_size = [scaled_width, scaled_height]
-    )
 
     env = DesktopEnv(
+        provider_name="vmware",
         path_to_vm=args.path_to_vm,
-        action_space=agent.action_space,
+        action_space=args.action_space,
         screen_size=(scaled_width, scaled_height),
         headless=args.headless,
         require_a11y_tree=False,
@@ -184,6 +157,37 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
                 "%Y:%m:%d-%H:%M:%S"
             )
 
+            # 为每个example创建独立的时间戳文件夹
+            example_datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            example_timestamp_dir = os.path.join(log_dir, f"vmrun_{vm_datetime_str}", example_datetime_str)
+            example_cache_dir = os.path.join(example_timestamp_dir, "cache", "screens")
+            example_state_dir = os.path.join(example_timestamp_dir, "state")
+            
+            os.makedirs(example_cache_dir, exist_ok=True)
+            os.makedirs(example_state_dir, exist_ok=True)
+
+            # 为每个example注册独立的GlobalState
+            Registry.clear()
+            Registry.register(
+                "GlobalStateStore",
+                GlobalState(
+                    screenshot_dir=example_cache_dir,
+                    tu_path=os.path.join(example_state_dir, "tu.json"),
+                    search_query_path=os.path.join(example_state_dir, "search_query.json"),
+                    completed_subtasks_path=os.path.join(example_state_dir, "completed_subtasks.json"),
+                    failed_subtasks_path=os.path.join(example_state_dir, "failed_subtasks.json"),
+                    remaining_subtasks_path=os.path.join(example_state_dir, "remaining_subtasks.json"),
+                    termination_flag_path=os.path.join(example_state_dir, "termination_flag.json"),
+                    running_state_path=os.path.join(example_state_dir, "running_state.json"),
+                    display_info_path=os.path.join(example_timestamp_dir, "display.json"),
+                )
+            )
+
+            agent = AgentS2(
+                platform=current_platform,
+                screen_size = [scaled_width, scaled_height]
+            )
+            
             example_result_dir = os.path.join(
                 args.result_dir,
                 args.action_space,
@@ -203,6 +207,7 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
                     args,
                     example_result_dir,
                     scores,
+                    example_timestamp_dir,  # 传递时间戳目录给run_single_example
                 )
             except Exception as e:
                 logger.error(f"Exception in {domain}/{example_id}: {e}")
@@ -222,9 +227,9 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
 
 
 def get_unfinished(
-    action_space, use_model, observation_type, result_dir, total_file_json
+    action_space, observation_type, result_dir, total_file_json
 ):
-    target_dir = os.path.join(result_dir, action_space, observation_type, use_model)
+    target_dir = os.path.join(result_dir, action_space, observation_type)
 
     if not os.path.exists(target_dir):
         return total_file_json
@@ -258,8 +263,8 @@ def get_unfinished(
     return total_file_json
 
 
-def get_result(action_space, use_model, observation_type, result_dir, total_file_json):
-    target_dir = os.path.join(result_dir, action_space, observation_type, use_model)
+def get_result(action_space, observation_type, result_dir, total_file_json):
+    target_dir = os.path.join(result_dir, action_space, observation_type)
     if not os.path.exists(target_dir):
         print("New experiment, no result yet.")
         return None
@@ -306,7 +311,6 @@ if __name__ == "__main__":
 
     test_file_list = get_unfinished(
         args.action_space,
-        args.model,
         args.observation_type,
         args.result_dir,
         test_all_meta,
@@ -318,7 +322,6 @@ if __name__ == "__main__":
 
     get_result(
         args.action_space,
-        args.model,
         args.observation_type,
         args.result_dir,
         test_all_meta,

@@ -347,6 +347,10 @@ class Grounding(ACI):
             self.coords1 = self.generate_text_coords(args[0], obs, alignment="start")
             self.coords2 = self.generate_text_coords(args[1], obs, alignment="end")
 
+    def reset_screen_size(self, width: int, height: int):
+        self.width = width
+        self.height = height
+        
     # Resize from grounding model dim into OSWorld dim (1920 * 1080)
     def resize_coordinates(self, coordinates: List[int]) -> List[int]:
         return [

@@ -179,9 +179,7 @@ def main():
     
     # Re-scales screenshot size to ensure it fits in UI-TARS context limit
     screen_width, screen_height = pyautogui.size()
-    scaled_width, scaled_height = scale_screen_dimensions(
-        screen_width, screen_height, max_dim_size=2400
-    )
+    scaled_width, scaled_height = screen_width, screen_height
 
     # 确保必要的目录结构存在
     timestamp_dir = os.path.join(log_dir, datetime_str)
@@ -208,8 +206,6 @@ def main():
     global current_platform
     agent = AgentS2(
         platform=current_platform,
-        action_space="pyautogui",
-        observation_type="mixed",
         screen_size = [scaled_width, scaled_height]
     )
 

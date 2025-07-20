@@ -286,24 +286,6 @@ class Worker:
             }
         )
 
-        # Calculate input/output tokens and gpt-4o cost
-        # input_tokens, output_tokens = calculate_tokens(self.generator_agent.messages)
-        # cost = input_tokens * (0.0050 / 1000) + output_tokens * (0.0150 / 1000)
-        # self.cost_this_turn += cost
-        # logger.info("EXECTUOR COST: %s", self.cost_this_turn)
-
-        # # Use the DescriptionBasedACI to convert agent_action("desc") into agent_action([x, y])
-        # try:
-        #     agent.assign_coordinates(plan, obs)
-        #     plan_code = parse_single_code_from_string(plan.split("Grounded Action")[-1])
-        #     plan_code = sanitize_code(plan_code)
-        #     plan_code = extract_first_agent_function(plan_code)
-        #     exec_code = eval(plan_code)
-        # except Exception as e:
-        #     logger.error("Error in parsing plan code: %s", e)
-        #     plan_code = "agent.wait(1.0)"
-        #     exec_code = eval(plan_code)
-
         executor_info = {
             "current_subtask": subtask,
             "current_subtask_info": subtask_info,

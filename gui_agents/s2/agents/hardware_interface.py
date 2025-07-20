@@ -5,6 +5,7 @@ from gui_agents.s2.agents.Backend.Backend import Backend
 from gui_agents.s2.agents.Backend.ADBBackend import ADBBackend
 from gui_agents.s2.agents.Backend.LybicBackend import LybicBackend
 from gui_agents.s2.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
+from gui_agents.s2.agents.Backend.PyAutoGUIVMwareBackend import PyAutoGUIVMwareBackend
 """hardware_interface.py  ▸  Execute Action objects on real devices / emulators
 ===============================================================================
 This module is the *single entry point* that upper‑layer planners / executors
@@ -68,6 +69,7 @@ class HardwareInterface:
         "pyautogui": PyAutoGUIBackend,
         "adb": ADBBackend,
         "lybic": LybicBackend,
+        "pyautogui_vmware": PyAutoGUIVMwareBackend,
     }
 
     # ------------------------------------------------------------------

@@ -165,3 +165,5 @@ logs/
 .DS_Store
 
 vmware_vm_data/
+.vmware_lck
+.vmware_vms

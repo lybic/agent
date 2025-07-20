@@ -206,9 +206,15 @@ class Worker:
                 # )
             # Load the latest action
             else:
-                text_content = self.clean_worker_generation_for_reflection(
-                    self.planner_history[-1]
-                )
+                if self.planner_history and self.planner_history[-1] is not None:
+                    text_content = self.clean_worker_generation_for_reflection(
+                        self.planner_history[-1]
+                    )
+                else:
+                    text_content = "No previous action available for reflection"
+                # text_content = self.clean_worker_generation_for_reflection(
+                #     self.planner_history[-1]
+                # )
                 # self.reflection_agent.add_message(
                 #     text_content=text_content,
                 #     image_content=obs["screenshot"],

@@ -18,7 +18,7 @@
     {
       "tool_name": "traj_reflector",
       "provider": "doubao",
-      "model_name": "doubao-seed-1-6-flash-250615"
+      "model_name": "doubao-seed-1-6-250615"
     },
     {
       "tool_name": "memory_retrival",

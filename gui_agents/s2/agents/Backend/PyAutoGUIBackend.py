@@ -85,6 +85,7 @@ class PyAutoGUIBackend(Backend):
             clicks=act.num_clicks,
             button=act.button_type.lower(), # type: ignore
             duration=self.default_move_duration,
+            interval=0.5,
         )
         for k in act.hold_keys or []:
             self.pag.keyUp(k)
@@ -124,6 +125,7 @@ class PyAutoGUIBackend(Backend):
             self.pag.hotkey("ctrl", "v", interval=0.05)
 
         # ------------------------------------------------------------
+        time.sleep(0.5)
         if act.enter:
             self.pag.press("enter")
 

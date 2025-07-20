@@ -74,7 +74,7 @@ class KnowledgeBase:
             embedding_model_name = "default"
         embedding_dim = get_embedding_dim(embedding_model_name)
         self.embeddings_path = os.path.join(
-            self.local_kb_path, self.platform, f"embeddings_{embedding_dim}.pkl"
+            self.local_kb_path, self.platform, f"embeddings_{embedding_model_name}_{embedding_dim}.pkl"
         )
 
         # Initialize trajectory tracking

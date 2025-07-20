@@ -128,14 +128,10 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
         "result_dir": args.result_dir,
     }
 
-    agent = AgentS2(
-        platform=current_platform,
-        screen_size = [scaled_width, scaled_height]
-    )
-
     env = DesktopEnv(
+        provider_name="vmware",
         path_to_vm=args.path_to_vm,
-        action_space=agent.action_space,
+        action_space=args.action_space,
         screen_size=(scaled_width, scaled_height),
         headless=args.headless,
         require_a11y_tree=False,
@@ -187,6 +183,11 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
                 )
             )
 
+            agent = AgentS2(
+                platform=current_platform,
+                screen_size = [scaled_width, scaled_height]
+            )
+            
             example_result_dir = os.path.join(
                 args.result_dir,
                 args.action_space,

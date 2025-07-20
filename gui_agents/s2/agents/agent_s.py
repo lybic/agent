@@ -20,7 +20,6 @@ from gui_agents.s2.utils.common_utils import (
 )
 logger = logging.getLogger("desktopenv.agent")
 
-
 class UIAgent:
     """Base class for UI automation agents"""
 

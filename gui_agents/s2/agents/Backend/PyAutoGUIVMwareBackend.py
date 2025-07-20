@@ -42,170 +42,122 @@ class PyAutoGUIVMwareBackend(Backend):
         pag.FAILSAFE = False
         self.pag = pag
         self.default_move_duration = default_move_duration
-        # ↙️ 关键修补：保存平台标识
-        self.platform = (platform or sys.platform).lower()
+        self.platform = platform
 
     # ------------------------------------------------------------------
-    def execute(self, action: Action) -> None:
+    def execute(self, action: Action) -> str:
         if not self.supports(type(action)):
             raise NotImplementedError(f"{type(action).__name__} not supported by PyAutoGUIBackend")
 
         if isinstance(action, Click):
-            self._click(action)
+            return self._click(action)
         elif isinstance(action, Drag):
-            self._drag(action)
+            return self._drag(action)
         elif isinstance(action, TypeText):
-            self._type(action)
+            return self._type(action)
         elif isinstance(action, Scroll):
-            self._scroll(action)
+            return self._scroll(action)
         elif isinstance(action, Hotkey):
-            self._hotkey(action)
+            return self._hotkey(action)
         elif isinstance(action, HoldAndPress):
-            self._hold_and_press(action)
+            return self._hold_and_press(action)
         elif isinstance(action, Open):
-            self._open_app(action)
+            return self._open_app(action)
         elif isinstance(action, SwitchApp):
-            self._switch_app(action)
+            return self._switch_app(action)
         elif isinstance(action, Screenshot):
-            screenshot = self._screenshot()
-            return screenshot # type: ignore
+            return self._screenshot()
         elif isinstance(action, Wait):
-            time.sleep(action.seconds)
+            return f"time.sleep({action.seconds})"
         else:
             # This shouldn't happen due to supports() check, but be safe.
             raise NotImplementedError(f"Unhandled action: {action}")
 
     # ----- individual helpers ------------------------------------------------
-    def _click(self, act: Click) -> None:
-        for k in act.hold_keys or []:
-            self.pag.keyDown(k)
-        self.pag.click(
-            x=act.xy[0],
-            y=act.xy[1],
-            clicks=act.num_clicks,
-            button=act.button_type.lower(), # type: ignore
-            duration=self.default_move_duration,
-        )
-        for k in act.hold_keys or []:
-            self.pag.keyUp(k)
+    def _click(self, act: Click) -> str:
+        hold_keys = act.hold_keys or []
+        code_parts = []
+        for k in hold_keys:
+            code_parts.append(f"pyautogui.keyDown('{k}')")
+        code_parts.append(f"pyautogui.click(x={act.xy[0]}, y={act.xy[1]}, clicks={act.num_clicks}, button='{act.button_type.lower()}', duration={self.default_move_duration})")
+        for k in hold_keys:
+            code_parts.append(f"pyautogui.keyUp('{k}')")
+        return "; ".join(code_parts)
 
-    def _drag(self, act: Drag) -> None:
-        for k in act.hold_keys or []:
-            self.pag.keyDown(k)
-        self.pag.moveTo(*act.start)
-        self.pag.dragTo(*act.end)
-        for k in act.hold_keys or []:
-            self.pag.keyUp(k)
+    def _drag(self, act: Drag) -> str:
+        hold_keys = act.hold_keys or []
+        code_parts = []
+        for k in hold_keys:
+            code_parts.append(f"pyautogui.keyDown('{k}')")
+        code_parts.append(f"pyautogui.moveTo({act.start[0]}, {act.start[1]})")
+        code_parts.append(f"pyautogui.dragTo({act.end[0]}, {act.end[1]})")
+        for k in hold_keys:
+            code_parts.append(f"pyautogui.keyUp('{k}')")
+        return "; ".join(code_parts)
 
-    def _type(self, act: TypeText) -> None:
+    def _type(self, act: TypeText) -> str:
+        code_parts = []
+        
         if act.xy:
-            self.pag.click(*act.xy)
-
+            code_parts.append(f"pyautogui.click({act.xy[0]}, {act.xy[1]})")
+        
         if act.overwrite:
-            self.pag.hotkey(
-                "command" if self.platform.startswith("darwin") else "ctrl",
-                "a"
-            )
-            self.pag.press("backspace")
-
-        # ------- Paste Chinese / any text --------------------------------
-        pyperclip.copy(act.text)
-        time.sleep(0.05)  # let clipboard stabilize
-
+            ctrl_key = "command" if self.platform.startswith("darwin") else "ctrl"
+            code_parts.append(f"pyautogui.hotkey('{ctrl_key}', 'a')")
+            code_parts.append("pyautogui.press('backspace')")
+        
+        code_parts.append(f"pyperclip.copy('{act.text}')")
+        code_parts.append("time.sleep(0.05)")
+        
         if self.platform.startswith("darwin"):
-            # self.pag.hotkey("commandright", "v", interval=0.05)
-            # # 1. ⌘ 键按下
-            subprocess.run([
-                "osascript", "-e",
-                'tell application "System Events" to keystroke "v" using command down'
-            ])
-
-        else:                               # Windows / Linux
-            self.pag.hotkey("ctrl", "v", interval=0.05)
-
-        # ------------------------------------------------------------
-        if act.enter:
-            self.pag.press("enter")
-
-    def _scroll(self, act: Scroll) -> None:
-        self.pag.moveTo(*act.xy)
-        if not act.vertical:
-            self.pag.hscroll(act.clicks)
+            code_parts.append("subprocess.run(['osascript', '-e', 'tell application \"System Events\" to keystroke \"v\" using command down'])")
         else:
-            self.pag.vscroll(act.clicks)
+            code_parts.append("pyautogui.hotkey('ctrl', 'v', interval=0.05)")
+        
+        if act.enter:
+            code_parts.append("pyautogui.press('enter')")
+        
+        return "; ".join(code_parts)
 
-    def _hotkey(self, act: Hotkey) -> None:
-        # self.pag.hotkey(*act.keys)
-        print(act.keys)
-        self.pag.hotkey(*act.keys, interval=0.1)
+    def _scroll(self, act: Scroll) -> str:
+        scroll_method = "hscroll" if not act.vertical else "vscroll"
+        return f"pyautogui.moveTo({act.xy[0]}, {act.xy[1]}); pyautogui.{scroll_method}({act.clicks})"
 
-    def _hold_and_press(self, act: HoldAndPress) -> None:
-        for k in act.hold_keys:
-            self.pag.keyDown(k)
-        self.pag.press(list(act.press_keys))
-        for k in act.hold_keys:
-            self.pag.keyUp(k)
+    def _hotkey(self, act: Hotkey) -> str:
+        keys_str = "', '".join(act.keys)
+        return f"print({act.keys}); pyautogui.hotkey('{keys_str}', interval=0.1)"
+
+    def _hold_and_press(self, act: HoldAndPress) -> str:
+        hold_keys = list(act.hold_keys)
+        press_keys_list = list(act.press_keys)
+        code_parts = []
+        for k in hold_keys:
+            code_parts.append(f"pyautogui.keyDown('{k}')")
+        code_parts.append(f"pyautogui.press({press_keys_list})")
+        for k in hold_keys:
+            code_parts.append(f"pyautogui.keyUp('{k}')")
+        return "; ".join(code_parts)
 
     # ----- NEW: application helpers -----------------------------------------
-    def _switch_app(self, act: SwitchApp) -> None:
+    def _switch_app(self, act: SwitchApp) -> str:
         """跨平台切换到已打开的指定应用窗口"""
-        code = act.app_code
+        app_code = act.app_code
         if self.platform.startswith("darwin"):          # macOS
-            self.pag.hotkey("command", "space")
-            time.sleep(0.5)
-            self.pag.typewrite(code) # TODO: 兼容中文
-            self.pag.press("enter")
-            time.sleep(1.0)
-
+            return f"pyautogui.hotkey('command', 'space'); time.sleep(0.5); pyautogui.typewrite('{app_code}'); pyautogui.press('enter'); time.sleep(1.0)"
         elif self.platform.startswith("linux"):         # X11 + wmctrl
-            try:
-                output = subprocess.check_output(["wmctrl", "-lx"]).decode("utf-8").splitlines()
-                titles = [line.split(None, 4)[2] for line in output]
-                matches = difflib.get_close_matches(code, titles, n=1, cutoff=0.1)
-                if matches:
-                    target = matches[0]
-                    win_id = next((line.split()[0] for line in output if target in line), None)
-                    if win_id:
-                        subprocess.run(["wmctrl", "-ia", win_id])
-                        subprocess.run(["wmctrl", "-ir", win_id, "-b", "add,maximized_vert,maximized_horz"])
-            except FileNotFoundError:
-                # wmctrl 未安装时退化到 Alt+Tab
-                self.pag.keyDown("alt")
-                self.pag.press("tab")
-                self.pag.keyUp("alt")
-
+            return f"try: output = subprocess.check_output(['wmctrl', '-lx']).decode('utf-8').splitlines(); titles = [line.split(None, 4)[2] for line in output]; matches = difflib.get_close_matches('{app_code}', titles, n=1, cutoff=0.1); target = matches[0] if matches else None; win_id = next((line.split()[0] for line in output if target in line), None) if target else None; subprocess.run(['wmctrl', '-ia', win_id]) if win_id else None; subprocess.run(['wmctrl', '-ir', win_id, '-b', 'add,maximized_vert,maximized_horz']) if win_id else None; except FileNotFoundError: pyautogui.keyDown('alt'); pyautogui.press('tab'); pyautogui.keyUp('alt')"
         else:                                           # Assume Windows
-            self.pag.hotkey("win", "d")
-            time.sleep(0.5)
-            self.pag.typewrite(code)
-            self.pag.press("enter")
-            time.sleep(1.0)
+            return f"pyautogui.hotkey('win', 'd'); time.sleep(0.5); pyautogui.typewrite('{app_code}'); pyautogui.press('enter'); time.sleep(1.0)"
 
-    def _open_app(self, act: Open) -> None:
+    def _open_app(self, act: Open) -> str:
         target = act.app_or_filename
 
         if self.platform.startswith("darwin"):
-            # ① 尝试直接用 `open -a`
-            try:
-                subprocess.run(["open", "-a", target], check=True)
-            except subprocess.CalledProcessError:
-                # ② fallback：用 AppleScript 激活，Finder.app ⇄ Finder
-                script = f'tell application "{target}" to activate'
-                subprocess.run(["osascript", "-e", script], check=True)
-
+            return f"try: subprocess.run(['open', '-a', '{target}'], check=True); except subprocess.CalledProcessError: script = 'tell application \"{target}\" to activate'; subprocess.run(['osascript', '-e', script], check=True)"
         elif self.platform.startswith("linux"):
-            # 如果 target 是可执行名，用 gtk-launch；否则尝试 xdg-open
-            try:
-                subprocess.run(["gtk-launch", target], check=True)
-            except FileNotFoundError:
-                subprocess.run(["xdg-open", target], check=True)
-
+            return f"try: subprocess.run(['gtk-launch', '{target}'], check=True); except FileNotFoundError: subprocess.run(['xdg-open', '{target}'], check=True)"
         else:  # Windows
-            try:
-                os.startfile(target)                 # Python 3.9+
-            except OSError:
-                subprocess.Popen(["start", "", target], shell=True)
+            return f"try: os.startfile('{target}'); except OSError: subprocess.Popen(['start', '', '{target}'], shell=True)"
     
-    def _screenshot(self):
-        screenshot = self.pag.screenshot()
-        return screenshot
+    def _screenshot(self) -> str:
+        return "screenshot = pyautogui.screenshot(); return screenshot"

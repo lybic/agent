@@ -282,7 +282,7 @@ class AgentS2(UIAgent):
                 subtask_info=self.current_subtask.info, # type: ignore
                 future_tasks=self.global_state.get_remaining_subtasks(),
                 done_task=self.global_state.get_completed_subtasks(),
-                obs=observation,
+                obs=self.global_state.get_obs_for_manager(),
             )
             
             worker_execution_time = time.time() - worker_start_time

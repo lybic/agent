@@ -50,21 +50,21 @@ class PyAutoGUIVMwareBackend(Backend):
             raise NotImplementedError(f"{type(action).__name__} not supported by PyAutoGUIBackend")
 
         if isinstance(action, Click):
-            self._click(action)
+            return self._click(action)
         elif isinstance(action, Drag):
-            self._drag(action)
+            return self._drag(action)
         elif isinstance(action, TypeText):
-            self._type(action)
+            return self._type(action)
         elif isinstance(action, Scroll):
-            self._scroll(action)
+            return self._scroll(action)
         elif isinstance(action, Hotkey):
-            self._hotkey(action)
+            return self._hotkey(action)
         elif isinstance(action, HoldAndPress):
-            self._hold_and_press(action)
+            return self._hold_and_press(action)
         elif isinstance(action, Open):
-            self._open_app(action)
+            return self._open_app(action)
         elif isinstance(action, SwitchApp):
-            self._switch_app(action)
+            return self._switch_app(action)
         elif isinstance(action, Screenshot):
             screenshot = self._screenshot()
             return screenshot # type: ignore

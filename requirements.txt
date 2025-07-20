@@ -86,6 +86,7 @@ azure-mgmt-network
 docker
 loguru
 dotenv
+pytest
 
 # Platform-specific dependencies
 pyobjc; platform_system == "Darwin"

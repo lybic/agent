@@ -27,22 +27,13 @@ class UIAgent:
     def __init__(
         self,
         platform: str = platform.system().lower(),
-        action_space: str = "pyautogui",
-        observation_type: str = "a11y_tree",
     ):
         """Initialize UIAgent
 
         Args:
-            engine_params: Configuration parameters for the LLM engine
             platform: Operating system platform (macos, linux, windows)
-            action_space: Type of action space to use (pyautogui, aci)
-            observation_type: Type of observations to use (a11y_tree, mixed)
-            engine: Search engine to use (perplexica, LLM)
         """
         self.platform = platform
-        self.action_space = action_space
-        self.observation_type = observation_type
-        # self.engine = search_engine
 
     def reset(self) -> None:
         """Reset agent state"""
@@ -87,8 +78,6 @@ class AgentS2(UIAgent):
     def __init__(
         self,
         platform: str = platform.system().lower(),
-        action_space: str = "pyautogui",
-        observation_type: str = "mixed",
         screen_size: List[int] = [1920, 1080],
         memory_root_path: str = os.getcwd(),
         memory_folder_name: str = "kb_s2",
@@ -97,19 +86,13 @@ class AgentS2(UIAgent):
         """Initialize AgentS2
 
         Args:
-            engine_params: Configuration parameters for the LLM engine
             platform: Operating system platform (darwin, linux, windows)
-            action_space: Type of action space to use (pyautogui, other)
-            observation_type: Type of observations to use (a11y_tree, screenshot, mixed)
             memory_root_path: Path to memory directory. Defaults to current working directory.
             memory_folder_name: Name of memory folder. Defaults to "kb_s2".
             kb_release_tag: Release tag for knowledge base. Defaults to "v0.2.2".
         """
         super().__init__(
             platform,
-            action_space,
-            observation_type,
-            # search_engine,
         )
 
         self.memory_root_path = memory_root_path
@@ -317,6 +300,8 @@ class AgentS2(UIAgent):
 
             try:
                 grounding_start_time = time.time()
+                current_width, current_height = self.global_state.get_screen_size()
+                self.grounding.reset_screen_size(current_width, current_height)
                 self.grounding.assign_coordinates(executor_info["executor_plan"], observation)
                 plan_code = parse_single_code_from_string(executor_info["executor_plan"].split("Grounded Action")[-1])
                 plan_code = sanitize_code(plan_code)

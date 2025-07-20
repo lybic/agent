@@ -121,7 +121,6 @@ class GlobalState:
 
     # ---------- Screenshot ----------
     def get_screenshot(self) -> Optional[bytes]:
-        """返回 PNG 字节串；若目录为空则返回 None"""
         pngs = sorted(self.screenshot_dir.glob("*.png"))
         if not pngs:
             logger.warning("No screenshot found in %s", self.screenshot_dir)
@@ -138,6 +137,23 @@ class GlobalState:
         img.save(out)
         logger.debug("Screenshot saved to %s", out)
         return out
+    
+    def get_screen_size(self) -> List[int]:
+        pngs = sorted(self.screenshot_dir.glob("*.png"))
+        if not pngs:
+            logger.warning("No screenshot found in %s, returning default size [1920, 1080]", self.screenshot_dir)
+            return [1920, 1080]
+        
+        latest = pngs[-1]
+        try:
+            screenshot = Image.open(latest)
+            width, height = screenshot.size
+            logger.info("Current screen size from %s: [%d, %d]", latest.name, width, height)
+            return [width, height]
+        except Exception as e:
+            logger.error("Failed to get screen size from %s: %s", latest, e)
+            return [1920, 1080]
+        
 
     # ---------- Tu ----------
     def get_Tu(self) -> str:

@@ -14,6 +14,32 @@ from gui_agents.s2.agents.global_state import GlobalState
 from gui_agents.s2.store.registry import Registry
 from gui_agents.s2.core.mllm import CostManager
 
+def get_embedding_dim(model_name):
+    if model_name == "doubao-embedding-large-text-250515":
+        return 2048
+    elif model_name == "doubao-embedding-text-240715":
+        return 2560
+    elif model_name == "text-embedding-ada-002":
+        return 1536
+    elif model_name == "text-embedding-3-small":
+        return 1536
+    elif model_name == "text-embedding-3-large":
+        return 3072
+    elif model_name == "gemini-embedding-001":
+        return 3072
+    elif model_name == "jina-embeddings-v4":
+        return 2048
+    elif model_name == "jina-embeddings-v3":
+        return 1024
+    elif model_name == "text-embedding-v4":
+        return 1024
+    elif model_name == "text-embedding-v3":
+        return 1024
+    elif model_name == "embedding-2" or model_name == "embedding-3":
+        return 2048
+    else:
+        return None
+
 class KnowledgeBase:
     def __init__(
         self,
@@ -38,8 +64,17 @@ class KnowledgeBase:
         self.narrative_memory_path = os.path.join(
             self.local_kb_path, self.platform, "narrative_memory.json"
         )
+        # self.embeddings_path = os.path.join(
+        #     self.local_kb_path, self.platform, "embeddings.pkl"
+        # )
+        embedding_model_name = ""
+        if hasattr(self.embedding_engine, "tools") and "embedding" in self.embedding_engine.tools:
+            embedding_model_name = self.embedding_engine.tools["embedding"].model_name
+        else:
+            embedding_model_name = "default"
+        embedding_dim = get_embedding_dim(embedding_model_name)
         self.embeddings_path = os.path.join(
-            self.local_kb_path, self.platform, "embeddings.pkl"
+            self.local_kb_path, self.platform, f"embeddings_{embedding_dim}.pkl"
         )
 
         # Initialize trajectory tracking

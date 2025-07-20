@@ -91,28 +91,12 @@ def parse_single_code_from_string(input_string):
     if input_string.strip() in ["WAIT", "DONE", "FAIL"]:
         return input_string.strip()
 
-    # This regular expression will match both ```code``` and ```python code```
-    # and capture the `code` part. It uses a non-greedy match for the content inside.
     pattern = r"```(?:\w+\s+)?(.*?)```"
-    # Find all non-overlapping matches in the string
     matches = re.findall(pattern, input_string, re.DOTALL)
-
-    # The regex above captures the content inside the triple backticks.
-    # The `re.DOTALL` flag allows the dot `.` to match newline characters as well,
-    # so the code inside backticks can span multiple lines.
-
-    # matches now contains all the captured code snippets
-
     codes = []
-
     for match in matches:
         match = match.strip()
-        commands = [
-            "WAIT",
-            "DONE",
-            "FAIL",
-        ]  # fixme: updates this part when we have more commands
-
+        commands = ["WAIT", "DONE", "FAIL"]
         if match in commands:
             codes.append(match.strip())
         elif match.split("\n")[-1] in commands:
@@ -121,10 +105,15 @@ def parse_single_code_from_string(input_string):
             codes.append(match.split("\n")[-1])
         else:
             codes.append(match)
-
-    if len(codes) <= 0:
-        return "fail"
-    return codes[0]
+    if len(codes) > 0:
+        return codes[0]
+    code_match = re.search(r"(\w+\.\w+\(.*?\))", input_string)
+    if code_match:
+        return code_match.group(1)
+    lines = [line.strip() for line in input_string.splitlines() if line.strip()]
+    if lines:
+        return lines[0]
+    return "fail"
 
 
 def get_input_token_length(input_string):

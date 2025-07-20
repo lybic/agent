@@ -360,29 +360,43 @@ class Grounding(ACI):
 
     # Given a generated ACI function, returns a list of argument values, where descriptions are at the front of the list
     def parse_function_args(self, function: str) -> List[str]:
-        tree = ast.parse(function)
+        if not function or not isinstance(function, str):
+            return []
+        try:
+            tree = ast.parse(function)
+        except Exception as e:
+            return []
+        if not tree.body or not hasattr(tree.body[0], 'value'):
+            return []
         call_node = tree.body[0].value # type: ignore
-
+        if not isinstance(call_node, ast.Call):
+            return []
         def safe_eval(node):
-            if isinstance(
-                node, ast.Constant
-            ):  # Handles literals like numbers, strings, etc.
+            if isinstance(node, ast.Constant):
                 return node.value
+            elif hasattr(ast, 'Str') and isinstance(node, ast.Str):
+                return node.s
             else:
-                return ast.unparse(node)  # Return as a string if not a literal
-
-        positional_args = [safe_eval(arg) for arg in call_node.args]
-        keyword_args = {kw.arg: safe_eval(kw.value) for kw in call_node.keywords}
-
+                try:
+                    return ast.unparse(node)
+                except Exception:
+                    return str(node)
+        positional_args = []
+        try:
+            positional_args = [safe_eval(arg) for arg in call_node.args]
+        except Exception:
+            positional_args = []
+        keyword_args = {}
+        try:
+            keyword_args = {kw.arg: safe_eval(kw.value) for kw in call_node.keywords}
+        except Exception:
+            keyword_args = {}
         res = []
-
         for key, val in keyword_args.items():
-            if "description" in key:
+            if key and "description" in key:
                 res.append(val)
-
         for arg in positional_args:
             res.append(arg)
-
         return res
 
     @agent_action

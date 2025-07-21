@@ -1,3 +1,4 @@
+import os
 from desktop_env.desktop_env import DesktopEnv
 from screenshot_converter import process_vmware_screenshot
 
@@ -32,7 +33,11 @@ example = {
     }
 }
 
-env = DesktopEnv(path_to_vm="/Users/lxguo/Documents/Code/lybicguiagents/vmware_vm_data/Ubuntu0/Ubuntu0.vmx", provider_name="vmware", action_space="pyautogui")
+# To ensure the relative path works correctly, this script should be executed from the root of the project directory.
+# For example: python osworld_setup/test_vmware.py
+# The path is relative to the project root.
+vm_path = os.path.join("vmware_vm_data", "Ubuntu0", "Ubuntu0.vmx")
+env = DesktopEnv(path_to_vm=vm_path, provider_name="vmware", action_space="pyautogui")
 
 env.reset(task_config=example)
 

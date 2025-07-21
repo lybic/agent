@@ -1,7 +1,7 @@
 # translator.py
 """
-把 pyautogui-风格脚本翻译成统一命令(JSON list)，
-格式完全遵循 computer-use schema。
+Translates pyautogui-style scripts into unified commands (JSON list),
+format strictly follows computer-use schema.
 """
 
 from __future__ import annotations
@@ -15,31 +15,32 @@ class TranslateError(RuntimeError):
 
 class _CommandBuilder(ast.NodeVisitor):
     """
-    只处理最常见的 GUI 原子操作：
+    Only handles the most common GUI atomic operations:
         click / moveTo / doubleClick / rightClick / middleClick /
         dragTo / scroll / typewrite / press / hotkey / wait
-    若遇到条件、循环等逻辑，直接抛错（Grounding 层应先拆平）。
+    If conditions, loops, or other logic are encountered, an error is thrown
+    (the Grounding layer should flatten these first).
     """
     def __init__(self) -> None:
         super().__init__()
         self.cmds: List[Dict] = []
 
-    # ---------- 节点访问 ----------
+    # ---------- Node Visiting ----------
     def visit_Expr(self, node):         # pyautogui.xxx(...)
         if not isinstance(node.value, ast.Call):
-            raise TranslateError("只允许函数调用级指令")
+            raise TranslateError("Only function call level instructions allowed")
         self._handle_call(node.value)
         self.generic_visit(node)
 
-    # ---------- 核心：把函数调用映射到 command ----------
+    # ---------- Core: Map function calls to commands ----------
     def _handle_call(self, call: ast.Call):
         if not isinstance(call.func, ast.Attribute):
-            raise TranslateError("不支持复杂表达式")
+            raise TranslateError("Complex expressions not supported")
         lib, fn = self._split_attr(call.func) # type: ignore
         if lib != "pyautogui":
-            raise TranslateError("只允许 pyautogui 调用")
+            raise TranslateError("Only pyautogui calls allowed")
 
-        # 取位置与关键字实参
+        # Get positional and keyword arguments
         kw = {k.arg: self._literal(v) for k, v in zip(call.keywords, [k.value for k in call.keywords])}
         pos = [self._literal(a) for a in call.args]
 
@@ -54,7 +55,7 @@ class _CommandBuilder(ast.NodeVisitor):
 
         elif fn == "dragTo":
             x, y = pos[:2] if len(pos) >= 2 else (kw.get("x"), kw.get("y"))
-            # startCoordinate 需由调用方补充；这里用 None 占位
+            # startCoordinate needs to be supplemented by the caller; using None as a placeholder here
             self.cmds.append({"action": "leftClickDrag",
                               "startCoordinate": None,
                               "coordinate": [x, y]})
@@ -82,11 +83,11 @@ class _CommandBuilder(ast.NodeVisitor):
             self.cmds.append({"action": "wait", "duration": secs})
 
         else:
-            raise TranslateError(f"暂不支持函数 {fn}")
+            raise TranslateError(f"Function {fn} not yet supported")
 
-    # ---------- 工具 ----------
+    # ---------- Tools ----------
     def _append_click(self, fn, x, y, kw):
-        # 单击 / 双击 / 不同按键
+        # Single click / double click / different buttons
         clicks = kw.get("clicks", 1)
         button = kw.get("button", "left")
         action = {
@@ -97,7 +98,7 @@ class _CommandBuilder(ast.NodeVisitor):
             ("middleClick", 1, "middle"): "middleClick",
         }.get((fn, clicks, button))
         if not action:
-            raise TranslateError(f"无法映射 {fn} clicks={clicks} button={button}")
+            raise TranslateError(f"Cannot map {fn} clicks={clicks} button={button}")
         self.cmds.append({"action": action, "coordinate": [x, y]})
 
     def _split_attr(self, attr: ast.Attribute):
@@ -108,15 +109,15 @@ class _CommandBuilder(ast.NodeVisitor):
             if isinstance(attr, ast.Name):
                 parts.insert(0, attr.id)
             else:
-                raise TranslateError("不支持复杂表达式")
+                raise TranslateError("Complex expressions not supported")
         return parts[0], parts[1]
 
     def _literal(self, node):
         if isinstance(node, ast.Constant):
             return node.value
-        raise TranslateError("只允许字面量参数")
+        raise TranslateError("Only literal parameters allowed")
 
-# ---------- 对外 API ----------
+# ---------- External API ----------
 def translate(py_code: str) -> List[Dict]:
     tree = ast.parse(py_code)
     builder = _CommandBuilder()

@@ -10,9 +10,7 @@ from gui_agents.agents.global_state import GlobalState
 from gui_agents.store.registry import Registry
 from gui_agents.utils.common_utils import (
     Dag,
-    Node,   
-    calculate_tokens,
-    # call_llm_safe,
+    Node,
     parse_dag,
 )
 from gui_agents.tools.tools import Tools
@@ -32,23 +30,11 @@ class Manager:
         multi_round: bool = False,
         platform: str = platform.system().lower(),
     ):
-        # TODO: move the prompt to Procedural Memory
-        # super().__init__(engine_params, platform)
         self.platform = platform
         self.Tools_dict = Tools_dict
 
-        # Initialize the planner
-        # sys_prompt = PROCEDURAL_MEMORY.COMBINED_MANAGER_PROMPT
-
-        # self.generator_agent = self._create_agent(sys_prompt)
-
         self.generator_agent = Tools()
         self.generator_agent.register_tool("subtask_planner", Tools_dict["subtask_planner"]["provider"], Tools_dict["subtask_planner"]["model"])
-
-        # Initialize the remaining modules
-        # self.dag_translator_agent = self._create_agent(
-        #     PROCEDURAL_MEMORY.DAG_TRANSLATOR_PROMPT
-        # )
 
         self.dag_translator_agent = Tools()
         self.dag_translator_agent.register_tool("dag_translator", self.Tools_dict["dag_translator"]["provider"], self.Tools_dict["dag_translator"]["model"])
@@ -84,7 +70,6 @@ class Manager:
         self.planner_history = []
 
         self.turn_count = 0
-        # self.search_engine = search_engine
         self.search_engine = Tools()
         self.search_engine.register_tool("websearch", self.Tools_dict["websearch"]["provider"], self.Tools_dict["websearch"]["model"])
 
@@ -100,7 +85,6 @@ class Manager:
         subtask_summarization, total_tokens, cost_string = self.episode_summarization_agent.execute_tool("episode_summarization", {"str_input": trajectory})
         logger.info(f"Episode summarization tokens: {total_tokens}, cost: {cost_string}")
 
-        # 记录tokens和cost信息
         self.global_state.log_operation(
             module="manager",
             operation="episode_summarization",
@@ -122,7 +106,6 @@ class Manager:
         lifelong_learning_reflection, total_tokens, cost_string = self.narrative_summarization_agent.execute_tool("narrative_summarization", {"str_input": trajectory})
         logger.info(f"Narrative summarization tokens: {total_tokens}, cost: {cost_string}")
         
-        # 记录tokens和cost信息
         self.global_state.log_operation(
             module="manager",
             operation="narrative_summarization",
@@ -165,7 +148,6 @@ class Manager:
             )
             formulate_query_time = time.time() - formulate_query_start
             logger.info(f"Formulate query tokens: {total_tokens}, cost: {cost_string}")
-            # self.global_state.log_tokens_and_cost("formulate_query", total_tokens, cost_string)
             self.global_state.log_operation(
                 module="manager",
                 operation="formulate_query",
@@ -261,12 +243,6 @@ class Manager:
             # Add the integrated knowledge to the task instruction in the system prompt
             if integrated_knowledge:
                 instruction += f"\nYou may refer to some retrieved knowledge if you think they are useful.{integrated_knowledge}"
-
-            # self.generator_agent.add_system_prompt(
-            #     self.generator_agent.system_prompt.replace(
-            #         "TASK_DESCRIPTION", instruction
-            #     )
-            # )
             prefix_message = f"TASK_DESCRIPTION is {instruction}"
 
         # Re-plan on failure case
@@ -288,16 +264,8 @@ class Manager:
         
         generator_message = prefix_message + "\n" + generator_message
         logger.info("GENERATOR MESSAGE: %s", generator_message)
-
-        # self.generator_agent.add_message(
-        #     generator_message,
-        #     image_content=observation.get("screenshot", None),
-        #     role="user",
-        # )
-
         logger.info("GENERATING HIGH LEVEL PLAN")
 
-        # plan = call_llm_safe(self.generator_agent)
         subtask_planner_start = time.time()
         plan, total_tokens, cost_string = self.generator_agent.execute_tool("subtask_planner", {"str_input": generator_message, "img_input": observation.get("screenshot", None)})
         logger.info(f"Subtask planner tokens: {total_tokens}, cost: {cost_string}")
@@ -327,20 +295,12 @@ class Manager:
 
         logger.info("HIGH LEVEL STEP BY STEP PLAN: %s", plan)
 
-        # self.generator_agent.add_message(plan, role="assistant")
         self.planner_history.append(plan)
         self.turn_count += 1
-
-        # # Set Cost based on GPT-4o
-        # input_tokens, output_tokens = calculate_tokens(self.generator_agent.messages)
-        # cost = input_tokens * (0.0050 / 1000) + output_tokens * (0.0150 / 1000)
 
         planner_info = {
             "search_query": self.search_query,
             "goal_plan": plan,
-            # "num_input_tokens_plan": input_tokens,
-            # "num_output_tokens_plan": output_tokens,
-            # "goal_plan_cost": cost,
         }
 
         assert type(plan) == str
@@ -350,18 +310,10 @@ class Manager:
     def _generate_dag(self, instruction: str, plan: str) -> Tuple[Dict, Dag]:
         import time
         dag_start = time.time()
-        # For the re-planning case, remove the prior input since this should only translate the new plan
-        # self.dag_translator_agent.reset()
-
-        # Add initial instruction and plan to the agent's message history
-        # self.dag_translator_agent.add_message(
-        #     f"Instruction: {instruction}\nPlan: {plan}", role="user"
-        # )
 
         logger.info("GENERATING DAG")
 
         # Generate DAG
-        # dag_raw = call_llm_safe(self.dag_translator_agent)
         dag_raw, total_tokens, cost_string = self.dag_translator_agent.execute_tool("dag_translator", {"str_input": f"Instruction: {instruction}\nPlan: {plan}"})
         logger.info(f"DAG translator tokens: {total_tokens}, cost: {cost_string}")
 
@@ -381,20 +333,8 @@ class Manager:
             }
         )
 
-        # self.dag_translator_agent.add_message(dag_raw, role="assistant")
-
-        # input_tokens, output_tokens = calculate_tokens(
-        #     self.dag_translator_agent.messages
-        # )
-
-        # # Set Cost based on GPT-4o
-        # cost = input_tokens * (0.0050 / 1000) + output_tokens * (0.0150 / 1000)
-
         dag_info = {
             "dag": dag_raw,
-            # "num_input_tokens_dag": input_tokens,
-            # "num_output_tokens_dag": output_tokens,
-            # "dag_cost": cost,
         }
 
         assert type(dag) == Dag
@@ -462,7 +402,6 @@ class Manager:
 
         planner_info.update(dag_info)
         
-        # 记录下一个子任务和剩余子任务
         if action_queue:
             logger.info(f"NEXT SUBTASK: {action_queue[0]}")
             self.global_state.log_operation(

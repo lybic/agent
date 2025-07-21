@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-Display Viewer - 用于按时间顺序展示 display.json 文件中的操作记录
+Display Viewer - Used to display operation records in display.json file in chronological order
 
-使用方法:
+Usage:
     python -m lybicguiagents.gui_agents.utils.display_viewer --file /path/to/display.json [--output text|json] [--filter module1,module2]
 """
 
@@ -14,7 +14,7 @@ import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 
-# 添加颜色常量
+# Add color constants
 COLORS = {
     "reset": "\033[0m",
     "bold": "\033[1m",
@@ -33,7 +33,7 @@ COLORS = {
     "bg_cyan": "\033[46m",
 }
 
-# 为不同模块分配颜色
+# Assign colors to different modules
 MODULE_COLORS = {
     "manager": COLORS["green"],
     "worker": COLORS["blue"],
@@ -46,36 +46,36 @@ MODULE_COLORS = {
 
 def load_display_json(file_path: str) -> Dict:
     """
-    加载 display.json 文件
+    Load display.json file
     
     Args:
-        file_path: display.json 文件路径
+        file_path: Path to display.json file
         
     Returns:
-        解析后的 JSON 数据
+        Parsed JSON data
     """
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
-        print(f"错误: 文件 '{file_path}' 不存在")
+        print(f"Error: File '{file_path}' does not exist")
         sys.exit(1)
     except json.JSONDecodeError:
-        print(f"错误: 文件 '{file_path}' 不是有效的 JSON 格式")
+        print(f"Error: File '{file_path}' is not a valid JSON format")
         sys.exit(1)
     except Exception as e:
-        print(f"错误: 读取文件 '{file_path}' 时出错: {e}")
+        print(f"Error: An error occurred while reading file '{file_path}': {e}")
         sys.exit(1)
 
 def flatten_operations(data: Dict) -> List[Dict]:
     """
-    将所有模块的操作记录展平为一个按时间排序的列表
+    Flatten all module operation records into a time-sorted list
     
     Args:
-        data: display.json 的数据
+        data: display.json data
         
     Returns:
-        按时间排序的操作记录列表
+        List of operation records sorted by time
     """
     all_operations = []
     
@@ -84,37 +84,37 @@ def flatten_operations(data: Dict) -> List[Dict]:
         
     for module, operations in data["operations"].items():
         for op in operations:
-            # 添加模块信息
+            # Add module information
             op["module"] = module
             all_operations.append(op)
     
-    # 按时间戳排序
+    # Sort by timestamp
     all_operations.sort(key=lambda x: x.get("timestamp", 0))
     
     return all_operations
 
 def format_timestamp(timestamp: float) -> str:
     """
-    将时间戳格式化为可读的日期时间
+    Format timestamp into readable datetime
     
     Args:
-        timestamp: UNIX 时间戳
+        timestamp: UNIX timestamp
         
     Returns:
-        格式化的日期时间字符串
+        Formatted datetime string
     """
     dt = datetime.datetime.fromtimestamp(timestamp)
     return dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 def format_duration(duration: float) -> str:
     """
-    格式化持续时间
+    Format duration
     
     Args:
-        duration: 持续时间（秒）
+        duration: Duration (seconds)
         
     Returns:
-        格式化的持续时间字符串
+        Formatted duration string
     """
     if duration < 0.001:
         return f"{duration * 1000000:.2f}μs"
@@ -125,13 +125,13 @@ def format_duration(duration: float) -> str:
 
 def format_tokens(tokens: List[int]) -> str:
     """
-    格式化 tokens 信息
+    Format tokens information
     
     Args:
-        tokens: [输入tokens, 输出tokens, 总tokens]
+        tokens: [input tokens, output tokens, total tokens]
         
     Returns:
-        格式化的 tokens 字符串
+        Formatted tokens string
     """
     if not tokens or len(tokens) < 3:
         return "N/A"
@@ -140,14 +140,14 @@ def format_tokens(tokens: List[int]) -> str:
 
 def truncate_text(text: str, max_length: int = 100) -> str:
     """
-    截断文本，超过最大长度时添加省略号
+    Truncate text, add ellipsis when exceeding maximum length
     
     Args:
-        text: 原始文本
-        max_length: 最大长度
+        text: Original text
+        max_length: Maximum length
         
     Returns:
-        截断后的文本
+        Truncated text
     """
     if not text:
         return ""
@@ -162,14 +162,14 @@ def truncate_text(text: str, max_length: int = 100) -> str:
 
 def display_text_format(operations: List[Dict], filter_modules: Optional[List[str]] = None) -> None:
     """
-    以文本格式显示操作记录
+    Display operation records in text format
     
     Args:
-        operations: 操作记录列表
-        filter_modules: 要筛选的模块列表
+        operations: List of operation records
+        filter_modules: List of modules to filter
     """
     for i, op in enumerate(operations):
-        # 如果指定了模块过滤，则跳过不匹配的模块
+        # Skip modules that don't match the filter if a filter is specified
         if filter_modules and op["module"] not in filter_modules:
             continue
             
@@ -177,13 +177,13 @@ def display_text_format(operations: List[Dict], filter_modules: Optional[List[st
         operation = op.get("operation", "unknown")
         timestamp = format_timestamp(op.get("timestamp", 0))
         
-        # 使用模块对应的颜色
+        # Use the color corresponding to the module
         color = MODULE_COLORS.get(module, COLORS["reset"])
         
-        # 输出基本信息
+        # Output basic information
         print(f"{i+1:3d} | {timestamp} | {color}{module:10}{COLORS['reset']} | {COLORS['bold']}{operation}{COLORS['reset']}")
         
-        # 输出详细信息
+        # Output detailed information
         if "duration" in op:
             print(f"     └─ Duration: {format_duration(op['duration'])}")
             
@@ -204,44 +204,44 @@ def display_text_format(operations: List[Dict], filter_modules: Optional[List[st
 
 def display_json_format(operations: List[Dict], filter_modules: Optional[List[str]] = None) -> None:
     """
-    以 JSON 格式显示操作记录
+    Display operation records in JSON format
     
     Args:
-        operations: 操作记录列表
-        filter_modules: 要筛选的模块列表
+        operations: List of operation records
+        filter_modules: List of modules to filter
     """
-    # 如果指定了模块过滤，则筛选操作
+    # Filter operations if modules are specified
     if filter_modules:
         filtered_ops = [op for op in operations if op["module"] in filter_modules]
     else:
         filtered_ops = operations
         
-    # 输出为格式化的 JSON
+    # Output as formatted JSON
     print(json.dumps(filtered_ops, indent=2, ensure_ascii=False))
 
 def find_latest_display_json() -> Optional[str]:
     """
-    查找最新的 display.json 文件
+    Find the latest display.json file
     
     Returns:
-        最新的 display.json 文件路径，如果找不到则返回 None
+        Path to the latest display.json file, or None if not found
     """
-    # 查找当前目录下的 runtime 文件夹
+    # Look for the runtime folder in the current directory
     runtime_dir = Path("runtime")
     if not runtime_dir.exists() or not runtime_dir.is_dir():
-        # 尝试查找上级目录
+        # Try looking in the parent directory
         parent_runtime = Path("..") / "runtime"
         if parent_runtime.exists() and parent_runtime.is_dir():
             runtime_dir = parent_runtime
         else:
             return None
             
-    # 查找所有时间戳文件夹
+    # Find all timestamp folders
     timestamp_dirs = [d for d in runtime_dir.iterdir() if d.is_dir()]
     if not timestamp_dirs:
         return None
         
-    # 按照文件夹名称（时间戳）排序，取最新的
+    # Sort by folder name (timestamp) and take the latest
     latest_dir = sorted(timestamp_dirs)[-1]
     display_file = latest_dir / "display.json"
     
@@ -251,34 +251,34 @@ def find_latest_display_json() -> Optional[str]:
     return None
 
 def main():
-    parser = argparse.ArgumentParser(description="按时间顺序展示 display.json 文件中的操作记录")
-    parser.add_argument("--file", help="display.json 文件路径")
-    parser.add_argument("--output", choices=["text", "json"], default="text", help="输出格式 (默认: text)")
-    parser.add_argument("--filter", help="要筛选的模块，用逗号分隔 (例如: manager,worker)")
+    parser = argparse.ArgumentParser(description="Display operation records in display.json file in chronological order")
+    parser.add_argument("--file", help="Path to display.json file")
+    parser.add_argument("--output", choices=["text", "json"], default="text", help="Output format (default: text)")
+    parser.add_argument("--filter", help="Modules to filter, separated by commas (e.g., manager,worker)")
     
     args = parser.parse_args()
     
-    # 如果没有指定文件，则尝试查找最新的 display.json
+    # If no file is specified, try to find the latest display.json
     file_path = args.file
     if not file_path:
         file_path = find_latest_display_json()
         if not file_path:
-            print("错误: 找不到 display.json 文件，请使用 --file 参数指定文件路径")
+            print("Error: Cannot find display.json file, please specify file path using --file parameter")
             sys.exit(1)
-        print(f"使用最新的 display.json 文件: {file_path}")
+        print(f"Using the latest display.json file: {file_path}")
     
-    # 加载数据
+    # Load data
     data = load_display_json(file_path)
     
-    # 展平并排序操作
+    # Flatten and sort operations
     operations = flatten_operations(data)
     
-    # 处理模块过滤
+    # Handle module filtering
     filter_modules = None
     if args.filter:
         filter_modules = [module.strip() for module in args.filter.split(",")]
     
-    # 根据输出格式显示
+    # Display based on output format
     if args.output == "json":
         display_json_format(operations, filter_modules)
     else:
@@ -288,4 +288,4 @@ if __name__ == "__main__":
     """
     python gui_agents/s2/utils/display_viewer.py --file /Users/haoguangfu/Downloads/深维智能/客户方案/gui-agent/lybicguiagents/runtime/20250718_190307/display.json
     """
-    main() 
+    main()

@@ -16,20 +16,20 @@ logger = logging.getLogger("desktopenv.experiment")
 
 def screenshot_bytes_to_pil_image(screenshot_bytes: bytes) -> Optional[Image.Image]:
     """
-    将obs["screenshot"]的bytes数据转换为PIL Image对象，保持原始尺寸
+    Convert the bytes data of obs["screenshot"] to a PIL Image object, preserving the original size
     
     Args:
-        screenshot_bytes: 截图的bytes数据
+        screenshot_bytes: The bytes data of the screenshot
     
     Returns:
-        PIL Image对象，如果转换失败则返回None
+        PIL Image object, or None if conversion fails
     """
     if screenshot_bytes is None:
         logger.warning("Screenshot bytes is None")
         return None
     
     try:
-        # 直接从bytes创建PIL Image对象
+        # Create PIL Image object directly from bytes
         image = Image.open(io.BytesIO(screenshot_bytes))
         logger.debug(f"Successfully converted screenshot to PIL Image, size: {image.size}, mode: {image.mode}")
         return image
@@ -44,7 +44,7 @@ def run_single_example(
     global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
     hwi = HardwareInterface(backend="pyautogui_vmware", platform='linux')
 
-    # 为每个example设置独立的logger
+    # Set up a separate logger for each example
     example_logger = setup_example_logger(example, example_timestamp_dir)
     example_logger.info(f"Starting example {example.get('id', 'unknown')}")
     example_logger.info(f"Instruction: {instruction}")

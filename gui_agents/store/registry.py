@@ -1,6 +1,6 @@
 # gui_agents/s2/store/registry.py
 
-# 使用方法，在任意文件中通过Registry.get获取
+# Usage: in any file, get the object through Registry.get
 # from gui_agents.store.registry import Registry
 # GlobalStateStore = Registry.get("GlobalStateStore")
 

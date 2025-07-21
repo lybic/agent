@@ -40,7 +40,7 @@ def delete_empty_shape_embeddings(embeddings_path: str) -> int:
     to_delete = []
     for k, v in embeddings.items():
         arr = np.array(v)
-        # 删除 shape==0 或 shape==() 或内容为字符串/异常信息
+        # Delete shape==0 or shape==() or content is string/error information
         if arr.size == 0 or arr.shape == () or (
             isinstance(v, list) and v and isinstance(v[0], str) and v[0].startswith('Error:')
         ) or (isinstance(v, str) and v.startswith('Error:')):

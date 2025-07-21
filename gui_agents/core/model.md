@@ -1,298 +1,313 @@
-# LLM Models
+# Supported Model Providers and Model Lists
 
-## 1. OpenAI
+## LLM Model Providers
 
-**支持的模型：**
+### 1. OpenAI
 
-- `gpt-4o` - 最新多模态模型
-- `gpt-4o-mini` - 轻量版
-- `gpt-4-turbo` - GPT-4 Turbo
-- `gpt-4` - GPT-4 标准版
-- `gpt-3.5-turbo` - GPT-3.5
+**Supported Models:**
 
-## 2. Anthropic Claude
+- `gpt-4.1`
+- `gpt-4.1-mini`
+- `gpt-4.1-nano`
+- `gpt-4.5-preview`
+- `gpt-4o`
+- `gpt-4o-realtime-preview`
+- `gpt-4o-mini`
+- `o1`
+- `o1-pro`
+- `o1-mini`
+- `o3`
+- `o3-pro`
+- `o3-mini`
+- `o4-mini`
 
-**支持的模型：**
+**Embedding Models:**
 
-- `claude-opus-4` - Claude Opus 4
-- `claude-sonnet-4` - Claude Sonnet 4
-- `claude-3-5-sonnet` - Claude 3.5 Sonnet
-- `claude-3-5-haiku` - Claude 3.5 Haiku
-- `claude-3-opus` - Claude 3 Opus
-- `claude-3-sonnet` - Claude 3 Sonnet
-- `claude-3-haiku` - Claude 3 Haiku
+- `text-embedding-3-small`
+- `text-embedding-3-large`
+- `text-embedding-ada-002`
 
-### 3. 阿里云 Qwen
+📚 **Reference Link:** <https://platform.openai.com/docs/pricing>
 
-**支持的模型：**
-- `qwen-max` - 通义千问最大模型
-- `qwen-plus` - 通义千问增强版
-- `qwen-turbo` - 通义千问标准版
-- `qwen2.5-72b-instruct` - Qwen2.5 72B
-- `qwen2.5-32b-instruct` - Qwen2.5 32B
-- `qwen2.5-14b-instruct` - Qwen2.5 14B
-- `qwen2.5-7b-instruct` - Qwen2.5 7B
+---
 
-```python
-from engine import LMMEngineQwen
+### 2. Anthropic Claude
 
-# 初始化
-qwen = LMMEngineQwen(
-    model="qwen-max",
-    enable_thinking=False  # 是否启用思考模式
-)
+**Supported Models:**
 
-# 生成文本
-messages = [{"role": "user", "content": "写一首关于春天的诗"}]
-response = qwen.generate(messages, temperature=0.8)
-```
+- `claude-opus-4-20250514`
+- `claude-sonnet-4-20250514`
+- `claude-3-7-sonnet-20250219`
+- `claude-3-5-sonnet-20241022`
+- `claude-3-5-haiku-20241022`
 
-### 4. 字节跳动 Doubao
+📚 **Reference Link:** <https://www.anthropic.com/api>
 
-**支持的模型：**
-- `Doubao-1.5-thinking-vision-pro` - 豆包模型（需要替换为实际模型）
-- 具体模型名称需要在火山引擎控制台查看
+---
 
-```python
-from engine import LMMEngineDoubao
+### 3. AWS Bedrock
 
-# 初始化
-doubao = LMMEngineDoubao(model="Doubao-1.5-thinking-vision-pro")
+**Supported Claude Models:**
 
-# 生成文本
-messages = [{"role": "user", "content": "介绍人工智能"}]
-response = doubao.generate(messages)
-```
+- `Claude-Opus-4`
+- `Claude-Sonnet-4`
+- `Claude-Sonnet-3.7`
+- `Claude-Sonnet-3.5`
 
-### 5. Google Gemini
+📚 **Reference Link:** <https://aws.amazon.com/bedrock/>
 
-**支持的模型：**
-- `gemini-2.5-pro` - Gemini 2.5 Pro
-- `gemini-2.5-flash` - Gemini 2.5 Flash
+---
 
+### 4. Google Gemini
 
-```python
-from engine import LMMEngineGemini
+**Supported Models:**
 
-# 初始化
-gemini = LMMEngineGemini(model="gemini-2.5-pro")
+- `gemini-2.5-pro`
+- `gemini-2.5-flash`
+- `gemini-2.0-flash`
+- `gemini-1.5-pro`
+- `gemini-1.5-flash`
 
-# 生成文本
-messages = [{"role": "user", "content": "解释相对论"}]
-response = gemini.generate(messages)
-```
+**Embedding Models:**
 
-### 6. DeepSeek
+- `gemini-embedding-001`
 
-**支持的模型：**
-- `deepseek-chat` - DeepSeek Chat
-- `deepseek-reasoner` - DeepSeek Reasoner
+📚 **Reference Link:** <https://ai.google.dev/gemini-api/docs/pricing>
 
-```python
-from engine import LMMEngineDeepSeek
+---
 
-# 初始化
-deepseek = LMMEngineDeepSeek(model="deepseek-chat")
+### 5. Groq
 
-# 生成文本
-messages = [{"role": "user", "content": "编写Python快速排序"}]
-response = deepseek.generate(messages)
-```
+**Supported Models:**
 
-### 7. 智谱 GLM
+- `Kimi-K2-Instruct`
+- `Llama-4-Scout-17B-16E-Instruct`
+- `Llama-4-Maverick-17B-128E-Instruct`
+- `Llama-Guard-4-12B`
+- `DeepSeek-R1-Distill-Llama-70B`
+- `Qwen3-32B`
+- `Llama-3.3-70B-Instruct`
 
-**支持的模型：**
-- `glm-4-plus` - GLM-4 Plus
-- `glm-4-0520` - GLM-4 
-- `glm-4-air` - GLM-4 Air
-- `glm-4-airx` - GLM-4 AirX
-- `glm-4-flash` - GLM-4 Flash
+📚 **Reference Link:** <https://groq.com/pricing>
 
-```python
-from engine import LMMEngineZhipu
+---
 
-# 初始化
-zhipu = LMMEngineZhipu(model="glm-4-plus")
+### 6. Monica (Proxy Platform)
 
-# 生成文本
-messages = [{"role": "user", "content": "分析经济形势"}]
-response = zhipu.generate(messages)
-```
+**OpenAI Models:**
 
-### 8. Groq
+- `gpt-4.1`
+- `gpt-4.1-mini`
+- `gpt-4.1-nano`
+- `gpt-4o-2024-11-20`
+- `gpt-4o-mini-2024-07-18`
+- `o4-mini`
+- `o3`
 
-**支持的模型：**
-- `llama-3.1-405b-reasoning` - Llama 3.1 405B
-- `llama-3.1-70b-versatile` - Llama 3.1 70B
-- `llama-3.1-8b-instant` - Llama 3.1 8B
-- `mixtral-8x7b-32768` - Mixtral 8x7B
-- `gemma2-9b-it` - Gemma 2 9B
+**Anthropic Claude Models:**
 
-```python
-from engine import LMMEngineGroq
+- `claude-opus-4-20250514`
+- `claude-sonnet-4-20250514`
+- `claude-3-7-sonnet-latest`
+- `claude-3-5-sonnet-20241022`
+- `claude-3-5-sonnet-20240620`
+- `claude-3-5-haiku-20241022`
+- `claude-3-opus-20240229`
+- `claude-3-haiku-20240307`
 
-# 初始化
-groq = LMMEngineGroq(model="llama-3.1-70b-versatile")
+**Google Gemini Models:**
 
-# 生成文本
-messages = [{"role": "user", "content": "什么是机器学习？"}]
-response = groq.generate(messages)
-```
+- `gemini-2.5-pro-preview-03-25`
+- `gemini-2.5-flash-lite`
+- `gemini-2.5-flash-preview-05-20`
+- `gemini-2.0-flash-001`
+- `gemini-1.5-pro-002`
+- `gemini-1.5-flash-002`
 
-### 9. AWS Bedrock
+**DeepSeek Models:**
 
-**支持的模型：**
-- `claude-opus-4` - Claude Opus 4
-- `claude-sonnet-4` - Claude Sonnet 4
-- `claude-3-5-sonnet` - Claude 3.5 Sonnet
-- `claude-3-5-haiku` - Claude 3.5 Haiku
-- `claude-3-opus` - Claude 3 Opus
-- `claude-3-sonnet` - Claude 3 Sonnet
-- `claude-3-haiku` - Claude 3 Haiku
+- `deepseek-reasoner`
+- `deepseek-chat`
 
-```python
-from engine import LMMEngineAWSBedrock
+**Meta Llama Models:**
 
-# 初始化
-bedrock = LMMEngineAWSBedrock(model="claude-3-5-sonnet")
+- `llama-3-8b-instruct`
+- `llama-3.1-8b-instruct`
+- `llama-3.3-70b-instruct`
+- `llama-3-70b-instruct`
+- `llama-3.1-405b-instruct`
 
-# 生成文本
-messages = [{"role": "user", "content": "介绍云计算"}]
-response = bedrock.generate(messages)
-```
+**xAI Grok Models:**
 
-## 🔤 Embedding 引擎
+- `grok-3-beta`
+- `grok-beta`
 
-### 1. OpenAI Embeddings
+📚 **Reference Link:** <https://platform.monica.im/docs/en/models-and-pricing>
 
-**支持的模型：**
-- `text-embedding-3-large` - 最大模型 (3072维)
-- `text-embedding-3-small` - 小模型 (1536维)
-- `text-embedding-ada-002` - 经典模型 (1536维)
+---
 
-```python
-from engine import OpenAIEmbeddingEngine
+### 7. OpenRouter (Proxy Platform)
 
-# 初始化
-embedder = OpenAIEmbeddingEngine(embedding_model="text-embedding-3-small")
+**OpenAI Models:**
 
-# 获取向量
-text = "这是一段需要向量化的文本"
-embeddings = embedder.get_embeddings(text)
-print(f"向量维度: {embeddings.shape}")  # (1, 1536)
-```
+- `gpt-4.1`
+- `gpt-4.1-mini`
+- `o1`
+- `o1-pro`
+- `o1-mini`
+- `o3`
+- `o3-pro`
+- `o3-mini`
+- `o4-mini`
 
-### 2. Google Gemini Embeddings
+**xAI Grok Models:**
 
-**支持的模型：**
-- `text-embedding-004` - Gemini 最新嵌入模型
+- `grok-4`
+- `grok-3`
+- `grok-3-mini`
 
-```python
-from engine import GeminiEmbeddingEngine
+**Anthropic Claude Models:**
 
-# 初始化
-gemini_embedder = GeminiEmbeddingEngine(embedding_model="text-embedding-004")
+- `claude-opus-4`
+- `claude-sonnet-4`
 
-# 获取向量
-text = "人工智能是计算机科学的分支"
-embeddings = gemini_embedder.get_embeddings(text)
-```
+**Google Gemini Models:**
 
-### 3. 阿里云 DashScope Embeddings
+- `gemini-2.5-flash`
+- `gemini-2.5-pro`
 
-**支持的模型：**
-- `text-embedding-v4` - 最新版本
-- `text-embedding-v3` - 标准版本
-- `text-embedding-v2` - 经典版本
+📚 **Reference Link:** <https://openrouter.ai/models>
 
-```python
-from engine import DashScopeEmbeddingEngine
+---
 
-# 初始化
-dashscope_embedder = DashScopeEmbeddingEngine(
-    embedding_model="text-embedding-v4",
-    dimensions=1024  # 可选：512, 768, 1024, 1536
-)
+### 8. Azure OpenAI
 
-# 获取向量
-text = "深度学习是机器学习的子集"
-embeddings = dashscope_embedder.get_embeddings(text)
-```
+**Supported Models:**
 
-### 4. 字节跳动 Doubao Embeddings
+- `gpt-4.1`
+- `gpt-4.1-mini`
+- `gpt-4.1-nano`
+- `o1`
+- `o3`
+- `o4-mini`
 
-**支持的模型：**
+📚 **Reference Link:** <https://azure.microsoft.com/en-us/pricing/details/cognitive-services/openai-service/>
 
-doubao-embedding-vision-250615 ：input 支持不限数量的 文本信息、图片信息和 视频信息混排输入。传入的信息作为1个整体进行向量化。
+---
 
-doubao-embedding-vision-250328/doubao-embedding-vision-241215 : input 当前仅支持3种组合， 1段文本信息、1段图片信息、 1段图片信息+1段文本信息。
+### 9. DeepSeek
 
+**Supported Models:**
 
-```python
-from engine import DoubaoEmbeddingEngine
+- `deepseek-chat`
+- `deepseek-reasoner`
 
-# 初始化
-doubao_embedder = DoubaoEmbeddingEngine(embedding_model="doubao-embedding-vision-250615")
+📚 **Reference Link:** <https://platform.deepseek.com/>
 
-# 获取向量
-text = "自然语言处理技术发展"
-embeddings = doubao_embedder.get_embeddings(text)
-```
+---
 
-### 5. Jina AI Embeddings
+### 10. Alibaba Cloud Qwen
 
-**支持的模型：**
-- `jina-embeddings-v4` - 最新版本
-- `jina-embeddings-v3` - 第三代
-- `jina-clip-v2` - 多模态嵌入
+**Supported Models:**
 
-```python
-from engine import JinaEmbeddingEngine
+- `qwen-max-latest`
+- `qwen-plus-latest`
+- `qwen-turbo-latest`
+- `qwen-vl-max-latest` (Grounding)
+- `qwen-vl-plus-latest` (Grounding)
 
-# 初始化
-jina_embedder = JinaEmbeddingEngine(
-    embedding_model="jina-embeddings-v4",
-    task="retrieval.query"  # "retrieval.passage", "text-matching"
-)
+**Embedding Models:**
 
-# 获取向量
-text = "信息检索是计算机科学重要领域"
-embeddings = jina_embedder.get_embeddings(text)
-```
+- `text-embedding-v4`
+- `text-embedding-v3`
 
-## 🔍 搜索引擎
+📚 **Reference Link:** <https://bailian.console.aliyun.com/?tab=doc#/doc/?type=model&url=https%3A%2F%2Fhelp.aliyun.com%2Fdocument_detail%2F2840914.html&renderType=iframe>
 
-### 1. Bocha AI Search
+---
 
-智能搜索引擎，返回AI分析后的答案和参考来源。
+### 11. ByteDance Doubao
 
-```python
-from engine import BochaAISearchEngine
+**Supported Models:**
 
-# 初始化
-bocha_search = BochaAISearchEngine()
+- `doubao-seed-1-6-flash-250615`
+- `doubao-seed-1-6-thinking-250715`
+- `doubao-seed-1-6-250615`
+- `doubao-1.5-vision-pro-250328` (Grounding)
+- `doubao-1-5-thinking-vision-pro-250428` (Grounding)
+- `doubao-1-5-ui-tars-250428` (Grounding)
 
-# 基本搜索
-result = bocha_search.search(
-    query="西瓜的功效与作用",
-    freshness="noLimit",  # "day", "week", "month", "year", "noLimit"
-    answer=True,          # 是否返回AI答案
-    stream=False          # 是否使用流式响应
-)
+**Embedding Models:**
 
-# 快捷方法
-answer = bocha_search.get_answer("西瓜的功效与作用")
-sources = bocha_search.get_sources("西瓜的功效与作用")
-follow_ups = bocha_search.get_follow_up_questions("西瓜的功效与作用")
+- `doubao-embedding-large-text-250515`
+- `doubao-embedding-text-240715`
 
-# 流式搜索
-for chunk in bocha_search.search("天空为什么是蓝色", stream=True):
-    print(chunk)
-```
+📚 **Reference Link:** <https://console.volcengine.com/ark/region:ark+cn-beijing/model?vendor=Bytedance&view=LIST_VIEW>
 
-### 2. Exa Research
+---
 
-深度研究引擎，适合复杂主题的学术研究。
+### 12. Zhipu GLM
 
-**支持的模型：**
-- `exa-research` - 专业研究模型
+**Supported Models:**
+
+- `GLM-4-Plus`
+- `GLM-4-Air-250414`
+- `GLM-4-AirX` (Grounding)
+- `GLM-4V-Plus-0111` (Grounding)
+
+**Embedding Models:**
+
+- `Embedding-3`
+- `Embedding-2`
+
+📚 **Reference Link:** <https://open.bigmodel.cn/pricing>
+
+---
+
+### 13. SiliconFlow
+
+**Supported Models:**
+
+- `Kimi-K2-Instruct`
+- `DeepSeek-V3`
+- `DeepSeek-R1`
+- `Qwen3-32B`
+
+📚 **Reference Link:** <https://cloud.siliconflow.cn/sft-d1pi8rbk20jc73c62gm0/models>
+
+---
+
+## 🔤 Dedicated Embedding Providers
+
+### 14. Jina AI
+
+**Embedding Models:**
+
+- `jina-embeddings-v4`
+- `jina-embeddings-v3`
+
+📚 **Reference Link:** <https://jina.ai/embeddings>
+
+---
+
+## 🔍 AI Search Engines
+
+### 15. Bocha AI
+
+**Service Type:** AI Research & Search
+
+📚 **Reference Link:** <https://open.bochaai.com/overview>
+
+---
+
+### 16. Exa
+
+**Service Type:** AI Research & Search
+
+**Pricing Model:**
+
+- $5.00 / 1k agent searches
+- $5.00 / 1k exa-research agent page reads
+- $10.00 / 1k exa-research-pro agent page reads
+- $5.00 / 1M reasoning tokens
+
+📚 **Reference Link:** <https://dashboard.exa.ai/home>

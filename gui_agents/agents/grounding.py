@@ -549,26 +549,6 @@ class Grounding(ACI):
         }
         return actionDict
 
-
-    # @agent_action
-    # def set_cell_values(
-    #     self, cell_values: Dict[str, Any], app_name: str, sheet_name: str
-    # ):
-    #     """Use this to set individual cell values in a spreadsheet. For example, setting A2 to "hello" would be done by passing {"A2": "hello"} as cell_values. The sheet must be opened before this command can be used.
-    #     Args:
-    #         cell_values: Dict[str, Any], A dictionary of cell values to set in the spreadsheet. The keys are the cell coordinates in the format "A1", "B2", etc.
-    #             Supported value types include: float, int, string, bool, formulas.
-    #         app_name: str, The name of the spreadsheet application. For example, "Some_sheet.xlsx".
-    #         sheet_name: str, The name of the sheet in the spreadsheet. For example, "Sheet1".
-    #     """
-    #     actionDict = {
-    #         "type": "SetCellValues",
-    #         "cell_values": cell_values,
-    #         "app_name": app_name,
-    #         "sheet_name": sheet_name
-    #     }
-    #     return actionDict
-
     @agent_action
     def scroll(self, element_description: str, clicks: int, vertical: bool = True):
         """Scroll the element in the specified direction

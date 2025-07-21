@@ -46,7 +46,6 @@ class KnowledgeBase:
         local_kb_path: str,
         platform: str,
         Tools_dict: Dict,
-        # engine_params: Dict,
         save_knowledge: bool = True,
     ):
         self.platform = platform
@@ -63,9 +62,6 @@ class KnowledgeBase:
         self.narrative_memory_path = os.path.join(
             self.local_kb_path, self.platform, "narrative_memory.json"
         )
-        # self.embeddings_path = os.path.join(
-        #     self.local_kb_path, self.platform, "embeddings.pkl"
-        # )
         embedding_model_name = ""
         if hasattr(self.embedding_engine, "tools") and "embedding" in self.embedding_engine.tools:
             embedding_model_name = self.embedding_engine.tools["embedding"].model_name
@@ -107,9 +103,6 @@ class KnowledgeBase:
         Returns:
             Tuple[str, List[int], float]: The search results, token usage, and cost
         """
-
-        # Use search engine to retrieve knowledge based on the formulated query
-        # search_results = self._search(instruction, search_query, search_engine)
         search_results, total_tokens, cost_string = search_engine.execute_tool("websearch", {"str_input": instruction + " " + search_query})
 
         return search_results, total_tokens, cost_string
@@ -273,23 +266,6 @@ class KnowledgeBase:
         experience: str,
     ) -> Tuple[str, list, str]:
         """Combine web knowledge with similar task experience"""
-
-        # self.knowledge_fusion_agent.reset()
-
-        # self.knowledge_fusion_agent.add_message(
-        #     f"Task: {instruction}\n"
-        #     f"**Web search result**:\n{web_knowledge}\n\n"
-        #     f"**Retrieved similar task experience**:\n"
-        #     f"Similar task:{similar_task}\n{experience}\n\n"
-        #     f"Based on the web search result and the retrieved similar task experience, "
-        #     f"if you think the similar task experience is indeed useful to the main task, "
-        #     f"integrate it with the web search result. Provide the final knowledge in a numbered list.",
-        #     image_content=(
-        #         observation["screenshot"] if "screenshot" in observation else None
-        #     ),
-        #     role="user",
-        # )
-        # return self.knowledge_fusion_agent.get_response()
 
         content, total_tokens, cost = self.knowledge_fusion_agent.execute_tool("context_fusion", {
             "str_input": f"Task: {instruction}\n" + 

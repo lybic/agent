@@ -42,7 +42,7 @@ class PyAutoGUIBackend(Backend):
         pag.FAILSAFE = False
         self.pag = pag
         self.default_move_duration = default_move_duration
-        # ↙️ 关键修补：保存平台标识
+        # ↙️ Critical patch: save platform identifier
         self.platform = (platform or sys.platform).lower()
 
     # ------------------------------------------------------------------
@@ -115,7 +115,7 @@ class PyAutoGUIBackend(Backend):
 
         if self.platform.startswith("darwin"):
             # self.pag.hotkey("commandright", "v", interval=0.05)
-            # # 1. ⌘ 键按下
+            # # 1. Press Command key
             subprocess.run([
                 "osascript", "-e",
                 'tell application "System Events" to keystroke "v" using command down'
@@ -150,12 +150,12 @@ class PyAutoGUIBackend(Backend):
 
     # ----- NEW: application helpers -----------------------------------------
     def _switch_app(self, act: SwitchApp) -> None:
-        """跨平台切换到已打开的指定应用窗口"""
+        """Cross-platform switching to an already open application window"""
         code = act.app_code
         if self.platform.startswith("darwin"):          # macOS
             self.pag.hotkey("command", "space")
             time.sleep(0.5)
-            self.pag.typewrite(code) # TODO: 兼容中文
+            self.pag.typewrite(code) # TODO: Support Chinese input
             self.pag.press("enter")
             time.sleep(1.0)
 
@@ -171,7 +171,7 @@ class PyAutoGUIBackend(Backend):
                         subprocess.run(["wmctrl", "-ia", win_id])
                         subprocess.run(["wmctrl", "-ir", win_id, "-b", "add,maximized_vert,maximized_horz"])
             except FileNotFoundError:
-                # wmctrl 未安装时退化到 Alt+Tab
+                # Fall back to Alt+Tab when wmctrl is not installed
                 self.pag.keyDown("alt")
                 self.pag.press("tab")
                 self.pag.keyUp("alt")
@@ -187,16 +187,16 @@ class PyAutoGUIBackend(Backend):
         target = act.app_or_filename
 
         if self.platform.startswith("darwin"):
-            # ① 尝试直接用 `open -a`
+            # ① Try directly using `open -a`
             try:
                 subprocess.run(["open", "-a", target], check=True)
             except subprocess.CalledProcessError:
-                # ② fallback：用 AppleScript 激活，Finder.app ⇄ Finder
+                # ② fallback: use AppleScript to activate, Finder.app ⇄ Finder
                 script = f'tell application "{target}" to activate'
                 subprocess.run(["osascript", "-e", script], check=True)
 
         elif self.platform.startswith("linux"):
-            # 如果 target 是可执行名，用 gtk-launch；否则尝试 xdg-open
+            # If target is an executable name, use gtk-launch; otherwise try xdg-open
             try:
                 subprocess.run(["gtk-launch", target], check=True)
             except FileNotFoundError:

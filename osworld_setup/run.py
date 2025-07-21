@@ -157,7 +157,7 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
                 "%Y:%m:%d-%H:%M:%S"
             )
 
-            # 为每个example创建独立的时间戳文件夹
+            # Create a separate timestamp folder for each example
             example_datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             example_timestamp_dir = os.path.join(log_dir, f"vmrun_{vm_datetime_str}", example_datetime_str)
             example_cache_dir = os.path.join(example_timestamp_dir, "cache", "screens")
@@ -166,7 +166,7 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
             os.makedirs(example_cache_dir, exist_ok=True)
             os.makedirs(example_state_dir, exist_ok=True)
 
-            # 为每个example注册独立的GlobalState
+            # Register a separate GlobalState for each example
             Registry.clear()
             Registry.register(
                 "GlobalStateStore",
@@ -207,7 +207,7 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
                     args,
                     example_result_dir,
                     scores,
-                    example_timestamp_dir,  # 传递时间戳目录给run_single_example
+                    example_timestamp_dir,  # Pass the timestamp directory to run_single_example
                 )
             except Exception as e:
                 logger.error(f"Exception in {domain}/{example_id}: {e}")

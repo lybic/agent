@@ -12,41 +12,41 @@ from gui_agents.utils.common_utils import Node
 
 # 配置彩色日志
 class ColoredFormatter(logging.Formatter):
-    """自定义彩色日志格式化器"""
+    """Custom colored log formatter"""
     COLORS = {
-        'DEBUG': '\033[94m',  # 蓝色
-        'INFO': '\033[92m',   # 绿色
-        'WARNING': '\033[93m', # 黄色
-        'ERROR': '\033[91m',  # 红色
-        'CRITICAL': '\033[91m\033[1m', # 红色加粗
-        'RESET': '\033[0m'    # 重置
+        'DEBUG': '\033[94m',  # Blue
+        'INFO': '\033[92m',   # Green
+        'WARNING': '\033[93m', # Yellow
+        'ERROR': '\033[91m',  # Red
+        'CRITICAL': '\033[91m\033[1m', # Red bold
+        'RESET': '\033[0m'    # Reset
     }
     
     def format(self, record):
         log_message = super().format(record)
         return f"{self.COLORS.get(record.levelname, self.COLORS['RESET'])}{log_message}{self.COLORS['RESET']}"
 
-# 配置日志 - 清除所有处理器并重新配置
+# Configure logging - Clear all handlers and reconfigure
 logger = logging.getLogger(__name__)
-logger.handlers = []  # 清除所有现有处理器
-logger.propagate = False  # 防止日志传播到根日志器
+logger.handlers = []  # Clear all existing handlers
+logger.propagate = False  # Prevent logging from propagating to root logger
 
-# 添加单个处理器
+# Add single handler
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setFormatter(ColoredFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(console_handler)
 logger.setLevel(logging.INFO)
 
-# 定义彩色分隔符
+# Define colored separator
 def print_test_header(test_name):
-    """打印测试标题，使用彩色和醒目的分隔符"""
+    """Print test title, using colored and prominent separator"""
     separator = "="*80
     logger.info(separator)
     logger.info(test_name.center(80))
     logger.info(separator)
 
 def print_test_section(section_name):
-    """打印测试小节，使用彩色和醒目的分隔符"""
+    """Print test section, using colored and prominent separator"""
     separator = "-"*60
     logger.info("\n" + separator)
     logger.info(section_name.center(60))
@@ -54,8 +54,8 @@ def print_test_section(section_name):
 
 class TestWorker(unittest.TestCase):
     def setUp(self):
-        """设置测试环境"""
-        print_test_header("开始设置测试环境")
+        """Set up test environment"""
+        print_test_header("Start setting up test environment")
         
         # Load tools configuration from tools_config.json
         tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
@@ -69,19 +69,19 @@ class TestWorker(unittest.TestCase):
                     "model": tool["model_name"]
                 }
         
-        # 创建测试目录结构
+        # Create test directory structure
         self.test_kb_path = "test_kb"
         self.platform = "darwin"
         self.test_platform_path = os.path.join(self.test_kb_path, self.platform)
         os.makedirs(self.test_platform_path, exist_ok=True)
         
-        # 创建测试文件
+        # Create test files
         with open(os.path.join(self.test_platform_path, "episodic_memory.json"), "w") as f:
             json.dump({}, f)
         with open(os.path.join(self.test_platform_path, "embeddings.pkl"), "wb") as f:
             f.write(b"")
         
-        # 创建Worker实例
+        # Create Worker instance
         self.worker = Worker(
             Tools_dict=self.Tools_dict,
             local_kb_path=self.test_kb_path,
@@ -90,7 +90,7 @@ class TestWorker(unittest.TestCase):
             use_subtask_experience=True
         )
         
-        # 创建测试观察数据
+        # Create test observation data
         import pyautogui
         self.test_image = pyautogui.screenshot()
         buffered = BytesIO()
@@ -101,60 +101,60 @@ class TestWorker(unittest.TestCase):
             "screenshot": self.test_screenshot_bytes
         }
         
-        # 初始化planner_history，避免在turn_count > 0时访问空列表
-        self.worker.planner_history = ["测试计划历史"]
+        # Initialize planner_history, avoid accessing empty list when turn_count > 0
+        self.worker.planner_history = ["Test plan history"]
         
-        # 记录日志
-        logger.info("测试环境设置完成，使用真实屏幕截图")
-        logger.info(f"截图尺寸: {self.test_image.size}")
+        # Record log
+        logger.info("Test environment setup completed, using real screenshot")
+        logger.info(f"Screenshot size: {self.test_image.size}")
         
     def tearDown(self):
-        """清理测试环境"""
-        print_test_header("清理测试环境")
+        """Clean up test environment"""
+        print_test_header("Clean up test environment")
         import shutil
         if os.path.exists(self.test_kb_path):
             shutil.rmtree(self.test_kb_path)
 
     def test_reset(self):
-        """测试reset方法"""
-        print_test_header("测试 RESET 方法")
+        """Test reset method"""
+        print_test_header("Test RESET method")
         
-        # 设置一些初始状态
+        # Set some initial states
         self.worker.turn_count = 5
-        self.worker.worker_history = ["历史1", "历史2"]
-        self.worker.reflections = ["反思1", "反思2"]
+        self.worker.worker_history = ["History 1", "History 2"]
+        self.worker.reflections = ["Reflection 1", "Reflection 2"]
         
-        # 调用reset方法
+        # Call reset method
         self.worker.reset()
         
-        # 验证状态是否重置
+        # Verify if the state is reset
         self.assertEqual(self.worker.turn_count, 0)
         self.assertEqual(self.worker.worker_history, [])
         self.assertEqual(self.worker.reflections, [])
         
-        # 验证是否创建了新的agent实例
+        # Verify if a new agent instance is created
         self.assertIsNotNone(self.worker.generator_agent)
         self.assertIsNotNone(self.worker.reflection_agent)
         self.assertIsNotNone(self.worker.knowledge_base)
 
     def test_generate_next_action_first_turn(self):
-        """测试generate_next_action方法的第一次调用（turn_count=0）"""
-        print_test_header("测试 GENERATE_NEXT_ACTION 第一轮")
+        """Test generate_next_action method for the first turn (turn_count=0)"""
+        print_test_header("Test GENERATE_NEXT_ACTION for the first turn")
         
-        # 准备测试数据
-        instruction = "在系统中打开设置并更改显示分辨率"
-        search_query = "如何在系统中打开设置并更改显示分辨率"
-        subtask = "打开设置"
-        subtask_info = "在系统中打开设置应用"
+        # Prepare test data
+        instruction = "Open settings and change display resolution"
+        search_query = "How to open settings and change display resolution"
+        subtask = "Open settings"
+        subtask_info = "Open settings application"
         future_tasks = [
-            Node(name="导航到显示设置", info="在设置应用中找到并点击显示设置选项"),
-            Node(name="更改分辨率", info="在显示设置中更改屏幕分辨率")
+            Node(name="Navigate to display settings", info="Find and click on display settings option"),
+            Node(name="Change resolution", info="Change screen resolution")
         ]
         done_tasks = []
         
         self.worker.turn_count = 0
         
-        # 调用generate_next_action方法
+        # Call generate_next_action method
         executor_info = self.worker.generate_next_action(
             instruction=instruction,
             search_query=search_query,
@@ -165,41 +165,41 @@ class TestWorker(unittest.TestCase):
             obs=self.test_observation
         )
         
-        # 打印结果以便调试
-        logger.info(f"执行器信息: {executor_info}")
+        # Print results for debugging
+        logger.info(f"Executor information: {executor_info}")
         
-        # 验证结果
+        # Verify results
         self.assertIn("executor_plan", executor_info)
-        # 不再断言特定的操作，因为使用真实模型的输出可能会变化
+        # No longer assert specific operations, because the output may vary using real models
         self.assertIsInstance(executor_info["executor_plan"], str)
         self.assertGreater(len(executor_info["executor_plan"]), 0)
         
-        # 验证turn_count增加
+        # Verify turn_count increased
         self.assertEqual(self.worker.turn_count, 1)
         
     def test_generate_next_action_second_turn(self):
-        """测试generate_next_action方法的第二次调用（turn_count>0）"""
-        print_test_header("测试 GENERATE_NEXT_ACTION 第二轮")
+        """Test generate_next_action method for the second turn (turn_count>0)"""
+        print_test_header("Test GENERATE_NEXT_ACTION for the second turn")
         
-        # 准备测试数据
-        instruction = "在系统中打开设置并更改显示分辨率"
-        search_query = "如何在系统中打开设置并更改显示分辨率"
-        subtask = "打开设置"
-        subtask_info = "在系统中打开设置应用"
+        # Prepare test data
+        instruction = "Open settings and change display resolution"
+        search_query = "How to open settings and change display resolution"
+        subtask = "Open settings"
+        subtask_info = "Open settings application"
         future_tasks = [
-            Node(name="导航到显示设置", info="在设置应用中找到并点击显示设置选项"),
-            Node(name="更改分辨率", info="在显示设置中更改屏幕分辨率")
+            Node(name="Navigate to display settings", info="Find and click on display settings option"),
+            Node(name="Change resolution", info="Change screen resolution")
         ]
         done_tasks = []
         
-        # 设置为第二次调用
+        # Set to the second turn
         self.worker.turn_count = 1
         
-        # 确保planner_history有内容
+        # Ensure planner_history has content
         if len(self.worker.planner_history) == 0:
-            self.worker.planner_history = ["测试计划历史"]
+            self.worker.planner_history = ["Test plan history"]
         
-        # 调用generate_next_action方法
+        # Call generate_next_action method
         executor_info = self.worker.generate_next_action(
             instruction=instruction,
             search_query=search_query,
@@ -210,34 +210,34 @@ class TestWorker(unittest.TestCase):
             obs=self.test_observation
         )
         
-        # 打印结果以便调试
-        logger.info(f"执行器信息(第二轮): {executor_info}")
+        # Print results for debugging
+        logger.info(f"Executor information (second turn): {executor_info}")
         
-        # 验证结果
+        # Verify results
         self.assertIn("executor_plan", executor_info)
         self.assertIsInstance(executor_info["executor_plan"], str)
         self.assertGreater(len(executor_info["executor_plan"]), 0)
         
-        # 验证turn_count增加
+        # Verify turn_count increased
         self.assertEqual(self.worker.turn_count, 2)
 
     def test_clean_worker_generation_for_reflection(self):
-        """测试clean_worker_generation_for_reflection方法"""
-        print_test_header("测试 CLEAN_WORKER_GENERATION_FOR_REFLECTION 方法")
+        """Test clean_worker_generation_for_reflection method"""
+        print_test_header("Test CLEAN_WORKER_GENERATION_FOR_REFLECTION method")
         
-        # 准备测试数据
+        # Prepare test data
         worker_generation = """(Previous Action Verification)
-上一个动作已成功执行。
+The previous action has been successfully executed.
 
 (Screenshot Analysis)
-我看到设置应用已打开，显示了多个选项。
+I see the settings application is open, with multiple options.
 
 (Reasoning)
-我需要找到并点击显示设置选项。
+I need to find and click on the display settings option.
 
 (Grounded Action)
 ```python
-agent.click("显示设置")
+agent.click("Display settings")
 ```
 
 (Additional Grounded Action)
@@ -246,24 +246,24 @@ agent.wait(1.0)
 ```
 """
         
-        # 调用clean_worker_generation_for_reflection方法
+        # Call clean_worker_generation_for_reflection method
         cleaned_text = self.worker.clean_worker_generation_for_reflection(worker_generation)
         
-        # 打印结果以便调试
-        logger.info(f"清理前的文本: \n{worker_generation}")
-        logger.info(f"清理后的文本: \n{cleaned_text}")
+        # Print results for debugging
+        logger.info(f"Text before cleaning: \n{worker_generation}")
+        logger.info(f"Text after cleaning: \n{cleaned_text}")
         
-        # 验证结果
+        # Verify results
         self.assertIn("(Screenshot Analysis)", cleaned_text)
-        self.assertIn("agent.click(\"显示设置\")", cleaned_text)
+        self.assertIn("agent.click(\"Display settings\")", cleaned_text)
         self.assertNotIn("(Previous Action Verification)", cleaned_text)
-        # 注意：根据实际的clean_worker_generation_for_reflection实现，以下断言可能需要调整
-        # 如果方法实现有变化，可能需要修改这些断言
+        # Note: Depending on the actual implementation of clean_worker_generation_for_reflection, the following assertions may need to be adjusted
+        # If the method implementation has changed, these assertions may need to be modified
         try:
             self.assertNotIn("(Additional Grounded Action)", cleaned_text)
             self.assertNotIn("agent.wait(1.0)", cleaned_text)
         except AssertionError as e:
-            logger.warning(f"断言失败，但这可能是因为clean_worker_generation_for_reflection方法的实现已更改: {e}")
+            logger.warning(f"Assertion failed, but this may be because the implementation of clean_worker_generation_for_reflection has changed: {e}")
 
 if __name__ == '__main__':
     unittest.main()

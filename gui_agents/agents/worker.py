@@ -8,10 +8,6 @@ from gui_agents.agents.grounding import ACI
 from gui_agents.core.knowledge import KnowledgeBase
 from gui_agents.utils.common_utils import (
     Node,
-    calculate_tokens,
-    # call_llm_safe,
-    parse_single_code_from_string,
-    sanitize_code,
     extract_first_agent_function,
 )
 from gui_agents.tools.tools import Tools
@@ -25,10 +21,7 @@ class Worker:
     def __init__(
         self,
         Tools_dict: Dict,
-        # engine_params: Dict,
-        # grounding_agent: ACI,
         local_kb_path: str,
-        # embedding_engine=OpenAIEmbeddingEngine(),
         platform: str = platform.system().lower(),
         enable_reflection: bool = True,
         use_subtask_experience: bool = True,
@@ -50,9 +43,7 @@ class Worker:
         # super().__init__(engine_params, platform)
         self.platform = platform
 
-        # self.grounding_agent = grounding_agent
         self.local_kb_path = local_kb_path
-        # self.embedding_engine = embedding_engine
         self.Tools_dict = Tools_dict
 
         self.embedding_engine = Tools()
@@ -69,12 +60,6 @@ class Worker:
         self.generator_agent.register_tool("action_generator", self.Tools_dict["action_generator"]["provider"], self.Tools_dict["action_generator"]["model"])
         self.reflection_agent = Tools()
         self.reflection_agent.register_tool("traj_reflector", self.Tools_dict["traj_reflector"]["provider"], self.Tools_dict["traj_reflector"]["model"])
-
-        # KB_Tools_dict = {
-        #     "embedding": self.Tools_dict["embedding"],
-        #     "query_formulator": self.Tools_dict["query_formulator"],
-        #     "context_fusion": self.Tools_dict["context_fusion"],
-        # }
 
         self.embedding_engine = Tools()
         self.embedding_engine.register_tool("embedding", self.Tools_dict["embedding"]["provider"], self.Tools_dict["embedding"]["model"])
@@ -93,15 +78,6 @@ class Worker:
         self.planner_history = []
         self.max_trajector_length = 8
 
-    # def flush_messages(self):
-    #     # generator msgs are alternating [user, assistant], so 2 per round
-    #     if len(self.generator_agent.messages) > 2 * self.max_trajector_length + 1:
-    #         self.generator_agent.remove_message_at(1)
-    #         self.generator_agent.remove_message_at(1)
-    #     # reflector msgs are all [(user text, user image)], so 1 per round
-    #     if len(self.reflection_agent.messages) > self.max_trajector_length + 1:
-    #         self.reflection_agent.remove_message_at(1)
-
     def generate_next_action(
         self,
         Tu: str,
@@ -118,8 +94,6 @@ class Worker:
         """
         import time
         action_start = time.time()
-        # Provide the top_app to the Grounding Agent to remove all other applications from the tree. At t=0, top_app is None
-        # agent = self.grounding_agent
 
         # Get RAG knowledge, only update system message at t=0
         if self.turn_count == 0:
@@ -169,14 +143,6 @@ class Worker:
                     retrieved_similar_subtask + "\n" + retrieved_subtask_experience
                 )
 
-            # self.generator_agent.add_system_prompt(
-            #     self.generator_agent.system_prompt.replace(
-            #         "SUBTASK_DESCRIPTION", subtask
-            #     )
-            #     .replace("TASK_DESCRIPTION", instruction)
-            #     .replace("FUTURE_TASKS", ", ".join([f.name for f in future_tasks]))
-            #     .replace("DONE_TASKS", ",".join(d.name for d in done_task))
-            # )
             prefix_message = f"SUBTASK_DESCRIPTION is {subtask}\n\nTASK_DESCRIPTION is {Tu}\n\nFUTURE_TASKS is {', '.join([f.name for f in future_tasks])}\n\nDONE_TASKS is {','.join(d.name for d in done_task)}"
 
         # Reflection generation does not add its own response, it only gets the trajectory
@@ -191,19 +157,8 @@ class Worker:
                     Current Trajectory below:
                     """
                 )
-                # updated_sys_prompt = (
-                #     self.reflection_agent.system_prompt + "\n" + text_content
-                # )
-                # self.reflection_agent.add_system_prompt(updated_sys_prompt)
-
                 self.reflection_agent.tools["traj_reflector"].llm_agent.add_message(text_content+ "\n\nThe initial screen is provided. No action has been taken yet.", image_content=obs["screenshot"], role="user")
-                
-                # self.reflection_agent.add_message(
-                #     text_content="The initial screen is provided. No action has been taken yet.",
-                #     image_content=obs["screenshot"],
-                #     role="user",
-                # )
-            # Load the latest action
+
             else:
                 if self.planner_history and self.planner_history[-1] is not None:
                     text_content = self.clean_worker_generation_for_reflection(
@@ -211,18 +166,6 @@ class Worker:
                     )
                 else:
                     text_content = "No previous action available for reflection"
-                # text_content = self.clean_worker_generation_for_reflection(
-                #     self.planner_history[-1]
-                # )
-                # self.reflection_agent.add_message(
-                #     text_content=text_content,
-                #     image_content=obs["screenshot"],
-                #     role="user",
-                # )
-                # reflection = call_llm_safe(self.reflection_agent)
-
-                # self.reflection_agent.tools["traj_reflector"].llm_agent.add_message(text_content, image_content=obs["screenshot"], role="user")
-                # reflection = self.reflection_agent.tools["traj_reflector"].llm_agent.get_response()
 
                 reflection_start = time.time()
                 reflection, total_tokens, cost_string = self.reflection_agent.execute_tool("traj_reflector", {"str_input": text_content, "img_input": obs["screenshot"]})
@@ -242,11 +185,6 @@ class Worker:
                     }
                 )
 
-        # generator_message = (
-        #     f"\nYou may use this reflection on the previous action and overall trajectory: {reflection}\n"
-        #     if reflection and self.turn_count > 0
-        #     else ""
-        # ) + f"Text Buffer = [{','.join(agent.notes)}]."
         generator_message = (
             f"\nYou may use this reflection on the previous action and overall trajectory: {reflection}\n"
             if reflection and self.turn_count > 0
@@ -259,13 +197,6 @@ class Worker:
             generator_message += f"Remember only complete the subtask: {subtask}\n"
             generator_message += f"You can use this extra information for completing the current subtask: {subtask_info}.\n"
 
-        # logger.info("GENERATOR MESSAGE: %s", generator_message)
-
-        # self.generator_agent.add_message(
-        #     generator_message, image_content=obs["screenshot"], role="user"
-        # )
-
-        # plan = call_llm_safe(self.generator_agent)
         action_generator_start = time.time()
         plan, total_tokens, cost_string = self.generator_agent.execute_tool("action_generator", {"str_input": generator_message, "img_input": obs["screenshot"]})
         logger.info(f"Action generator tokens: {total_tokens}, cost: {cost_string}")
@@ -289,17 +220,12 @@ class Worker:
             "current_subtask": subtask,
             "current_subtask_info": subtask_info,
             "executor_plan": plan,
-            # "plan_code": plan_code,
             "reflection": reflection,
-            # "num_input_tokens_executor": input_tokens,
-            # "num_output_tokens_executor": output_tokens,
         }
         self.turn_count += 1
 
         self.screenshot_inputs.append(obs["screenshot"])
-        # self.flush_messages()
-
-        # return executor_info, [exec_code]
+        
         return executor_info
     # Removes the previous action verification, and removes any extraneous grounded actions
     def clean_worker_generation_for_reflection(self, worker_generation: str) -> str:

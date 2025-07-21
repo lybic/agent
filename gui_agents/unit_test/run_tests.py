@@ -5,7 +5,7 @@ import unittest
 import sys
 import os
 
-# 添加项目根目录到Python路径
+# Add project root directory to Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
 
 from pathlib import Path
@@ -22,32 +22,32 @@ def load_env_variables():
 load_env_variables()
 
 def run_all_tests():
-    """运行所有单元测试"""
-    # 发现当前目录下的所有测试
+    """Run all unit tests"""
+    # Discover all tests in the current directory
     test_loader = unittest.TestLoader()
     test_suite = test_loader.discover(os.path.dirname(__file__), pattern='test_*.py')
     
-    # 运行测试
+    # Run tests
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(test_suite)
 
 def run_specific_test(test_name):
-    """运行指定的单元测试
+    """Run specified unit tests
     
     Args:
-        test_name: 测试模块名称，例如 'test_manager' 或 'test_worker'
+        test_name: Test module name, e.g. 'test_manager' or 'test_worker'
     """
     if not test_name.startswith('test_'):
         test_name = f'test_{test_name}'
     
-    # 导入测试模块
+    # Import test module
     try:
         test_module = __import__(test_name)
     except ImportError:
-        print(f"找不到测试模块: {test_name}")
+        print(f"Test module not found: {test_name}")
         return
     
-    # 运行测试
+    # Run tests
     test_loader = unittest.TestLoader()
     test_suite = test_loader.loadTestsFromModule(test_module)
     runner = unittest.TextTestRunner(verbosity=2)
@@ -58,8 +58,8 @@ if __name__ == '__main__':
     python -m gui_agents.unit_test.run_tests
     """
     if len(sys.argv) > 1:
-        # 运行指定的测试
+        # Run specified tests
         run_specific_test(sys.argv[1])
     else:
-        # 运行所有测试
+        # Run all tests
         run_all_tests() 

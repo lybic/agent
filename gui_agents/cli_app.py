@@ -109,8 +109,6 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
     for _ in range(15):
         # Get screen shot using pyautogui
         screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
-        # w, h = screenshot.size  
-        # screenshot = pyautogui.screenshot()
         screenshot = screenshot.resize((scaled_width, scaled_height), Image.LANCZOS) # type: ignore
         global_state.set_screenshot(screenshot)
         obs = global_state.get_obs_for_manager()
@@ -149,7 +147,7 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
             logger.info(f"[Step Timing] hwi.dispatchDict execution time: {step_dispatch_time:.2f} seconds")
             logger.info(f"HARDWARE INTERFACE: Executed")
             
-            # 记录执行的代码和时间
+            # Record executed code and time
             global_state.log_operation(
                 module="hardware",
                 operation="executing_code", 
@@ -180,9 +178,6 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
         operation="total_execution_time", 
         data={"duration": total_duration}
     )
-    
-    # 确保所有日志记录都已合并
-    global_state.consolidate_display_info()
 
 
 def main():
@@ -191,7 +186,7 @@ def main():
     screen_width, screen_height = pyautogui.size()
     scaled_width, scaled_height = screen_width, screen_height
 
-    # 确保必要的目录结构存在
+    # Ensure necessary directory structure exists
     timestamp_dir = os.path.join(log_dir, datetime_str)
     cache_dir = os.path.join(timestamp_dir, "cache", "screens")
     state_dir = os.path.join(timestamp_dir, "state")

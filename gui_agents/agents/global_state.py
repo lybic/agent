@@ -9,7 +9,7 @@ from gui_agents.utils.common_utils import Node
 
 logger = logging.getLogger(__name__)
 
-# ========= 文件锁工具 =========
+# ========= File Lock Tools =========
 from contextlib import contextmanager
 if os.name == "nt":
     import msvcrt, time as _t
@@ -42,7 +42,7 @@ else:
             fcntl.flock(f.fileno(), fcntl.LOCK_UN)
             f.close()
 
-# ========= Node 编解码 =========
+# ========= Node Encoding/Decoding =========
 def node_to_dict(node: Node):
     if hasattr(node, "to_dict"):
         return node.to_dict() # type: ignore
@@ -56,7 +56,7 @@ def node_from_dict(d: dict) -> Node:
 
 # ========= GlobalState =========
 class GlobalState:
-    """集中管理全局状态（截图 / 指令 / 若干子任务列表等）的读写"""
+    """Centralized management for global state (screenshots / instructions / subtask lists, etc.) read and write"""
 
     def __init__(
         self,
@@ -69,7 +69,7 @@ class GlobalState:
         remaining_subtasks_path: str,
         termination_flag_path: str,
         running_state_path: str,
-        display_info_path: str = "",  # 新增参数，用于存储显示信息
+        display_info_path: str = "",  # New parameter for storing display information
     ):
         self.screenshot_dir = Path(screenshot_dir)
         self.tu_path = Path(tu_path)
@@ -80,13 +80,13 @@ class GlobalState:
         self.termination_flag_path = Path(termination_flag_path)
         self.running_state_path = Path(running_state_path)
         
-        # 如果没有提供display_info_path，则默认在running_state_path同级目录下创建display.json
+        # If display_info_path is not provided, create display.json in the same directory as running_state_path
         if not display_info_path:
             self.display_info_path = Path(os.path.join(self.running_state_path.parent, "display.json"))
         else:
             self.display_info_path = Path(display_info_path)
 
-        # 保证必要目录 / 文件存在
+        # Ensure necessary directories / files exist
         self.screenshot_dir.mkdir(parents=True, exist_ok=True)
         for p in [
             self.tu_path,
@@ -102,7 +102,7 @@ class GlobalState:
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text("")
 
-    # ---------- 通用私有工具 ----------
+    # ---------- Common Private Tools ----------
     def _load_subtasks(self, path: Path) -> List[Node]:
         try:
             with locked(path, "r") as f:
@@ -261,7 +261,7 @@ class GlobalState:
             f.flush(); os.fsync(f.fileno())
         tmp.replace(self.running_state_path)
 
-    # ---------- 高层封装 ----------
+    # ---------- High-level Wrappers ----------
     def get_obs_for_manager(self):
         return {
             "screenshot": self.get_screenshot(),
@@ -280,9 +280,9 @@ class GlobalState:
             "screenshot": self.get_screenshot(),
         }
         
-    # ---------- 显示信息管理 ----------
+    # ---------- Display Information Management ----------
     def get_display_info(self) -> Dict[str, Any]:
-        """获取显示信息"""
+        """Get display information"""
         try:
             with locked(self.display_info_path, "r") as f:
                 content = f.read().strip()
@@ -294,123 +294,74 @@ class GlobalState:
             return {}
             
     def set_display_info(self, info: Dict[str, Any]) -> None:
-        """设置显示信息（覆盖）"""
+        """Set display information (overwrite)"""
         tmp = self.display_info_path.with_suffix(".tmp")
         with locked(tmp, "w") as f:
             json.dump(info, f, ensure_ascii=False, indent=2)
             f.flush(); os.fsync(f.fileno())
         tmp.replace(self.display_info_path)
-    
-    def consolidate_display_info(self) -> None:
-        """
-        整合现有的display.json文件，合并相关的操作记录
         
-        此方法会读取当前的display.json文件，找到相关的操作记录并将它们合并，
-        例如将同一操作的tokens/cost和duration合并到同一条记录中。
-        """
-        info = self.get_display_info()
-        if "operations" not in info:
-            return
-            
-        for module, operations in info["operations"].items():
-            # 创建一个新的操作列表，用于存储合并后的操作
-            consolidated_operations = []
-            # 创建一个映射，用于跟踪已处理的操作
-            operation_map = {}
-            
-            for op in operations:
-                # 标准化操作名称
-                normalized_name = op["operation"]
-                for prefix in ["Manager.", "Worker.", "Hardware."]:
-                    if normalized_name.startswith(prefix):
-                        normalized_name = normalized_name[len(prefix):]
-                        break
-                
-                # 生成操作的唯一标识符
-                op_key = normalized_name
-                
-                # 如果这个操作已经在映射中，更新现有记录
-                if op_key in operation_map:
-                    existing_op = operation_map[op_key]
-                    # 如果时间戳相差在5秒内，则认为是同一操作的不同记录
-                    if abs(existing_op["timestamp"] - op["timestamp"]) < 5.0:
-                        # 合并数据，保留较早的时间戳
-                        for key, value in op.items():
-                            if key != "timestamp" and key != "operation":
-                                existing_op[key] = value
-                        continue
-                
-                # 否则，添加到合并列表中
-                consolidated_operations.append(op)
-                operation_map[op_key] = op
-            
-            # 用合并后的操作列表替换原列表
-            info["operations"][module] = consolidated_operations
-        
-        # 保存更新后的信息
-        self.set_display_info(info)
-        
-    # ---------- 新的统一日志记录方法 ----------
+    # ---------- New Unified Logging Method ----------
     def log_operation(self, module: str, operation: str, data: Dict[str, Any]) -> None:
         """
-        记录操作信息，按模块和时间顺序组织
+        Log operation information, organized by module and chronological order
         
         Args:
-            module: 模块名称，如 'manager', 'worker', 'grounding' 等
-            operation: 操作名称，如 'formulate_query', 'retrieve_knowledge' 等
-            data: 操作相关数据，可包含以下字段：
-                - duration: 操作耗时（秒）
-                - tokens: token 使用情况 [输入tokens, 输出tokens, 总tokens]
-                - cost: 费用信息
-                - content: 操作内容或结果
-                - 其他自定义字段
+            module: Module name, such as 'manager', 'worker', 'grounding', etc.
+            operation: Operation name, such as 'formulate_query', 'retrieve_knowledge', etc.
+            data: Operation-related data, may include the following fields:
+                - duration: Operation duration (seconds)
+                - tokens: Token usage [input tokens, output tokens, total tokens]
+                - cost: Cost information
+                - content: Operation content or result
+                - Other custom fields
         """
         info = self.get_display_info()
         
-        # 确保模块存在
+        # Ensure the module exists
         if "operations" not in info:
             info["operations"] = {}
             
         if module not in info["operations"]:
             info["operations"][module] = []
             
-        # 标准化操作名称，移除前缀如 "Manager."、"Worker." 等
+        # Normalize operation name, remove prefixes like "Manager.", "Worker.", etc.
         normalized_operation = operation
         for prefix in ["Manager.", "Worker.", "Hardware."]:
             if normalized_operation.startswith(prefix):
                 normalized_operation = normalized_operation[len(prefix):]
                 break
         
-        # 查找是否已存在相同操作的记录
+        # Find if there's an existing record for the same operation
         found = False
         for i, op in enumerate(info["operations"][module]):
-            # 标准化已存在操作的名称
+            # Normalize existing operation name
             existing_op_name = op["operation"]
             for prefix in ["Manager.", "Worker.", "Hardware."]:
                 if existing_op_name.startswith(prefix):
                     existing_op_name = existing_op_name[len(prefix):]
                     break
                     
-            # 如果找到相同操作且时间戳接近（5秒内），则合并数据
+            # If found the same operation and timestamp is close (within 5 seconds), merge the data
             if (existing_op_name == normalized_operation or 
                 op["operation"] == operation) and \
                 abs(op["timestamp"] - time.time()) < 5.0:
-                # 合并数据，保留原有时间戳
+                # Merge data, keep original timestamp
                 for key, value in data.items():
                     op[key] = value
                 found = True
                 break
         
-        # 如果没找到匹配的操作，创建新记录
+        # If no matching operation found, create new record
         if not found:
-            # 添加时间戳和操作名称
+            # Add timestamp and operation name
             operation_data = {
                 "operation": operation,
                 "timestamp": time.time(),
                 **data
             }
             
-            # 添加到对应模块的操作列表中
+            # Add to the operation list of the corresponding module
             info["operations"][module].append(operation_data)
         
         self.set_display_info(info)

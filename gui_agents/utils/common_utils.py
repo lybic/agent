@@ -45,10 +45,6 @@ def calculate_tokens(messages, num_image_token=NUM_IMAGE_TOKEN) -> Tuple[int, in
 
     return (input_text_tokens + input_image_tokens), output_tokens
 
-
-# Code based on https://github.com/xlang-ai/OSWorld/blob/main/mm_agents/agent.py
-
-
 def parse_dag(text):
     """
     Try extracting JSON from <json>…</json> tags first;
@@ -156,7 +152,6 @@ def load_knowledge_base(kb_path: str) -> Dict:
 
 
 def clean_empty_embeddings(embeddings: Dict) -> Dict:
-    """清理掉 shape==0、shape==()、内容为异常字符串的 embedding。"""
     to_delete = []
     for k, v in embeddings.items():
         arr = np.array(v)

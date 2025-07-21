@@ -141,7 +141,7 @@ class PyAutoGUIVMwareBackend(Backend):
 
     # ----- NEW: application helpers -----------------------------------------
     def _switch_app(self, act: SwitchApp) -> str:
-        """跨平台切换到已打开的指定应用窗口"""
+        """Cross-platform switching to an already open application window"""
         app_code = act.app_code
         if self.platform.startswith("darwin"):          # macOS
             return f"pyautogui.hotkey('command', 'space'); time.sleep(0.5); pyautogui.typewrite('{app_code}'); pyautogui.press('enter'); time.sleep(1.0)"

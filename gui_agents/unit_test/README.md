@@ -1,34 +1,34 @@
-# GUI Agent 单元测试
+# GUI Agent Unit Tests
 
-本目录包含对GUI Agent S2版本中Manager和Worker模块的单元测试。
+This directory contains unit tests for the Manager and Worker modules in the GUI Agent S2 version.
 
-## 测试内容
+## Test Contents
 
-1. **Manager模块测试** (`test_manager.py`):
-   - `_generate_step_by_step_plan`: 测试高级计划生成功能
-   - `_generate_dag`: 测试有向无环图(DAG)生成功能
-   - `_topological_sort`: 测试DAG拓扑排序功能
-   - `get_action_queue`: 测试动作队列生成功能
+1. **Manager Module Tests** (`test_manager.py`):
+   - `_generate_step_by_step_plan`: Tests high-level plan generation functionality
+   - `_generate_dag`: Tests directed acyclic graph (DAG) generation functionality
+   - `_topological_sort`: Tests DAG topological sorting functionality
+   - `get_action_queue`: Tests action queue generation functionality
 
-2. **Worker模块测试** (`test_worker.py`):
-   - `reset`: 测试Worker状态重置功能
-   - `flush_messages`: 测试消息历史管理功能
-   - `generate_next_action`: 测试动作生成功能
-   - `clean_worker_generation_for_reflection`: 测试工作输出清理功能
+2. **Worker Module Tests** (`test_worker.py`):
+   - `reset`: Tests Worker state reset functionality
+   - `flush_messages`: Tests message history management functionality
+   - `generate_next_action`: Tests action generation functionality
+   - `clean_worker_generation_for_reflection`: Tests work output cleaning functionality
 
-## 运行测试
+## Running Tests
 
-### 运行所有测试
+### Running All Tests
 
 ```bash
-cd <项目根目录>
+cd <project root directory>
 python -m gui_agents.unit_test.run_tests
 ```
 
-### 运行特定测试
+### Running Specific Tests
 
 ```bash
-cd <项目根目录>
-python -m gui_agents.unit_test.run_tests manager  # 运行Manager测试
-python -m gui_agents.unit_test.run_tests worker   # 运行Worker测试
+cd <project root directory>
+python -m gui_agents.unit_test.run_tests manager  # Run Manager tests
+python -m gui_agents.unit_test.run_tests worker   # Run Worker tests
 ```

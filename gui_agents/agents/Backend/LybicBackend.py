@@ -77,11 +77,11 @@ class LybicBackend(Backend):
 
     # ---------- internal helpers ----------
     def _do(self, lybic_action: Dict[str, Any]):
-        """Send **one** action; centralised retries + error mapping."""
+        """Send **one** action; centralized retries + error mapping."""
         async def _send():
             act_type = lybic_action.get("type", "").lower()
             if act_type in {"screenshot", "system:preview"}:
-                # /preview 不需要 action payload
+                # /preview endpoint doesn't need action payload
                 return await self.client.preview()
             else:
                 return await self.client.exec_action(action=lybic_action)
@@ -94,7 +94,7 @@ class LybicBackend(Backend):
                 exc = e
                 log.warning(f"Lybic action failed (try {attempt}/{self.max_retries+1}): {e}")
                 time.sleep(0.4 * attempt)               # back-off
-        # 超过重试次数
+        # Exceeded retry attempts
         raise RuntimeError(f"Lybic exec_action failed: {exc}") from exc
 
     def _click(self, act: Click):
@@ -121,12 +121,12 @@ class LybicBackend(Backend):
     def _type(self, act: TypeText) -> None:
         if act.xy:
             self._click(Click(xy=act.xy, element_description=act.element_description, num_clicks=1, button_type=MouseButton.LEFT, hold_keys=[]))
-        # (可选) 全选+删除
+        # (Optional) Select all + delete
         if act.overwrite:
             self._hotkey(Hotkey(keys=["ctrl", "a"]))
             self._do({"type": "keyboard:press", "key": "backspace"})
 
-        # 输入正文
+        # Input text
         self._do({"type": "keyboard:type", "text": act.text})
 
         if act.enter:
@@ -152,18 +152,18 @@ class LybicBackend(Backend):
             "pressKeys": act.press_keys
         })
     
-    # 接口未实现
+    # Interface not implemented
     def _switch_app(self, act: SwitchApp) -> None:
         return
 
-    # 接口未实现
+    # Interface not implemented
     def _open_app(self, act: Open) -> None:
         return
 
     def _screenshot(self):
         """
-        利用 /preview 端点；返回字典，含 base64 图片或公网 URL，
-        交给上层决定保存还是解析。
+        Uses the /preview endpoint; returns a dictionary containing base64 image or public URL,
+        letting the upper layer decide whether to save or parse it.
         """
-        return self._do({"type": "screenshot"})   # Lybic 允许把 preview 看作一种 action
+        return self._do({"type": "screenshot"})   # Lybic allows treating preview as a type of action
     

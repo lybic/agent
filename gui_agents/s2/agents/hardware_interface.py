@@ -97,7 +97,7 @@ class HardwareInterface:
                 raise NotImplementedError(
                     f"{type(act).__name__} is not supported by backend {self.backend.__class__.__name__}"
                 )
-            if str(act) == "Screenshot()" and len(actions)==1:
+            if (not isinstance(actions, list)) or (len(actions)==1):
                 return self.backend.execute(act)
             else:
                 self.backend.execute(act)
@@ -122,4 +122,4 @@ class HardwareInterface:
         else:
             actions = Action.from_dict(actionDict)
 
-        self.dispatch(actions)
+        return self.dispatch(actions)

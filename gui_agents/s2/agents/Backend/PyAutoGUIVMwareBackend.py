@@ -66,7 +66,8 @@ class PyAutoGUIVMwareBackend(Backend):
         elif isinstance(action, SwitchApp):
             return self._switch_app(action)
         elif isinstance(action, Screenshot):
-            return self._screenshot()
+            screenshot = self._screenshot()
+            return screenshot # type: ignore
         elif isinstance(action, Wait):
             return f"time.sleep({action.seconds})"
         else:

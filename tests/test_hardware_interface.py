@@ -32,11 +32,11 @@ backend_kwargs = dict(   # 传给 PyAutoGUIBackend 的额外参数
 # ]
 
 plan = [
-    {'type': 'Hotkey', 'keys': ["'command'", "'space'"]}
+    {'type': 'Click', 'xy': [154, 64], 'element_description': 'The Chromium browser icon on the desktop, which is a circular icon with red, green, yellow, and blue colors', 'num_clicks': 2, 'button_type': 'left', 'hold_keys': []}
 ]
 
 # 2. 创建硬件接口
-hwi = HardwareInterface(backend="pyautogui", **backend_kwargs)
+hwi = HardwareInterface(backend="pyautogui_vmware", **backend_kwargs)
 
 # 3. 执行
 if dry_run:
@@ -46,6 +46,7 @@ if dry_run:
 else:
     print("开始执行 Action 序列…")
     # hwi.dispatch(plan)
-    hwi.dispatchDict(plan)
+    res = hwi.dispatchDict(plan)
+    print(res)
 
     print("执行完毕")

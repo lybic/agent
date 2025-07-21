@@ -256,8 +256,8 @@ First, we import the necessary modules. `AgentS2` is the main agent class for Ag
 ```python
 import pyautogui
 import io
-from gui_agents.s2.agents.agent_s import AgentS2
-from gui_agents.s2.agents.grounding import OSWorldACI
+from gui_agents.agents.agent_s import AgentS2
+from gui_agents.agents.grounding import OSWorldACI
 
 # Load in your API keys.
 from dotenv import load_dotenv
@@ -362,33 +362,3 @@ This will download Agent S2's knowledge base for Linux from release tag `v0.2.2`
 ### OSWorld
 
 To deploy Agent S2 in OSWorld, follow the [OSWorld Deployment instructions](OSWorld.md).
-
-## 💬 Citations
-
-If you find this codebase useful, please cite 
-
-```
-@misc{Agent-S2,
-      title={Agent S2: A Compositional Generalist-Specialist Framework for Computer Use Agents}, 
-      author={Saaket Agashe and Kyle Wong and Vincent Tu and Jiachen Yang and Ang Li and Xin Eric Wang},
-      year={2025},
-      eprint={2504.00906},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2504.00906}, 
-}
-```
-
-```
-@inproceedings{Agent-S,
-    title={{Agent S: An Open Agentic Framework that Uses Computers Like a Human}},
-    author={Saaket Agashe and Jiuzhou Han and Shuyu Gan and Jiachen Yang and Ang Li and Xin Eric Wang},
-    booktitle={International Conference on Learning Representations (ICLR)},
-    year={2025},
-    url={https://arxiv.org/abs/2410.08164}
-}
-```
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=simular-ai/Agent-S&type=Date)](https://www.star-history.com/#agent-s/agent-s&simular-ai/Agent-S&Date)

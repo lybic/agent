@@ -6,5 +6,6 @@
   "how to open chrome on mac": "The task was successfully executed.\n\n**Plan:**\n1. Click on the Google Chrome icon in the dock to launch the application.",
   "how to open an application on macOS": "**Successful Plan:**\n\n1. Click on the WeChat icon in the dock to open the application.",
   "How to open Chrome browser on a Mac computer": "Plan: Locate the Google Chrome icon in the bottom dock (circular icon with red, yellow, green, and blue colors), then click on the Google Chrome icon in the bottom dock to open the browser.",
-  "\u5982\u4f55\u4f7f\u7528\u8ba1\u7b97\u5668\u8ba1\u7b978\u4e58\u4ee57\u7684\u7ed3\u679c": "Plan: Open the Calculator application, click the \"8\" button, click the orange \"\u00d7\" button, click the \"7\" button, then click the \"=\" button on the calculator keypad to compute the result of 8\u00d77."
+  "\u5982\u4f55\u4f7f\u7528\u8ba1\u7b97\u5668\u8ba1\u7b978\u4e58\u4ee57\u7684\u7ed3\u679c": "Plan: Open the Calculator application, click the \"8\" button, click the orange \"\u00d7\" button, click the \"7\" button, then click the \"=\" button on the calculator keypad to compute the result of 8\u00d77.",
+  "How to open the Trash app on a Mac": "Plan: Click on the Trash icon at the rightmost end of the Dock to open the Trash app.\nGrounded Action: agent.click(\"The Trash icon located at the rightmost end of the Dock, which is a white trash can icon on a gray background\", 1, \"left\")\nTask Result: Successfully executed"
 }

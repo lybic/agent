@@ -2,8 +2,8 @@
 import platform
 from time import sleep
 import time
-from gui_agents.s2.agents.hardware_interface import HardwareInterface
-from gui_agents.s2.agents.Action import (
+from gui_agents.agents.hardware_interface import HardwareInterface
+from gui_agents.agents.Action import (
     Click, TypeText, Drag, Hotkey, Wait, Open
 )
 

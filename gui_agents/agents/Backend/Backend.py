@@ -19,7 +19,7 @@ class Backend(ABC):
 
     # ---------------------------------------------------------------------
     @abstractmethod
-    def execute(self, action: Action) -> None:
+    def execute(self, action: Action) -> str | None:
         """Translate an *Action* into concrete commands.
 
         Should raise **NotImplementedError** if the *action* type is not in

@@ -10,16 +10,13 @@ from numpy import imag
 from gui_agents.agents.Action import (
     Action,
     Click,
+    DoubleClick,
+    Move,
+    Scroll,
     Drag,
     TypeText,
-    Scroll,
     Hotkey,
-    HoldAndPress,
     Wait,
-    MouseButton,
-    ScrollAxis,
-    Open,
-    SwitchApp,
     Screenshot
 )
 
@@ -34,7 +31,7 @@ class PyAutoGUIBackend(Backend):
     Cons  : Requires an active, visible desktop session (won't work headless).
     """
 
-    _supported = {Click, Drag, TypeText, Scroll, Hotkey, HoldAndPress, Wait, Open, SwitchApp, Screenshot}
+    _supported = {Click, DoubleClick, Move, Scroll, Drag, TypeText, Hotkey, Wait, Screenshot}
 
     # ¶ PyAutoGUI sometimes throws exceptions if mouse is moved to a corner.
     def __init__(self, default_move_duration: float = 0.0, platform: str | None = None):
@@ -52,63 +49,98 @@ class PyAutoGUIBackend(Backend):
 
         if isinstance(action, Click):
             self._click(action)
+        elif isinstance(action, DoubleClick):
+            self._doubleclick(action)
+        elif isinstance(action, Move):
+            self._move(action)
+        elif isinstance(action, Scroll):
+            self._scroll(action)
         elif isinstance(action, Drag):
             self._drag(action)
         elif isinstance(action, TypeText):
             self._type(action)
-        elif isinstance(action, Scroll):
-            self._scroll(action)
         elif isinstance(action, Hotkey):
             self._hotkey(action)
-        elif isinstance(action, HoldAndPress):
-            self._hold_and_press(action)
-        elif isinstance(action, Open):
-            self._open_app(action)
-        elif isinstance(action, SwitchApp):
-            self._switch_app(action)
         elif isinstance(action, Screenshot):
             screenshot = self._screenshot()
             return screenshot # type: ignore
         elif isinstance(action, Wait):
-            time.sleep(action.seconds)
+            time.sleep(action.duration * 1e-3)
         else:
             # This shouldn't happen due to supports() check, but be safe.
             raise NotImplementedError(f"Unhandled action: {action}")
 
     # ----- individual helpers ------------------------------------------------
     def _click(self, act: Click) -> None:
-        for k in act.hold_keys or []:
+        for k in act.holdKey or []:
             self.pag.keyDown(k)
+            time.sleep(0.05)
+        
+        if act.button == 0:
+            button_str = "left"
+        elif act.button == 1:
+            button_str = "middle"
+        elif act.button == 2:
+            button_str = "right"
+
         self.pag.click(
-            x=act.xy[0],
-            y=act.xy[1],
-            clicks=act.num_clicks,
-            button=act.button_type.lower(), # type: ignore
+            x=act.x,
+            y=act.y,
+            clicks=1,
+            button=button_str, # type: ignore
             duration=self.default_move_duration,
             interval=0.5,
         )
-        for k in act.hold_keys or []:
+        for k in act.holdKey or []:
+            self.pag.keyUp(k)
+    
+    def _doubleclick(self, act: DoubleClick) -> None:
+        for k in act.holdKey or []:
+            self.pag.keyDown(k)
+            time.sleep(0.05)
+        
+        if act.button == 0:
+            button_str = "left"
+        elif act.button == 1:
+            button_str = "middle"
+        elif act.button == 2:
+            button_str = "right"
+
+        self.pag.click(
+            x=act.x,
+            y=act.y,
+            clicks=2,
+            button=button_str, # type: ignore
+            duration=self.default_move_duration,
+        )
+        for k in act.holdKey or []:
             self.pag.keyUp(k)
 
-    def _drag(self, act: Drag) -> None:
-        for k in act.hold_keys or []:
+    def _move(self, act: Move) -> None:
+        for k in act.holdKey or []:
             self.pag.keyDown(k)
-        self.pag.moveTo(*act.start)
-        self.pag.dragTo(*act.end)
-        for k in act.hold_keys or []:
+            time.sleep(0.05)
+        self.pag.moveTo(x = act.x, y = act.y)
+        for k in act.holdKey or []:
+            self.pag.keyUp(k)
+    
+    def _scroll(self, act: Scroll) -> None:
+        self.pag.moveTo(x = act.x, y = act.y)
+        # if not act.stepVertical:
+        #     self.pag.hscroll(act.stepHorizontal)
+        # else:
+        #     self.pag.vscroll(act.stepVertical)
+
+    def _drag(self, act: Drag) -> None:
+        for k in act.holdKey or []:
+            self.pag.keyDown(k)
+            time.sleep(0.05)
+        self.pag.moveTo(x = act.startX, y = act.startY)
+        self.pag.dragTo(x = act.endX, y = act.endY)
+        for k in act.holdKey or []:
             self.pag.keyUp(k)
 
     def _type(self, act: TypeText) -> None:
-        if act.xy:
-            self.pag.click(*act.xy)
-
-        if act.overwrite:
-            self.pag.hotkey(
-                "command" if self.platform.startswith("darwin") else "ctrl",
-                "a"
-            )
-            self.pag.press("backspace")
-
         # ------- Paste Chinese / any text --------------------------------
         pyperclip.copy(act.text)
         time.sleep(0.05)  # let clipboard stabilize
@@ -124,90 +156,17 @@ class PyAutoGUIBackend(Backend):
         else:                               # Windows / Linux
             self.pag.hotkey("ctrl", "v", interval=0.05)
 
-        # ------------------------------------------------------------
-        time.sleep(0.5)
-        if act.enter:
-            self.pag.press("enter")
-
-    def _scroll(self, act: Scroll) -> None:
-        self.pag.moveTo(*act.xy)
-        if not act.vertical:
-            self.pag.hscroll(act.clicks)
-        else:
-            self.pag.vscroll(act.clicks)
-
     def _hotkey(self, act: Hotkey) -> None:
-        # self.pag.hotkey(*act.keys)
-        print(act.keys)
-        self.pag.hotkey(*act.keys, interval=0.1)
+        if act.duration:
+            for k in act.keys or []:
+                self.pag.keyDown(k)
+                time.sleep(0.05)    
+            time.sleep(act.duration * 1e-3)
+            for k in act.keys or []:
+                self.pag.keyUp(k)
+        else:
+            self.pag.hotkey(*act.keys, interval=0.1)
 
-    def _hold_and_press(self, act: HoldAndPress) -> None:
-        for k in act.hold_keys:
-            self.pag.keyDown(k)
-        self.pag.press(list(act.press_keys))
-        for k in act.hold_keys:
-            self.pag.keyUp(k)
-
-    # ----- NEW: application helpers -----------------------------------------
-    def _switch_app(self, act: SwitchApp) -> None:
-        """Cross-platform switching to an already open application window"""
-        code = act.app_code
-        if self.platform.startswith("darwin"):          # macOS
-            self.pag.hotkey("command", "space")
-            time.sleep(0.5)
-            self.pag.typewrite(code) # TODO: Support Chinese input
-            self.pag.press("enter")
-            time.sleep(1.0)
-
-        elif self.platform.startswith("linux"):         # X11 + wmctrl
-            try:
-                output = subprocess.check_output(["wmctrl", "-lx"]).decode("utf-8").splitlines()
-                titles = [line.split(None, 4)[2] for line in output]
-                matches = difflib.get_close_matches(code, titles, n=1, cutoff=0.1)
-                if matches:
-                    target = matches[0]
-                    win_id = next((line.split()[0] for line in output if target in line), None)
-                    if win_id:
-                        subprocess.run(["wmctrl", "-ia", win_id])
-                        subprocess.run(["wmctrl", "-ir", win_id, "-b", "add,maximized_vert,maximized_horz"])
-            except FileNotFoundError:
-                # Fall back to Alt+Tab when wmctrl is not installed
-                self.pag.keyDown("alt")
-                self.pag.press("tab")
-                self.pag.keyUp("alt")
-
-        else:                                           # Assume Windows
-            self.pag.hotkey("win", "d")
-            time.sleep(0.5)
-            self.pag.typewrite(code)
-            self.pag.press("enter")
-            time.sleep(1.0)
-
-    def _open_app(self, act: Open) -> None:
-        target = act.app_or_filename
-
-        if self.platform.startswith("darwin"):
-            # ① Try directly using `open -a`
-            try:
-                subprocess.run(["open", "-a", target], check=True)
-            except subprocess.CalledProcessError:
-                # ② fallback: use AppleScript to activate, Finder.app ⇄ Finder
-                script = f'tell application "{target}" to activate'
-                subprocess.run(["osascript", "-e", script], check=True)
-
-        elif self.platform.startswith("linux"):
-            # If target is an executable name, use gtk-launch; otherwise try xdg-open
-            try:
-                subprocess.run(["gtk-launch", target], check=True)
-            except FileNotFoundError:
-                subprocess.run(["xdg-open", target], check=True)
-
-        else:  # Windows
-            try:
-                os.startfile(target)                 # Python 3.9+
-            except OSError:
-                subprocess.Popen(["start", "", target], shell=True)
-    
     def _screenshot(self):
         screenshot = self.pag.screenshot()
         return screenshot

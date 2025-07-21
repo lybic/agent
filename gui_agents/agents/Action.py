@@ -17,10 +17,10 @@ Key features
 Typical workflow
 ----------------
 ```python
->>> from actions import Click, Drag, Action
->>> a1 = Click(xy=(200, 300))
->>> payload = a1.to_dict()          # ➜ {"type": "Click", "xy": [200, 300], ...}
->>> a2 = Action.from_dict(payload)  # ➜ Click(xy=(200, 300), ...)
+>>> from actions import click, drag, action
+>>> a1 = click(x = 200, y = 300)
+>>> payload = a1.to_dict()          # ➜ {"type": "click", "x": 200, "y": 300], ...}
+>>> a2 = Action.from_dict(payload)  # ➜ click(x=200, y=300, ...)
 >>> assert a1 == a2
 ```
 The registry makes the last line work without an if‑else chain.
@@ -33,28 +33,12 @@ from typing import Any, Dict, List, Tuple, Type, TypeVar, ClassVar
 
 __all__ = [
     "Action",
-    "MouseButton",
-    "ScrollAxis",
     # concrete actions ↓
-    "Click", "SwitchApp", "Open", "TypeText", "SaveToKnowledge", "Drag", "HighlightTextSpan", "Scroll", "Hotkey", "HoldAndPress", "Wait", "Done", "Fail", "Screenshot",
+    "click", "doubleClick", "move", "scroll", "drag", "type", "hotkey", "Wait", "Done", "Fail", "Screenshot",
+
 ]
 
 T_Action = TypeVar("T_Action", bound="Action")
-
-
-# ---------------------------------------------------------------------------
-#  Enumerations
-# ---------------------------------------------------------------------------
-class MouseButton(Enum):
-    LEFT = auto()
-    MIDDLE = auto()
-    RIGHT = auto()
-
-
-class ScrollAxis(Enum):
-    VERTICAL = auto()
-    HORIZONTAL = auto()
-
 
 # ---------------------------------------------------------------------------
 #  Action base‑class with helper registry
@@ -132,84 +116,64 @@ def _name_to_enum(expected_type: Any, raw: Any) -> Any:
 #  Concrete Action subclasses
 # ---------------------------------------------------------------------------
 @dataclass(slots=True)
-class Click(Action):
-    xy: Tuple[int, int]
+class click(Action):
+    x: int
+    y: int
     element_description: str
-    num_clicks: int = 1
-    button_type: MouseButton = MouseButton.LEFT
-    hold_keys: List[str] | None = None
+    button: int = 0
+    holdKey: List[str] | None = None
 
 
-@dataclass(slots=True)
-class SwitchApp(Action):
-    app_code: str
-
-
-@dataclass(slots=True)
-class Open(Action):
-    app_or_filename: str
-
-
-@dataclass(slots=True)
-class TypeText(Action):
-    text: str
+class doubleClick(Action):
+    x: int
+    y: int
     element_description: str
-    xy: Tuple[int, int] | None = None
-    overwrite: bool = False
-    enter: bool = False
+    button: int = 0
+    holdKey: List[str] | None = None
+
+
+class move(Action):
+    x: int
+    y: int
+    element_description: str
+    holdKey: List[str] | None = None
 
 
 @dataclass(slots=True)
-class SaveToKnowledge(Action):
-    text: List[str]
-    
+class scroll(Action):
+    x: int
+    y: int
+    element_description: str
+    stepVertical: int | None = None
+    stepHorizontal: int | None = None
+    holdKey: List[str] | None = None
+
 
 @dataclass(slots=True)
-class Drag(Action):
-    start: Tuple[int, int]
-    end: Tuple[int, int]
-    hold_keys: List[str]
+class drag(Action):
+    startX: int
+    startY: int
+    endX: int
+    endY: int
+    holdKey: List[str]
     starting_description: str
     ending_description: str
 
 
 @dataclass(slots=True)
-class HighlightTextSpan(Action):
-    start: Tuple[int, int]
-    end: Tuple[int, int]
-    starting_phrase: str
-    ending_phrase: str
-
-
-# @dataclass(slots=True)
-# class SetCellValues(Action):
-#     cell_values: Dict[str, Any]
-#     app_name: str
-#     sheet_name: str
+class type(Action):
+    text: str
 
 
 @dataclass(slots=True)
-class Scroll(Action):
-    xy: Tuple[int, int]
-    element_description: str
-    clicks: int
-    vertical: bool = True
-
-
-@dataclass(slots=True)
-class Hotkey(Action):
+class hotkey(Action):
     keys: List[str]
-
-
-@dataclass(slots=True)
-class HoldAndPress(Action):
-    hold_keys: List[str]
-    press_keys: List[str]
+    duration: int | None = None
 
 
 @dataclass(slots=True)
 class Wait(Action):
-    seconds: float
+    duration: int
 
 
 @dataclass(slots=True)

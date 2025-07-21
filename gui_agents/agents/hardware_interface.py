@@ -55,6 +55,7 @@ __all__ = [
     "PyAutoGUIBackend",
     "ADBBackend",
     "LybicBackend",
+    "PyAutoGUIVMwareBackend",
 ]
 
 

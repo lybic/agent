@@ -19,6 +19,16 @@ import lib_run_single
 from desktop_env.desktop_env import DesktopEnv
 from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
+from pathlib import Path
+from dotenv import load_dotenv
+
+env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+else:
+    parent_env_path = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / '.env'
+    if parent_env_path.exists():
+        load_dotenv(dotenv_path=parent_env_path)
 
 current_platform = "linux"
 
@@ -70,7 +80,8 @@ def config() -> argparse.Namespace:
     )
 
     # environment config
-    parser.add_argument("--path_to_vm", type=str, default="/Users/lxguo/Documents/Code/lybicguiagents/vmware_vm_data/Ubuntu0/Ubuntu0.vmx")
+    vm_path = os.path.join("vmware_vm_data", "Ubuntu0", "Ubuntu0.vmx")
+    parser.add_argument("--path_to_vm", type=str, default=vm_path)
     parser.add_argument(
         "--headless", action="store_true", help="Run in headless machine"
     )
@@ -96,7 +107,7 @@ def config() -> argparse.Namespace:
     # example config
     parser.add_argument("--domain", type=str, default="all")
     parser.add_argument(
-        "--test_all_meta_path", type=str, default="evaluation_examples/test_tiny.json"
+        "--test_all_meta_path", type=str, default="evaluation_examples/test_tiny_windows.json"
     )
 
     # logging related
@@ -140,7 +151,8 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
     for domain in tqdm(test_all_meta, desc="Domain"):
         for example_id in tqdm(test_all_meta[domain], desc="Example", leave=False):
             config_file = os.path.join(
-                args.test_config_base_dir, f"examples/{domain}/{example_id}.json"
+                # args.test_config_base_dir, f"examples/{domain}/{example_id}.json"
+                args.test_config_base_dir, f"examples_windows/{domain}/{example_id}.json"
             )
             with open(config_file, "r", encoding="utf-8") as f:
                 example = json.load(f)

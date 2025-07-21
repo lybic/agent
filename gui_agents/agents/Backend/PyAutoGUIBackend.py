@@ -112,6 +112,7 @@ class PyAutoGUIBackend(Backend):
             clicks=2,
             button=button_str, # type: ignore
             duration=self.default_move_duration,
+            interval=0.5,
         )
         for k in act.holdKey or []:
             self.pag.keyUp(k)
@@ -126,10 +127,10 @@ class PyAutoGUIBackend(Backend):
     
     def _scroll(self, act: Scroll) -> None:
         self.pag.moveTo(x = act.x, y = act.y)
-        # if not act.stepVertical:
-        #     self.pag.hscroll(act.stepHorizontal)
-        # else:
-        #     self.pag.vscroll(act.stepVertical)
+        if not act.stepVertical:
+            self.pag.hscroll(act.stepHorizontal)
+        else:
+            self.pag.vscroll(act.stepVertical)
 
     def _drag(self, act: Drag) -> None:
         for k in act.holdKey or []:

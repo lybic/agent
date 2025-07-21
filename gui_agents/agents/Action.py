@@ -27,7 +27,7 @@ The registry makes the last line work without an if‑else chain.
 """
 
 from abc import ABC
-from dataclasses import dataclass, fields, asdict
+from dataclasses import dataclass, field, fields, asdict
 from enum import Enum, auto
 from typing import Any, Dict, List, Tuple, Type, TypeVar, ClassVar
 
@@ -121,22 +121,23 @@ class Click(Action):
     y: int
     element_description: str
     button: int = 0
-    holdKey: List[str] | None = None
+    holdKey: List[str] = field(default_factory=list)
 
 
+@dataclass(slots=True)
 class DoubleClick(Action):
     x: int
     y: int
     element_description: str
     button: int = 0
-    holdKey: List[str] | None = None
+    holdKey: List[str] = field(default_factory=list)
 
-
+@dataclass(slots=True)
 class Move(Action):
     x: int
     y: int
     element_description: str
-    holdKey: List[str] | None = None
+    holdKey: List[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -146,9 +147,11 @@ class Scroll(Action):
     element_description: str
     stepVertical: int | None = None
     stepHorizontal: int | None = None
-    holdKey: List[str] | None = None
+    holdKey: List[str] = field(default_factory=list)
 
 
+
+# TODO Drag是否需要区分左中右键
 @dataclass(slots=True)
 class Drag(Action):
     startX: int

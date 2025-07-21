@@ -15,7 +15,7 @@ class LybicClient:
 
         # runtime cache (set by create_sandbox)
         self.sandbox: Optional[Dict[str, Any]] = None
-        self.connect_details: Optional[Dict[str, Any]] = None
+        # self.connect_details: Optional[Dict[str, Any]] = None
 
     async def close(self) -> None:
         await self.http.aclose()
@@ -23,6 +23,14 @@ class LybicClient:
     # ---------- low-level ----------
     async def _req(self, path: str, method: str = "GET", json: Any = None):
         r = await self.http.request(method, f"{self.base}{path}", json=json)
+        # ▶ 打印调试信息
+        req = r.request                        # httpx.Request 对象
+        print(
+            "[HTTP]", req.method, req.url,     # 完整 URL（含 querystring）
+            "json=",   json,
+            "status=", r.status_code,
+        )
+
         r.raise_for_status()
         return r.json()
 
@@ -37,8 +45,8 @@ class LybicClient:
         )
 
         # cache
-        self.sandbox          = resp["sandbox"]
-        self.connect_details  = resp.get("connectDetails")
+        self.sandbox          = resp
+        # self.connect_details  = resp.get("connectDetails")
         return resp
 
     def _require_sandbox_id(self, sid: Optional[str]) -> str:
@@ -78,9 +86,3 @@ class LybicClient:
     def sandbox_id(self) -> Optional[str]:
         return self.sandbox["id"] if self.sandbox else None
 
-    @property
-    def gateways(self):
-        """Convenient accessor to KCP/WebRTC gateway addresses."""
-        if self.connect_details:
-            return self.connect_details.get("gatewayAddresses", [])
-        return []

@@ -6,6 +6,7 @@ from typing import Dict
 from gui_agents.agents.Action import (
     Action,
     Click,
+    DoubleClick,
     Drag,
     TypeText,
     Scroll,
@@ -30,20 +31,26 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 #  helper: mapping enums / units → lybic spec
 # ---------------------------------------------------------------------------
-
+def _px(v: int) -> Dict[str, Any]:
+    return {"type": "px", "value": v}
 
 
 
 
 class LybicBackend(Backend):
-    _supported = {Click, Drag, TypeText, Scroll, Hotkey,
+    _supported = {Click, DoubleClick, Drag, TypeText, Scroll, Hotkey,
                    Wait, Screenshot }
 
     # ---------- ctor ----------
-    def __init__(self, api_key: str, org_id: str, *,
-                 base_url="https://api.lybic.ai",
+    def __init__(self, 
+                 api_key: str = 'lysk-NxXUpGKgvtQwQMUjZroRQtQYAVOBoXjfPTiXxaTlOzOLjCvwvWjnJBcMLnLfEsaI', 
+                 org_id: str = 'ORG-01K0NFM1AK8RT8GVJ6TN7PPXR6', 
+                 *,
+                 base_url="https://api.lybic.cn",
                  sandbox_opts: Optional[Dict[str, Any]] = None,
-                 max_retries: int = 2):
+                 max_retries: int = 2,
+                 **kwargs
+                ):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
 
@@ -62,23 +69,21 @@ class LybicBackend(Backend):
             raise NotImplementedError(f"{type(action).__name__} unsupported")
 
         if   isinstance(action, Click):        self._click(action)
+        elif isinstance(action, DoubleClick):         self._doubleClick(action)
         elif isinstance(action, Drag):         self._drag(action)
         elif isinstance(action, TypeText):     self._type(action)
         elif isinstance(action, Scroll):       self._scroll(action)
         elif isinstance(action, Hotkey):       self._hotkey(action)
-        elif isinstance(action, HoldAndPress): self._hold_and_press(action)
-        elif isinstance(action, Open):         self._open_app(action)
-        elif isinstance(action, SwitchApp):    self._switch_app(action)
         elif isinstance(action, Screenshot):   return self._screenshot()   # type: ignore
-        elif isinstance(action, Wait):         time.sleep(action.seconds)
+        elif isinstance(action, Wait):         time.sleep(action.duration)
 
     # ---------- internal helpers ----------
     def _do(self, lybic_action: Dict[str, Any]):
-        """Send **one** action; centralized retries + error mapping."""
+        """Send **one** action; centralised retries + error mapping."""
         async def _send():
             act_type = lybic_action.get("type", "").lower()
             if act_type in {"screenshot", "system:preview"}:
-                # /preview endpoint doesn't need action payload
+                # /preview 不需要 action payload
                 return await self.client.preview()
             else:
                 return await self.client.exec_action(action=lybic_action)
@@ -91,62 +96,64 @@ class LybicBackend(Backend):
                 exc = e
                 log.warning(f"Lybic action failed (try {attempt}/{self.max_retries+1}): {e}")
                 time.sleep(0.4 * attempt)               # back-off
-        # Exceeded retry attempts
+        # 超过重试次数
         raise RuntimeError(f"Lybic exec_action failed: {exc}") from exc
 
-    # def _click(self, act: Click):
-    #     self._do({
-    #         "type": "mouse:click",
-    #         "x": _px(act.xy[0]),
-    #         "y": _px(act.xy[1]),
-    #         "button": _btn(act.button_type),
-    #         "clickCount": act.num_clicks,
-    #         "modifiers": act.hold_keys or [],
-    #     })
+    def _click(self, act: Click):
+        self._do({
+            "type": "mouse:click",
+            "x": _px(act.x),
+            "y": _px(act.y),
+            "button": act.button,
+            "holdKey": "+".join(act.holdKey)
+        })
+
+    def _doubleClick(self, act: DoubleClick):
+        self._do({
+            "type": "mouse:doubleClick",
+            "x": _px(act.x),
+            "y": _px(act.y),
+            "button": act.button,
+            "holdKey": "+".join(act.holdKey)
+        })
     
-    # def _drag(self, act: Drag) -> None:
-    #     self._do({
-    #         "type": "mouse:drag",
-    #         "startX": _px(act.start[0]),
-    #         "startY": _px(act.start[1]),
-    #         "endX":   _px(act.end[0]),
-    #         "endY":   _px(act.end[1]),
-    #         "button": _btn[MouseButton.LEFT],
-    #         "modifiers": act.hold_keys or []
-    #     })
+    def _drag(self, act: Drag) -> None:
+        self._do({
+            "type": "mouse:drag",
+            "startX": _px(act.startX),
+            "startY": _px(act.startY),
+            "endX":   _px(act.endX),
+            "endY":   _px(act.endY),
+            # "button":
+            "holdKey": "+".join(act.holdKey) or []
+        })
 
-    # def _type(self, act: TypeText) -> None:
-    #     if act.xy:
-    #         self._click(Click(xy=act.xy, element_description=act.element_description, num_clicks=1, button_type=MouseButton.LEFT, hold_keys=[]))
-    #     # (可选) 全选+删除
-    #     if act.overwrite:
-    #         self._hotkey(Hotkey(keys=["ctrl", "a"]))
-    #         self._do({"type": "keyboard:press", "key": "backspace"})
+    def _type(self, act: TypeText) -> None:
+        # 输入正文
+        self._do(
+            {"type": "keyboard:type", "content": act.text}
+        )
 
-    #     # 输入正文
-    #     self._do({"type": "keyboard:type", "text": act.text})
-
-    #     if act.enter:
-    #         self._do({"type": "keyboard:press", "key": "enter"})
-
-    # def _scroll(self, act: Scroll) -> None:
-    #     self._do({
-    #         "type": "mouse:scroll",
-    #         "x": _px(act.xy[0]),
-    #         "y": _px(act.xy[1]),
-    #         "scrollAxis": "VERTICAL" if act.vertical else "HORIZONTAL",
-    #         "clicks": act.clicks
-    #     })
-    # def _hotkey(self, act: Hotkey) -> None:
-    #     self._do({
-    #         "type": "keyboard:hotkey",
-    #         "keys": act.keys          # ["ctrl","c"] / ["command","space"]
-    #     })
+    def _scroll(self, act: Scroll) -> None:
+        self._do({
+            "type": "mouse:scroll",
+            "x": _px(act.x),
+            "y": _px(act.y),
+            "stepVertical": act.stepVertical,
+            "stepHorizontal": act.stepHorizontal
+        })
+    
+    def _hotkey(self, act: Hotkey) -> None:
+        self._do({
+            "type": "keyboard:hotkey",
+            "keys": "+".join(act.keys),          # ["ctrl","c"] / ["command","space"]
+            "duration": act.duration
+        })
   
-    # def _screenshot(self):
-    #     """
-    #     利用 /preview 端点；返回字典，含 base64 图片或公网 URL，
-    #     交给上层决定保存还是解析。
-    #     """
-    #     return self._do({"type": "screenshot"})   # Lybic 允许把 preview 看作一种 action
+    def _screenshot(self):
+        """
+        利用 /preview 端点；返回字典，含 base64 图片或公网 URL，
+        交给上层决定保存还是解析。
+        """
+        return self._do({"type": "screenshot"})   # Lybic 允许把 preview 看作一种 action
     

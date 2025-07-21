@@ -381,7 +381,7 @@ class Grounding(ACI):
         """End the current task with a success and the return message if needed"""
         self.returned_info = message
         actionDict = {
-            "type": "Finished",
+            "type": "Done",
             "message": message
         }
         return actionDict

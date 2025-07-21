@@ -7,7 +7,7 @@
 
 import pytest
 
-from gui_agents.s2.agents.translator import translate, TranslateError
+from gui_agents.agents.translator import translate, TranslateError
 # from  import translate, TranslateError
 
 

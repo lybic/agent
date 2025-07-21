@@ -1,0 +1,633 @@
+import ast
+import re
+import logging
+from collections import defaultdict
+from io import BytesIO
+from typing import Any, Dict, List, Optional, Tuple, Union
+import time
+import pytesseract
+from PIL import Image
+from pytesseract import Output
+
+from gui_agents.tools.tools import Tools
+from gui_agents.utils.common_utils import (
+    # call_llm_safe,
+    parse_single_code_from_string,
+)
+from gui_agents.store.registry import Registry
+from gui_agents.agents.global_state import GlobalState
+
+logger = logging.getLogger("desktopenv.agent")
+
+class ACI:
+    def __init__(self):
+        self.notes: List[str] = []
+
+
+# Agent action decorator
+def agent_action(func):
+    func.is_agent_action = True
+    return func
+
+
+UBUNTU_APP_SETUP = f"""import subprocess;
+import difflib;
+import pyautogui;
+pyautogui.press('escape');
+time.sleep(0.5);
+output = subprocess.check_output(['wmctrl', '-lx']);
+output = output.decode('utf-8').splitlines();
+window_titles = [line.split(None, 4)[2] for line in output];
+closest_matches = difflib.get_close_matches('APP_NAME', window_titles, n=1, cutoff=0.1);
+if closest_matches:
+    closest_match = closest_matches[0];
+    for line in output:
+        if closest_match in line:
+            window_id = line.split()[0]
+            break;
+subprocess.run(['wmctrl', '-ia', window_id])
+subprocess.run(['wmctrl', '-ir', window_id, '-b', 'add,maximized_vert,maximized_horz'])
+"""
+
+
+SET_CELL_VALUES_CMD = """import uno
+import subprocess
+
+def identify_document_type(component):
+    if component.supportsService("com.sun.star.sheet.SpreadsheetDocument"):
+        return "Calc"
+
+    if component.supportsService("com.sun.star.text.TextDocument"):
+        return "Writer"
+
+    if component.supportsService("com.sun.star.sheet.PresentationDocument"):
+        return "Impress"
+
+    return None
+
+def cell_ref_to_indices(cell_ref):
+    column_letters = ''.join(filter(str.isalpha, cell_ref))
+    row_number = ''.join(filter(str.isdigit, cell_ref))
+
+    col = sum((ord(char.upper()) - ord('A') + 1) * (26**idx) for idx, char in enumerate(reversed(column_letters))) - 1
+    row = int(row_number) - 1
+    return col, row
+
+def set_cell_values(new_cell_values: dict[str, str], app_name: str = "Untitled 1", sheet_name: str = "Sheet1"):
+    new_cell_values_idx = {{}}
+    for k, v in new_cell_values.items():
+        try:
+            col, row = cell_ref_to_indices(k)
+        except:
+            col = row = None
+
+        if col is not None and row is not None:
+            new_cell_values_idx[(col, row)] = v
+
+    # Clean up previous TCP connections.
+    subprocess.run(
+        'echo \"password\" | sudo -S ss --kill --tcp state TIME-WAIT sport = :2002',
+        shell=True,
+        check=True,
+        text=True,
+        capture_output=True
+    )
+
+    # Dynamically allow soffice to listen on port 2002.
+    subprocess.run(
+        [
+            "soffice",
+            "--accept=socket,host=localhost,port=2002;urp;StarOffice.Service"
+        ]
+    )
+
+    local_context = uno.getComponentContext()
+    resolver = local_context.ServiceManager.createInstanceWithContext(
+        "com.sun.star.bridge.UnoUrlResolver", local_context
+    )
+    context = resolver.resolve(
+        f"uno:socket,host=localhost,port=2002;urp;StarOffice.ComponentContext"
+    )
+    desktop = context.ServiceManager.createInstanceWithContext(
+        "com.sun.star.frame.Desktop", context
+    )
+
+    # Collect all LibreOffice-related opened windows.
+    documents = []
+    for i, component in enumerate(desktop.Components):
+        title = component.Title
+        doc_type = identify_document_type(component)
+        documents.append((i, component, title, doc_type))
+
+    # Find the LibreOffice Calc app and the sheet of interest.
+    spreadsheet = [doc for doc in documents if doc[3] == "Calc"]
+    selected_spreadsheet = [doc for doc in spreadsheet if doc[2] == app_name]
+    if spreadsheet:
+        try:
+            if selected_spreadsheet:
+                spreadsheet = selected_spreadsheet[0][1]
+            else:
+                spreadsheet = spreadsheet[0][1]
+
+            sheet = spreadsheet.Sheets.getByName(sheet_name)
+        except:
+            raise ValueError(f"Could not find sheet {{sheet_name}} in {{app_name}}.")
+
+        for (col, row), value in new_cell_values_idx.items():
+            cell = sheet.getCellByPosition(col, row)
+
+            # Set the cell value.
+            if isinstance(value, (int, float)):
+                cell.Value = value
+            elif isinstance(value, str):
+                if value.startswith("="):
+                    cell.Formula = value
+                else:
+                    cell.String = value
+            elif isinstance(value, bool):
+                cell.Value = 1 if value else 0
+            elif value is None:
+                cell.clearContents(0)
+            else:
+                raise ValueError(f"Unsupported cell value type: {{type(value)}}")
+
+    else:
+        raise ValueError(f"Could not find LibreOffice Calc app corresponding to {{app_name}}.")
+
+set_cell_values(new_cell_values={cell_values}, app_name="{app_name}", sheet_name="{sheet_name}")        
+"""
+
+
+# ACI primitives are parameterized by description, and coordinate generation uses a pretrained grounding model
+class Grounding(ACI):
+    def __init__(
+        self,
+        Tools_dict: Dict,
+        platform: str,
+        width: int = 1920, # Screenshot width
+        height: int = 1080, # Screenshot height
+    ):
+        self.platform = (
+            platform  # Dictates how the switch_applications agent action works.
+        )
+        self.Tools_dict = Tools_dict
+
+        # Screenshot size
+        self.width = width 
+        self.height = height
+
+        # Maintain state for save_to_knowledge
+        self.notes = [] # TODO: 需要修改为保存到本地global_state中
+
+        # Coordinates used during ACI execution
+        self.coords1 = None
+        self.coords2 = None
+
+        # Configure the visual grounding model responsible for coordinate generation
+        self.grounding_model = Tools()
+        self.grounding_model.register_tool("grounding", self.Tools_dict["grounding"]["provider"], self.Tools_dict["grounding"]["model"])
+
+        self.grounding_width, self.grounding_height = self.grounding_model.tools["grounding"].get_grounding_wh()
+        if self.grounding_width is None or self.grounding_height is None:
+            self.grounding_width = self.width
+            self.grounding_height = self.height
+
+        # Configure text grounding agent
+        self.text_span_agent = Tools()
+        self.text_span_agent.register_tool("text_span", self.Tools_dict["text_span"]["provider"], self.Tools_dict["text_span"]["model"])
+        
+        # 获取GlobalState实例
+        self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
+
+    # Given the state and worker's referring expression, use the grounding model to generate (x,y)
+    def generate_coords(self, ref_expr: str, obs: Dict) -> List[int]:
+        grounding_start_time = time.time()
+        # Reset the grounding model state
+        self.grounding_model.tools["grounding"].llm_agent.reset()
+
+        # Configure the context, UI-TARS demo does not use system prompt
+        prompt = f"Query:{ref_expr}\nOutput only the coordinate of one point in your response.\n"
+        response, total_tokens, cost_string = self.grounding_model.execute_tool("grounding", {"str_input": prompt, "img_input": obs["screenshot"]})
+        logger.info(f"Grounding model tokens: {total_tokens}, cost: {cost_string}")
+        grounding_end_time = time.time()
+        grounding_duration = grounding_end_time - grounding_start_time
+        logger.info(f"Grounding model execution time: {grounding_duration:.2f} seconds")
+        logger.info(f"RAW GROUNDING MODEL RESPONSE: {response}")
+        self.global_state.log_operation(
+            module="grounding",
+            operation="grounding_model_response",
+            data={
+                "tokens": total_tokens,
+                "cost": cost_string,
+                "content": response,
+                "duration": grounding_duration
+            }
+        )
+        # Generate and parse coordinates
+        numericals = re.findall(r"\d+", response)
+        assert len(numericals) >= 2
+        return [int(numericals[0]), int(numericals[1])]
+
+    # Calls pytesseract to generate word level bounding boxes for text grounding
+    def get_ocr_elements(self, b64_image_data: str) -> Tuple[str, List]:
+        image = Image.open(BytesIO(b64_image_data)) # type: ignore
+        image_data = pytesseract.image_to_data(image, output_type=Output.DICT)
+
+        # Clean text by removing leading and trailing spaces and non-alphabetical characters, but keeping punctuation
+        for i, word in enumerate(image_data["text"]):
+            image_data["text"][i] = re.sub(
+                r"^[^a-zA-Z\s.,!?;:\-\+]+|[^a-zA-Z\s.,!?;:\-\+]+$", "", word
+            )
+
+        ocr_elements = []
+        ocr_table = "Text Table:\nWord id\tText\n"
+        # Obtain the <id, text, group number, word number> for each valid element
+        grouping_map = defaultdict(list)
+        ocr_id = 0
+        for i in range(len(image_data["text"])):
+            block_num = image_data["block_num"][i]
+            if image_data["text"][i]:
+                grouping_map[block_num].append(image_data["text"][i])
+                ocr_table += f"{ocr_id}\t{image_data['text'][i]}\n"
+                ocr_elements.append(
+                    {
+                        "id": ocr_id,
+                        "text": image_data["text"][i],
+                        "group_num": block_num,
+                        "word_num": len(grouping_map[block_num]),
+                        "left": image_data["left"][i],
+                        "top": image_data["top"][i],
+                        "width": image_data["width"][i],
+                        "height": image_data["height"][i],
+                    }
+                )
+                ocr_id += 1
+
+        return ocr_table, ocr_elements
+
+    # Given the state and worker's text phrase, generate the coords of the first/last word in the phrase
+    def generate_text_coords(
+        self, phrase: str, obs: Dict, alignment: str = ""
+    ) -> List[int]:
+        text_span_start_time = time.time()
+        ocr_table, ocr_elements = self.get_ocr_elements(obs["screenshot"])
+
+        alignment_prompt = ""
+        if alignment == "start":
+            alignment_prompt = "**Important**: Output the word id of the FIRST word in the provided phrase.\n"
+        elif alignment == "end":
+            alignment_prompt = "**Important**: Output the word id of the LAST word in the provided phrase.\n"
+
+        self.text_span_agent.tools["text_span"].llm_agent.reset()
+        # Obtain the target element
+        response, total_tokens, cost_string = self.text_span_agent.execute_tool("text_span", {"str_input": alignment_prompt + "Phrase: " + phrase + "\n" + ocr_table, "img_input": obs["screenshot"]})
+        logger.info(f"Text span agent tokens: {total_tokens}, cost: {cost_string}")
+        text_span_end_time = time.time()
+        text_span_duration = text_span_end_time - text_span_start_time
+        logger.info(f"Text span agent execution time: {text_span_duration:.2f} seconds")
+        self.global_state.log_operation(
+            module="grounding",
+            operation="text_span_agent",
+            data={
+                "tokens": total_tokens,
+                "cost": cost_string,
+                "content": response,
+                "duration": text_span_duration
+            }
+        )
+        # print("TEXT SPAN AGENT RESPONSE:", response)
+        numericals = re.findall(r"\d+", response)
+        if len(numericals) > 0:
+            text_id = int(numericals[-1])
+        else:
+            text_id = 0
+        elem = ocr_elements[text_id]
+
+        # Compute the element coordinates
+        if alignment == "start":
+            coords = [elem["left"], elem["top"] + (elem["height"] // 2)]
+        elif alignment == "end":
+            coords = [elem["left"] + elem["width"], elem["top"] + (elem["height"] // 2)]
+        else:
+            coords = [
+                elem["left"] + (elem["width"] // 2),
+                elem["top"] + (elem["height"] // 2),
+            ]
+        return coords
+
+    # Takes a description based action and assigns the coordinates for any coordinate based action
+    # Raises an error if function can't be parsed
+    def assign_coordinates(self, plan: str, obs: Dict):
+
+        # Reset coords from previous action generation
+        self.coords1, self.coords2 = None, None
+
+        try:
+            # Extract the function name and args
+            action = parse_single_code_from_string(plan.split("Grounded Action")[-1])
+            function_name = re.match(r"(\w+\.\w+)\(", action).group(1) # type: ignore
+            args = self.parse_function_args(action)
+        except Exception as e:
+            raise RuntimeError(f"Error in parsing grounded action: {e}") from e
+
+        # arg0 is a description
+        if (
+            function_name in ["agent.click", "agent.type", "agent.scroll"]
+            and len(args) >= 1
+            and args[0] != None
+        ):
+            self.coords1 = self.generate_coords(args[0], obs)
+        # arg0 and arg1 are descriptions
+        elif function_name == "agent.drag_and_drop" and len(args) >= 2:
+            self.coords1 = self.generate_coords(args[0], obs)
+            self.coords2 = self.generate_coords(args[1], obs)
+        # arg0 and arg1 are text phrases
+        elif function_name == "agent.highlight_text_span" and len(args) >= 2:
+            self.coords1 = self.generate_text_coords(args[0], obs, alignment="start")
+            self.coords2 = self.generate_text_coords(args[1], obs, alignment="end")
+
+    def reset_screen_size(self, width: int, height: int):
+        self.width = width
+        self.height = height
+        
+    # Resize from grounding model dim into OSWorld dim (1920 * 1080)
+    def resize_coordinates(self, coordinates: List[int]) -> List[int]:
+        return [
+            round(coordinates[0] * self.width / self.grounding_width),
+            round(coordinates[1] * self.height / self.grounding_height),
+        ]
+
+    # Given a generated ACI function, returns a list of argument values, where descriptions are at the front of the list
+    def parse_function_args(self, function: str) -> List[str]:
+        if not function or not isinstance(function, str):
+            return []
+        try:
+            tree = ast.parse(function)
+        except Exception as e:
+            return []
+        if not tree.body or not hasattr(tree.body[0], 'value'):
+            return []
+        call_node = tree.body[0].value # type: ignore
+        if not isinstance(call_node, ast.Call):
+            return []
+        def safe_eval(node):
+            if isinstance(node, ast.Constant):
+                return node.value
+            elif hasattr(ast, 'Str') and isinstance(node, ast.Str):
+                return node.s
+            else:
+                try:
+                    return ast.unparse(node)
+                except Exception:
+                    return str(node)
+        positional_args = []
+        try:
+            positional_args = [safe_eval(arg) for arg in call_node.args]
+        except Exception:
+            positional_args = []
+        keyword_args = {}
+        try:
+            keyword_args = {kw.arg: safe_eval(kw.value) for kw in call_node.keywords}
+        except Exception:
+            keyword_args = {}
+        res = []
+        for key, val in keyword_args.items():
+            if key and "description" in key:
+                res.append(val)
+        for arg in positional_args:
+            res.append(arg)
+        return res
+
+    @agent_action
+    def click(
+        self,
+        element_description: str,
+        num_clicks: int = 1,
+        button_type: str = "left",
+        hold_keys: List = [],
+    ):
+        """Click on the element
+        Args:
+            element_description:str, a detailed descriptions of which element to click on. This description should be at least a full sentence.
+            num_clicks:int, number of times to click the element
+            button_type:str, which mouse button to press can be "left", "middle", or "right"
+            hold_keys:List, list of keys to hold while clicking
+        """
+        x, y = self.resize_coordinates(self.coords1) # type: ignore
+        
+        actionDict = {
+            "type": "Click",
+            "xy": [x, y], # List[int]
+            "element_description": element_description, # str
+            "num_clicks": num_clicks,
+            "button_type": button_type,
+            "hold_keys": hold_keys
+        }
+        return actionDict
+
+    @agent_action
+    def switch_applications(self, app_code):
+        """Switch to a different application that is already open
+        Args:
+            app_code:str the code name of the application to switch to from the provided list of open applications
+        """
+        
+        actionDict = {
+            "type": "SwitchApp",
+            "app_code": app_code
+        }
+        return actionDict
+
+    @agent_action
+    def open(self, app_or_filename: str):
+        """Open any application or file with name app_or_filename. Use this action to open applications or files on the desktop, do not open manually.
+        Args:
+            app_or_filename:str, the name of the application or filename to open
+        """
+        actionDict = {
+            "type": "Open",
+            "app_or_filename": app_or_filename
+        }
+        return actionDict
+
+    @agent_action
+    def type(
+        self,
+        element_description: Optional[str] = None,
+        text: str = "",
+        overwrite: bool = False,
+        enter: bool = False,
+    ):
+        """Type text into a specific element
+        Args:
+            element_description:str, a detailed description of which element to enter text in. This description should be at least a full sentence.
+            text:str, the text to type
+            overwrite:bool, Assign it to True if the text should overwrite the existing text, otherwise assign it to False. Using this argument clears all text in an element.
+            enter:bool, Assign it to True if the enter key should be pressed after typing the text, otherwise assign it to False.
+        """
+
+        if self.coords1 is not None:
+            # If a node is found, retrieve its coordinates and size
+            # Start typing at the center of the element
+
+            x, y = self.resize_coordinates(self.coords1)
+
+            actionDict = {
+                "type": "TypeText",
+                "element_description": element_description,
+                "text": text,
+                "xy": [x, y],
+                "overwrite": overwrite,
+                "enter": enter
+            }
+        else:
+            actionDict = {
+                "type": "TypeText",
+                "element_description": element_description,
+                "text": text,
+                "xy": None,
+                "overwrite": overwrite,
+                "enter": enter
+            }
+
+        return actionDict
+
+    @agent_action
+    def save_to_knowledge(self, text: List[str]):
+        """Save facts, elements, texts, etc. to a long-term knowledge bank for reuse during this task. Can be used for copy-pasting text, saving elements, etc.
+        Args:
+            text:List[str] the text to save to the knowledge
+        """
+        self.notes.extend(text)
+        actionDict = {
+            "type": "SaveToKnowledge",
+            "text": text
+        }
+        return actionDict
+
+    @agent_action
+    def drag_and_drop(
+        self, starting_description: str, ending_description: str, hold_keys: List = []
+    ):
+        """Drag from the starting description to the ending description
+        Args:
+            starting_description:str, a very detailed description of where to start the drag action. This description should be at least a full sentence.
+            ending_description:str, a very detailed description of where to end the drag action. This description should be at least a full sentence.
+            hold_keys:List list of keys to hold while dragging
+        """
+        x1, y1 = self.resize_coordinates(self.coords1) # type: ignore
+        x2, y2 = self.resize_coordinates(self.coords2) # type: ignore
+
+        actionDict = {
+            "type": "Drag",
+            "start": [x1, y1],
+            "end": [x2, y2],
+            "hold_keys": hold_keys,
+            "starting_description": starting_description,
+            "ending_description": ending_description
+        }
+        return actionDict
+
+    # TODO: 开始/终止词有多个的时候，如何处理？
+    @agent_action
+    def highlight_text_span(self, starting_phrase: str, ending_phrase: str):
+        """Highlight a text span between a provided starting phrase and ending phrase. Use this to highlight words, lines, and paragraphs.
+        Args:
+            starting_phrase:str, the phrase that denotes the start of the text span you want to highlight. If you only want to highlight one word, just pass in that single word.
+            ending_phrase:str, the phrase that denotes the end of the text span you want to highlight. If you only want to highlight one word, just pass in that single word.
+        """
+
+        x1, y1 = self.coords1 # type: ignore
+        x2, y2 = self.coords2 # type: ignore
+
+        actionDict = {
+            "type": "HighlightTextSpan",
+            "start": [x1, y1],
+            "end": [x2, y2],
+            "starting_phrase": starting_phrase,
+            "ending_phrase": ending_phrase
+        }
+        return actionDict
+
+    @agent_action
+    def scroll(self, element_description: str, clicks: int, vertical: bool = True):
+        """Scroll the element in the specified direction
+        Args:
+            element_description:str, a very detailed description of which element to enter scroll in. This description should be at least a full sentence.
+            clicks:int, the number of clicks to scroll can be positive (up) or negative (down).
+            vertical:bool, whether to vertical scrolling
+        """
+
+        x, y = self.resize_coordinates(self.coords1) # type: ignore
+
+        actionDict = {
+            "type": "Scroll",
+            "xy": [x, y],
+            "element_description": element_description,
+            "clicks": clicks,
+            "vertical": vertical
+        }
+        return actionDict
+    
+    @agent_action
+    def hotkey(self, keys: List):
+        """Press a hotkey combination
+        Args:
+            keys:List the keys to press in combination in a list format (e.g. ['ctrl', 'c'])
+        """
+        # add quotes around the keys
+        keys = [f"{key}" for key in keys]
+        actionDict = {
+            "type": "Hotkey",
+            "keys": keys
+        }
+        return actionDict
+
+    @agent_action
+    def hold_and_press(self, hold_keys: List, press_keys: List):
+        """Hold a list of keys and press a list of keys
+        Args:
+            hold_keys:List, list of keys to hold
+            press_keys:List, list of keys to press in a sequence
+        """
+
+        actionDict = {
+            "type": "HoldAndPress",
+            "hold_keys": hold_keys,
+            "press_keys": press_keys
+        }
+        return actionDict
+
+    @agent_action
+    def wait(self, seconds: float):
+        """Wait for a specified amount of time in seconds
+        Args:
+            seconds:float the amount of time to wait in seconds
+        """
+        actionDict = {
+            "type": "Wait",
+            "seconds": seconds
+        }
+        return actionDict
+
+    @agent_action
+    def done(
+        self,
+        return_value: Optional[Union[Dict, str, List, Tuple, int, float, bool]] = None,
+    ):
+        """End the current task with a success and the required return value"""
+        # TODO: 后续看是否需要使用
+        self.returned_info = return_value
+        actionDict = {
+            "type": "Done",
+            "return_value": return_value
+        }
+        return actionDict
+
+    @agent_action
+    def fail(self):
+        """End the current task with a failure, and replan the whole task."""
+        actionDict = {
+            "type": "Fail",
+        }
+        return actionDict

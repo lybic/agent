@@ -1,7 +1,7 @@
 import pytest
 from concurrent.futures import ThreadPoolExecutor
 
-from gui_agents.s2.store.registry import Registry
+from gui_agents.store.registry import Registry
 
 @pytest.fixture(autouse=True)
 def clean_registry():

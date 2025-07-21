@@ -2,7 +2,7 @@
 from pathlib import Path
 import json
 import pytest
-from gui_agents.s2.agents.global_state import GlobalState
+from gui_agents.agents.global_state import GlobalState
 
 
 

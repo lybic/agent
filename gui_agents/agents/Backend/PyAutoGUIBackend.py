@@ -9,13 +9,13 @@ from PIL import Image
 from numpy import imag
 from gui_agents.agents.Action import (
     Action,
-    click,
-    doubleClick,
-    move,
-    scroll,
-    drag,
-    type,
-    hotkey,
+    Click,
+    DoubleClick,
+    Move,
+    Scroll,
+    Drag,
+    TypeText,
+    Hotkey,
     Wait,
     Screenshot
 )
@@ -31,7 +31,7 @@ class PyAutoGUIBackend(Backend):
     Cons  : Requires an active, visible desktop session (won't work headless).
     """
 
-    _supported = {click, doubleClick, move, scroll, drag, type, hotkey, Wait, Screenshot}
+    _supported = {Click, DoubleClick, Move, Scroll, Drag, TypeText, Hotkey, Wait, Screenshot}
 
     # ¶ PyAutoGUI sometimes throws exceptions if mouse is moved to a corner.
     def __init__(self, default_move_duration: float = 0.0, platform: str | None = None):
@@ -47,19 +47,19 @@ class PyAutoGUIBackend(Backend):
         if not self.supports(type(action)):
             raise NotImplementedError(f"{type(action).__name__} not supported by PyAutoGUIBackend")
 
-        if isinstance(action, click):
+        if isinstance(action, Click):
             self._click(action)
-        elif isinstance(action, doubleClick):
+        elif isinstance(action, DoubleClick):
             self._doubleclick(action)
-        elif isinstance(action, move):
+        elif isinstance(action, Move):
             self._move(action)
-        elif isinstance(action, scroll):
+        elif isinstance(action, Scroll):
             self._scroll(action)
-        elif isinstance(action, drag):
+        elif isinstance(action, Drag):
             self._drag(action)
-        elif isinstance(action, type):
+        elif isinstance(action, TypeText):
             self._type(action)
-        elif isinstance(action, hotkey):
+        elif isinstance(action, Hotkey):
             self._hotkey(action)
         elif isinstance(action, Screenshot):
             screenshot = self._screenshot()
@@ -71,7 +71,7 @@ class PyAutoGUIBackend(Backend):
             raise NotImplementedError(f"Unhandled action: {action}")
 
     # ----- individual helpers ------------------------------------------------
-    def _click(self, act: click) -> None:
+    def _click(self, act: Click) -> None:
         for k in act.holdKey or []:
             self.pag.keyDown(k)
             time.sleep(0.05)
@@ -94,7 +94,7 @@ class PyAutoGUIBackend(Backend):
         for k in act.holdKey or []:
             self.pag.keyUp(k)
     
-    def _doubleclick(self, act: doubleClick) -> None:
+    def _doubleclick(self, act: DoubleClick) -> None:
         for k in act.holdKey or []:
             self.pag.keyDown(k)
             time.sleep(0.05)
@@ -116,7 +116,7 @@ class PyAutoGUIBackend(Backend):
         for k in act.holdKey or []:
             self.pag.keyUp(k)
 
-    def _move(self, act: move) -> None:
+    def _move(self, act: Move) -> None:
         for k in act.holdKey or []:
             self.pag.keyDown(k)
             time.sleep(0.05)
@@ -124,14 +124,14 @@ class PyAutoGUIBackend(Backend):
         for k in act.holdKey or []:
             self.pag.keyUp(k)
     
-    def _scroll(self, act: scroll) -> None:
+    def _scroll(self, act: Scroll) -> None:
         self.pag.moveTo(x = act.x, y = act.y)
-        if not act.stepVertical:
-            self.pag.hscroll(act.stepHorizontal)
-        else:
-            self.pag.vscroll(act.stepVertical)
+        # if not act.stepVertical:
+        #     self.pag.hscroll(act.stepHorizontal)
+        # else:
+        #     self.pag.vscroll(act.stepVertical)
 
-    def _drag(self, act: drag) -> None:
+    def _drag(self, act: Drag) -> None:
         for k in act.holdKey or []:
             self.pag.keyDown(k)
             time.sleep(0.05)
@@ -140,7 +140,7 @@ class PyAutoGUIBackend(Backend):
         for k in act.holdKey or []:
             self.pag.keyUp(k)
 
-    def _type(self, act: type) -> None:
+    def _type(self, act: TypeText) -> None:
         # ------- Paste Chinese / any text --------------------------------
         pyperclip.copy(act.text)
         time.sleep(0.05)  # let clipboard stabilize
@@ -156,7 +156,7 @@ class PyAutoGUIBackend(Backend):
         else:                               # Windows / Linux
             self.pag.hotkey("ctrl", "v", interval=0.05)
 
-    def _hotkey(self, act: hotkey) -> None:
+    def _hotkey(self, act: Hotkey) -> None:
         if act.duration:
             for k in act.keys or []:
                 self.pag.keyDown(k)

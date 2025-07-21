@@ -10,12 +10,12 @@ from gui_agents.agents.Action import (
     TypeText,
     Scroll,
     Hotkey,
-    HoldAndPress,
+    # HoldAndPress,
     Wait,
-    MouseButton,
-    ScrollAxis,
-    Open,
-    SwitchApp,
+    # MouseButton,
+    # ScrollAxis,
+    # Open,
+    # SwitchApp,
     Screenshot
 )
 
@@ -30,17 +30,14 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 #  helper: mapping enums / units → lybic spec
 # ---------------------------------------------------------------------------
-def _px(v: int) -> Dict[str, Any]:
-    return {"type": "px", "value": v}
 
-def _btn(b: MouseButton) -> int:
-    return {MouseButton.LEFT: 0, MouseButton.MIDDLE: 1, MouseButton.RIGHT: 2}[b]
+
 
 
 
 class LybicBackend(Backend):
     _supported = {Click, Drag, TypeText, Scroll, Hotkey,
-                  HoldAndPress, Wait, Screenshot, Open, SwitchApp}
+                   Wait, Screenshot }
 
     # ---------- ctor ----------
     def __init__(self, api_key: str, org_id: str, *,
@@ -97,73 +94,59 @@ class LybicBackend(Backend):
         # Exceeded retry attempts
         raise RuntimeError(f"Lybic exec_action failed: {exc}") from exc
 
-    def _click(self, act: Click):
-        self._do({
-            "type": "mouse:click",
-            "x": _px(act.xy[0]),
-            "y": _px(act.xy[1]),
-            "button": _btn(act.button_type),
-            "clickCount": act.num_clicks,
-            "modifiers": act.hold_keys or [],
-        })
+    # def _click(self, act: Click):
+    #     self._do({
+    #         "type": "mouse:click",
+    #         "x": _px(act.xy[0]),
+    #         "y": _px(act.xy[1]),
+    #         "button": _btn(act.button_type),
+    #         "clickCount": act.num_clicks,
+    #         "modifiers": act.hold_keys or [],
+    #     })
     
-    def _drag(self, act: Drag) -> None:
-        self._do({
-            "type": "mouse:drag",
-            "startX": _px(act.start[0]),
-            "startY": _px(act.start[1]),
-            "endX":   _px(act.end[0]),
-            "endY":   _px(act.end[1]),
-            "button": _btn(MouseButton.LEFT), #type: ignore
-            "modifiers": act.hold_keys or []
-        })
+    # def _drag(self, act: Drag) -> None:
+    #     self._do({
+    #         "type": "mouse:drag",
+    #         "startX": _px(act.start[0]),
+    #         "startY": _px(act.start[1]),
+    #         "endX":   _px(act.end[0]),
+    #         "endY":   _px(act.end[1]),
+    #         "button": _btn[MouseButton.LEFT],
+    #         "modifiers": act.hold_keys or []
+    #     })
 
-    def _type(self, act: TypeText) -> None:
-        if act.xy:
-            self._click(Click(xy=act.xy, element_description=act.element_description, num_clicks=1, button_type=MouseButton.LEFT, hold_keys=[]))
-        # (Optional) Select all + delete
-        if act.overwrite:
-            self._hotkey(Hotkey(keys=["ctrl", "a"]))
-            self._do({"type": "keyboard:press", "key": "backspace"})
+    # def _type(self, act: TypeText) -> None:
+    #     if act.xy:
+    #         self._click(Click(xy=act.xy, element_description=act.element_description, num_clicks=1, button_type=MouseButton.LEFT, hold_keys=[]))
+    #     # (可选) 全选+删除
+    #     if act.overwrite:
+    #         self._hotkey(Hotkey(keys=["ctrl", "a"]))
+    #         self._do({"type": "keyboard:press", "key": "backspace"})
 
-        # Input text
-        self._do({"type": "keyboard:type", "text": act.text})
+    #     # 输入正文
+    #     self._do({"type": "keyboard:type", "text": act.text})
 
-        if act.enter:
-            self._do({"type": "keyboard:press", "key": "enter"})
+    #     if act.enter:
+    #         self._do({"type": "keyboard:press", "key": "enter"})
 
-    def _scroll(self, act: Scroll) -> None:
-        self._do({
-            "type": "mouse:scroll",
-            "x": _px(act.xy[0]),
-            "y": _px(act.xy[1]),
-            "scrollAxis": "VERTICAL" if act.vertical else "HORIZONTAL",
-            "clicks": act.clicks
-        })
-    def _hotkey(self, act: Hotkey) -> None:
-        self._do({
-            "type": "keyboard:hotkey",
-            "keys": act.keys          # ["ctrl","c"] / ["command","space"]
-        })
-    def _hold_and_press(self, act: HoldAndPress) -> None:
-        self._do({
-            "type": "keyboard:holdAndPress",
-            "holdKeys":  act.hold_keys,
-            "pressKeys": act.press_keys
-        })
-    
-    # Interface not implemented
-    def _switch_app(self, act: SwitchApp) -> None:
-        return
-
-    # Interface not implemented
-    def _open_app(self, act: Open) -> None:
-        return
-
-    def _screenshot(self):
-        """
-        Uses the /preview endpoint; returns a dictionary containing base64 image or public URL,
-        letting the upper layer decide whether to save or parse it.
-        """
-        return self._do({"type": "screenshot"})   # Lybic allows treating preview as a type of action
+    # def _scroll(self, act: Scroll) -> None:
+    #     self._do({
+    #         "type": "mouse:scroll",
+    #         "x": _px(act.xy[0]),
+    #         "y": _px(act.xy[1]),
+    #         "scrollAxis": "VERTICAL" if act.vertical else "HORIZONTAL",
+    #         "clicks": act.clicks
+    #     })
+    # def _hotkey(self, act: Hotkey) -> None:
+    #     self._do({
+    #         "type": "keyboard:hotkey",
+    #         "keys": act.keys          # ["ctrl","c"] / ["command","space"]
+    #     })
+  
+    # def _screenshot(self):
+    #     """
+    #     利用 /preview 端点；返回字典，含 base64 图片或公网 URL，
+    #     交给上层决定保存还是解析。
+    #     """
+    #     return self._do({"type": "screenshot"})   # Lybic 允许把 preview 看作一种 action
     

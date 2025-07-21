@@ -34,7 +34,7 @@ from typing import Any, Dict, List, Tuple, Type, TypeVar, ClassVar
 __all__ = [
     "Action",
     # concrete actions ↓
-    "click", "doubleClick", "move", "scroll", "drag", "type", "hotkey", "Wait", "Done", "Fail", "Screenshot",
+    "Click", "DoubleClick", "Move", "Scroll", "Drag", "TypeText", "Hotkey", "Wait", "Done", "Fail", "Screenshot",
 
 ]
 
@@ -116,7 +116,7 @@ def _name_to_enum(expected_type: Any, raw: Any) -> Any:
 #  Concrete Action subclasses
 # ---------------------------------------------------------------------------
 @dataclass(slots=True)
-class click(Action):
+class Click(Action):
     x: int
     y: int
     element_description: str
@@ -124,7 +124,7 @@ class click(Action):
     holdKey: List[str] | None = None
 
 
-class doubleClick(Action):
+class DoubleClick(Action):
     x: int
     y: int
     element_description: str
@@ -132,7 +132,7 @@ class doubleClick(Action):
     holdKey: List[str] | None = None
 
 
-class move(Action):
+class Move(Action):
     x: int
     y: int
     element_description: str
@@ -140,7 +140,7 @@ class move(Action):
 
 
 @dataclass(slots=True)
-class scroll(Action):
+class Scroll(Action):
     x: int
     y: int
     element_description: str
@@ -150,7 +150,7 @@ class scroll(Action):
 
 
 @dataclass(slots=True)
-class drag(Action):
+class Drag(Action):
     startX: int
     startY: int
     endX: int
@@ -161,12 +161,12 @@ class drag(Action):
 
 
 @dataclass(slots=True)
-class type(Action):
+class TypeText(Action):
     text: str
 
 
 @dataclass(slots=True)
-class hotkey(Action):
+class Hotkey(Action):
     keys: List[str]
     duration: int | None = None
 
@@ -182,8 +182,12 @@ class Done(Action):
 
 
 @dataclass(slots=True)
-class Fail(Action):
-    pass
+class Failed(Action):
+    message: str = ''
+
+@dataclass(slots=True)
+class Finished(Action):
+    message: str = ''
 
 @dataclass(slots=True)
 class Screenshot(Action):

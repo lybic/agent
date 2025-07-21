@@ -8,10 +8,7 @@ from gui_agents.agents.Action import (
     TypeText,
     Scroll,
     Hotkey,
-    HoldAndPress,
     Wait,
-    MouseButton,
-    ScrollAxis,
 )
 
 from gui_agents.agents.Backend.Backend import Backend
@@ -37,20 +34,21 @@ class ADBBackend(Backend):
         prefix.append("shell")
 
         if isinstance(action, Click):
-            cmd = prefix + ["input", "tap", str(action.xy[0]), str(action.xy[1])]
+            cmd = prefix
+            # cmd = prefix + ["input", "tap", str(action.xy[0]), str(action.xy[1])]
         elif isinstance(action, Drag):
             cmd = prefix + [
                 "input", "swipe",
-                str(action.start[0]), str(action.start[1]),
-                str(action.end[0]), str(action.end[1]),
-                str(int(action.duration * 1000)), # type: ignore
+                # str(action.start[0]), str(action.start[1]),
+                # str(action.end[0]), str(action.end[1]),
+                # str(int(action.duration * 1000)), # type: ignore
             ]
         elif isinstance(action, TypeText):
             text = action.text.replace(" ", "%s")  # escape spaces
             cmd = prefix + ["input", "text", text]
-            if action.press_enter:
-                subprocess.run(prefix + ["input", "keyevent", "ENTER"], check=True)
-                return
+            # if action.press_enter:
+            #     subprocess.run(prefix + ["input", "keyevent", "ENTER"], check=True)
+            #     return
         elif isinstance(action, Hotkey):
             # Map first key for demo purposes
             key = action.keys[0].upper()

@@ -15,11 +15,12 @@ class Backend(ABC):
 
     # ---------------------------------------------------------------------
     def supports(self, action_type: Type[Action]) -> bool:
+        print(action_type, 'action_type')
         return action_type in self._supported
 
     # ---------------------------------------------------------------------
     @abstractmethod
-    def execute(self, action: Action) -> None:
+    def execute(self, action: Action) -> str | None:
         """Translate an *Action* into concrete commands.
 
         Should raise **NotImplementedError** if the *action* type is not in

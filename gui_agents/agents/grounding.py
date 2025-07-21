@@ -192,7 +192,7 @@ class Grounding(ACI):
         x, y = self.resize_coordinates(self.coords1) # type: ignore
         
         actionDict = {
-            "type": "click",
+            "type": "Click",
             "x": x, # int
             "y": y, # int
             "element_description": element_description, # str
@@ -217,7 +217,7 @@ class Grounding(ACI):
         x, y = self.resize_coordinates(self.coords1) # type: ignore
         
         actionDict = {
-            "type": "doubleClick",
+            "type": "DoubleClick",
             "x": x, # int
             "y": y, # int
             "element_description": element_description, # str
@@ -240,7 +240,7 @@ class Grounding(ACI):
         x, y = self.resize_coordinates(self.coords1) # type: ignore
         
         actionDict = {
-            "type": "move",
+            "type": "Move",
             "x": x, # int
             "y": y, # int
             "element_description": element_description, # str
@@ -268,7 +268,7 @@ class Grounding(ACI):
 
         if vertical == True:
             actionDict = {
-                "type": "scroll",
+                "type": "Scroll",
                 "x": x, # int
                 "y": y, # int
                 "element_description": element_description,
@@ -277,7 +277,7 @@ class Grounding(ACI):
             }
         else:
             actionDict = {
-                "type": "scroll",
+                "type": "Scroll",
                 "x": x, # int
                 "y": y, # int
                 "element_description": element_description,
@@ -303,7 +303,7 @@ class Grounding(ACI):
         x2, y2 = self.resize_coordinates(self.coords2) # type: ignore
 
         actionDict = {
-            "type": "drag",
+            "type": "Drag",
             "startX": x1,
             "startY": y1,
             "endX": x2,
@@ -324,7 +324,7 @@ class Grounding(ACI):
             text:str, the text to type.
         """
         actionDict = {
-            "type": "type",
+            "type": "TypeText",
             "text": text,
         }
         
@@ -346,13 +346,13 @@ class Grounding(ACI):
         keys = [f"{key}" for key in keys]
         if 1 <= duration <= 5000:
             actionDict = {
-                "type": "hotkey",
+                "type": "Hotkey",
                 "keys": keys,
                 "duration": duration,
             }
         else:
             actionDict = {
-                "type": "hotkey",
+                "type": "Hotkey",
                 "keys": keys,
             }
 
@@ -368,7 +368,7 @@ class Grounding(ACI):
             duration:int the amount of time to wait in milliseconds
         """
         actionDict = {
-            "type": "wait",
+            "type": "Wait",
             "duration": duration
         }
         return actionDict
@@ -376,12 +376,12 @@ class Grounding(ACI):
     @agent_action
     def done(
         self,
-        message: str = None,
+        message: str = '',
     ):
         """End the current task with a success and the return message if needed"""
         self.returned_info = message
         actionDict = {
-            "type": "finished",
+            "type": "Finished",
             "message": message
         }
         return actionDict
@@ -389,11 +389,11 @@ class Grounding(ACI):
     @agent_action
     def fail(
         self,
-        message: str = None,
+        message: str = '',
     ):
         """End the current task with a failure message, and replan the whole task."""
         actionDict = {
-            "type": "failed",
+            "type": "Failed",
             "message": message
         }
         return actionDict

@@ -12,7 +12,7 @@ setup(
     extras_require={"dev": ["black"]},  # Code formatter for linting
     entry_points={
         "console_scripts": [
-            "gui_agent=gui_agents.cli_app:main",
+            "lybic_gui_agent=gui_agents.cli_app:main",
         ],
     },
     classifiers=[

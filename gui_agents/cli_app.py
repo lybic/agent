@@ -96,14 +96,14 @@ def scale_screen_dimensions(width: int, height: int, max_dim_size: int):
     return safe_width, safe_height
 
 
-def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
+def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int, backend: str = "lybic"):
     import time  # Ensure time is imported
     obs = {}
     traj = "Task:\n" + instruction
     subtask_traj = ""
     global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
     global_state.set_Tu(instruction)
-    hwi = HardwareInterface(backend="lybic", platform=platform_os)
+    hwi = HardwareInterface(backend=backend, platform=platform_os)
     
     total_start_time = time.time()  # Record total start time
     for _ in range(15):
@@ -181,6 +181,9 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='GUI Agent CLI Application')
+    parser.add_argument('--backend', type=str, default='lybic', help='Backend to use (e.g., lybic, pyautogui, pyautogui_vmware)')
+    args = parser.parse_args()
     
     # Re-scales screenshot size to ensure it fits in UI-TARS context limit
     screen_width, screen_height = pyautogui.size()
@@ -220,7 +223,7 @@ def main():
         agent.reset()
 
         # Run the agent on your own device
-        run_agent(agent, query, scaled_width, scaled_height)
+        run_agent(agent, query, scaled_width, scaled_height, backend=args.backend)
 
         response = input("Would you like to provide another query? (y/n): ")
         if response.lower() != "y":
@@ -228,4 +231,9 @@ def main():
 
 
 if __name__ == "__main__":
+    """
+    python cli_app.py --backend lybic
+    python cli_app.py --backend pyautogui
+    python cli_app.py --backend pyautogui_vmware
+    """
     main()

@@ -278,5 +278,8 @@
   "Open Google Chrome and enable the \"Do Not Track\" feature to enhance your privacy while browsing.": "How to enable the Do Not Track feature in Google Chrome on Windows 11?",
   "Can you set up a new email account in the Outlook application?": "How to set up a new email account in Outlook on Windows 11?",
   "Open Google Chrome and navigate to the settings page. From there, go to the \"Autofill\" section and update your saved addresses and payment methods to reflect your new address and payment details.": "How to update saved addresses and payment methods in Google Chrome settings on Windows 11?",
-  "\u6253\u5f00\u8bbe\u7f6e": "Windows\u7cfb\u7edf\u4e0b\u5982\u4f55\u6253\u5f00\u8bbe\u7f6e"
+  "\u6253\u5f00\u8bbe\u7f6e": "Windows\u7cfb\u7edf\u4e0b\u5982\u4f55\u6253\u5f00\u8bbe\u7f6e",
+  "Could you help me to export the current sheet to a csv file? Export the contents just as they are shown on the screen. Just keep the other options untouched. A default csv format is ok. The csv should share the file name with the original xlsx.": "How to export the current Excel sheet to a CSV file with the same file name as the original in Microsoft Excel while keeping other options untouched?",
+  "I've prepared some grammar tests and placed them in the 'Grammar test' folder. I've already provided the multiple-choice answers for Test 1 in the 'answer doc' file. Could you please follow the same format to write out the answers for the remaining two tests in the doc file? This way, I can distribute them to the students as a reference. Thank you.": "How to format grammar test answers for remaining tests in Excel to match the format of Test 1 in the 'answer doc' file?",
+  "Please make the background blue on all my slides. I was stuck by finding the entrance to do that for a while...": "How to change the background color to blue for all slides in Microsoft PowerPoint"
 }

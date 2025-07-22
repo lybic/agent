@@ -75,7 +75,7 @@ class Grounding(ACI):
         self.grounding_model.tools["grounding"].llm_agent.reset()
 
         # Configure the context, UI-TARS demo does not use system prompt
-        prompt = f"Query:{ref_expr}\nOutput only the coordinate of one point in your response.\n"
+        prompt = f"Query:{ref_expr}\nOutput only the coordinate of one point in your response. Notice the coordinate is always the pixel coordinate on the image.\n"
         response, total_tokens, cost_string = self.grounding_model.execute_tool("grounding", {"str_input": prompt, "img_input": obs["screenshot"]})
         logger.info(f"Grounding model tokens: {total_tokens}, cost: {cost_string}")
         grounding_end_time = time.time()

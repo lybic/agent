@@ -136,8 +136,18 @@ class PyAutoGUIBackend(Backend):
         for k in act.holdKey or []:
             self.pag.keyDown(k)
             time.sleep(0.05)
-        self.pag.moveTo(x = act.startX, y = act.startY)
-        self.pag.dragTo(x = act.endX, y = act.endY)
+            
+        self.pag.moveTo(x=act.startX, y=act.startY)
+        time.sleep(0.1)
+        
+        self.pag.mouseDown(button='left')
+        time.sleep(0.2)
+        
+        self.pag.moveTo(x=act.endX, y=act.endY, duration=0.5)
+        time.sleep(0.1)
+        
+        self.pag.mouseUp(button='left')
+        
         for k in act.holdKey or []:
             self.pag.keyUp(k)
 

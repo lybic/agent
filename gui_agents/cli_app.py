@@ -96,14 +96,13 @@ def scale_screen_dimensions(width: int, height: int, max_dim_size: int):
     return safe_width, safe_height
 
 
-def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int, backend: str = "lybic"):
+def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int, hwi: HardwareInterface):
     import time  # Ensure time is imported
     obs = {}
     traj = "Task:\n" + instruction
     subtask_traj = ""
     global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
     global_state.set_Tu(instruction)
-    hwi = HardwareInterface(backend=backend, platform=platform_os)
     
     total_start_time = time.time()  # Record total start time
     for _ in range(15):
@@ -216,6 +215,9 @@ def main():
         platform=current_platform,
         screen_size = [scaled_width, scaled_height]
     )
+    
+    # Initialize hardware interface
+    hwi = HardwareInterface(backend=args.backend, platform=platform_os)
 
     while True:
         query = input("Query: ")
@@ -223,7 +225,7 @@ def main():
         agent.reset()
 
         # Run the agent on your own device
-        run_agent(agent, query, scaled_width, scaled_height, backend=args.backend)
+        run_agent(agent, query, scaled_width, scaled_height, hwi)
 
         response = input("Would you like to provide another query? (y/n): ")
         if response.lower() != "y":

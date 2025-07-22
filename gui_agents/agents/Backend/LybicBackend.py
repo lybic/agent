@@ -27,7 +27,7 @@ from typing import Dict, Any, List, Optional
 from httpx import HTTPStatusError, TimeoutException
 from io import BytesIO
 from PIL import Image
-
+import os
 
 log = logging.getLogger(__name__)
 
@@ -46,18 +46,21 @@ class LybicBackend(Backend):
 
     # ---------- ctor ----------
     def __init__(self, 
-                 api_key: str = 'lysk-NxXUpGKgvtQwQMUjZroRQtQYAVOBoXjfPTiXxaTlOzOLjCvwvWjnJBcMLnLfEsaI', 
-                 org_id: str = 'ORG-01K0NFM1AK8RT8GVJ6TN7PPXR6', 
+                 api_key: str | None = None, 
+                 org_id: str | None = None, 
                  *,
-                 base_url="https://api.lybic.cn",
+                 base_url: str | None = None,
                  sandbox_opts: Optional[Dict[str, Any]] = None,
                  max_retries: int = 2,
                  **kwargs
                 ):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
+        self.api_key = api_key or os.getenv("LYBIC_API_KEY")
+        self.org_id = org_id or os.getenv("LYBIC_ORG_ID")
+        self.base_url = base_url or os.getenv("LYBIC_ENDPOINT_URL")
 
-        self.client = LybicClient(api_key, base_url, org_id)
+        self.client = LybicClient(self.api_key, self.base_url, self.org_id) # type: ignore
         self.max_retries = max_retries
 
         self.loop.run_until_complete(
@@ -86,7 +89,7 @@ class LybicBackend(Backend):
         async def _send():
             act_type = lybic_action.get("type", "").lower()
             if act_type in {"screenshot", "system:preview"}:
-                # /preview 不需要 action payload
+                # /preview doesn't need action payload
                 res =  await self.client.preview()
                 return res
             else:
@@ -100,7 +103,7 @@ class LybicBackend(Backend):
                 exc = e
                 log.warning(f"Lybic action failed (try {attempt}/{self.max_retries+1}): {e}")
                 time.sleep(0.4 * attempt)               # back-off
-        # 超过重试次数
+        # Exceeded retry attempts
         raise RuntimeError(f"Lybic exec_action failed: {exc}") from exc
 
     def _click(self, act: Click):
@@ -133,7 +136,7 @@ class LybicBackend(Backend):
         })
 
     def _type(self, act: TypeText) -> None:
-        # 输入正文
+        # Input text content
         self._do(
             {"type": "keyboard:type", "content": act.text}
         )
@@ -156,30 +159,30 @@ class LybicBackend(Backend):
   
     def _screenshot(self):
         """
-        调 /preview ➜ 得到 webp URL ➜ 下载为 bytes ➜ 交给 Pillow 打开
-        最终返回 `PIL.Image.Image`，其 .info 里带 cursorPosition 元数据。
+        Call /preview ➜ Get webp URL ➜ Download as bytes ➜ Open with Pillow
+        Finally returns `PIL.Image.Image`, with cursorPosition metadata in its .info.
         """
-        # 1. 让 Lybic 截图，返回 {"screenShot": "...webp", "cursorPosition": {...}}
+        # 1. Take screenshot with Lybic, returns {"screenShot": "...webp", "cursorPosition": {...}}
         meta = self._do({"type": "screenshot"})
         url  = meta.get("screenShot")
         if not url:
-            raise RuntimeError("Lybic 返回缺少 'screenShot' 字段")
+            raise RuntimeError("Lybic response missing 'screenShot' field")
 
-        # 2. 下载 webp
+        # 2. Download webp
         async def _fetch():
             r = await self.client.http.get(url, follow_redirects=True)
             r.raise_for_status()
             return r.content
         webp_bytes: bytes = self.loop.run_until_complete(_fetch())
 
-        # 3. 交给 Pillow 打开（Pillow ≥8.0 默认支持 WebP；若无则需 apt-get install libwebp）
+        # 3. Open with Pillow (Pillow ≥8.0 supports WebP by default; otherwise need apt-get install libwebp)
         img = Image.open(BytesIO(webp_bytes))
 
-        # 4. 把光标信息塞进 image.info 方便调用方使用
+        # 4. Insert cursor information into image.info for caller's use
         if isinstance(meta.get("cursorPosition"), dict):
             img.info["cursorPosition"] = meta["cursorPosition"]
 
-        # 5. 可选：统一转成 RGBA / PNG 内存格式（需求不同可删）
+        # 5. Optional: Convert to RGBA / PNG memory format (can be deleted if requirements differ)
         # img = img.convert("RGBA")
         # print("_screenshot", img, meta)
 

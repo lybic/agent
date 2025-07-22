@@ -42,7 +42,7 @@ else:
 DOWNLOADED_FILE_NAME = URL.split('/')[-1]
 REGISTRY_PATH = '.vmware_vms'
 LOCK_FILE_NAME = '.vmware_lck'
-VMS_DIR = "./vmware_vm_data"
+VMS_DIR = "vmware_vm_data"
 update_lock = threading.Lock()
 
 if platform.system() == 'Windows':
@@ -386,7 +386,7 @@ class VMwareVMManager(VMManager):
             vm_names = os.listdir(vms_dir)
             for vm_name in vm_names:
                 # skip the downloaded .zip file
-                if vm_name == DOWNLOADED_FILE_NAME:
+                if ".zip" in vm_name:
                     continue
                 # Skip the .DS_Store file on macOS
                 if vm_name == ".DS_Store":

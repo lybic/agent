@@ -103,7 +103,7 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
     subtask_traj = ""
     global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
     global_state.set_Tu(instruction)
-    hwi = HardwareInterface(backend="pyautogui", platform=platform_os)
+    hwi = HardwareInterface(backend="lybic", platform=platform_os)
     
     total_start_time = time.time()  # Record total start time
     for _ in range(15):

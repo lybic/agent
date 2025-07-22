@@ -9,6 +9,8 @@ from gui_agents.core.knowledge import KnowledgeBase
 from gui_agents.utils.common_utils import (
     Node,
     extract_first_agent_function,
+    parse_single_code_from_string,
+    sanitize_code,
 )
 from gui_agents.tools.tools import Tools
 from gui_agents.store.registry import Registry
@@ -76,6 +78,7 @@ class Worker:
         self.cost_this_turn = 0
         self.screenshot_inputs = []
         self.planner_history = []
+        self.latest_action = None
         self.max_trajector_length = 8
 
     def generate_next_action(
@@ -185,17 +188,20 @@ class Worker:
                     }
                 )
 
-        generator_message = (
-            f"\nYou may use this reflection on the previous action and overall trajectory: {reflection}\n"
-            if reflection and self.turn_count > 0
-            else ""
-        )
+        generator_message = ""
 
         # Only provide subinfo in the very first message to avoid over influence and redundancy
         if self.turn_count == 0:
             generator_message += prefix_message
             generator_message += f"Remember only complete the subtask: {subtask}\n"
             generator_message += f"You can use this extra information for completing the current subtask: {subtask_info}.\n"
+        else:
+            generator_message += f"\nYour previous action was: {self.latest_action}\n"
+            generator_message += (
+                f"\nYou may use this reflection on the previous action and overall trajectory: {reflection}\n"
+                if reflection and self.turn_count > 0
+                else ""
+            )
 
         action_generator_start = time.time()
         plan, total_tokens, cost_string = self.generator_agent.execute_tool("action_generator", {"str_input": generator_message, "img_input": obs["screenshot"]})
@@ -215,6 +221,14 @@ class Worker:
                 "duration": action_generator_time
             }
         )
+        
+        try:
+            action_code = parse_single_code_from_string(plan.split("Grounded Action")[-1])
+            action_code = sanitize_code(action_code)
+            self.latest_action = extract_first_agent_function(action_code)
+        except Exception as e:
+            logger.warning(f"Failed to parse action from plan: {e}")
+            self.latest_action = None
 
         executor_info = {
             "current_subtask": subtask,

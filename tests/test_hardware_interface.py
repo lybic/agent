@@ -19,37 +19,37 @@ backend_kwargs = dict(   # 传给 PyAutoGUIBackend 的额外参数
 )
 
 # # 1. 构建动作序列
-# plan = [
-#     Click(x=10, y=300, element_description=''),
-#     # TypeText(text="Hello Action!"),
-#     # Wait(time=0.5),
-#     # Drag(start=(400, 300), end=(800, 300), hold_keys=[],
-#     #      starting_description="拖起点", ending_description="拖终点"),
-#     # Hotkey(keys=["ctrl", "s"]),
-#     # Open(app_or_filename='maps')
-#     # Screenshot()
-#     # Hotkey(keys=["command", "space"]),
-#     # TypeText(text="测试", element_description="", press_enter=True)
-# ]
-
 plan = [
-    {
-        "type": "DoubleClick",
-        "x": 20,
-        "y": 480,
-        "button": 0,
-        "holdKey": []
-    },
-    # {
-    #     "type": "TypeText",
-    #     "text": "hello",
-    # },
-    # {'type': 'Click', 'xy': [154, 64], 'element_description': 'The Chromium browser icon on the desktop, which is a circular icon with red, green, yellow, and blue colors', 'num_clicks': 2, 'button_type': 'left', 'hold_keys': []}
+    # Click(x=10, y=300, element_description=''),
+    # TypeText(text="Hello Action!"),
+    # Wait(time=0.5),
+    # Drag(start=(400, 300), end=(800, 300), hold_keys=[],
+    #      starting_description="拖起点", ending_description="拖终点"),
+    # Hotkey(keys=["ctrl", "s"]),
+    # Open(app_or_filename='maps')
+    Screenshot()
+    # Hotkey(keys=["command", "space"]),
+    # TypeText(text="测试", element_description="", press_enter=True)
 ]
 
+# plan = [
+#     {
+#         "type": "DoubleClick",
+#         "x": 20,
+#         "y": 480,
+#         "button": 0,
+#         "holdKey": []
+#     },
+#     # {
+#     #     "type": "TypeText",
+#     #     "text": "hello",
+#     # },
+#     # {'type': 'Click', 'xy': [154, 64], 'element_description': 'The Chromium browser icon on the desktop, which is a circular icon with red, green, yellow, and blue colors', 'num_clicks': 2, 'button_type': 'left', 'hold_keys': []}
+# ]
+
 # 2. 创建硬件接口
-# hwi = HardwareInterface(backend="lybic", **backend_kwargs)
-hwi = HardwareInterface(backend="pyautogui", **backend_kwargs)
+hwi = HardwareInterface(backend="lybic", **backend_kwargs)
+# hwi = HardwareInterface(backend="pyautogui", **backend_kwargs)
 
 # 3. 执行
 if dry_run:
@@ -59,8 +59,8 @@ if dry_run:
 else:
     print("开始执行 Action 序列…")
     # time.sleep(5)
-    # hwi.dispatch(plan)
-    res = hwi.dispatchDict(plan)
+    hwi.dispatch(plan)
+    # res = hwi.dispatchDict(plan)
     # print(res)
 
     print("执行完毕")

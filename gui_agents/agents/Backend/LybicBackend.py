@@ -25,6 +25,9 @@ from gui_agents.lybic.lybic_client import LybicClient
 import asyncio, httpx, time, logging
 from typing import Dict, Any, List, Optional
 from httpx import HTTPStatusError, TimeoutException
+from io import BytesIO
+from PIL import Image
+
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +87,8 @@ class LybicBackend(Backend):
             act_type = lybic_action.get("type", "").lower()
             if act_type in {"screenshot", "system:preview"}:
                 # /preview 不需要 action payload
-                return await self.client.preview()
+                res =  await self.client.preview()
+                return res
             else:
                 return await self.client.exec_action(action=lybic_action)
 
@@ -152,8 +156,32 @@ class LybicBackend(Backend):
   
     def _screenshot(self):
         """
-        利用 /preview 端点；返回字典，含 base64 图片或公网 URL，
-        交给上层决定保存还是解析。
+        调 /preview ➜ 得到 webp URL ➜ 下载为 bytes ➜ 交给 Pillow 打开
+        最终返回 `PIL.Image.Image`，其 .info 里带 cursorPosition 元数据。
         """
-        return self._do({"type": "screenshot"})   # Lybic 允许把 preview 看作一种 action
+        # 1. 让 Lybic 截图，返回 {"screenShot": "...webp", "cursorPosition": {...}}
+        meta = self._do({"type": "screenshot"})
+        url  = meta.get("screenShot")
+        if not url:
+            raise RuntimeError("Lybic 返回缺少 'screenShot' 字段")
+
+        # 2. 下载 webp
+        async def _fetch():
+            r = await self.client.http.get(url, follow_redirects=True)
+            r.raise_for_status()
+            return r.content
+        webp_bytes: bytes = self.loop.run_until_complete(_fetch())
+
+        # 3. 交给 Pillow 打开（Pillow ≥8.0 默认支持 WebP；若无则需 apt-get install libwebp）
+        img = Image.open(BytesIO(webp_bytes))
+
+        # 4. 把光标信息塞进 image.info 方便调用方使用
+        if isinstance(meta.get("cursorPosition"), dict):
+            img.info["cursorPosition"] = meta["cursorPosition"]
+
+        # 5. 可选：统一转成 RGBA / PNG 内存格式（需求不同可删）
+        # img = img.convert("RGBA")
+        # print("_screenshot", img, meta)
+
+        return img
     

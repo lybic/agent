@@ -1,7 +1,7 @@
 # Abstract backend base‑class
 # ---------------------------------------------------------------------------
 from abc import ABC, abstractmethod
-from typing import List, Type, Dict, Set
+from typing import Any, List, Type, Dict, Set
 from gui_agents.agents.Action import (
     Action
 )
@@ -19,7 +19,7 @@ class Backend(ABC):
 
     # ---------------------------------------------------------------------
     @abstractmethod
-    def execute(self, action: Action) -> str | None:
+    def execute(self, action: Action) ->  Any:
         """Translate an *Action* into concrete commands.
 
         Should raise **NotImplementedError** if the *action* type is not in

@@ -60,7 +60,6 @@ def run_single_example(
     step_idx = 0
     env.controller.start_recording()
     while not done and step_idx < max_steps:
-        time.sleep(5.0)
         response, actions = agent.predict(instruction, global_state.get_obs_for_manager())
         for exec_code in actions:
             # Capture the timestamp before executing the action

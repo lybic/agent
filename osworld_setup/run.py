@@ -107,7 +107,8 @@ def config() -> argparse.Namespace:
     # example config
     parser.add_argument("--domain", type=str, default="all")
     parser.add_argument(
-        "--test_all_meta_path", type=str, default="evaluation_examples/test_tiny_windows.json"
+        "--test_all_meta_path", type=str, default="evaluation_examples/test_tiny.json"
+        # "--test_all_meta_path", type=str, default="evaluation_examples/test_tiny_windows.json"
     )
 
     # logging related
@@ -151,8 +152,8 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
     for domain in tqdm(test_all_meta, desc="Domain"):
         for example_id in tqdm(test_all_meta[domain], desc="Example", leave=False):
             config_file = os.path.join(
-                # args.test_config_base_dir, f"examples/{domain}/{example_id}.json"
-                args.test_config_base_dir, f"examples_windows/{domain}/{example_id}.json"
+                args.test_config_base_dir, f"examples/{domain}/{example_id}.json"
+                # args.test_config_base_dir, f"examples_windows/{domain}/{example_id}.json"
             )
             with open(config_file, "r", encoding="utf-8") as f:
                 example = json.load(f)

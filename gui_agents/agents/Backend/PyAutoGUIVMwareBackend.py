@@ -17,6 +17,8 @@ from gui_agents.agents.Action import (
     TypeText,
     Hotkey,
     Wait,
+    Done,
+    Failed,
     Screenshot
 )
 
@@ -64,7 +66,11 @@ class PyAutoGUIVMwareBackend(Backend):
             screenshot = self._screenshot()
             return screenshot # type: ignore
         elif isinstance(action, Wait):
-            return f"time.sleep({action.duration} * 1e-3)"
+            return f"WAIT"
+        elif isinstance(action, Done):
+            return f"DONE"
+        elif isinstance(action, Failed):
+            return f"FAIL"
         else:
             # This shouldn't happen due to supports() check, but be safe.
             raise NotImplementedError(f"Unhandled action: {action}")

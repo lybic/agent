@@ -19,24 +19,20 @@
 
 ### Installation
 
-You can install the package using pip:
-
-```bash
-pip install lybicguiagents
-```
-
-Alternatively, you can use UV (a modern Python package manager) for installation:
+You can use UV (a modern Python package manager) for installation:
 
 ```bash
 # 1. Install UV if not already installed
 pip install uv
-# 2. Create a virtual environment
+# 2. Install the python 3.12
+uv install python 3.12.11
+# 3. Create a virtual environment
 uv venv
-# 3. Activate the virtual environment
+# 4. Activate the virtual environment
 source .venv/bin/activate
-# 4. Install dependencies
-uv pip install -r requirements.txt
-# 5. Install the package locally in development mode
+# 5. Install dependencies
+uv pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+# 6. Install the package locally in development mode
 uv pip install -e .
 ```
 

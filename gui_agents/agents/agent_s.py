@@ -190,6 +190,7 @@ class AgentS2(UIAgent):
 
         # If the DONE response by the executor is for a subtask, then the agent should continue with the next subtask without sending the action to the environment
         while not self.should_send_action:
+            time.sleep(5.0)
             self.subtask_status = "In"
             # Always time get_action_queue, even if not called
             import time

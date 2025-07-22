@@ -188,9 +188,6 @@ class Done(Action):
 class Failed(Action):
     message: str = ''
 
-@dataclass(slots=True)
-class Finished(Action):
-    message: str = ''
 
 @dataclass(slots=True)
 class Screenshot(Action):

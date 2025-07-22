@@ -96,13 +96,14 @@ def scale_screen_dimensions(width: int, height: int, max_dim_size: int):
     return safe_width, safe_height
 
 
-def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int, hwi: HardwareInterface):
+def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int, hwi_para: HardwareInterface):
     import time  # Ensure time is imported
     obs = {}
     traj = "Task:\n" + instruction
     subtask_traj = ""
     global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
     global_state.set_Tu(instruction)
+    hwi = hwi_para
     
     total_start_time = time.time()  # Record total start time
     for _ in range(15):
@@ -234,8 +235,8 @@ def main():
 
 if __name__ == "__main__":
     """
-    python cli_app.py --backend lybic
-    python cli_app.py --backend pyautogui
-    python cli_app.py --backend pyautogui_vmware
+    python gui_agents/cli_app.py --backend lybic
+    python gui_agents/cli_app.py --backend pyautogui
+    python gui_agents/cli_app.py --backend pyautogui_vmware
     """
     main()

@@ -1,3 +1,0 @@
-{
-  "How to open the Recycle Bin on a Windows desktop": "Task successfully executed.\nPlan: Double click on the Recycle Bin icon located at the top left corner of the desktop to open it.\n```python\nagent.doubleclick(\"The Recycle Bin icon at the top left of the desktop, which is a white trash can icon with the text 'Recycle Bin' displayed below the icon\")\n```"
-}

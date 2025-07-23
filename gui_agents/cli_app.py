@@ -96,7 +96,7 @@ def scale_screen_dimensions(width: int, height: int, max_dim_size: int):
     return safe_width, safe_height
 
 
-def run_agent(agent, instruction: str, hwi_para: HardwareInterface):
+def run_agent(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50):
     import time  # Ensure time is imported
     obs = {}
     traj = "Task:\n" + instruction
@@ -106,7 +106,7 @@ def run_agent(agent, instruction: str, hwi_para: HardwareInterface):
     hwi = hwi_para
     
     total_start_time = time.time()  # Record total start time
-    for _ in range(15):
+    for _ in range(max_steps):
         # Get screen shot using pyautogui
         screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
         global_state.set_screenshot(screenshot)
@@ -183,6 +183,7 @@ def main():
     parser = argparse.ArgumentParser(description='GUI Agent CLI Application')
     parser.add_argument('--backend', type=str, default='lybic', help='Backend to use (e.g., lybic, pyautogui, pyautogui_vmware)')
     parser.add_argument('--query', type=str, default='', help='Initial query to execute')
+    parser.add_argument('--max-steps', type=int, default=50, help='Maximum number of steps to execute (default: 50)')
     args = parser.parse_args()
 
     # Ensure necessary directory structure exists
@@ -218,7 +219,7 @@ def main():
     # if query is provided, run the agent on the query
     if args.query:
         agent.reset()
-        run_agent(agent, args.query, hwi)
+        run_agent(agent, args.query, hwi, args.max_steps)
         
     else:
         while True:
@@ -227,7 +228,7 @@ def main():
             agent.reset()
 
             # Run the agent on your own device
-            run_agent(agent, query, hwi)
+            run_agent(agent, query, hwi, args.max_steps)
 
             response = input("Would you like to provide another query? (y/n): ")
             if response.lower() != "y":
@@ -239,5 +240,6 @@ if __name__ == "__main__":
     python gui_agents/cli_app.py --backend lybic
     python gui_agents/cli_app.py --backend pyautogui
     python gui_agents/cli_app.py --backend pyautogui_vmware
+    python gui_agents/cli_app.py --backend lybic --max-steps 15
     """
     main()

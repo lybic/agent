@@ -182,6 +182,7 @@ def run_agent(agent, instruction: str, hwi_para: HardwareInterface):
 def main():
     parser = argparse.ArgumentParser(description='GUI Agent CLI Application')
     parser.add_argument('--backend', type=str, default='lybic', help='Backend to use (e.g., lybic, pyautogui, pyautogui_vmware)')
+    parser.add_argument('--query', type=str, default='', help='Initial query to execute')
     args = parser.parse_args()
 
     # Ensure necessary directory structure exists
@@ -214,17 +215,23 @@ def main():
     # Initialize hardware interface
     hwi = HardwareInterface(backend=args.backend, platform=platform_os)
 
-    while True:
-        query = input("Query: ")
-
+    # if query is provided, run the agent on the query
+    if args.query:
         agent.reset()
+        run_agent(agent, args.query, hwi)
+        
+    else:
+        while True:
+            query = input("Query: ")
 
-        # Run the agent on your own device
-        run_agent(agent, query, hwi)
+            agent.reset()
 
-        response = input("Would you like to provide another query? (y/n): ")
-        if response.lower() != "y":
-            break
+            # Run the agent on your own device
+            run_agent(agent, query, hwi)
+
+            response = input("Would you like to provide another query? (y/n): ")
+            if response.lower() != "y":
+                break
 
 
 if __name__ == "__main__":

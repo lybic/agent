@@ -16,7 +16,10 @@ if os.name == "nt":
 
     @contextmanager
     def locked(path: Path, mode: str):
-        f = open(path, mode)
+        if 'b' in mode:
+            f = open(path, mode)
+        else:
+            f = open(path, mode, encoding="utf-8")
         try:
             while True:
                 try:
@@ -34,7 +37,10 @@ else:
 
     @contextmanager
     def locked(path: Path, mode: str):
-        f = open(path, mode)
+        if 'b' in mode:
+            f = open(path, mode)
+        else:
+            f = open(path, mode, encoding="utf-8")
         try:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
             yield f

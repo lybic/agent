@@ -81,7 +81,7 @@ class LybicBackend(Backend):
         elif isinstance(action, Scroll):       self._scroll(action)
         elif isinstance(action, Hotkey):       self._hotkey(action)
         elif isinstance(action, Screenshot):   return self._screenshot()   # type: ignore
-        elif isinstance(action, Wait):         time.sleep(action.duration)
+        elif isinstance(action, Wait):         time.sleep(action.duration if action.duration is not None else 0.2)
 
     # ---------- internal helpers ----------
     def _do(self, lybic_action: Dict[str, Any]):

@@ -38,7 +38,7 @@
     {
       "tool_name": "action_generator",
       "provider": "doubao",
-      "model_name": "doubao-1-5-thinking-vision-pro-250428"
+      "model_name": "doubao-seed-1-6-250615"
     },
     {
       "tool_name": "dag_translator",

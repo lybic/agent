@@ -94,7 +94,7 @@ class PyAutoGUIVMwareBackend(Backend):
             code_parts.append(f"pyautogui.keyUp('{k}')")
         return "; ".join(code_parts)
 
-    def _doubleclick(self, act: Click) -> str:
+    def _doubleclick(self, act: DoubleClick) -> str:
         if act.button == 0:
             button_str = "left"
         elif act.button == 1:
@@ -112,7 +112,7 @@ class PyAutoGUIVMwareBackend(Backend):
             code_parts.append(f"pyautogui.keyUp('{k}')")
         return "; ".join(code_parts)
 
-    def _move(self, act: Move) -> None:
+    def _move(self, act: Move) -> str:
         code_parts = []
         for k in act.holdKey or []:
             code_parts.append(f"pyautogui.keyDown('{k}')")
@@ -122,11 +122,12 @@ class PyAutoGUIVMwareBackend(Backend):
             code_parts.append(f"pyautogui.keyUp('{k}')")
         return "; ".join(code_parts)
 
-    def _scroll(self, act: Scroll) -> None:
+    def _scroll(self, act: Scroll) -> str:
         code_parts = []
         code_parts.append(f"pyautogui.moveTo(x = {act.x}, y = {act.y})")
-        if not act.stepVertical:
-            code_parts.append(f"pyautogui.hscroll({act.stepHorizontal})")
+        if act.stepVertical is None:
+            if act.stepHorizontal is not None:
+                code_parts.append(f"pyautogui.hscroll({act.stepHorizontal})")
         else:
             code_parts.append(f"pyautogui.vscroll({act.stepVertical})")
         return "; ".join(code_parts)
@@ -150,7 +151,7 @@ class PyAutoGUIVMwareBackend(Backend):
 
     def _hotkey(self, act: Hotkey) -> str:
         code_parts = []
-        if act.duration:
+        if act.duration is not None:
             for k in act.keys or []:
                 code_parts.append(f"pyautogui.keyDown('{k}')")
                 code_parts.append(f"time.sleep(0.05)")    

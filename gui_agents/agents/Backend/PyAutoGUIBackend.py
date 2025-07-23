@@ -127,8 +127,9 @@ class PyAutoGUIBackend(Backend):
     
     def _scroll(self, act: Scroll) -> None:
         self.pag.moveTo(x = act.x, y = act.y)
-        if not act.stepVertical:
-            self.pag.hscroll(act.stepHorizontal)
+        if act.stepVertical is None:
+            if act.stepHorizontal is not None:
+                self.pag.hscroll(act.stepHorizontal)
         else:
             self.pag.vscroll(act.stepVertical)
 
@@ -168,7 +169,7 @@ class PyAutoGUIBackend(Backend):
             self.pag.hotkey("ctrl", "v", interval=0.05)
 
     def _hotkey(self, act: Hotkey) -> None:
-        if act.duration:
+        if act.duration is not None:
             for k in act.keys or []:
                 self.pag.keyDown(k)
                 time.sleep(0.05)    

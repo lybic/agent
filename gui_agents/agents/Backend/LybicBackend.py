@@ -132,7 +132,7 @@ class LybicBackend(Backend):
             "endX":   _px(act.endX),
             "endY":   _px(act.endY),
             # "button":
-            "holdKey": "+".join(act.holdKey) or []
+            "holdKey": "+".join(act.holdKey)
         })
 
     def _type(self, act: TypeText) -> None:

@@ -51,7 +51,7 @@ class PyAutoGUIVMwareBackend(Backend):
         if isinstance(action, Click):
             return self._click(action)
         elif isinstance(action, DoubleClick):
-            return self._doubleclick(action)
+            return self._doubleClick(action)
         elif isinstance(action, Move):
             return self._move(action)
         elif isinstance(action, Scroll):
@@ -77,9 +77,10 @@ class PyAutoGUIVMwareBackend(Backend):
 
     # ----- individual helpers ------------------------------------------------
     def _click(self, act: Click) -> str:
-        if act.button == 0:
+        button_str = 'primary'
+        if act.button == 1:
             button_str = "left"
-        elif act.button == 1:
+        elif act.button == 4:
             button_str = "middle"
         elif act.button == 2:
             button_str = "right"
@@ -94,13 +95,16 @@ class PyAutoGUIVMwareBackend(Backend):
             code_parts.append(f"pyautogui.keyUp('{k}')")
         return "; ".join(code_parts)
 
-    def _doubleclick(self, act: DoubleClick) -> str:
-        if act.button == 0:
+    def _doubleClick(self, act: DoubleClick) -> str:
+        
+        button_str = 'primary'
+        if act.button == 1:
             button_str = "left"
-        elif act.button == 1:
+        elif act.button == 4:
             button_str = "middle"
         elif act.button == 2:
             button_str = "right"
+
 
         hold_keys = act.holdKey or []
         code_parts = []

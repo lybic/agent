@@ -75,7 +75,7 @@ class Grounding(ACI):
         self.grounding_model.tools["grounding"].llm_agent.reset()
 
         # Configure the context, UI-TARS demo does not use system prompt
-        prompt = f"Query:{ref_expr}\nOutput only the coordinate of one point in your response. Notice the coordinate is always the pixel coordinate on the image.\n"
+        prompt = f"Task: Visual Grounding - Locate and return coordinates\n Query:{ref_expr}\n Instructions: 1. Carefully analyze the provided screenshot image \n 2. Locate the EXACT element/area described in the query \n 3. Return ONLY the pixel coordinates [x, y] of one representative point within the target area \n 4. Choose a point that is clearly inside the described element/region \n 5. Coordinates must be integers representing pixel positions on the image \n 6. If the described element has multiple instances, select the most prominent or central one Output Format: Return only two integers separated by comma, like: (900, 400)\n Important Notes: - Focus on the main descriptive elements in the query (colors, positions, objects) - Ignore any additional context that doesn't help locate the target - The returned point should be clickable/actionable within the target area - Double-check that your coordinates fall within the image boundaries \n"
         response, total_tokens, cost_string = self.grounding_model.execute_tool("grounding", {"str_input": prompt, "img_input": obs["screenshot"]})
         logger.info(f"Grounding model tokens: {total_tokens}, cost: {cost_string}")
         grounding_end_time = time.time()

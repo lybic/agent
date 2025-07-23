@@ -209,6 +209,9 @@ def main():
         )
     )
     global current_platform
+    # Set platform to Windows if backend is lybic
+    if args.backend == 'lybic':
+        current_platform = 'windows'
     agent = AgentS2(
         platform=current_platform,
     )

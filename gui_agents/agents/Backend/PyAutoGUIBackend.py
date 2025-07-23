@@ -50,7 +50,7 @@ class PyAutoGUIBackend(Backend):
         if isinstance(action, Click):
             self._click(action)
         elif isinstance(action, DoubleClick):
-            self._doubleclick(action)
+            self._doubleClick(action)
         elif isinstance(action, Move):
             self._move(action)
         elif isinstance(action, Scroll):
@@ -76,9 +76,10 @@ class PyAutoGUIBackend(Backend):
             self.pag.keyDown(k)
             time.sleep(0.05)
         
-        if act.button == 0:
+        button_str = 'primary'
+        if act.button == 1:
             button_str = "left"
-        elif act.button == 1:
+        elif act.button == 4:
             button_str = "middle"
         elif act.button == 2:
             button_str = "right"
@@ -94,14 +95,14 @@ class PyAutoGUIBackend(Backend):
         for k in act.holdKey or []:
             self.pag.keyUp(k)
     
-    def _doubleclick(self, act: DoubleClick) -> None:
+    def _doubleClick(self, act: DoubleClick) -> None:
         for k in act.holdKey or []:
             self.pag.keyDown(k)
             time.sleep(0.05)
-        
-        if act.button == 0:
+        button_str = 'primary'
+        if act.button == 1:
             button_str = "left"
-        elif act.button == 1:
+        elif act.button == 4:
             button_str = "middle"
         elif act.button == 2:
             button_str = "right"
@@ -110,7 +111,7 @@ class PyAutoGUIBackend(Backend):
             x=act.x,
             y=act.y,
             clicks=2,
-            button=button_str, # type: ignore
+            button=button_str,
             duration=self.default_move_duration,
             interval=0.5,
         )
@@ -169,12 +170,13 @@ class PyAutoGUIBackend(Backend):
             self.pag.hotkey("ctrl", "v", interval=0.05)
 
     def _hotkey(self, act: Hotkey) -> None:
+        # self.pag.hotkey(*act.keys, interval=0.1)
         if act.duration is not None:
             for k in act.keys or []:
                 self.pag.keyDown(k)
-                time.sleep(0.05)    
-            time.sleep(act.duration * 1e-3)
-            for k in act.keys or []:
+                time.sleep(act.duration * 1e-3)    
+            # time.sleep(act.duration * 1e-3)
+            for k in reversed(act.keys):
                 self.pag.keyUp(k)
         else:
             self.pag.hotkey(*act.keys, interval=0.1)

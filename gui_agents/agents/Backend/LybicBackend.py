@@ -168,10 +168,17 @@ class LybicBackend(Backend):
             })
     
     def _hotkey(self, act: Hotkey) -> None:
+        if act.duration is None:
+            duration = 80
+        elif  1 <= act.duration <= 5000:
+            duration = act.duration
+        else:
+            raise ValueError("Hotkey duration must be between 1 and 1000")
+
         self._do({
             "type": "keyboard:hotkey",
             "keys": "+".join(act.keys),          # ["ctrl","c"] / ["command","space"]
-            "duration": act.duration
+            "duration": duration
         })
   
     def _screenshot(self):

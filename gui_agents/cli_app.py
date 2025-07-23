@@ -96,7 +96,7 @@ def scale_screen_dimensions(width: int, height: int, max_dim_size: int):
     return safe_width, safe_height
 
 
-def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int, hwi_para: HardwareInterface):
+def run_agent(agent, instruction: str, hwi_para: HardwareInterface):
     import time  # Ensure time is imported
     obs = {}
     traj = "Task:\n" + instruction
@@ -109,7 +109,6 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int, hw
     for _ in range(15):
         # Get screen shot using pyautogui
         screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
-        screenshot = screenshot.resize((scaled_width, scaled_height), Image.LANCZOS) # type: ignore
         global_state.set_screenshot(screenshot)
         obs = global_state.get_obs_for_manager()
 
@@ -184,10 +183,6 @@ def main():
     parser = argparse.ArgumentParser(description='GUI Agent CLI Application')
     parser.add_argument('--backend', type=str, default='lybic', help='Backend to use (e.g., lybic, pyautogui, pyautogui_vmware)')
     args = parser.parse_args()
-    
-    # Re-scales screenshot size to ensure it fits in UI-TARS context limit
-    screen_width, screen_height = pyautogui.size()
-    scaled_width, scaled_height = screen_width, screen_height
 
     # Ensure necessary directory structure exists
     timestamp_dir = os.path.join(log_dir, datetime_str)
@@ -214,7 +209,6 @@ def main():
     global current_platform
     agent = AgentS2(
         platform=current_platform,
-        screen_size = [scaled_width, scaled_height]
     )
     
     # Initialize hardware interface
@@ -226,7 +220,7 @@ def main():
         agent.reset()
 
         # Run the agent on your own device
-        run_agent(agent, query, scaled_width, scaled_height, hwi)
+        run_agent(agent, query, hwi)
 
         response = input("Would you like to provide another query? (y/n): ")
         if response.lower() != "y":

@@ -142,13 +142,30 @@ class LybicBackend(Backend):
         )
 
     def _scroll(self, act: Scroll) -> None:
-        self._do({
-            "type": "mouse:scroll",
-            "x": _px(act.x),
-            "y": _px(act.y),
-            "stepVertical": act.stepVertical,
-            "stepHorizontal": act.stepHorizontal
-        })
+        if act.stepVertical is None:
+            self._do({
+                "type": "mouse:scroll",
+                "x": _px(act.x),
+                "y": _px(act.y),
+                "stepVertical": 0,
+                "stepHorizontal": act.stepHorizontal
+            })
+        elif act.stepHorizontal is None:
+            self._do({
+                "type": "mouse:scroll",
+                "x": _px(act.x),
+                "y": _px(act.y),
+                "stepVertical": act.stepVertical,
+                "stepHorizontal": 0
+            })
+        else:
+            self._do({
+                "type": "mouse:scroll",
+                "x": _px(act.x),
+                "y": _px(act.y),
+                "stepVertical": act.stepVertical,
+                "stepHorizontal": act.stepHorizontal
+            })
     
     def _hotkey(self, act: Hotkey) -> None:
         self._do({

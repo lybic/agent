@@ -180,13 +180,13 @@ class Grounding(ACI):
     def click(
         self,
         element_description: str,
-        button: int = 0,
+        button: int = 1,
         holdKey: List[str] = [],
     ):
         """One click on the element
         Args:
             element_description:str, a detailed descriptions of which element to click on. This description should be at least a full sentence.
-            button:int, which mouse button to press can be 0, 1, or 2, indicates which mouse button to press. 0 for left click, 1 for middle click, and 2 for right click.
+            button:int, which mouse button to press can be 1, 2, 4, 8, or 16, indicates which mouse button to press. 1 for left click, 2 for right click, 4 for middle click, 8 for back and 16 for forward. Add them together to press multiple buttons at once.
             holdKey:List[str], list of keys to hold while clicking.
         """
         x, y = self.resize_coordinates(self.coords1) # type: ignore
@@ -205,13 +205,13 @@ class Grounding(ACI):
     def doubleclick(
         self,
         element_description: str,
-        button: int = 0,
+        button: int = 1,
         holdKey: List[str] = [],
     ):
         """Double click on the element
         Args:
             element_description:str, a detailed descriptions of which element to double click on. This description should be at least a full sentence.
-            button:int, which mouse button to press can be 0, 1, or 2, indicates which mouse button to press. 0 for left double click, 1 for middle double click, and 2 for right double click.
+            button:int, which mouse button to press can be 1, 2, 4, 8, or 16, indicates which mouse button to press. 1 for left click, 2 for right click, 4 for middle click, 8 for back and 16 for forward. Add them together to press multiple buttons at once.
             holdKey:List[str], list of keys to hold while double clicking.
         """
         x, y = self.resize_coordinates(self.coords1) # type: ignore

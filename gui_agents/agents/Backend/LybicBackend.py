@@ -52,6 +52,7 @@ class LybicBackend(Backend):
                  base_url: str | None = None,
                  sandbox_opts: Optional[Dict[str, Any]] = None,
                  max_retries: int = 2,
+                 precreate_sid: str | None = None,
                  **kwargs
                 ):
         self.loop = asyncio.new_event_loop()
@@ -59,15 +60,18 @@ class LybicBackend(Backend):
         self.api_key = api_key or os.getenv("LYBIC_API_KEY")
         self.org_id = org_id or os.getenv("LYBIC_ORG_ID")
         self.base_url = base_url or os.getenv("LYBIC_ENDPOINT_URL")
+        self.precreate_sid = precreate_sid or os.getenv("LYBIC_PRECREATE_SID")
 
         self.client = LybicClient(self.api_key, self.base_url, self.org_id) # type: ignore
         self.max_retries = max_retries
-
-        self.loop.run_until_complete(
-            self.client.create_sandbox(name="agent-run",
-                                       maxLifeSeconds=3600,
-                                       **(sandbox_opts or {}))
-        )
+        
+        if self.precreate_sid is None:
+            print("Creating sandbox...")
+            self.loop.run_until_complete(
+                self.client.create_sandbox(name="agent-run",
+                                        maxLifeSeconds=3600,
+                                        **(sandbox_opts or {}))
+            )
 
     # ---------- public sync API ----------
     def execute(self, action: Action):
@@ -90,10 +94,17 @@ class LybicBackend(Backend):
             act_type = lybic_action.get("type", "").lower()
             if act_type in {"screenshot", "system:preview"}:
                 # /preview doesn't need action payload
-                res =  await self.client.preview()
+                if self.precreate_sid is not None:
+                    res =  await self.client.preview(self.precreate_sid)
+                else:
+                    res =  await self.client.preview()
                 return res
             else:
-                return await self.client.exec_action(action=lybic_action)
+                if self.precreate_sid is not None:
+                    res =  await self.client.exec_action(action=lybic_action, sid=self.precreate_sid)
+                else:
+                    res =  await self.client.exec_action(action=lybic_action)
+                return res
 
         exc: Exception | None = None
         for attempt in range(1, self.max_retries + 2):

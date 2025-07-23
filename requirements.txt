@@ -47,6 +47,8 @@ openpyxl
 python-docx
 python-pptx
 pypdf
+flask
+flask-cors
 PyGetWindow
 rapidfuzz
 pyacoustid

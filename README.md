@@ -3,8 +3,10 @@
   <small>A Framework for Computer Use Agents</small>
 </h1>
 
+Lybic GUI Agent is based upon the [Agent-S](https://github.com/simular-ai/Agent-S) codebase, allowing us to focus on making the best interaction experience with Lybic while maintaining a familiar execution logic.
+
 ## 🥳 Updates
-- [x] **2025/07/31**: Released v0.1.0 of [Lybic GUI Agent] library, with support for Windows, Mac, Linux and Lybic API!
+- [x] **2025/07/25**: Released v0.1.0 of [Lybic GUI Agent](https://git.flam.dev/lybic/agent/lybicguiagents) library, with support for Windows, Mac, Ubuntu and Lybic API!
 
 ## Table of Contents
 
@@ -19,19 +21,26 @@
 
 ### Installation
 
-You can use UV (a modern Python package manager) for installation:
+You can use [UV](https://docs.astral.sh/uv/getting-started/installation/) (a modern Python package manager)  for installation:
 
 ```bash
 # 1. Install UV if not already installed
-pip install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# testing uv installation
+uv --version
+
 # 2. Install the python 3.12
 uv install python 3.12.11
+
 # 3. Create a virtual environment
 uv venv
+
 # 4. Activate the virtual environment
 source .venv/bin/activate
+
 # 5. Install dependencies
 uv pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
 # 6. Install the package locally in development mode
 uv pip install -e .
 ```
@@ -70,126 +79,54 @@ cp gui_agents/tools/tools_config_en.json gui_agents/tools/tools_config.json
 cp gui_agents/tools/tools_config_cn.json gui_agents/tools/tools_config.json
 ```
 
-> ❗**Warning**❗: The agent will directly run python code to control your computer. Please use with care.
+> **Note**: Our recommended configuration uses `doubao-1-5-ui-tars-250428` for `"tool_name": "grounding"` and `claude-sonnet-4-20250514` or `doubao-seed-1-6-250615` for other tools such as `"tool_name": "action_generator"`. You can customize the model configuration in the tools configuration files. Do not modify the `"tool_name"` in `tools_config.json` file. To change the `"provider"` and `"model_name"` in `tools_config.json` file, see [model.md](gui_agents/tools/model.md)
 
 ## 🚀 Usage
 
-> **Note**: Our recommended configuration uses Claude 3.7 or Doubao 1.6 for reasoning and UI-TARS for visual grounding. You can customize the model configuration in the tools configuration files.
-
-### CLI
+### Command Line Interface
 
 Run Lybic GUI Agent with the command-line interface:
 
 ```sh
-lybic_gui_agent
+python gui_agents/cli_app.py [OPTIONS]
 ```
 
 This will show a user query prompt where you can enter your instructions and interact with the agent.
 
-### Python SDK
+### Options
 
-First, import the necessary modules:
+- `--backend [lybic|pyautogui]`: Specifies the backend to use for controlling the GUI. Defaults to `lybic`.
+- `--query "YOUR_QUERY"`: Must be provided, the agent will execute the query and then exit. 
+- `--max-steps NUMBER`: Sets the maximum number of steps the agent can take. Defaults to `50`.
 
-```python
-import pyautogui
-import io
-from lybicguiagents.gui_agents.agents.agent_s import AgentS2
-from lybicguiagents.gui_agents.agents.hardware_interface import HardwareInterface
-from lybicguiagents.gui_agents.agents.global_state import GlobalState
-from lybicguiagents.gui_agents.agents.store.registry import Registry
+### Examples
 
-# Load your environment variables
-from dotenv import load_dotenv
-load_dotenv()
-
-# Detect current platform
-import platform
-current_platform = platform.system().lower()
+Run in interactive mode with the `lybic` backend:
+```sh
+python gui_agents/cli_app.py --backend lybic
 ```
 
-Initialize the global state and agent:
-
-```python
-# Get screen dimensions
-screen_width, screen_height = pyautogui.size()
-scaled_width, scaled_height = screen_width, screen_height
-
-# Create necessary directories
-import os
-import datetime
-log_dir = "runtime"
-datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-timestamp_dir = os.path.join(log_dir, datetime_str)
-cache_dir = os.path.join(timestamp_dir, "cache", "screens")
-state_dir = os.path.join(timestamp_dir, "state")
-os.makedirs(cache_dir, exist_ok=True)
-os.makedirs(state_dir, exist_ok=True)
-
-# Initialize global state
-Registry.register(
-    "GlobalStateStore",
-    GlobalState(
-        screenshot_dir=cache_dir,
-        tu_path=os.path.join(state_dir, "tu.json"),
-        search_query_path=os.path.join(state_dir, "search_query.json"),
-        completed_subtasks_path=os.path.join(state_dir, "completed_subtasks.json"),
-        failed_subtasks_path=os.path.join(state_dir, "failed_subtasks.json"),
-        remaining_subtasks_path=os.path.join(state_dir, "remaining_subtasks.json"),
-        termination_flag_path=os.path.join(state_dir, "termination_flag.json"),
-        running_state_path=os.path.join(state_dir, "running_state.json"),
-        display_info_path=os.path.join(timestamp_dir, "display.json"),
-    )
-)
-
-# Initialize agent
-agent = AgentS2(
-    platform=current_platform,
-    screen_size=[scaled_width, scaled_height]
-)
+Run a single query with the `pyautogui` backend and a maximum of 20 steps:
+```sh
+python gui_agents/cli_app.py --backend pyautogui --query "计算器中求 8 × 7 的结果" --max-steps 20
 ```
 
-Run the agent:
+> ❗**Warning**❗: The agent will directly control your computer with `--backend pyautogui`. Please use with care.
 
-```python
-# Hardware interface for interacting with the system
-hwi = HardwareInterface(backend="pyautogui", platform=current_platform)
+### Lybic Sandbox Configuration
 
-# Get the global state
-global_state = Registry.get("GlobalStateStore")
+The simplest way to configure Lybic Sandbox is still to edit the `.env` file and add your API keys, as mentioned in the [API Key Configuration](#api-key-configuration) section.
 
-# Set the user instruction
-instruction = "Open Chrome and search for 'Lybic GUI Agent'"
-global_state.set_Tu(instruction)
 
-# Get screenshot
-screenshot = hwi.dispatch(Screenshot())
-screenshot = screenshot.resize((scaled_width, scaled_height), Image.LANCZOS)
-global_state.set_screenshot(screenshot)
-obs = global_state.get_obs_for_manager()
-
-# Run the agent
-info, action = agent.predict(instruction=instruction, observation=obs)
-
-# Execute the action
-hwi.dispatchDict(action[0])
+```bash
+LYBIC_API_KEY=your_lybic_api_key
+LYBIC_ORG_ID=your_lybic_org_id
+LYBIC_ENDPOINT_URL=https://api.lybic.cn
 ```
 
-### Knowledge Base
+> **Note**: If you want to use a precreated Lybic Sandbox in [Lybic Dashboard](https://dashboard.lybic.cn/orgs/agent-dev/sandboxes), you need to set the `LYBIC_PRECREATE_SID` to the precreated Sandbox ID.
 
-Lybic GUI Agent uses a knowledge base that continually updates during inference. The knowledge base is downloaded when initializing `AgentS2` and stored in the specified memory folder. You can configure the knowledge base location:
-
-```python
-agent = AgentS2(
-    platform=current_platform,
-    screen_size=[scaled_width, scaled_height],
-    memory_root_path="/path/to/memory",
-    memory_folder_name="kb_s2",
-    kb_release_tag="v0.2.2"
-)
-```
-
-### OSWorld
-
-To deploy Lybic GUI Agent in OSWorld, follow the [OSWorld Deployment instructions](osworld_setup/OSWorld.md).
-
-For provider-specific setup instructions, see the documentation in the respective provider directories.
+> 
+> ```bash
+> LYBIC_PRECREATE_SID=SBX-XXXXXXXXXXXXXXX
+> ```

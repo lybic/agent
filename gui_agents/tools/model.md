@@ -4,6 +4,10 @@
 
 ### 1. OpenAI
 
+**Provider**
+
+- `openai`
+
 **Supported Models:**
 
 - `gpt-4.1`
@@ -33,6 +37,10 @@
 
 ### 2. Anthropic Claude
 
+**Provider**
+
+- `anthropic`
+
 **Supported Models:**
 
 - `claude-opus-4-20250514`
@@ -47,6 +55,11 @@
 
 ### 3. AWS Bedrock
 
+**Provider**
+
+- `bedrock`
+
+
 **Supported Claude Models:**
 
 - `Claude-Opus-4`
@@ -59,6 +72,10 @@
 ---
 
 ### 4. Google Gemini
+
+**Provider**
+
+- `gemini`
 
 **Supported Models:**
 
@@ -78,6 +95,10 @@
 
 ### 5. Groq
 
+**Provider**
+
+- `groq`
+
 **Supported Models:**
 
 - `Kimi-K2-Instruct`
@@ -93,6 +114,10 @@
 ---
 
 ### 6. Monica (Proxy Platform)
+
+**Provider**
+
+- `monica`
 
 **OpenAI Models:**
 
@@ -148,6 +173,10 @@
 
 ### 7. OpenRouter (Proxy Platform)
 
+**Provider**
+
+- `openrouter`
+
 **OpenAI Models:**
 
 - `gpt-4.1`
@@ -182,6 +211,11 @@
 
 ### 8. Azure OpenAI
 
+**Provider**
+
+- `azure`
+
+
 **Supported Models:**
 
 - `gpt-4.1`
@@ -196,6 +230,10 @@
 ---
 
 ### 9. DeepSeek
+
+**Provider**
+
+- `deepseek`
 
 **Supported Models:**
 

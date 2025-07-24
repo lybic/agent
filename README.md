@@ -85,7 +85,7 @@ cp gui_agents/tools/tools_config_cn.json gui_agents/tools/tools_config.json
 
 ### Command Line Interface
 
-Run Lybic GUI Agent with the command-line interface:
+Run Lybic GUI Agent with python in the command-line interface:
 
 ```sh
 python gui_agents/cli_app.py [OPTIONS]

@@ -16,6 +16,7 @@ if os.name == "nt":
 
     @contextmanager
     def locked(path: Path, mode: str):
+        # Always use UTF-8 encoding for text files on Windows
         if 'b' in mode:
             f = open(path, mode)
         else:
@@ -37,6 +38,7 @@ else:
 
     @contextmanager
     def locked(path: Path, mode: str):
+        # Always use UTF-8 encoding for text files on Unix-like systems
         if 'b' in mode:
             f = open(path, mode)
         else:
@@ -59,6 +61,81 @@ def node_from_dict(d: dict) -> Node:
     if hasattr(Node, "from_dict"):
         return Node.from_dict(d)  # type: ignore
     return Node(**d)  # type: ignore
+
+# ========= Safe JSON Operations =========
+def safe_json_dump(data: Any, file_handle, **kwargs) -> None:
+    """
+    Safely dump JSON data with proper encoding handling
+    """
+    # Ensure UTF-8 encoding and ASCII fallback for problematic characters
+    kwargs.setdefault('ensure_ascii', False)
+    kwargs.setdefault('indent', 2)
+    
+    try:
+        json.dump(data, file_handle, **kwargs)
+    except UnicodeEncodeError as e:
+        logger.warning(f"UnicodeEncodeError during JSON dump: {e}. Falling back to ASCII mode.")
+        # Fallback to ASCII mode if UTF-8 fails
+        kwargs['ensure_ascii'] = True
+        json.dump(data, file_handle, **kwargs)
+
+def safe_json_load(file_handle) -> Any:
+    """
+    Safely load JSON data with proper encoding handling
+    """
+    try:
+        return json.load(file_handle)
+    except UnicodeDecodeError as e:
+        logger.warning(f"UnicodeDecodeError during JSON load: {e}. Attempting recovery.")
+        # Try to read with different encodings
+        file_handle.seek(0)
+        content = file_handle.read()
+        
+        # Try common encodings
+        for encoding in ['utf-8-sig', 'latin1', 'cp1252']:
+            try:
+                if isinstance(content, bytes):
+                    decoded_content = content.decode(encoding)
+                else:
+                    decoded_content = content
+                return json.loads(decoded_content)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                continue
+        
+        # If all encodings fail, return empty dict/list
+        logger.error("Failed to decode JSON with all attempted encodings. Returning empty data.")
+        return {}
+
+# ========= Safe File Operations =========
+def safe_write_text(path: Path, content: str) -> None:
+    """
+    Safely write text to file with UTF-8 encoding
+    """
+    try:
+        path.write_text(content, encoding='utf-8')
+    except UnicodeEncodeError as e:
+        logger.warning(f"UnicodeEncodeError writing to {path}: {e}. Using error handling.")
+        # Write with error handling - replace problematic characters
+        path.write_text(content, encoding='utf-8', errors='replace')
+
+def safe_read_text(path: Path) -> str:
+    """
+    Safely read text from file with proper encoding handling
+    """
+    try:
+        return path.read_text(encoding='utf-8')
+    except UnicodeDecodeError as e:
+        logger.warning(f"UnicodeDecodeError reading {path}: {e}. Trying alternative encodings.")
+        # Try different encodings
+        for encoding in ['utf-8-sig', 'latin1', 'cp1252', 'gbk']:
+            try:
+                return path.read_text(encoding=encoding)
+            except UnicodeDecodeError:
+                continue
+        
+        # If all fail, read with error handling
+        logger.error(f"Failed to decode {path} with all encodings. Using error replacement.")
+        return path.read_text(encoding='utf-8', errors='replace')
 
 # ========= GlobalState =========
 class GlobalState:
@@ -106,24 +183,35 @@ class GlobalState:
         ]:
             if not p.exists():
                 p.parent.mkdir(parents=True, exist_ok=True)
-                p.write_text("")
+                safe_write_text(p, "")
 
     # ---------- Common Private Tools ----------
     def _load_subtasks(self, path: Path) -> List[Node]:
         try:
             with locked(path, "r") as f:
-                data = json.load(f)
+                data = safe_json_load(f)
             return [node_from_dict(d) for d in data]
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to load subtasks from {path}: {e}")
             return []
 
     def _save_subtasks(self, path: Path, nodes: List[Node]) -> None:
         tmp = path.with_suffix(".tmp")
         serialised = [node_to_dict(n) for n in nodes]
-        with locked(tmp, "w") as f:
-            json.dump(serialised, f, indent=2)
-            f.flush(); os.fsync(f.fileno())
-        tmp.replace(path)
+        try:
+            with locked(tmp, "w") as f:
+                safe_json_dump(serialised, f, indent=2)
+                f.flush(); os.fsync(f.fileno())
+            tmp.replace(path)
+        except Exception as e:
+            logger.error(f"Failed to save subtasks to {path}: {e}")
+            # Clean up temp file if it exists
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except Exception:
+                    pass
+            raise
 
     # ---------- Screenshot ----------
     def get_screenshot(self) -> Optional[bytes]:
@@ -159,39 +247,58 @@ class GlobalState:
         except Exception as e:
             logger.error("Failed to get screen size from %s: %s", latest, e)
             return [1920, 1080]
-        
 
     # ---------- Tu ----------
     def get_Tu(self) -> str:
         try:
             with locked(self.tu_path, "r") as f:
-                data = json.load(f)
-            return data.get("instruction", "")
-        except Exception:
+                data = safe_json_load(f)
+            return data.get("instruction", "") if isinstance(data, dict) else ""
+        except Exception as e:
+            logger.warning(f"Failed to get Tu from {self.tu_path}: {e}")
             return ""
 
     def set_Tu(self, instruction: str) -> None:
         tmp = self.tu_path.with_suffix(".tmp")
-        with locked(tmp, "w") as f:
-            json.dump({"instruction": instruction}, f, ensure_ascii=False, indent=2)
-            f.flush(); os.fsync(f.fileno())
-        tmp.replace(self.tu_path)
+        try:
+            with locked(tmp, "w") as f:
+                safe_json_dump({"instruction": instruction}, f, ensure_ascii=False, indent=2)
+                f.flush(); os.fsync(f.fileno())
+            tmp.replace(self.tu_path)
+        except Exception as e:
+            logger.error(f"Failed to set Tu to {self.tu_path}: {e}")
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except Exception:
+                    pass
+            raise
 
     # ---------- search_query ----------
     def get_search_query(self) -> str:
         try:
             with locked(self.search_query_path, "r") as f:
-                data = json.load(f)
-            return data.get("query", "")
-        except Exception:
+                data = safe_json_load(f)
+            return data.get("query", "") if isinstance(data, dict) else ""
+        except Exception as e:
+            logger.warning(f"Failed to get search query from {self.search_query_path}: {e}")
             return ""
 
     def set_search_query(self, query: str) -> None:
         tmp = self.search_query_path.with_suffix(".tmp")
-        with locked(tmp, "w") as f:
-            json.dump({"query": query}, f, ensure_ascii=False, indent=2)
-            f.flush(); os.fsync(f.fileno())
-        tmp.replace(self.search_query_path)
+        try:
+            with locked(tmp, "w") as f:
+                safe_json_dump({"query": query}, f, ensure_ascii=False, indent=2)
+                f.flush(); os.fsync(f.fileno())
+            tmp.replace(self.search_query_path)
+        except Exception as e:
+            logger.error(f"Failed to set search query to {self.search_query_path}: {e}")
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except Exception:
+                    pass
+            raise
 
     # ====== completed_subtasks ======
     def get_completed_subtasks(self) -> List[Node]:
@@ -237,35 +344,55 @@ class GlobalState:
     def get_termination_flag(self) -> str:
         try:
             with locked(self.termination_flag_path, "r") as f:
-                data = json.load(f)
-            return data or "not_terminated"
-        except Exception:
+                data = safe_json_load(f)
+            return data if isinstance(data, str) else "not_terminated"
+        except Exception as e:
+            logger.warning(f"Failed to get termination flag from {self.termination_flag_path}: {e}")
             return "not_terminated"
 
     def set_termination_flag(self, flag: str) -> None:
         assert flag in {"terminated", "not_terminated"}
         tmp = self.termination_flag_path.with_suffix(".tmp")
-        with locked(tmp, "w") as f:
-            json.dump(flag, f)
-            f.flush(); os.fsync(f.fileno())
-        tmp.replace(self.termination_flag_path)
+        try:
+            with locked(tmp, "w") as f:
+                safe_json_dump(flag, f)
+                f.flush(); os.fsync(f.fileno())
+            tmp.replace(self.termination_flag_path)
+        except Exception as e:
+            logger.error(f"Failed to set termination flag to {self.termination_flag_path}: {e}")
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except Exception:
+                    pass
+            raise
 
     # ---------- running_state ----------
     def get_running_state(self) -> str:
         try:
             with locked(self.running_state_path, "r") as f:
-                data = json.load(f)
-            return data or "stopped"
-        except Exception:
+                data = safe_json_load(f)
+            return data if isinstance(data, str) else "stopped"
+        except Exception as e:
+            logger.warning(f"Failed to get running state from {self.running_state_path}: {e}")
             return "stopped"
 
     def set_running_state(self, state: str) -> None:
         assert state in {"running", "stopped"}
         tmp = self.running_state_path.with_suffix(".tmp")
-        with locked(tmp, "w") as f:
-            json.dump(state, f)
-            f.flush(); os.fsync(f.fileno())
-        tmp.replace(self.running_state_path)
+        try:
+            with locked(tmp, "w") as f:
+                safe_json_dump(state, f)
+                f.flush(); os.fsync(f.fileno())
+            tmp.replace(self.running_state_path)
+        except Exception as e:
+            logger.error(f"Failed to set running state to {self.running_state_path}: {e}")
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except Exception:
+                    pass
+            raise
 
     # ---------- High-level Wrappers ----------
     def get_obs_for_manager(self):
@@ -296,16 +423,25 @@ class GlobalState:
                     return {}
                 return json.loads(content)
         except Exception as e:
-            logger.warning(f"Failed to load display info: {e}")
+            logger.warning(f"Failed to load display info from {self.display_info_path}: {e}")
             return {}
             
     def set_display_info(self, info: Dict[str, Any]) -> None:
         """Set display information (overwrite)"""
         tmp = self.display_info_path.with_suffix(".tmp")
-        with locked(tmp, "w") as f:
-            json.dump(info, f, ensure_ascii=False, indent=2)
-            f.flush(); os.fsync(f.fileno())
-        tmp.replace(self.display_info_path)
+        try:
+            with locked(tmp, "w") as f:
+                safe_json_dump(info, f, ensure_ascii=False, indent=2)
+                f.flush(); os.fsync(f.fileno())
+            tmp.replace(self.display_info_path)
+        except Exception as e:
+            logger.error(f"Failed to set display info to {self.display_info_path}: {e}")
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except Exception:
+                    pass
+            raise
         
     # ---------- New Unified Logging Method ----------
     def log_operation(self, module: str, operation: str, data: Dict[str, Any]) -> None:
@@ -322,52 +458,56 @@ class GlobalState:
                 - content: Operation content or result
                 - Other custom fields
         """
-        info = self.get_display_info()
-        
-        # Ensure the module exists
-        if "operations" not in info:
-            info["operations"] = {}
+        try:
+            info = self.get_display_info()
             
-        if module not in info["operations"]:
-            info["operations"][module] = []
-            
-        # Normalize operation name, remove prefixes like "Manager.", "Worker.", etc.
-        normalized_operation = operation
-        for prefix in ["Manager.", "Worker.", "Hardware."]:
-            if normalized_operation.startswith(prefix):
-                normalized_operation = normalized_operation[len(prefix):]
-                break
-        
-        # Find if there's an existing record for the same operation
-        found = False
-        for i, op in enumerate(info["operations"][module]):
-            # Normalize existing operation name
-            existing_op_name = op["operation"]
+            # Ensure the module exists
+            if "operations" not in info:
+                info["operations"] = {}
+                
+            if module not in info["operations"]:
+                info["operations"][module] = []
+                
+            # Normalize operation name, remove prefixes like "Manager.", "Worker.", etc.
+            normalized_operation = operation
             for prefix in ["Manager.", "Worker.", "Hardware."]:
-                if existing_op_name.startswith(prefix):
-                    existing_op_name = existing_op_name[len(prefix):]
+                if normalized_operation.startswith(prefix):
+                    normalized_operation = normalized_operation[len(prefix):]
                     break
-                    
-            # If found the same operation and timestamp is close (within 5 seconds), merge the data
-            if (existing_op_name == normalized_operation or 
-                op["operation"] == operation) and \
-                abs(op["timestamp"] - time.time()) < 5.0:
-                # Merge data, keep original timestamp
-                for key, value in data.items():
-                    op[key] = value
-                found = True
-                break
-        
-        # If no matching operation found, create new record
-        if not found:
-            # Add timestamp and operation name
-            operation_data = {
-                "operation": operation,
-                "timestamp": time.time(),
-                **data
-            }
             
-            # Add to the operation list of the corresponding module
-            info["operations"][module].append(operation_data)
-        
-        self.set_display_info(info)
+            # Find if there's an existing record for the same operation
+            found = False
+            for i, op in enumerate(info["operations"][module]):
+                # Normalize existing operation name
+                existing_op_name = op["operation"]
+                for prefix in ["Manager.", "Worker.", "Hardware."]:
+                    if existing_op_name.startswith(prefix):
+                        existing_op_name = existing_op_name[len(prefix):]
+                        break
+                        
+                # If found the same operation and timestamp is close (within 5 seconds), merge the data
+                if (existing_op_name == normalized_operation or 
+                    op["operation"] == operation) and \
+                    abs(op["timestamp"] - time.time()) < 5.0:
+                    # Merge data, keep original timestamp
+                    for key, value in data.items():
+                        op[key] = value
+                    found = True
+                    break
+            
+            # If no matching operation found, create new record
+            if not found:
+                # Add timestamp and operation name
+                operation_data = {
+                    "operation": operation,
+                    "timestamp": time.time(),
+                    **data
+                }
+                
+                # Add to the operation list of the corresponding module
+                info["operations"][module].append(operation_data)
+            
+            self.set_display_info(info)
+        except Exception as e:
+            logger.error(f"Failed to log operation {module}.{operation}: {e}")
+            # Don't raise the exception to avoid breaking the main flow

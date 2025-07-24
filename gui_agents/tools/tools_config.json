@@ -1,0 +1,74 @@
+{
+  "tools": [
+    {
+      "tool_name": "websearch",
+      "provider": "bocha",
+      "model_name": ""
+    },
+    {
+      "tool_name": "context_fusion",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
+    },
+    {
+      "tool_name": "subtask_planner",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
+    },
+    {
+      "tool_name": "traj_reflector",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
+    },
+    {
+      "tool_name": "memory_retrival",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
+    },
+    {
+      "tool_name": "grounding",
+      "provider": "doubao",
+      "model_name": "doubao-1-5-ui-tars-250428"
+    },
+    {
+      "tool_name": "evaluator",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
+    },
+    {
+      "tool_name": "action_generator",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
+    },
+    {
+      "tool_name": "dag_translator",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
+    },
+    {
+      "tool_name": "embedding",
+      "provider": "doubao",
+      "model_name": "doubao-embedding-text-240715"
+    },
+    {
+      "tool_name": "query_formulator",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
+    },
+    {
+      "tool_name": "narrative_summarization",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
+    },
+    {
+      "tool_name": "text_span",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
+    },
+    {
+      "tool_name": "episode_summarization",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-flash-250615"
+    }
+  ]
+} 

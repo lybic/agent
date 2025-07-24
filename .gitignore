@@ -25,6 +25,9 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+runtime/
+kb_s2/*/embeddings*
+.github/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -50,6 +53,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+cache/
 
 # Translations
 *.mo
@@ -162,3 +166,9 @@ cython_debug/
 #.idea/
 logs/
 .DS_Store
+
+vmware_vm_data*/
+.vmware_lck
+.vmware_vms
+results/
+webui/*

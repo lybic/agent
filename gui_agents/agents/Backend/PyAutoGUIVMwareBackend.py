@@ -2,11 +2,10 @@
 # 1) Desktop automation backend (PyAutoGUI)
 # ---------------------------------------------------------------------------
 import os
-import subprocess, difflib
-import sys
-import pyperclip
+import io
 from PIL import Image
-from numpy import imag
+from typing import Optional
+from desktop_env.desktop_env import DesktopEnv
 from gui_agents.agents.Action import (
     Action,
     Click,
@@ -25,6 +24,22 @@ from gui_agents.agents.Action import (
 from gui_agents.agents.Backend.Backend import Backend
 import time
 
+def screenshot_bytes_to_pil_image(screenshot_bytes: bytes) -> Optional[Image.Image]:
+    """
+    Convert the bytes data of obs["screenshot"] to a PIL Image object, preserving the original size
+    
+    Args:
+        screenshot_bytes: The bytes data of the screenshot
+    
+    Returns:
+        PIL Image object, or None if conversion fails
+    """
+    try:
+        # Create PIL Image object directly from bytes
+        image = Image.open(io.BytesIO(screenshot_bytes))
+        return image
+    except Exception as e:
+        raise RuntimeError(f"Failed to convert screenshot bytes to PIL Image: {e}")
 
 class PyAutoGUIVMwareBackend(Backend):
     """VMware desktop backend powered by *pyautogui*.
@@ -42,38 +57,81 @@ class PyAutoGUIVMwareBackend(Backend):
         self.pag = pag
         self.default_move_duration = default_move_duration
         self.platform = platform
+        self.use_precreate_vm = os.getenv("USE_PRECREATE_VM")
+        if self.use_precreate_vm is not None:
+            self.env = DesktopEnv(
+                path_to_vm=os.path.join("vmware_vm_data", "Windows-x86", "Windows 10 x64.vmx"),
+                provider_name="vmware", 
+                os_type="Windows", 
+                action_space="pyautogui",
+                require_a11y_tree=False
+            )
+
 
     # ------------------------------------------------------------------
     def execute(self, action: Action) -> str:
         if not self.supports(type(action)):
             raise NotImplementedError(f"{type(action).__name__} not supported by PyAutoGUIBackend")
-
-        if isinstance(action, Click):
-            return self._click(action)
-        elif isinstance(action, DoubleClick):
-            return self._doubleClick(action)
-        elif isinstance(action, Move):
-            return self._move(action)
-        elif isinstance(action, Scroll):
-            return self._scroll(action)
-        elif isinstance(action, Drag):
-            return self._drag(action)
-        elif isinstance(action, TypeText):
-            return self._type(action)
-        elif isinstance(action, Hotkey):
-            return self._hotkey(action)
-        elif isinstance(action, Screenshot):
-            screenshot = self._screenshot()
-            return screenshot # type: ignore
-        elif isinstance(action, Wait):
-            return f"WAIT"
-        elif isinstance(action, Done):
-            return f"DONE"
-        elif isinstance(action, Failed):
-            return f"FAIL"
+        
+        # For automation OSWorld evaluation
+        if self.use_precreate_vm is None: 
+            if isinstance(action, Click):
+                return self._click(action)
+            elif isinstance(action, DoubleClick):
+                return self._doubleClick(action)
+            elif isinstance(action, Move):
+                return self._move(action)
+            elif isinstance(action, Scroll):
+                return self._scroll(action)
+            elif isinstance(action, Drag):
+                return self._drag(action)
+            elif isinstance(action, TypeText):
+                return self._type(action)
+            elif isinstance(action, Hotkey):
+                return self._hotkey(action)
+            elif isinstance(action, Screenshot):
+                screenshot = self._screenshot()
+                return screenshot # type: ignore
+            elif isinstance(action, Wait):
+                return f"WAIT"
+            elif isinstance(action, Done):
+                return f"DONE"
+            elif isinstance(action, Failed):
+                return f"FAIL"
+            else:
+                # This shouldn't happen due to supports() check, but be safe.
+                raise NotImplementedError(f"Unhandled action: {action}")
+        
+        # For cli_app
         else:
-            # This shouldn't happen due to supports() check, but be safe.
-            raise NotImplementedError(f"Unhandled action: {action}")
+            if isinstance(action, Click):
+                action_pyautogui_code = self._click(action)
+            elif isinstance(action, DoubleClick):
+                action_pyautogui_code = self._doubleClick(action)
+            elif isinstance(action, Move):
+                action_pyautogui_code = self._move(action)
+            elif isinstance(action, Scroll):
+                action_pyautogui_code = self._scroll(action)
+            elif isinstance(action, Drag):
+                action_pyautogui_code = self._drag(action)
+            elif isinstance(action, TypeText):
+                action_pyautogui_code = self._type(action)
+            elif isinstance(action, Hotkey):
+                action_pyautogui_code = self._hotkey(action)
+            elif isinstance(action, Screenshot):
+                screenshot = self._screenshot()
+                return screenshot # type: ignore
+            elif isinstance(action, Wait):
+                action_pyautogui_code = f"WAIT"
+            elif isinstance(action, Done):
+                action_pyautogui_code = f"DONE"
+            elif isinstance(action, Failed):
+                action_pyautogui_code = f"FAIL"
+            else:
+                # This shouldn't happen due to supports() check, but be safe.
+                raise NotImplementedError(f"Unhandled action: {action}")
+
+            _, _ = self.env.step(action_pyautogui_code)
 
     # ----- individual helpers ------------------------------------------------
     def _click(self, act: Click) -> str:
@@ -168,4 +226,8 @@ class PyAutoGUIVMwareBackend(Backend):
         return "; ".join(code_parts)
     
     def _screenshot(self) -> str:
-        return "screenshot = pyautogui.screenshot(); return screenshot"
+        if self.use_precreate_vm is None:
+            return "screenshot = pyautogui.screenshot(); return screenshot"
+        else:
+            obs = self.env._get_obs()
+            return screenshot_bytes_to_pil_image(obs["screenshot"])

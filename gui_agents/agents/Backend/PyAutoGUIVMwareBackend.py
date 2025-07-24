@@ -59,10 +59,17 @@ class PyAutoGUIVMwareBackend(Backend):
         self.platform = platform
         self.use_precreate_vm = os.getenv("USE_PRECREATE_VM")
         if self.use_precreate_vm is not None:
+            if self.use_precreate_vm == "Ubuntu":
+                path_to_vm = os.path.join("vmware_vm_data", "Ubuntu-x86", "Ubuntu.vmx")
+            elif self.use_precreate_vm == "Windows":
+                path_to_vm = os.path.join("vmware_vm_data", "Windows-x86", "Windows 10 x64.vmx")
+            else:
+                raise ValueError(f"USE_PRECREATE_VM={self.use_precreate_vm} is not supported. Please use Ubuntu or Windows.")
+
             self.env = DesktopEnv(
-                path_to_vm=os.path.join("vmware_vm_data", "Windows0", "Windows0.vmx"),
+                path_to_vm=path_to_vm,
                 provider_name="vmware", 
-                os_type="Windows", 
+                os_type=self.use_precreate_vm, 
                 action_space="pyautogui",
                 require_a11y_tree=False
             )
@@ -132,7 +139,7 @@ class PyAutoGUIVMwareBackend(Backend):
                 # This shouldn't happen due to supports() check, but be safe.
                 raise NotImplementedError(f"Unhandled action: {action}")
 
-            _, _ = self.env.step(action_pyautogui_code)
+            self.env.step(action_pyautogui_code)
 
     # ----- individual helpers ------------------------------------------------
     def _click(self, act: Click) -> str:

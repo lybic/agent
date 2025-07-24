@@ -95,8 +95,9 @@ This will show a user query prompt where you can enter your instructions and int
 
 ### Options
 
-- `--backend [lybic|pyautogui]`: Specifies the backend to use for controlling the GUI. Defaults to `lybic`.
-- `--query "YOUR_QUERY"`: Must be provided, the agent will execute the query and then exit. 
+- `--backend [lybic|pyautogui|pyautogui_vmware]`: Specifies the backend to use for controlling the GUI. Defaults to `lybic`.
+
+- `--query "YOUR_QUERY"`: Optional, can be input during the runtime; if provided, the agent will execute the query and then exit. 
 - `--max-steps NUMBER`: Sets the maximum number of steps the agent can take. Defaults to `50`.
 
 ### Examples
@@ -130,3 +131,16 @@ LYBIC_ENDPOINT_URL=https://api.lybic.cn
 > ```bash
 > LYBIC_PRECREATE_SID=SBX-XXXXXXXXXXXXXXX
 > ```
+
+### VMware Configuration
+
+To use PyAutoGUI with VMware, you need to install [VMware Workstation Pro](https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion) (on Windows) and create a virtual machine. 
+
+Next, you need to download the [`Windows-x86.zip`](https://huggingface.co/datasets/xlangai/ubuntu_osworld/resolve/main/Ubuntu-x86.zip) and [`Ubuntu-x86.zip`](https://huggingface.co/datasets/xlangai/ubuntu_osworld/resolve/main/Ubuntu-x86.zip) from Hugging Face. Then unzip them into `./vmware_vm_data/Windows-x86` and `./vmware_vm_data/Ubuntu-x86` directory.
+
+Finally, you need to edit the `.env` file and set the `USE_PRECREATE_VM` environment variable to the name of the virtual machine. `USE_PRECREATE_VM` support `Windows` and `Ubuntu` on x86 arch computer.
+
+
+```bash
+USE_PRECREATE_VM=Ubuntu
+```

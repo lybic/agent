@@ -139,15 +139,36 @@ class Grounding(ACI):
     def parse_function_args(self, function: str) -> List[str]:
         if not function or not isinstance(function, str):
             return []
+        
+        # This regex handles quoted strings and numeric arguments
+        pattern = r'(\w+\.\w+)\((?:"([^"]*)")?(?:,\s*(\d+))?\)'
+        match = re.match(pattern, function)
+        if match:
+            args = []
+            # Add the string argument if present
+            if match.group(2) is not None:
+                args.append(match.group(2))
+            # Add the numeric argument if present
+            if match.group(3) is not None:
+                args.append(int(match.group(3)))
+            if args:
+                return args
+        
+        # If the special handling didn't work, try the AST approach
         try:
             tree = ast.parse(function)
         except Exception as e:
+            print(f"Failed to parse function: {function}")
+            print(f"Exception: {e}")
             return []
+        
         if not tree.body or not hasattr(tree.body[0], 'value'):
             return []
+        
         call_node = tree.body[0].value # type: ignore
         if not isinstance(call_node, ast.Call):
             return []
+        
         def safe_eval(node):
             if isinstance(node, ast.Constant):
                 return node.value
@@ -158,22 +179,28 @@ class Grounding(ACI):
                     return ast.unparse(node)
                 except Exception:
                     return str(node)
+        
         positional_args = []
         try:
             positional_args = [safe_eval(arg) for arg in call_node.args]
-        except Exception:
+        except Exception as e:
+            print(f"Error processing positional args: {e}")
             positional_args = []
+        
         keyword_args = {}
         try:
             keyword_args = {kw.arg: safe_eval(kw.value) for kw in call_node.keywords}
-        except Exception:
+        except Exception as e:
+            print(f"Error processing keyword args: {e}")
             keyword_args = {}
+        
         res = []
         for key, val in keyword_args.items():
             if key and "description" in key:
                 res.append(val)
         for arg in positional_args:
             res.append(arg)
+        
         return res
 
     @agent_action

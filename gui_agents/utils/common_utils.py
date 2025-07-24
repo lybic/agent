@@ -103,7 +103,8 @@ def parse_single_code_from_string(input_string):
             codes.append(match)
     if len(codes) > 0:
         return codes[0]
-    code_match = re.search(r"(\w+\.\w+\(.*?\))", input_string)
+    # The pattern matches function calls with balanced parentheses and quotes
+    code_match = re.search(r"(\w+\.\w+\((?:[^()]*|\([^()]*\))*\))", input_string)
     if code_match:
         return code_match.group(1)
     lines = [line.strip() for line in input_string.splitlines() if line.strip()]

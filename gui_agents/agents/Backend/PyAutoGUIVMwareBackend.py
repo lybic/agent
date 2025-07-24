@@ -60,12 +60,13 @@ class PyAutoGUIVMwareBackend(Backend):
         self.use_precreate_vm = os.getenv("USE_PRECREATE_VM")
         if self.use_precreate_vm is not None:
             self.env = DesktopEnv(
-                path_to_vm=os.path.join("vmware_vm_data", "Windows-x86", "Windows 10 x64.vmx"),
+                path_to_vm=os.path.join("vmware_vm_data", "Windows0", "Windows0.vmx"),
                 provider_name="vmware", 
                 os_type="Windows", 
                 action_space="pyautogui",
                 require_a11y_tree=False
             )
+            self.env.reset()
 
 
     # ------------------------------------------------------------------

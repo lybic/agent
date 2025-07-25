@@ -67,9 +67,10 @@ class LybicBackend(Backend):
         
         if self.precreate_sid is None:
             print("Creating sandbox...")
+            max_life_seconds = int(os.getenv("LYBIC_MAX_LIFE_SECONDS", "3600"))
             self.loop.run_until_complete(
                 self.client.create_sandbox(name="agent-run",
-                                        maxLifeSeconds=3600,
+                                        maxLifeSeconds=max_life_seconds,
                                         **(sandbox_opts or {}))
             )
 

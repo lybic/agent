@@ -123,6 +123,7 @@ The simplest way to configure Lybic Sandbox is still to edit the `.env` file and
 LYBIC_API_KEY=your_lybic_api_key
 LYBIC_ORG_ID=your_lybic_org_id
 LYBIC_ENDPOINT_URL=https://api.lybic.cn
+LYBIC_MAX_LIFE_SECONDS=3600
 ```
 
 > **Note**: If you want to use a precreated Lybic Sandbox in [Lybic Dashboard](https://dashboard.lybic.cn/orgs/agent-dev/sandboxes), you need to set the `LYBIC_PRECREATE_SID` to the precreated Sandbox ID.

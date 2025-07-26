@@ -1,0 +1,161 @@
+{
+    "config": [
+        {
+            "type": "download",
+            "parameters": {
+                "files": [
+                    {
+                        "url": "",
+                        "path": ""
+                    }
+                ]
+            }
+        },
+        {
+        "type": "upload_file",
+            "parameters": {
+                "files": [
+                    {
+                        "local_path": "",
+                        "path": ""
+                    }
+                ]
+            }
+        },
+        {
+            "type": "change_wallpaper",
+            "parameters": {
+                "path": ""
+            }
+        },
+        {
+            "type": "open",
+            "parameters": {
+                "path": ""
+            }
+        },
+        {
+            "type": "launch",
+            "parameters": {
+                "command": [
+                    ""
+                ],
+                "shell": false
+            }
+        },
+        {
+            "type": "execute",
+            "parameters": {
+                "command": [
+                    ""
+                ],
+                "stdout": "",
+                "stderr": "",
+                "shell": false,
+                "until": ""
+            }
+        },
+        {
+            "type": "command",
+            "parameters": {
+                "command": [
+                    ""
+                ],
+                "stdout": "",
+                "stderr": "",
+                "shell": false,
+                "until": ""
+            }
+        },
+        {
+            "type": "sleep",
+            "parameters": {
+                "seconds": 0
+            }
+        },
+        {
+            "type": "activate_window",
+            "parameters": {
+                "window_name": "",
+                "strict": false,
+                "by_class": false
+            }
+        },
+        {
+            "type": "close_window",
+            "parameters": {
+                "window_name": "",
+                "strict": false,
+                "by_class": false
+            }
+        },
+        {
+            "type": "proxy",
+            "parameters": {
+                "client_password": ""
+            }
+        },
+        {
+            "type": "chrome_open_tabs",
+            "parameters": {
+                "urls_to_open": [
+                    "https://www.amazon.com"
+                ]
+            }
+        },
+        {
+            "type": "chrome_close_tabs",
+            "parameters": {
+                "urls_to_close": [
+                    "https://www.amazon.com"
+                ]
+            }
+        },
+        {
+            "type": "googledrive",
+            "parameters": {
+                "settings_file": "evaluation_examples/settings/googledrive/settings.yml",
+                "operation": [
+                    "delete",
+                    "mkdirs"
+                ],
+                "args": [
+                {
+                    "query": "title = 'Meeting-Agenda.docx' or title = 'Meeting-Agenda.pdf'",
+                    "trash": false
+                },
+                {
+                    "path": [
+                    "meetings"
+                    ]
+                }
+                ]
+            }
+        },
+        {
+            "type": "login",
+            "parameters": {
+                "settings_file": "evaluation_examples/settings/google/settings.json",
+                "platform": "googledrive"
+            }
+        },
+        {
+            "type": "update_browse_history",
+            "parameters": {
+                "history": [
+                {
+                    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                    "title": "Rick Astley - Never Gonna Give You Up (Official Music Video)",
+                    "visit_time_from_now_in_seconds": 3600
+                },
+                {
+                    "url": "https://www.youtube.com/watch?v=9bZkp7q19f0",
+                    "title": "PSY - GANGNAM STYLE(강남스타일) M/V",
+                    "visit_time_from_now_in_seconds": 1631
+                }
+                ]
+            }
+        }
+    
+    ]
+}

@@ -145,6 +145,7 @@ class ToolFactory:
             "grounding": (GroundingTool, "grounding"),
             "evaluator": (EvaluatorTool, "evaluator"),
             "action_generator": (ActionGeneratorTool, "action_generator"),
+            "fast_action_generator": (FastActionGeneratorTool, "fast_action_generator"),
             "dag_translator": (DAGTranslatorTool, "dag_translator"),
             "embedding": (EmbeddingTool, None),
             "query_formulator": (QueryFormulatorTool, "query_formulator"),
@@ -462,6 +463,46 @@ class ActionGeneratorTool(BaseTool):
         # Use the prompt template and LMM for action generation
         return self._call_lmm(tool_input)
 
+
+class FastActionGeneratorTool(BaseTool):
+    """Tool for directly generating executable actions without intermediate planning."""
+    
+    def execute(self, tool_input: Dict[str, Any]):
+        """
+        Generate executable actions directly from the instruction and screenshot.
+        
+        Args:
+            tool_input: Dictionary containing the action request
+                        Expected to have 'str_input' key with the instruction
+                        Expected to have 'img_input' key with a screenshot
+        
+        Returns:
+            Generated action as a string, token count, and cost
+        """
+        action_request = tool_input.get('str_input', '')
+        screenshot = tool_input.get('img_input')
+        if not action_request:
+            return "Error: No action request provided"
+        if not screenshot:
+            return "Error: No screenshot provided"
+        # Use the prompt template and LMM for action generation
+        return self._call_lmm(tool_input)
+
+    def get_grounding_wh(self):
+        """
+        Get grounding width and height based on provider and model name.
+        
+        Returns:
+            If provider is doubao and model_name contains 'ui-tars', returns two values:
+            grounding_width (int): Width value (1024)
+            grounding_height (int): Height value (768)
+            Otherwise returns None, None
+        """
+        if self.provider == "doubao" and "ui-tars" in self.model_name:
+            grounding_width = 1000
+            grounding_height = 1000
+            return grounding_width, grounding_height
+        return None, None
 
 class EmbeddingTool(BaseTool):
     """Tool for generating text embeddings."""

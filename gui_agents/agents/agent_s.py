@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple
 from gui_agents.agents.grounding import ACI
 from gui_agents.agents.worker import Worker
 from gui_agents.agents.manager import Manager
-from gui_agents.agents.grounding import Grounding
+from gui_agents.agents.grounding import Grounding, FastGrounding
 from gui_agents.utils.common_utils import Node
 from gui_agents.agents.global_state import GlobalState
 from gui_agents.store.registry import Registry
@@ -18,6 +18,8 @@ from gui_agents.utils.common_utils import (
     sanitize_code,
     extract_first_agent_function,
 )
+from gui_agents.tools.tools import Tools
+
 logger = logging.getLogger("desktopenv.agent")
 
 class UIAgent:
@@ -516,3 +518,200 @@ class AgentS2(UIAgent):
             )
 
         return subtask_trajectory
+
+class AgentSFast(UIAgent):
+    """Fast version of AgentS2 that directly generates actions using the fast_action_generator tool"""
+
+    def __init__(
+        self,
+        platform: str = platform.system().lower(),
+        screen_size: List[int] = [1920, 1080],
+        memory_root_path: str = os.getcwd(),
+        memory_folder_name: str = "kb_s2",
+        kb_release_tag: str = "v0.2.2",
+    ):
+        """Initialize AgentSFast
+
+        Args:
+            platform: Operating system platform (darwin, linux, windows)
+            memory_root_path: Path to memory directory. Defaults to current working directory.
+            memory_folder_name: Name of memory folder. Defaults to "kb_s2".
+            kb_release_tag: Release tag for knowledge base. Defaults to "v0.2.2".
+        """
+        super().__init__(
+            platform,
+        )
+
+        self.memory_root_path = memory_root_path
+        self.memory_folder_name = memory_folder_name
+        self.kb_release_tag = kb_release_tag
+        self.screen_size = screen_size
+
+        # Load tools configuration from tools_config.json
+        tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
+        with open(tools_config_path, "r") as f:
+            tools_config = json.load(f)
+            print(f"Loaded tools configuration from: {tools_config_path}")
+            self.Tools_dict = {}
+            for tool in tools_config["tools"]:
+                tool_name = tool["tool_name"]
+                self.Tools_dict[tool_name] = {
+                    "provider": tool["provider"],
+                    "model": tool["model_name"]
+                }
+            print(f"Tools configuration: {self.Tools_dict}")
+
+        # Initialize agent's knowledge base path
+        self.local_kb_path = os.path.join(
+            self.memory_root_path, self.memory_folder_name
+        )
+
+        # Check if knowledge base exists
+        kb_platform_path = os.path.join(self.local_kb_path, self.platform)
+        if not os.path.exists(kb_platform_path):
+            print(f"Warning: Knowledge base for {self.platform} platform not found in {self.local_kb_path}")
+            os.makedirs(kb_platform_path, exist_ok=True)
+            print(f"Created directory: {kb_platform_path}")
+        else:
+            print(f"Found local knowledge base path: {kb_platform_path}")
+
+        self.reset()
+
+    def reset(self) -> None:
+        """Reset agent state and initialize components"""
+        # Initialize the fast action generator tool
+        self.fast_action_generator = Tools()
+        self.fast_action_generator.register_tool("fast_action_generator", 
+                                               self.Tools_dict["fast_action_generator"]["provider"], 
+                                               self.Tools_dict["fast_action_generator"]["model"])
+
+        self.grounding_width, self.grounding_height = self.fast_action_generator.tools["fast_action_generator"].get_grounding_wh()
+        if self.grounding_width is None or self.grounding_height is None:
+            self.grounding_width = self.screen_size[0]
+            self.grounding_height = self.screen_size[1]
+        self.grounding = FastGrounding(
+            Tools_dict=self.Tools_dict,
+            platform=self.platform,
+            width=self.screen_size[0],
+            height=self.screen_size[1],
+            grounding_width=self.grounding_width,
+            grounding_height=self.grounding_height
+        )
+
+        # Reset state variables
+        self.step_count: int = 0
+        self.turn_count: int = 0
+        self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
+        self.latest_action = None
+
+    def predict(self, instruction: str, observation: Dict, action_history: List[Dict] = []) -> Tuple[Dict, List[str]]:
+        """Generate next action prediction using only the fast_action_generator tool
+
+        Args:
+            instruction: Natural language instruction
+            observation: Current UI state observation
+
+        Returns:
+            Tuple containing agent info dictionary and list of actions
+        """
+        import time
+        predict_start_time = time.time()
+        
+        fast_action_start_time = time.time()
+
+        if action_history:
+            history_str = "\n\n[history of previous actions]:\n" + json.dumps(action_history, ensure_ascii=False, indent=2)
+        else:
+            history_str = ""
+        
+        plan, total_tokens, cost_string = self.fast_action_generator.execute_tool(
+            "fast_action_generator",
+            {
+                "str_input": instruction + history_str,
+                "img_input": observation["screenshot"]
+            }
+        )
+        
+        fast_action_execution_time = time.time() - fast_action_start_time
+        
+        self.global_state.log_operation(
+            module="agent",
+            operation="fast_action_execution",
+            data={
+                "duration": fast_action_execution_time,
+                "tokens": total_tokens,
+                "cost": cost_string
+            }
+        )
+        
+        logger.info("Fast Action Plan: %s", plan)
+        
+        actions = []
+
+        current_width, current_height = self.global_state.get_screen_size()
+        self.grounding.reset_screen_size(current_width, current_height)
+        try:
+            code_pattern = r"```python\s*(.*?)\s*```"
+            import re
+            match = re.search(code_pattern, plan, re.DOTALL)
+            
+            if match:
+                action_code = match.group(1).strip()
+                logger.info("Extracted action code: %s", action_code)
+                
+                agent: FastGrounding = self.grounding # type: ignore
+                exec_code = eval(action_code) # type: ignore
+                actions = [exec_code]
+                self.latest_action = action_code
+            else:
+                logger.warning("No code block found, trying to parse the entire response")
+                action_code = plan.strip()
+                
+                if action_code.startswith("agent."):
+                    agent: FastGrounding = self.grounding # type: ignore
+                    exec_code = eval(action_code) # type: ignore
+                    actions = [exec_code]
+                    self.latest_action = action_code
+                else:
+                    logger.error("Could not parse action, using wait action")
+                    agent: FastGrounding = self.grounding # type: ignore
+                    exec_code = eval("agent.wait(1000)") # type: ignore
+                    actions = [exec_code]
+                    self.latest_action = "agent.wait(1000)"
+        except Exception as e:
+            logger.error("Error in parsing action code: %s", e)
+            agent: FastGrounding = self.grounding # type: ignore
+            exec_code = eval("agent.wait(1000)") # type: ignore
+            actions = [exec_code]
+            self.latest_action = "agent.wait(1000)"
+            
+            self.global_state.log_operation(
+                module="agent",
+                operation="fast_action_error",
+                data={
+                    "content": str(e),
+                    "fallback_action": "agent.wait(1000)"
+                }
+            )
+
+        self.step_count += 1
+        self.turn_count += 1
+        
+        executor_info = {
+            "executor_plan": plan,
+            "reflection": "",
+            "plan_code": self.latest_action
+        }
+        
+        predict_total_time = time.time() - predict_start_time
+        self.global_state.log_operation(
+            module="agent",
+            operation="predict_execution_fast_direct",
+            data={
+                "duration": predict_total_time,
+                "step_count": self.step_count,
+                "turn_count": self.turn_count
+            }
+        )
+
+        return executor_info, actions

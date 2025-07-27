@@ -41,6 +41,11 @@
       "model_name": "gemini-2.5-pro"
     },
     {
+      "tool_name": "fast_action_generator",
+      "provider": "gemini",
+      "model_name": "gemini-2.5-pro"
+    },
+    {
       "tool_name": "dag_translator",
       "provider": "gemini",
       "model_name": "gemini-2.5-pro"

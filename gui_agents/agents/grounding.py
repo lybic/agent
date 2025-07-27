@@ -424,3 +424,266 @@ class Grounding(ACI):
             "message": message
         }
         return actionDict
+
+class FastGrounding(ACI):
+    """Fast version of Grounding that directly accepts coordinates instead of descriptions"""
+    
+    def __init__(
+        self,
+        Tools_dict: Dict,
+        platform: str,
+        width: int = 1920, # Screenshot width
+        height: int = 1080, # Screenshot height
+        grounding_width: int = 1920,
+        grounding_height: int = 1080,
+    ):
+        self.platform = platform
+        self.Tools_dict = Tools_dict
+
+        # Screenshot size
+        self.width = width 
+        self.height = height
+        self.grounding_width = grounding_width
+        self.grounding_height = grounding_height
+        
+        # 获取GlobalState实例
+        self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
+
+    def reset_screen_size(self, width: int, height: int):
+        self.width = width
+        self.height = height
+    
+        # Resize from grounding model dim into OSWorld dim (1920 * 1080)
+    def resize_coordinates(self, coordinates: List[int]) -> List[int]:
+        return [
+            round(coordinates[0] * self.width / self.grounding_width),
+            round(coordinates[1] * self.height / self.grounding_height),
+        ]
+
+    @agent_action
+    def click(
+        self,
+        x: int,
+        y: int,
+        button: int = 1,
+        holdKey: List[str] = [],
+    ):
+        """One click at the specified coordinates
+        Args:
+            x:int, the x-coordinate on the screen to click
+            y:int, the y-coordinate on the screen to click
+            button:int, which mouse button to press can be 1, 2, 4, 8, or 16, indicates which mouse button to press.
+            holdKey:List[str], list of keys to hold while clicking.
+        """
+        x, y = self.resize_coordinates([x, y])
+        actionDict = {
+            "type": "Click",
+            "x": x, # int
+            "y": y, # int
+            "element_description": f"Coordinates ({x}, {y})", # str
+            "button": button,
+            "holdKey": holdKey
+        }
+        return actionDict
+
+    @agent_action
+    def doubleclick(
+        self,
+        x: int,
+        y: int,
+        button: int = 1,
+        holdKey: List[str] = [],
+    ):
+        """Double click at the specified coordinates
+        Args:
+            x:int, the x-coordinate on the screen to double click
+            y:int, the y-coordinate on the screen to double click
+            button:int, which mouse button to press can be 1, 2, 4, 8, or 16, indicates which mouse button to press.
+            holdKey:List[str], list of keys to hold while double clicking.
+        """
+        x, y = self.resize_coordinates([x, y])
+        actionDict = {
+            "type": "DoubleClick",
+            "x": x, # int
+            "y": y, # int
+            "element_description": f"Coordinates ({x}, {y})", # str
+            "button": button,
+            "holdKey": holdKey
+        }
+        return actionDict
+
+    @agent_action
+    def move(
+        self,
+        x: int,
+        y: int,
+        holdKey: List[str] = [],
+    ):
+        """Move to the specified coordinates
+        Args:
+            x:int, the x-coordinate on the screen to move to
+            y:int, the y-coordinate on the screen to move to
+            holdKey:List[str], list of keys to hold while moving the mouse.
+        """
+        x, y = self.resize_coordinates([x, y])
+        actionDict = {
+            "type": "Move",
+            "x": x, # int
+            "y": y, # int
+            "element_description": f"Coordinates ({x}, {y})", # str
+            "holdKey": holdKey
+        }
+        return actionDict
+
+    @agent_action
+    def scroll(
+        self, 
+        x: int, 
+        y: int, 
+        clicks: int, 
+        vertical: bool = True,
+        holdKey: List[str] = [],
+    ):
+        """Scroll at the specified coordinates
+        Args:
+            x:int, the x-coordinate on the screen to scroll at
+            y:int, the y-coordinate on the screen to scroll at
+            clicks:int, the number of clicks to scroll can be positive (for up and left) or negative (for down and right).
+            vertical:bool, whether to vertical scrolling.
+            holdKey:List[str], list of keys to hold while scrolling.
+        """
+        x, y = self.resize_coordinates([x, y])
+        if vertical == True:
+            actionDict = {
+                "type": "Scroll",
+                "x": x, # int
+                "y": y, # int
+                "element_description": f"Coordinates ({x}, {y})",
+                "stepVertical": clicks,
+                "holdKey": holdKey
+            }
+        else:
+            actionDict = {
+                "type": "Scroll",
+                "x": x, # int
+                "y": y, # int
+                "element_description": f"Coordinates ({x}, {y})",
+                "stepHorizontal": clicks,
+                "holdKey": holdKey
+            }
+        return actionDict 
+
+    @agent_action
+    def drag(
+        self, 
+        startX: int, 
+        startY: int, 
+        endX: int, 
+        endY: int, 
+        holdKey: List[str] = [],
+    ):
+        """Drag from the starting coordinates to the ending coordinates
+        Args:
+            startX:int, the x-coordinate on the screen to start dragging
+            startY:int, the y-coordinate on the screen to start dragging
+            endX:int, the x-coordinate on the screen to end dragging
+            endY:int, the y-coordinate on the screen to end dragging
+            holdKey:List[str], list of keys to hold while dragging.
+        """
+        startX, startY = self.resize_coordinates([startX, startY])
+        endX, endY = self.resize_coordinates([endX, endY])
+        actionDict = {
+            "type": "Drag",
+            "startX": startX,
+            "startY": startY,
+            "endX": endX,
+            "endY": endY,
+            "holdKey": holdKey,
+            "starting_description": f"Coordinates ({startX}, {startY})",
+            "ending_description": f"Coordinates ({endX}, {endY})"
+        }
+        return actionDict
+
+    @agent_action
+    def type(
+        self,
+        text: str = "",
+    ):
+        """Type text
+        Args:
+            text:str, the text to type.
+        """
+        actionDict = {
+            "type": "TypeText",
+            "text": text,
+        }
+        
+        return actionDict
+
+    
+    @agent_action
+    def hotkey(
+        self, 
+        keys: List[str] = [],
+        duration: int = 0,
+    ):
+        """Press a hotkey combination
+        Args:
+            keys:List[str], the keys to press in combination in a list format. The list can contain multiple modifier keys (e.g. ctrl, alt, shift) but only one non-modifier key (e.g. ['ctrl', 'alt', 'c']).
+            duration:int, duration in milliseconds, Range 1 <= value <= 5000. If specified, the hotkey will be held for a while and then released. If 0, the hotkey combination will use the default value in hardware interface.
+        """
+        # add quotes around the keys
+        keys = [f"{key}" for key in keys]
+        if 1 <= duration <= 5000:
+            actionDict = {
+                "type": "Hotkey",
+                "keys": keys,
+                "duration": duration,
+            }
+        else:
+            actionDict = {
+                "type": "Hotkey",
+                "keys": keys,
+            }
+
+        return actionDict
+
+    @agent_action
+    def wait(
+        self, 
+        duration: int
+    ):
+        """Wait for a specified amount of time in milliseconds
+        Args:
+            duration:int the amount of time to wait in milliseconds
+        """
+        actionDict = {
+            "type": "Wait",
+            "duration": duration
+        }
+        return actionDict
+
+    @agent_action
+    def done(
+        self,
+        message: str = '',
+    ):
+        """End the current task with a success and the return message if needed"""
+        self.returned_info = message
+        actionDict = {
+            "type": "Done",
+            "message": message
+        }
+        return actionDict
+
+    @agent_action
+    def fail(
+        self,
+        message: str = '',
+    ):
+        """End the current task with a failure message, and replan the whole task."""
+        actionDict = {
+            "type": "Failed",
+            "message": message
+        }
+        return actionDict

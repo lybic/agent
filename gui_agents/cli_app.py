@@ -93,7 +93,7 @@ def show_permission_dialog(code: str, action_description: str):
 def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInterface):
     screenshot_high = screenshot.height
     screenshot_width = screenshot.width
-    if isinstance(hwi_para, PyAutoGUIBackend):
+    if isinstance(hwi_para.backend, PyAutoGUIBackend):
         screen_width, screen_height = pyautogui.size()
         if screen_width != screenshot_width or screen_height != screenshot_high:
             screenshot = screenshot.resize((screen_width, screen_height), Image.LANCZOS)

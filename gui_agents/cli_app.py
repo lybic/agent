@@ -10,6 +10,7 @@ import time
 import datetime
 from pathlib import Path
 from dotenv import load_dotenv
+from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
 
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
 if env_path.exists():
@@ -89,11 +90,15 @@ def show_permission_dialog(code: str, action_description: str):
     return False
 
 
-def scale_screen_dimensions(width: int, height: int, max_dim_size: int):
-    scale_factor = min(max_dim_size / width, max_dim_size / height, 1)
-    safe_width = int(width * scale_factor)
-    safe_height = int(height * scale_factor)
-    return safe_width, safe_height
+def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInterface):
+    screenshot_high = screenshot.height
+    screenshot_width = screenshot.width
+    if isinstance(hwi_para, PyAutoGUIBackend):
+        screen_width, screen_height = pyautogui.size()
+        if screen_width != screenshot_width or screen_height != screenshot_high:
+            screenshot = screenshot.resize((screen_width, screen_height), Image.LANCZOS)
+
+    return screenshot
 
 
 def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50):
@@ -108,7 +113,7 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
     total_start_time = time.time()
     for _ in range(max_steps):
         screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
-        global_state.set_screenshot(screenshot)
+        global_state.set_screenshot(scale_screenshot_dimensions(screenshot, hwi_para))
         obs = global_state.get_obs_for_manager()
 
         predict_start = time.time()
@@ -196,7 +201,7 @@ def run_agent_fast(agent, instruction: str, hwi_para: HardwareInterface, max_ste
     action_history = []
     for step in range(max_steps):
         screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
-        global_state.set_screenshot(screenshot)
+        global_state.set_screenshot(scale_screenshot_dimensions(screenshot, hwi_para))
         obs = global_state.get_obs_for_manager()
 
         predict_start = time.time()

@@ -96,10 +96,9 @@ def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInter
     if isinstance(hwi_para.backend, PyAutoGUIBackend):
         screen_width, screen_height = pyautogui.size()
         if screen_width != screenshot_width or screen_height != screenshot_high:
-            screenshot = screenshot.resize((screen_width, screen_height), Image.LANCZOS)
+            screenshot = screenshot.resize((screen_width, screen_height), Image.Resampling.LANCZOS)
 
-    return screenshot
-
+        return screenshot
 
 def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50):
     import time
@@ -113,7 +112,7 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
     total_start_time = time.time()
     for _ in range(max_steps):
         screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
-        global_state.set_screenshot(scale_screenshot_dimensions(screenshot, hwi_para))
+        global_state.set_screenshot(scale_screenshot_dimensions(screenshot, hwi_para)) # type: ignore
         obs = global_state.get_obs_for_manager()
 
         predict_start = time.time()
@@ -201,7 +200,7 @@ def run_agent_fast(agent, instruction: str, hwi_para: HardwareInterface, max_ste
     action_history = []
     for step in range(max_steps):
         screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
-        global_state.set_screenshot(scale_screenshot_dimensions(screenshot, hwi_para))
+        global_state.set_screenshot(scale_screenshot_dimensions(screenshot, hwi_para)) # type: ignore
         obs = global_state.get_obs_for_manager()
 
         predict_start = time.time()

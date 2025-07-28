@@ -172,3 +172,4 @@ vmware_vm_data*/
 .vmware_vms
 results/
 webui/*
+tests/local_tests/

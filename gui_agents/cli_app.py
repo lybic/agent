@@ -98,7 +98,7 @@ def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInter
         if screen_width != screenshot_width or screen_height != screenshot_high:
             screenshot = screenshot.resize((screen_width, screen_height), Image.Resampling.LANCZOS)
 
-        return screenshot
+    return screenshot
 
 def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50):
     import time

@@ -10,6 +10,7 @@ import time
 import datetime
 from pathlib import Path
 from dotenv import load_dotenv
+from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
 
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
 if env_path.exists():
@@ -23,7 +24,7 @@ from PIL import Image
 
 # from gui_agents.agents.grounding import OSWorldACI
 from gui_agents.agents.Action import Screenshot
-from gui_agents.agents.agent_s import AgentS2
+from gui_agents.agents.agent_s import AgentS2, AgentSFast
 
 from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
@@ -89,15 +90,18 @@ def show_permission_dialog(code: str, action_description: str):
     return False
 
 
-def scale_screen_dimensions(width: int, height: int, max_dim_size: int):
-    scale_factor = min(max_dim_size / width, max_dim_size / height, 1)
-    safe_width = int(width * scale_factor)
-    safe_height = int(height * scale_factor)
-    return safe_width, safe_height
+def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInterface):
+    screenshot_high = screenshot.height
+    screenshot_width = screenshot.width
+    if isinstance(hwi_para.backend, PyAutoGUIBackend):
+        screen_width, screen_height = pyautogui.size()
+        if screen_width != screenshot_width or screen_height != screenshot_high:
+            screenshot = screenshot.resize((screen_width, screen_height), Image.Resampling.LANCZOS)
 
+    return screenshot
 
-def run_agent(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50):
-    import time  # Ensure time is imported
+def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50):
+    import time
     obs = {}
     traj = "Task:\n" + instruction
     subtask_traj = ""
@@ -105,15 +109,22 @@ def run_agent(agent, instruction: str, hwi_para: HardwareInterface, max_steps: i
     global_state.set_Tu(instruction)
     hwi = hwi_para
     
-    total_start_time = time.time()  # Record total start time
+    total_start_time = time.time()
     for _ in range(max_steps):
-        # Get screen shot using pyautogui
         screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
-        global_state.set_screenshot(screenshot)
+        global_state.set_screenshot(scale_screenshot_dimensions(screenshot, hwi_para)) # type: ignore
         obs = global_state.get_obs_for_manager()
 
-        # Time predict step
+        predict_start = time.time()
         info, code = agent.predict(instruction=instruction, observation=obs)
+        predict_time = time.time() - predict_start
+        logger.info(f"[Step Timing] agent.predict execution time: {predict_time:.2f} seconds")
+        
+        global_state.log_operation(
+            module="agent",
+            operation="agent.predict", 
+            data={"duration": predict_time}
+        )
 
         if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower():
             if platform.system() == "Darwin":
@@ -139,7 +150,6 @@ def run_agent(agent, instruction: str, hwi_para: HardwareInterface, max_steps: i
             time.sleep(1.0)
             logger.info(f"EXECUTING CODE: {code[0]}")
 
-            # Time dispatchDict step
             step_dispatch_start = time.time()
             hwi.dispatchDict(code[0])
             step_dispatch_time = time.time() - step_dispatch_start
@@ -163,9 +173,9 @@ def run_agent(agent, instruction: str, hwi_para: HardwareInterface, max_steps: i
             # Update task and subtask trajectories and optionally the episodic memory
             traj += (
                 "\n\nReflection:\n"
-                + str(info["reflection"])
+                + str(info.get("reflection", ""))
                 + "\n\n----------------------\n\nPlan:\n"
-                + info["executor_plan"]
+                + info.get("executor_plan", "")
             )
             subtask_traj = agent.update_episodic_memory(info, subtask_traj)
     
@@ -179,11 +189,83 @@ def run_agent(agent, instruction: str, hwi_para: HardwareInterface, max_steps: i
     )
 
 
+def run_agent_fast(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50):
+    import time
+    obs = {}
+    global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
+    global_state.set_Tu(instruction)
+    hwi = hwi_para
+    
+    total_start_time = time.time()
+    action_history = []
+    for step in range(max_steps):
+        screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
+        global_state.set_screenshot(scale_screenshot_dimensions(screenshot, hwi_para)) # type: ignore
+        obs = global_state.get_obs_for_manager()
+
+        predict_start = time.time()
+        info, code = agent.predict(instruction=instruction, observation=obs, action_history=action_history)
+        action_history.append(code[0])
+        predict_time = time.time() - predict_start
+        logger.info(f"[Fast Mode] [Step {step+1}] Prediction time: {predict_time:.2f} seconds")
+        
+        global_state.log_operation(
+            module="agent_fast",
+            operation="agent.predict_fast", 
+            data={"duration": predict_time, "step": step+1}
+        )
+
+        if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower():
+            logger.info(f"[Fast Mode] Task {'completed' if 'done' in code[0]['type'].lower() else 'failed'}")
+            if platform.system() == "Darwin":
+                os.system(
+                    f'osascript -e \'display dialog "Task Completed" with title "OpenACI Agent (Fast)" buttons "OK" default button "OK"\''
+                )
+            elif platform.system() == "Linux":
+                os.system(
+                    f'zenity --info --title="OpenACI Agent (Fast)" --text="Task Completed" --width=200 --height=100'
+                )
+            break
+
+        if "wait" in code[0]["type"].lower():
+            wait_duration = code[0].get("duration", 5000) / 1000
+            logger.info(f"[Fast Mode] Waiting for {wait_duration} seconds")
+            time.sleep(wait_duration)
+            continue
+
+        logger.info(f"[Fast Mode] Executing action: {code[0]}")
+        step_dispatch_start = time.time()
+        hwi.dispatchDict(code[0])
+        step_dispatch_time = time.time() - step_dispatch_start
+        logger.info(f"[Fast Mode] Action execution time: {step_dispatch_time:.2f} seconds")
+        
+        global_state.log_operation(
+            module="hardware_fast",
+            operation="executing_code_fast", 
+            data={
+                "content": str(code[0]),
+                "duration": step_dispatch_time,
+                "step": step+1
+            }
+        )
+
+        time.sleep(0.5)
+    
+    total_end_time = time.time()
+    total_duration = total_end_time - total_start_time
+    logger.info(f"[Fast Mode] Total execution time: {total_duration:.2f} seconds")
+    global_state.log_operation(
+        module="other",
+        operation="total_execution_time_fast", 
+        data={"duration": total_duration}
+    )
+
 def main():
     parser = argparse.ArgumentParser(description='GUI Agent CLI Application')
     parser.add_argument('--backend', type=str, default='lybic', help='Backend to use (e.g., lybic, pyautogui, pyautogui_vmware)')
     parser.add_argument('--query', type=str, default='', help='Initial query to execute')
     parser.add_argument('--max-steps', type=int, default=50, help='Maximum number of steps to execute (default: 50)')
+    parser.add_argument('--mode', type=str, default='normal', choices=['normal', 'fast'], help='Agent mode: normal or fast (default: normal)')
     args = parser.parse_args()
 
     # Ensure necessary directory structure exists
@@ -212,9 +294,20 @@ def main():
     # Set platform to Windows if backend is lybic
     if args.backend == 'lybic':
         current_platform = 'windows'
-    agent = AgentS2(
-        platform=current_platform,
-    )
+    
+    # Initialize agent based on mode
+    if args.mode == 'fast':
+        agent = AgentSFast(
+            platform=current_platform,
+        )
+        logger.info("Running in FAST mode")
+        run_agent_func = run_agent_fast
+    else:
+        agent = AgentS2(
+            platform=current_platform,
+        )
+        logger.info("Running in NORMAL mode with full agent")
+        run_agent_func = run_agent_normal
     
     # Initialize hardware interface
     hwi = HardwareInterface(backend=args.backend, platform=platform_os)
@@ -222,7 +315,7 @@ def main():
     # if query is provided, run the agent on the query
     if args.query:
         agent.reset()
-        run_agent(agent, args.query, hwi, args.max_steps)
+        run_agent_func(agent, args.query, hwi, args.max_steps)
         
     else:
         while True:
@@ -231,7 +324,7 @@ def main():
             agent.reset()
 
             # Run the agent on your own device
-            run_agent(agent, query, hwi, args.max_steps)
+            run_agent_func(agent, query, hwi, args.max_steps)
 
             response = input("Would you like to provide another query? (y/n): ")
             if response.lower() != "y":
@@ -241,8 +334,9 @@ def main():
 if __name__ == "__main__":
     """
     python gui_agents/cli_app.py --backend lybic
-    python gui_agents/cli_app.py --backend pyautogui
+    python gui_agents/cli_app.py --backend pyautogui --mode fast
     python gui_agents/cli_app.py --backend pyautogui_vmware
     python gui_agents/cli_app.py --backend lybic --max-steps 15
+    python gui_agents/cli_app.py --backend lybic --mode fast
     """
     main()

@@ -79,7 +79,7 @@ cp gui_agents/tools/tools_config_en.json gui_agents/tools/tools_config.json
 cp gui_agents/tools/tools_config_cn.json gui_agents/tools/tools_config.json
 ```
 
-> **Note**: Our recommended configuration uses `doubao-1-5-ui-tars-250428` for `"tool_name": "grounding"` and `claude-sonnet-4-20250514` or `doubao-seed-1-6-250615` for other tools such as `"tool_name": "action_generator"`. You can customize the model configuration in the tools configuration files. Do not modify the `"tool_name"` in `tools_config.json` file. To change the `"provider"` and `"model_name"` in `tools_config.json` file, see [model.md](gui_agents/tools/model.md)
+> **Note**: Our recommended configuration uses `doubao-1-5-ui-tars-250428` for `"tool_name": "grounding" or "fast_action_generator"` and `claude-sonnet-4-20250514` or `doubao-seed-1-6-250615` for other tools such as `"tool_name": "action_generator"`. You can customize the model configuration in the tools configuration files. Do not modify the `"tool_name"` in `tools_config.json` file. To change the `"provider"` and `"model_name"` in `tools_config.json` file, see [model.md](gui_agents/tools/model.md)
 
 ## 🚀 Usage
 
@@ -99,6 +99,7 @@ This will show a user query prompt where you can enter your instructions and int
 
 - `--query "YOUR_QUERY"`: Optional, can be input during the runtime; if provided, the agent will execute the query and then exit. 
 - `--max-steps NUMBER`: Sets the maximum number of steps the agent can take. Defaults to `50`.
+- `--mode [normal|fast]`: (Optional) Selects the agent mode. `normal` runs the full agent with detailed reasoning and memory, while `fast` mode executes actions more quickly with less reasoning overhead. Defaults to `normal`.
 
 ### Examples
 
@@ -110,6 +111,11 @@ python gui_agents/cli_app.py --backend lybic
 Run a single query with the `pyautogui` backend and a maximum of 20 steps:
 ```sh
 python gui_agents/cli_app.py --backend pyautogui --query "计算器中求 8 × 7 的结果" --max-steps 20
+```
+
+Run in fast mode with the `pyautogui` backend:
+```sh
+python gui_agents/cli_app.py --backend pyautogui --mode fast
 ```
 
 > ❗**Warning**❗: The agent will directly control your computer with `--backend pyautogui`. Please use with care.

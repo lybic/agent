@@ -82,7 +82,7 @@ def config() -> argparse.Namespace:
 
     # environment config
     # vm_path = os.path.join("vmware_vm_data", "Ubuntu0", "Ubuntu0.vmx")
-    vm_path = os.path.join("vmware_vm_data", "Windows0", "Windows0.vmx")
+    vm_path = os.path.join("vmware_vm_data", "Windows-x86", "Windows 10 x64.vmx")
     parser.add_argument("--path_to_vm", type=str, default=vm_path)
     parser.add_argument(
         "--headless", action="store_true", help="Run in headless machine"
@@ -99,7 +99,7 @@ def config() -> argparse.Namespace:
     parser.add_argument("--screen_width", type=int, default=1920)
     parser.add_argument("--screen_height", type=int, default=1080)
     parser.add_argument("--sleep_after_execution", type=float, default=1.0)
-    parser.add_argument("--max_steps", type=int, default=15)
+    parser.add_argument("--max_steps", type=int, default=50)
 
     # agent config
     parser.add_argument(

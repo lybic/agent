@@ -1,0 +1,12 @@
+Google Chrome
+GIMP
+LibreOffice Writer
+LibreOffice Calc
+LibreOffice Impress
+Thunderbird
+VLC Media Player
+VS Code
+Mircosoft Office Word
+Mircosoft Office Excel
+Mircosoft Office Powerpoint
+

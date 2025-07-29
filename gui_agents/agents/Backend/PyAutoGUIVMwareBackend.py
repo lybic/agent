@@ -208,8 +208,18 @@ class PyAutoGUIVMwareBackend(Backend):
         for k in hold_keys:
             code_parts.append(f"pyautogui.keyDown('{k}')")
             code_parts.append(f"time.sleep(0.05)")
+        
         code_parts.append(f"pyautogui.moveTo(x = {act.startX}, y = {act.startY})")
-        code_parts.append(f"pyautogui.dragTo(x = {act.endX}, y = {act.endY})")
+        code_parts.append("time.sleep(0.1)")
+
+        code_parts.append(f"pyautogui.mouseDown(button='left')")
+        code_parts.append("time.sleep(0.2)")
+
+        code_parts.append(f"pyautogui.moveTo(x = {act.endX}, y = {act.endY}, duration=0.5)")
+        code_parts.append("time.sleep(0.1)")
+
+        code_parts.append(f"pyautogui.mouseUp(button='left')")
+
         for k in hold_keys:
             code_parts.append(f"pyautogui.keyUp('{k}')")
         return "; ".join(code_parts)
@@ -224,9 +234,8 @@ class PyAutoGUIVMwareBackend(Backend):
         if act.duration is not None:
             for k in act.keys or []:
                 code_parts.append(f"pyautogui.keyDown('{k}')")
-                code_parts.append(f"time.sleep(0.05)")    
-            code_parts.append(f"time.sleep({act.duration} * 1e-3)")
-            for k in act.keys or []:
+                code_parts.append(f"time.sleep({act.duration} * 1e-3)")
+            for k in reversed(act.keys):
                 code_parts.append(f"pyautogui.keyUp('{k}')")
         else:
             keys_str = "', '".join(act.keys)

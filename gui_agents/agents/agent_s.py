@@ -83,6 +83,7 @@ class AgentS2(UIAgent):
         memory_root_path: str = os.getcwd(),
         memory_folder_name: str = "kb_s2",
         kb_release_tag: str = "v0.2.2",
+        enable_takeover: bool = False,
     ):
         """Initialize AgentS2
 
@@ -91,6 +92,7 @@ class AgentS2(UIAgent):
             memory_root_path: Path to memory directory. Defaults to current working directory.
             memory_folder_name: Name of memory folder. Defaults to "kb_s2".
             kb_release_tag: Release tag for knowledge base. Defaults to "v0.2.2".
+            enable_takeover: Whether to enable user takeover functionality. Defaults to False.
         """
         super().__init__(
             platform,
@@ -100,6 +102,7 @@ class AgentS2(UIAgent):
         self.memory_folder_name = memory_folder_name
         self.kb_release_tag = kb_release_tag
         self.screen_size = screen_size
+        self.enable_takeover = enable_takeover
 
         # Load tools configuration from tools_config.json
         tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
@@ -146,6 +149,7 @@ class AgentS2(UIAgent):
             Tools_dict=self.Tools_dict,
             local_kb_path=self.local_kb_path,
             platform=self.platform,
+            enable_takeover=self.enable_takeover,
         )
 
         self.grounding = Grounding(
@@ -529,6 +533,7 @@ class AgentSFast(UIAgent):
         memory_root_path: str = os.getcwd(),
         memory_folder_name: str = "kb_s2",
         kb_release_tag: str = "v0.2.2",
+        enable_takeover: bool = False,
     ):
         """Initialize AgentSFast
 
@@ -537,6 +542,7 @@ class AgentSFast(UIAgent):
             memory_root_path: Path to memory directory. Defaults to current working directory.
             memory_folder_name: Name of memory folder. Defaults to "kb_s2".
             kb_release_tag: Release tag for knowledge base. Defaults to "v0.2.2".
+            enable_takeover: Whether to enable user takeover functionality. Defaults to False.
         """
         super().__init__(
             platform,
@@ -546,6 +552,7 @@ class AgentSFast(UIAgent):
         self.memory_folder_name = memory_folder_name
         self.kb_release_tag = kb_release_tag
         self.screen_size = screen_size
+        self.enable_takeover = enable_takeover
 
         # Load tools configuration from tools_config.json
         tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
@@ -581,11 +588,12 @@ class AgentSFast(UIAgent):
         """Reset agent state and initialize components"""
         # Initialize the fast action generator tool
         self.fast_action_generator = Tools()
-        self.fast_action_generator.register_tool("fast_action_generator", 
-                                               self.Tools_dict["fast_action_generator"]["provider"], 
-                                               self.Tools_dict["fast_action_generator"]["model"])
+        self.fast_action_generator_tool = "fast_action_generator_with_takeover" if self.enable_takeover else "fast_action_generator"
+        self.fast_action_generator.register_tool(self.fast_action_generator_tool, 
+                                               self.Tools_dict[self.fast_action_generator_tool]["provider"], 
+                                               self.Tools_dict[self.fast_action_generator_tool]["model"])
 
-        self.grounding_width, self.grounding_height = self.fast_action_generator.tools["fast_action_generator"].get_grounding_wh()
+        self.grounding_width, self.grounding_height = self.fast_action_generator.tools[self.fast_action_generator_tool].get_grounding_wh()
         if self.grounding_width is None or self.grounding_height is None:
             self.grounding_width = self.screen_size[0]
             self.grounding_height = self.screen_size[1]
@@ -625,7 +633,7 @@ class AgentSFast(UIAgent):
             history_str = ""
         
         plan, total_tokens, cost_string = self.fast_action_generator.execute_tool(
-            "fast_action_generator",
+            self.fast_action_generator_tool,
             {
                 "str_input": instruction + history_str,
                 "img_input": observation["screenshot"]

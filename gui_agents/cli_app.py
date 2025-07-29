@@ -100,17 +100,26 @@ def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInter
 
     return screenshot
 
-def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50):
+def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50, enable_takeover: bool = False):
     import time
     obs = {}
     traj = "Task:\n" + instruction
     subtask_traj = ""
     global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
     global_state.set_Tu(instruction)
+    global_state.set_running_state("running")
     hwi = hwi_para
     
     total_start_time = time.time()
     for _ in range(max_steps):
+        while global_state.get_running_state() == "stopped":
+            user_input = input("Agent execution is paused. Enter 'continue' to resume: ")
+            if user_input == "continue":
+                global_state.set_running_state("running")
+                logger.info("Agent execution resumed by user")
+                break
+            time.sleep(0.5)
+            
         screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
         global_state.set_screenshot(scale_screenshot_dimensions(screenshot, hwi_para)) # type: ignore
         obs = global_state.get_obs_for_manager()
@@ -144,6 +153,27 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
 
         if "wait" in code[0]["type"].lower():
             time.sleep(5)
+            continue
+            
+        if enable_takeover and "usertakeover" in code[0]["type"].lower():
+            message = code[0].get("message", "need user takeover")
+            logger.info(f"User takeover request: {message}")
+            
+            global_state.set_running_state("stopped")
+            
+            if platform.system() == "Darwin":
+                os.system(
+                    f'osascript -e \'display dialog "{message}" with title "User takeover request" buttons "Continue" default button "Continue"\''
+                )
+            elif platform.system() == "Linux":
+                os.system(
+                    f'zenity --info --title="User takeover request" --text="{message}" --width=300 --height=150'
+                )
+            
+            logger.info("Agent execution paused waiting for user takeover")
+            continue
+        elif not enable_takeover and "usertakeover" in code[0]["type"].lower():
+            logger.info(f"User takeover request received but takeover is disabled. Continuing execution.")
             continue
 
         else:
@@ -189,16 +219,25 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
     )
 
 
-def run_agent_fast(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50):
+def run_agent_fast(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50, enable_takeover: bool = False):
     import time
     obs = {}
     global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
     global_state.set_Tu(instruction)
+    global_state.set_running_state("running")
     hwi = hwi_para
     
     total_start_time = time.time()
     action_history = []
     for step in range(max_steps):
+        while global_state.get_running_state() == "stopped":
+            user_input = input("Agent execution is paused. Enter 'continue' to resume: ")
+            if user_input == "continue":
+                global_state.set_running_state("running")
+                logger.info("[Fast Mode] Agent execution resumed by user")
+                break
+            time.sleep(0.5)
+            
         screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
         global_state.set_screenshot(scale_screenshot_dimensions(screenshot, hwi_para)) # type: ignore
         obs = global_state.get_obs_for_manager()
@@ -231,6 +270,27 @@ def run_agent_fast(agent, instruction: str, hwi_para: HardwareInterface, max_ste
             wait_duration = code[0].get("duration", 5000) / 1000
             logger.info(f"[Fast Mode] Waiting for {wait_duration} seconds")
             time.sleep(wait_duration)
+            continue
+            
+        if enable_takeover and "usertakeover" in code[0]["type"].lower():
+            message = code[0].get("message", "need user takeover")
+            logger.info(f"[Fast Mode] User takeover request: {message}")
+            
+            global_state.set_running_state("stopped")
+            
+            if platform.system() == "Darwin":
+                os.system(
+                    f'osascript -e \'display dialog "{message}" with title "User takeover request (Fast)" buttons "Continue" default button "Continue"\''
+                )
+            elif platform.system() == "Linux":
+                os.system(
+                    f'zenity --info --title="User takeover request (Fast)" --text="{message}" --width=300 --height=150'
+                )
+            
+            logger.info("[Fast Mode] Agent execution paused waiting for user takeover")
+            continue
+        elif not enable_takeover and "usertakeover" in code[0]["type"].lower():
+            logger.info(f"[Fast Mode] User takeover request received but takeover is disabled. Continuing execution.")
             continue
 
         logger.info(f"[Fast Mode] Executing action: {code[0]}")
@@ -266,6 +326,7 @@ def main():
     parser.add_argument('--query', type=str, default='', help='Initial query to execute')
     parser.add_argument('--max-steps', type=int, default=50, help='Maximum number of steps to execute (default: 50)')
     parser.add_argument('--mode', type=str, default='normal', choices=['normal', 'fast'], help='Agent mode: normal or fast (default: normal)')
+    parser.add_argument('--enable-takeover', action='store_true', help='Enable user takeover functionality')
     args = parser.parse_args()
 
     # Ensure necessary directory structure exists
@@ -299,15 +360,23 @@ def main():
     if args.mode == 'fast':
         agent = AgentSFast(
             platform=current_platform,
+            enable_takeover=args.enable_takeover,
         )
         logger.info("Running in FAST mode")
         run_agent_func = run_agent_fast
     else:
         agent = AgentS2(
             platform=current_platform,
+            enable_takeover=args.enable_takeover,
         )
         logger.info("Running in NORMAL mode with full agent")
         run_agent_func = run_agent_normal
+    
+    # Log whether user takeover is enabled
+    if args.enable_takeover:
+        logger.info("User takeover functionality is ENABLED")
+    else:
+        logger.info("User takeover functionality is DISABLED")
     
     # Initialize hardware interface
     hwi = HardwareInterface(backend=args.backend, platform=platform_os)
@@ -315,7 +384,7 @@ def main():
     # if query is provided, run the agent on the query
     if args.query:
         agent.reset()
-        run_agent_func(agent, args.query, hwi, args.max_steps)
+        run_agent_func(agent, args.query, hwi, args.max_steps, args.enable_takeover)
         
     else:
         while True:
@@ -324,7 +393,7 @@ def main():
             agent.reset()
 
             # Run the agent on your own device
-            run_agent_func(agent, query, hwi, args.max_steps)
+            run_agent_func(agent, query, hwi, args.max_steps, args.enable_takeover)
 
             response = input("Would you like to provide another query? (y/n): ")
             if response.lower() != "y":
@@ -337,6 +406,6 @@ if __name__ == "__main__":
     python gui_agents/cli_app.py --backend pyautogui --mode fast
     python gui_agents/cli_app.py --backend pyautogui_vmware
     python gui_agents/cli_app.py --backend lybic --max-steps 15
-    python gui_agents/cli_app.py --backend lybic --mode fast
+    python gui_agents/cli_app.py --backend lybic --mode fast --enable-takeover
     """
     main()

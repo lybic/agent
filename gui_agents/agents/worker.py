@@ -27,6 +27,7 @@ class Worker:
         platform: str = platform.system().lower(),
         enable_reflection: bool = True,
         use_subtask_experience: bool = True,
+        enable_takeover: bool = False,
     ):
         """
         Worker receives a subtask list and active subtask and generates the next action for the to execute.
@@ -41,12 +42,15 @@ class Worker:
                 Whether to enable reflection
             use_subtask_experience: bool
                 Whether to use subtask experience
+            enable_takeover: bool
+                Whether to enable user takeover functionality
         """
         # super().__init__(engine_params, platform)
         self.platform = platform
 
         self.local_kb_path = local_kb_path
         self.Tools_dict = Tools_dict
+        self.enable_takeover = enable_takeover
 
         self.embedding_engine = Tools()
         self.embedding_engine.register_tool("embedding", self.Tools_dict["embedding"]["provider"], self.Tools_dict["embedding"]["model"])
@@ -59,7 +63,9 @@ class Worker:
     def reset(self):
 
         self.generator_agent = Tools()
-        self.generator_agent.register_tool("action_generator", self.Tools_dict["action_generator"]["provider"], self.Tools_dict["action_generator"]["model"])
+        self.action_generator_tool = "action_generator_with_takeover" if self.enable_takeover else "action_generator"
+        self.generator_agent.register_tool(self.action_generator_tool, self.Tools_dict[self.action_generator_tool]["provider"], self.Tools_dict[self.action_generator_tool]["model"])
+        
         self.reflection_agent = Tools()
         self.reflection_agent.register_tool("traj_reflector", self.Tools_dict["traj_reflector"]["provider"], self.Tools_dict["traj_reflector"]["model"])
 
@@ -204,7 +210,7 @@ class Worker:
             )
 
         action_generator_start = time.time()
-        plan, total_tokens, cost_string = self.generator_agent.execute_tool("action_generator", {"str_input": generator_message, "img_input": obs["screenshot"]})
+        plan, total_tokens, cost_string = self.generator_agent.execute_tool(self.action_generator_tool, {"str_input": generator_message, "img_input": obs["screenshot"]})
         logger.info(f"Action generator tokens: {total_tokens}, cost: {cost_string}")
         action_generator_time = time.time() - action_generator_start
         logger.info(f"[Timing] Worker.action_generator execution time: {action_generator_time:.2f} seconds")

@@ -424,6 +424,23 @@ class Grounding(ACI):
             "message": message
         }
         return actionDict
+        
+    @agent_action
+    def user_takeover(
+        self,
+        message: str = '',
+    ):
+        """Request user to take over control temporarily
+        Args:
+            message:str, the message to display to the user explaining why takeover is needed
+        """
+        self.global_state.set_running_state("stopped")
+        
+        actionDict = {
+            "type": "UserTakeover",
+            "message": message
+        }
+        return actionDict
 
 class FastGrounding(ACI):
     """Fast version of Grounding that directly accepts coordinates instead of descriptions"""
@@ -684,6 +701,23 @@ class FastGrounding(ACI):
         """End the current task with a failure message, and replan the whole task."""
         actionDict = {
             "type": "Failed",
+            "message": message
+        }
+        return actionDict
+        
+    @agent_action
+    def user_takeover(
+        self,
+        message: str = '',
+    ):
+        """Request user to take over control temporarily
+        Args:
+            message:str, the message to display to the user explaining why takeover is needed
+        """
+        self.global_state.set_running_state("stopped")
+        
+        actionDict = {
+            "type": "UserTakeover",
             "message": message
         }
         return actionDict

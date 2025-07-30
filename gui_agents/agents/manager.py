@@ -29,6 +29,7 @@ class Manager:
         local_kb_path: str,
         multi_round: bool = False,
         platform: str = platform.system().lower(),
+        enable_search: bool = True,
     ):
         self.platform = platform
         self.Tools_dict = Tools_dict
@@ -70,8 +71,13 @@ class Manager:
         self.planner_history = []
 
         self.turn_count = 0
-        self.search_engine = Tools()
-        self.search_engine.register_tool("websearch", self.Tools_dict["websearch"]["provider"], self.Tools_dict["websearch"]["model"])
+        
+        # Initialize search engine based on enable_search parameter
+        if enable_search:
+            self.search_engine = Tools()
+            self.search_engine.register_tool("websearch", self.Tools_dict["websearch"]["provider"], self.Tools_dict["websearch"]["model"])
+        else:
+            self.search_engine = None
 
         self.multi_round = multi_round
 

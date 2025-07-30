@@ -33,13 +33,13 @@ uv --version
 uv install python 3.12.11
 
 # 3. Create a virtual environment
-uv venv
+uv venv -p 3.12.11
 
 # 4. Activate the virtual environment
 source .venv/bin/activate
 
-# 5. Install dependencies
-uv pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+# 5. Install dependencies (using locked versions)
+uv sync
 
 # 6. Install the package locally in development mode
 uv pip install -e .

@@ -56,7 +56,7 @@ The simplest way to configure API keys is to:
 OPENAI_API_KEY=your_openai_key
 ANTHROPIC_API_KEY=your_anthropic_key
 GEMINI_API_KEY=your_gemini_key
-DOUBAO_API_KEY=your_doubao_key
+ARK_API_KEY=your_doubao_key
 ```
 
 ### Tool Configuration

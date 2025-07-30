@@ -56,7 +56,7 @@ The simplest way to configure API keys is to:
 OPENAI_API_KEY=your_openai_key
 ANTHROPIC_API_KEY=your_anthropic_key
 GEMINI_API_KEY=your_gemini_key
-DOUBAO_API_KEY=your_doubao_key
+ARK_API_KEY=your_doubao_key
 ```
 
 ### Tool Configuration
@@ -100,6 +100,8 @@ This will show a user query prompt where you can enter your instructions and int
 - `--query "YOUR_QUERY"`: Optional, can be input during the runtime; if provided, the agent will execute the query and then exit. 
 - `--max-steps NUMBER`: Sets the maximum number of steps the agent can take. Defaults to `50`.
 - `--mode [normal|fast]`: (Optional) Selects the agent mode. `normal` runs the full agent with detailed reasoning and memory, while `fast` mode executes actions more quickly with less reasoning overhead. Defaults to `normal`.
+- `--enable-takeover`: (Optional) Enables user takeover functionality, allowing the agent to pause and request user intervention when needed. By default, user takeover is disabled.
+- `--disable-search`: (Optional) Disables web search functionality. By default, web search is enabled.
 
 ### Examples
 

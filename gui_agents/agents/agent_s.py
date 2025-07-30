@@ -84,6 +84,7 @@ class AgentS2(UIAgent):
         memory_folder_name: str = "kb_s2",
         kb_release_tag: str = "v0.2.2",
         enable_takeover: bool = False,
+        enable_search: bool = True,
     ):
         """Initialize AgentS2
 
@@ -93,6 +94,7 @@ class AgentS2(UIAgent):
             memory_folder_name: Name of memory folder. Defaults to "kb_s2".
             kb_release_tag: Release tag for knowledge base. Defaults to "v0.2.2".
             enable_takeover: Whether to enable user takeover functionality. Defaults to False.
+            enable_search: Whether to enable web search functionality. Defaults to True.
         """
         super().__init__(
             platform,
@@ -103,6 +105,7 @@ class AgentS2(UIAgent):
         self.kb_release_tag = kb_release_tag
         self.screen_size = screen_size
         self.enable_takeover = enable_takeover
+        self.enable_search = enable_search
 
         # Load tools configuration from tools_config.json
         tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
@@ -143,6 +146,7 @@ class AgentS2(UIAgent):
             Tools_dict=self.Tools_dict,
             local_kb_path=self.local_kb_path,
             platform=self.platform,
+            enable_search=self.enable_search,
         )
         
         self.worker = Worker(
@@ -534,6 +538,7 @@ class AgentSFast(UIAgent):
         memory_folder_name: str = "kb_s2",
         kb_release_tag: str = "v0.2.2",
         enable_takeover: bool = False,
+        enable_search: bool = True,
     ):
         """Initialize AgentSFast
 
@@ -543,6 +548,7 @@ class AgentSFast(UIAgent):
             memory_folder_name: Name of memory folder. Defaults to "kb_s2".
             kb_release_tag: Release tag for knowledge base. Defaults to "v0.2.2".
             enable_takeover: Whether to enable user takeover functionality. Defaults to False.
+            enable_search: Whether to enable web search functionality. Defaults to True.
         """
         super().__init__(
             platform,
@@ -553,6 +559,7 @@ class AgentSFast(UIAgent):
         self.kb_release_tag = kb_release_tag
         self.screen_size = screen_size
         self.enable_takeover = enable_takeover
+        self.enable_search = enable_search
 
         # Load tools configuration from tools_config.json
         tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")

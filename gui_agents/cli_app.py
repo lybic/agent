@@ -327,6 +327,7 @@ def main():
     parser.add_argument('--max-steps', type=int, default=50, help='Maximum number of steps to execute (default: 50)')
     parser.add_argument('--mode', type=str, default='normal', choices=['normal', 'fast'], help='Agent mode: normal or fast (default: normal)')
     parser.add_argument('--enable-takeover', action='store_true', help='Enable user takeover functionality')
+    parser.add_argument('--disable-search', action='store_true', help='Disable web search functionality (default: enabled)')
     args = parser.parse_args()
 
     # Ensure necessary directory structure exists
@@ -361,6 +362,7 @@ def main():
         agent = AgentSFast(
             platform=current_platform,
             enable_takeover=args.enable_takeover,
+            enable_search=not args.disable_search,
         )
         logger.info("Running in FAST mode")
         run_agent_func = run_agent_fast
@@ -368,6 +370,7 @@ def main():
         agent = AgentS2(
             platform=current_platform,
             enable_takeover=args.enable_takeover,
+            enable_search=not args.disable_search,
         )
         logger.info("Running in NORMAL mode with full agent")
         run_agent_func = run_agent_normal
@@ -377,6 +380,12 @@ def main():
         logger.info("User takeover functionality is ENABLED")
     else:
         logger.info("User takeover functionality is DISABLED")
+    
+    # Log whether web search is enabled
+    if args.disable_search:
+        logger.info("Web search functionality is DISABLED")
+    else:
+        logger.info("Web search functionality is ENABLED")
     
     # Initialize hardware interface
     hwi = HardwareInterface(backend=args.backend, platform=platform_os)
@@ -407,5 +416,7 @@ if __name__ == "__main__":
     python gui_agents/cli_app.py --backend pyautogui_vmware
     python gui_agents/cli_app.py --backend lybic --max-steps 15
     python gui_agents/cli_app.py --backend lybic --mode fast --enable-takeover
+    python gui_agents/cli_app.py --backend lybic --disable-search
+    python gui_agents/cli_app.py --backend pyautogui --mode fast --disable-search
     """
     main()

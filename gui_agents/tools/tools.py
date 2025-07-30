@@ -17,7 +17,7 @@ import logging
 from gui_agents.core.mllm import LLMAgent, WebSearchAgent, EmbeddingAgent
 import threading
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("desktopenv.tools")
 
 class BaseTool(ABC):
     """Base class for all tools."""
@@ -122,7 +122,7 @@ class ToolFactory:
     """Factory class for creating tools."""
     
     @staticmethod
-    def create_tool(tool_name: str, provider: str, model_name: str) -> 'BaseTool':
+    def create_tool(tool_name: str, provider: str, model_name: str, **kwargs) -> 'BaseTool':
         """
         Create a tool instance based on the tool name.
         
@@ -130,6 +130,7 @@ class ToolFactory:
             tool_name: Name of the tool to create
             provider: API provider name
             model_name: Model name to use
+            **kwargs: Additional parameters to pass to the tool
             
         Returns:
             An instance of the specified tool
@@ -163,11 +164,11 @@ class ToolFactory:
         
         # WebSearchTool and EmbeddingTool don't need a prompt
         if tool_name == "websearch":
-            return tool_class(provider, model_name, None)
+            return tool_class(provider, model_name, None, **kwargs)
         if tool_name == "embedding":
-            return tool_class(provider, model_name, None)
+            return tool_class(provider, model_name, None, **kwargs)
         
-        return tool_class(provider, model_name, prompt_key)
+        return tool_class(provider, model_name, prompt_key, **kwargs)
 
 
 class WebSearchTool(BaseTool):
@@ -446,6 +447,32 @@ class EvaluatorTool(BaseTool):
 class ActionGeneratorTool(BaseTool):
     """Tool for generating executable actions."""
     
+    def __init__(self, provider: str, model_name: str, tool_name: str, **kwargs):
+        """
+        Initialize the action generator tool.
+        
+        Args:
+            provider: API provider name
+            model_name: Model name to use
+            tool_name: Name of the tool (used as key in prompts.json)
+            **kwargs: Additional parameters, including:
+                enable_search: Whether to enable web search functionality
+                search_provider: Provider for web search (defaults to "bocha")
+                search_model: Model for web search (defaults to "")
+        """
+        super().__init__(provider, model_name, tool_name)
+        
+        # Extract search-related parameters
+        self.enable_search = kwargs.get("enable_search", False)
+        search_provider = kwargs.get("search_provider", "bocha")
+        search_model = kwargs.get("search_model", "")
+        
+        # Initialize search tool if enabled
+        self.search_tool = None
+        if self.enable_search:
+            self.search_tool = WebSearchTool(search_provider, search_model, "")
+            logger.info(f"Web search enabled for {tool_name} using provider: {search_provider}")
+    
     def execute(self, tool_input: Dict[str, Any]):
         """
         Generate executable actions.
@@ -460,7 +487,24 @@ class ActionGeneratorTool(BaseTool):
         """
         action_request = tool_input.get('str_input', '')
         if not action_request:
-            return "Error: No action request provided"
+            return "Error: No action request provided", [0, 0, 0], ""
+        
+        # Check if search is enabled
+        if self.enable_search and self.search_tool:
+            try:
+                # Use the input text directly as search query
+                search_query = action_request
+                logger.info(f"Performing web search for query: {search_query}")
+                search_results, tokens, cost = self.search_tool.execute({"str_input": search_query})
+                
+                # Enhance the action request with search results
+                enhanced_request = f"[Action Request]\n{action_request}\n[End of Action Request]\n\n[Web Search Results for '{action_request}']\n{search_results}\n\n[End of Web Search Results]"
+                tool_input["str_input"] = enhanced_request
+                
+                logger.info(f"Search completed. Found information: {len(search_results)} characters")
+            except Exception as e:
+                logger.error(f"Error during web search: {e}")
+                # Continue with original request if search fails
         
         # Use the prompt template and LMM for action generation
         return self._call_lmm(tool_input)
@@ -468,6 +512,32 @@ class ActionGeneratorTool(BaseTool):
 
 class FastActionGeneratorTool(BaseTool):
     """Tool for directly generating executable actions without intermediate planning."""
+    
+    def __init__(self, provider: str, model_name: str, tool_name: str, **kwargs):
+        """
+        Initialize the fast action generator tool.
+        
+        Args:
+            provider: API provider name
+            model_name: Model name to use
+            tool_name: Name of the tool (used as key in prompts.json)
+            **kwargs: Additional parameters, including:
+                enable_search: Whether to enable web search functionality
+                search_provider: Provider for web search (defaults to "bocha")
+                search_model: Model for web search (defaults to "")
+        """
+        super().__init__(provider, model_name, tool_name)
+        
+        # Extract search-related parameters
+        self.enable_search = kwargs.get("enable_search", False)
+        search_provider = kwargs.get("search_provider", "bocha")
+        search_model = kwargs.get("search_model", "")
+        
+        # Initialize search tool if enabled
+        self.search_tool = None
+        if self.enable_search:
+            self.search_tool = WebSearchTool(search_provider, search_model, "")
+            logger.info(f"Web search enabled for {tool_name} using provider: {search_provider}")
     
     def execute(self, tool_input: Dict[str, Any]):
         """
@@ -484,9 +554,26 @@ class FastActionGeneratorTool(BaseTool):
         action_request = tool_input.get('str_input', '')
         screenshot = tool_input.get('img_input')
         if not action_request:
-            return "Error: No action request provided"
+            return "Error: No action request provided", [0, 0, 0], ""
         if not screenshot:
-            return "Error: No screenshot provided"
+            return "Error: No screenshot provided", [0, 0, 0], ""
+        # Check if search is enabled
+        if self.enable_search and self.search_tool:
+            try:
+                # Use the input text directly as search query
+                search_query = action_request
+                logger.info(f"Performing web search for query: {search_query}")
+                search_results, tokens, cost = self.search_tool.execute({"str_input": search_query})
+                
+                # Enhance the action request with search results
+                enhanced_request = f"[Action Request]\n{action_request}\n[End of Action Request]\n\n[Web Search Results for '{action_request}']\n{search_results}\n\n[End of Web Search Results]"
+                tool_input["str_input"] = enhanced_request
+                
+                logger.info(f"Search completed. Found information: {len(search_results)} characters")
+            except Exception as e:
+                logger.error(f"Error during web search: {e}")
+                # Continue with original request if search fails
+        
         # Use the prompt template and LMM for action generation
         return self._call_lmm(tool_input)
 
@@ -585,7 +672,7 @@ class Tools:
         """Initialize the Tools class."""
         self.tools = {}
     
-    def register_tool(self, tool_name: str, provider: str, model_name: str):
+    def register_tool(self, tool_name: str, provider: str, model_name: str, **kwargs):
         """
         Register a tool with the specified parameters.
         
@@ -593,8 +680,9 @@ class Tools:
             tool_name: Name of the tool to register
             provider: API provider name
             model_name: Model name to use
+            **kwargs: Additional parameters to pass to the tool
         """
-        tool: BaseTool = ToolFactory.create_tool(tool_name, provider, model_name)
+        tool: BaseTool = ToolFactory.create_tool(tool_name, provider, model_name, **kwargs)
         self.tools[tool_name] = tool
     
     def execute_tool(self, tool_name: str, tool_input: Dict[str, Any]):

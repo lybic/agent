@@ -3,6 +3,8 @@ import re
 import textwrap
 from typing import Dict, List, Tuple
 import platform
+import os
+import json
 
 from gui_agents.agents.grounding import ACI
 from gui_agents.core.knowledge import KnowledgeBase
@@ -28,6 +30,8 @@ class Worker:
         enable_reflection: bool = True,
         use_subtask_experience: bool = True,
         enable_takeover: bool = False,
+        enable_search: bool = True,
+        tools_config: Dict = {},
     ):
         """
         Worker receives a subtask list and active subtask and generates the next action for the to execute.
@@ -44,6 +48,10 @@ class Worker:
                 Whether to use subtask experience
             enable_takeover: bool
                 Whether to enable user takeover functionality
+            enable_search: bool
+                Global switch for search functionality (overrides config)
+            tools_config: Dict
+                Complete tools configuration from tools_config.json
         """
         # super().__init__(engine_params, platform)
         self.platform = platform
@@ -51,6 +59,15 @@ class Worker:
         self.local_kb_path = local_kb_path
         self.Tools_dict = Tools_dict
         self.enable_takeover = enable_takeover
+        self.enable_search = enable_search  # Store global search switch
+        
+        # If tools_config is not provided, load it from file
+        if tools_config is None:
+            tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
+            with open(tools_config_path, "r") as f:
+                self.tools_config = json.load(f)
+        else:
+            self.tools_config = tools_config
 
         self.embedding_engine = Tools()
         self.embedding_engine.register_tool("embedding", self.Tools_dict["embedding"]["provider"], self.Tools_dict["embedding"]["model"])
@@ -64,7 +81,40 @@ class Worker:
 
         self.generator_agent = Tools()
         self.action_generator_tool = "action_generator_with_takeover" if self.enable_takeover else "action_generator"
-        self.generator_agent.register_tool(self.action_generator_tool, self.Tools_dict[self.action_generator_tool]["provider"], self.Tools_dict[self.action_generator_tool]["model"])
+        
+        # Get tool configuration from tools_config
+        tool_config = None
+        for tool in self.tools_config["tools"]:
+            if tool["tool_name"] == self.action_generator_tool:
+                tool_config = tool
+                break
+        
+        # Prepare tool parameters
+        tool_params = {}
+        
+        # First check global search switch
+        if not self.enable_search:
+            # If global search is disabled, force disable search for this tool
+            tool_params["enable_search"] = False
+            logger.info(f"Configuring {self.action_generator_tool} with search DISABLED (global switch off)")
+        else:
+            # If global search is enabled, check tool-specific config
+            if tool_config and "enable_search" in tool_config:
+                # Use enable_search from config file
+                enable_search = tool_config.get("enable_search", False)
+                tool_params["enable_search"] = enable_search
+                tool_params["search_provider"] = tool_config.get("search_provider", "bocha")
+                tool_params["search_model"] = tool_config.get("search_model", "")
+                
+                logger.info(f"Configuring {self.action_generator_tool} with search enabled: {enable_search} (from config)")
+        
+        # Register the tool with parameters
+        self.generator_agent.register_tool(
+            self.action_generator_tool, 
+            self.Tools_dict[self.action_generator_tool]["provider"], 
+            self.Tools_dict[self.action_generator_tool]["model"],
+            **tool_params
+        )
         
         self.reflection_agent = Tools()
         self.reflection_agent.register_tool("traj_reflector", self.Tools_dict["traj_reflector"]["provider"], self.Tools_dict["traj_reflector"]["model"])

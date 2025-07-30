@@ -101,7 +101,7 @@ def parse_dag(text):
                     return None
             except Exception:
                 logger.error("All JSON fixing attempts failed")
-                return None
+        return None
 
     # Check if payload contains dag key
     if "dag" not in payload:
@@ -122,7 +122,7 @@ def parse_dag(text):
                 return None
         except ValidationError as e:
             logger.error(f"Data structure validation error: {e}")
-            return None
+        return None
 
     # Normal case, use value of dag key
     try:

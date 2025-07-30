@@ -49,7 +49,10 @@ def parse_dag(text):
     """
     Try extracting JSON from <json>…</json> tags first;
     if not found, try ```json … ``` Markdown fences.
+    If both fail, try to parse the entire text as JSON.
     """
+    import logging
+    logger = logging.getLogger("desktopenv.agent")
 
     def _extract(pattern):
         m = re.search(pattern, text, re.DOTALL)
@@ -60,25 +63,75 @@ def parse_dag(text):
     # 2) fallback to ```json … ```
     if json_str is None:
         json_str = _extract(r"```json\s*(.*?)\s*```")
+        if json_str is None:
+            # 3) try other possible code block formats
+            json_str = _extract(r"```\s*(.*?)\s*```")
 
+    # 4) if still not found, try to parse the entire text
     if json_str is None:
-        print("Error: JSON not found in either <json> tags or ```json``` fence")
-        return None
+        logger.warning("JSON markers not found, attempting to parse entire text")
+        json_str = text.strip()
+
+    # Log the extracted JSON string
+    logger.debug(f"Extracted JSON string: {json_str[:100]}...")
 
     try:
+        # Try to parse as JSON directly
         payload = json.loads(json_str)
     except json.JSONDecodeError as e:
-        print(f"Error: Invalid JSON ({e})")
-        return None
+        logger.error(f"JSON parsing error: {e}")
+        
+        # Try to fix common JSON format issues
+        try:
+            # Replace single quotes with double quotes
+            fixed_json = json_str.replace("'", "\"")
+            payload = json.loads(fixed_json)
+            logger.info("Successfully fixed JSON by replacing single quotes with double quotes")
+        except json.JSONDecodeError:
+            # Try to find and extract possible JSON objects
+            try:
+                # Look for content between { and }
+                match = re.search(r"\{(.*)\}", json_str, re.DOTALL)
+                if match:
+                    fixed_json = "{" + match.group(1) + "}"
+                    payload = json.loads(fixed_json)
+                    logger.info("Successfully fixed JSON by extracting JSON object")
+                else:
+                    logger.error("Unable to fix JSON format")
+                    return None
+            except Exception:
+                logger.error("All JSON fixing attempts failed")
+                return None
 
+    # Check if payload contains dag key
     if "dag" not in payload:
-        print("Error: 'dag' key not found in JSON")
-        return None
+        logger.warning("'dag' key not found in JSON, attempting to use entire JSON object")
+        # If no dag key, try to use the entire payload
+        try:
+            # Check if payload directly conforms to Dag structure
+            if "nodes" in payload and "edges" in payload:
+                return Dag(**payload)
+            else:
+                # Iterate through top-level keys to find possible dag structure
+                for key, value in payload.items():
+                    if isinstance(value, dict) and "nodes" in value and "edges" in value:
+                        logger.info(f"Found DAG structure in key '{key}'")
+                        return Dag(**value)
+                
+                logger.error("Could not find valid DAG structure in JSON")
+                return None
+        except ValidationError as e:
+            logger.error(f"Data structure validation error: {e}")
+            return None
 
+    # Normal case, use value of dag key
     try:
         return Dag(**payload["dag"])
     except ValidationError as e:
-        print(f"Error: Invalid data structure - {e}")
+        logger.error(f"DAG data structure validation error: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unknown error parsing DAG: {e}")
         return None
 
 

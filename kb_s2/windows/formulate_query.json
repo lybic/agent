@@ -298,5 +298,6 @@
   "\u7528\u8ba1\u7b97\u5668\u8ba1\u7b978+7": "Windows\u7cfb\u7edf\u4e2d\u5982\u4f55\u4f7f\u7528\u8ba1\u7b97\u5668\u8ba1\u7b978+7",
   "Help me freeze the range A1:B1 on this sheet to keep the headers always visible": "How to freeze panes to keep range A1:B1 visible in Microsoft Excel",
   "Could you help me to sort the records according to the amounts ascendingly?": "How to sort records by amounts ascendingly in Microsoft Excel",
-  "Some data are missed by now and are filled by 'N/A' temporarily. Please hide them in the table for now. Do not delete them and filter is no needed.": "How to hide cells with '#N/A' in Excel without deleting them?"
+  "Some data are missed by now and are filled by 'N/A' temporarily. Please hide them in the table for now. Do not delete them and filter is no needed.": "How to hide cells with '#N/A' in Excel without deleting them?",
+  "\u5173\u95edchrome": "How to close the Chrome browser window that is currently open"
 }

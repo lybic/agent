@@ -14,36 +14,6 @@ import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 
-# Add color constants
-COLORS = {
-    "reset": "\033[0m",
-    "bold": "\033[1m",
-    "red": "\033[31m",
-    "green": "\033[32m",
-    "yellow": "\033[33m",
-    "blue": "\033[34m",
-    "magenta": "\033[35m",
-    "cyan": "\033[36m",
-    "white": "\033[37m",
-    "bg_red": "\033[41m",
-    "bg_green": "\033[42m",
-    "bg_yellow": "\033[43m",
-    "bg_blue": "\033[44m",
-    "bg_magenta": "\033[45m",
-    "bg_cyan": "\033[46m",
-}
-
-# Assign colors to different modules
-MODULE_COLORS = {
-    "manager": COLORS["green"],
-    "worker": COLORS["blue"],
-    "agent": COLORS["magenta"],
-    "grounding": COLORS["cyan"],
-    "hardware": COLORS["yellow"],
-    "knowledge": COLORS["red"],
-    "other": COLORS["white"]
-}
-
 
 def load_display_json(file_path: str) -> Dict:
     """
@@ -174,73 +144,6 @@ def truncate_text(text: str, max_length: int = 100) -> str:
     return text[:max_length - 3] + "..."
 
 
-def display_text_format(operations: List[Dict],
-                        filter_modules: Optional[List[str]] = None) -> None:
-    """
-    Display operation records in text format
-    
-    Args:
-        operations: List of operation records
-        filter_modules: List of modules to filter
-    """
-    for i, op in enumerate(operations):
-        # Skip modules that don't match the filter if a filter is specified
-        if filter_modules and op["module"] not in filter_modules:
-            continue
-
-        module = op["module"]
-        operation = op.get("operation", "unknown")
-        timestamp = format_timestamp(op.get("timestamp", 0))
-
-        # Use the color corresponding to the module
-        color = MODULE_COLORS.get(module, COLORS["reset"])
-
-        # Output basic information
-        print(
-            f"{i+1:3d} | {timestamp} | {color}{module:10}{COLORS['reset']} | {COLORS['bold']}{operation}{COLORS['reset']}"
-        )
-
-        # Output detailed information
-        if "duration" in op:
-            print(f"     └─ Duration: {format_duration(op['duration'])}")
-
-        if "tokens" in op:
-            print(f"     └─ Tokens: {format_tokens(op['tokens'])}")
-
-        if "cost" in op:
-            print(f"     └─ Cost: {op['cost']}")
-
-        if "content" in op:
-            content = truncate_text(op["content"])
-            print(f"     └─ Content: {content}")
-
-        if "status" in op:
-            print(f"     └─ Status: {op['status']}")
-
-        print()
-
-
-def display_json_format(operations: List[Dict],
-                        filter_modules: Optional[List[str]] = None) -> None:
-    """
-    Display operation records in JSON format
-    
-    Args:
-        operations: List of operation records
-        filter_modules: List of modules to filter
-    """
-    # Filter operations if modules are specified
-    if filter_modules:
-        filtered_ops = [
-            op for op in operations if op["module"] in filter_modules
-        ]
-    else:
-        filtered_ops = operations
-
-    # Output as formatted JSON
-    print(json.dumps(filtered_ops, indent=2, ensure_ascii=False))
-
-
 def find_latest_display_json() -> Optional[str]:
     """
     Find the latest display.json file
@@ -278,6 +181,7 @@ def main():
         description=
         "Display operation records in display.json file in chronological order")
     parser.add_argument("--file", help="Path to display.json file")
+    parser.add_argument("--dir", help="Path to directory containing display.json files (recursive)")
     parser.add_argument("--output",
                         choices=["text", "json"],
                         default="text",
@@ -288,7 +192,75 @@ def main():
 
     args = parser.parse_args()
 
-    # If no file is specified, try to find the latest display.json
+    if args.file and args.dir:
+        print("Error: --file and --dir cannot be used together")
+        sys.exit(1)
+
+    def process_one_file(file_path: str):
+        # Load data
+        data = load_display_json(file_path)
+        # Flatten and sort operations
+        operations = flatten_operations(data)
+        # Handle module filtering
+        filter_modules = None
+        if args.filter:
+            filter_modules = [module.strip() for module in args.filter.split(",")]
+        # Generate output content
+        output_content = ""
+        if args.output == "json":
+            # Filter operations if modules are specified
+            if filter_modules:
+                filtered_ops = [op for op in operations if op["module"] in filter_modules]
+            else:
+                filtered_ops = operations
+            output_content = json.dumps(filtered_ops, indent=2, ensure_ascii=False)
+        else:
+            # Generate text format output
+            output_lines = []
+            for i, op in enumerate(operations):
+                # Skip modules that don't match the filter if a filter is specified
+                if filter_modules and op["module"] not in filter_modules:
+                    continue
+                module = op["module"]
+                operation = op.get("operation", "unknown")
+                timestamp = format_timestamp(op.get("timestamp", 0))
+                # Output basic information
+                output_lines.append(f"{i+1:3d} | {timestamp} | {module:10} | {operation}")
+                # Output detailed information
+                if "duration" in op:
+                    output_lines.append(f"     └─ Duration: {format_duration(op['duration'])}")
+                if "tokens" in op:
+                    output_lines.append(f"     └─ Tokens: {format_tokens(op['tokens'])}")
+                if "cost" in op:
+                    output_lines.append(f"     └─ Cost: {op['cost']}")
+                if "content" in op:
+                    content = op["content"]
+                    output_lines.append(f"     └─ Content: {content}")
+                if "status" in op:
+                    output_lines.append(f"     └─ Status: {op['status']}")
+                output_lines.append("")
+            output_content = "\n".join(output_lines)
+        # Write output to file
+        input_path = Path(file_path)
+        output_filename = f"display_viewer_output_{args.output}.txt"
+        output_path = input_path.parent / output_filename
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(output_content)
+            print(f"Output written to: {output_path}")
+        except Exception as e:
+            print(f"Error writing output file: {e}")
+            sys.exit(1)
+
+    if args.dir:
+        for root, dirs, files in os.walk(args.dir):
+            for file in files:
+                if file == "display.json":
+                    file_path = os.path.join(root, file)
+                    print(f"Processing: {file_path}")
+                    process_one_file(file_path)
+        return
+
     file_path = args.file
     if not file_path:
         file_path = find_latest_display_json()
@@ -298,27 +270,12 @@ def main():
             )
             sys.exit(1)
         print(f"Using the latest display.json file: {file_path}")
-
-    # Load data
-    data = load_display_json(file_path)
-
-    # Flatten and sort operations
-    operations = flatten_operations(data)
-
-    # Handle module filtering
-    filter_modules = None
-    if args.filter:
-        filter_modules = [module.strip() for module in args.filter.split(",")]
-
-    # Display based on output format
-    if args.output == "json":
-        display_json_format(operations, filter_modules)
-    else:
-        display_text_format(operations, filter_modules)
+    process_one_file(file_path)
 
 
 if __name__ == "__main__":
     """
-    python gui_agents/s2/utils/display_viewer.py --file /Users/haoguangfu/Downloads/深维智能/客户方案/gui-agent/lybicguiagents/runtime/20250718_190307/display.json
+    python display_viewer.py --file 
+    python display_viewer.py --dir 
     """
     main()

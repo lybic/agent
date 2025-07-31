@@ -99,7 +99,7 @@ class BaseTool(ABC):
                 logger.error(f"LLM call attempt {attempt} failed: {str(e)}")
                 if attempt == max_retries:
                     logger.error("Max retries reached. Returning error message.")
-                    return f"Error: LLM call failed after {max_retries} attempts: {str(e)}"
+                    return f"Error: LLM call failed after {max_retries} attempts: {str(e)}", [0, 0, 0], ""
                 time.sleep(1.0)
         return content, total_tokens, cost_string
     

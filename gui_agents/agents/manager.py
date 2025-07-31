@@ -319,11 +319,34 @@ class Manager:
 
         logger.info("GENERATING DAG")
 
-        # Generate DAG
-        dag_raw, total_tokens, cost_string = self.dag_translator_agent.execute_tool("dag_translator", {"str_input": f"Instruction: {instruction}\nPlan: {plan}"})
-        logger.info(f"DAG translator tokens: {total_tokens}, cost: {cost_string}")
+        # Add maximum retry count
+        max_retries = 2
+        retry_count = 0
+        dag = None
 
-        dag = parse_dag(dag_raw)
+        while retry_count < max_retries and dag is None:
+            if retry_count > 0:
+                logger.warning(f"Retrying DAG generation, attempt {retry_count}")
+                self.global_state.log_operation(
+                    module="manager",
+                    operation="dag_retry",
+                    data={"retry_count": retry_count}
+                )
+            
+            # Generate DAG
+            dag_raw, total_tokens, cost_string = self.dag_translator_agent.execute_tool("dag_translator", {"str_input": f"Instruction: {instruction}\nPlan: {plan}"})
+            logger.info(f"DAG translator tokens: {total_tokens}, cost: {cost_string}")
+
+            # Try to parse DAG
+            dag = parse_dag(dag_raw)
+            
+            # If parsing fails, increment retry count
+            if dag is None:
+                retry_count += 1
+                # If not the last attempt, wait a short time before retrying
+                if retry_count < max_retries:
+                    time.sleep(1)
+        
         dag_time = time.time() - dag_start
         logger.info(f"[Timing] Manager._generate_dag execution time: {dag_time:.2f} seconds")
 
@@ -335,7 +358,8 @@ class Manager:
                 "tokens": total_tokens,
                 "cost": cost_string,
                 "content": dag_raw,
-                "duration": dag_time
+                "duration": dag_time,
+                "retry_count": retry_count
             }
         )
 
@@ -343,7 +367,18 @@ class Manager:
             "dag": dag_raw,
         }
 
-        assert type(dag) == Dag
+        # If all attempts fail, create a simple default DAG
+        if dag is None:
+            logger.error("Unable to generate valid DAG, using default DAG")
+            # Create a simple default DAG with just one "Execute Task" node
+            default_node = Node(name="Execute Task", info=f"Execute instruction: {instruction}")
+            dag = Dag(nodes=[default_node], edges=[])
+            
+            self.global_state.log_operation(
+                module="manager",
+                operation="default_dag_created",
+                data={"content": "Using default DAG because valid DAG could not be parsed from model output"}
+            )
 
         return dag_info, dag
 
@@ -351,31 +386,79 @@ class Manager:
         """Topological sort of the DAG using DFS
         dag: Dag: Object representation of the DAG with nodes and edges
         """
+        import logging
+        logger = logging.getLogger("desktopenv.agent")
 
-        def dfs(node_name, visited, stack):
+        # Check if DAG is empty
+        if not dag.nodes:
+            logger.warning("DAG has no nodes, returning empty list")
+            return []
+
+        # If there's only one node, return it directly
+        if len(dag.nodes) == 1:
+            logger.info("DAG has only one node, returning directly")
+            return dag.nodes
+
+        def dfs(node_name, visited, temp_visited, stack):
+            # If node is already in current path, we have a cycle
+            if node_name in temp_visited:
+                raise ValueError(f"Cycle detected in DAG involving node: {node_name}")
+            
+            # If node has been visited, skip
+            if visited.get(node_name, False):
+                return
+            
+            # Mark node as part of current path
+            temp_visited.add(node_name)
             visited[node_name] = True
-            for neighbor in adj_list[node_name]:
-                if not visited[neighbor]:
-                    dfs(neighbor, visited, stack)
+            
+            # Visit all neighbors
+            for neighbor in adj_list.get(node_name, []):
+                if not visited.get(neighbor, False):
+                    dfs(neighbor, visited, temp_visited, stack)
+            
+            # Remove node from current path
+            temp_visited.remove(node_name)
             stack.append(node_name)
 
-        # Convert edges to adjacency list
-        adj_list = defaultdict(list)
-        for u, v in dag.edges:
-            adj_list[u.name].append(v.name)
+        try:
+            # Build adjacency list
+            adj_list = defaultdict(list)
+            for u, v in dag.edges:
+                if not u or not v:
+                    logger.warning(f"Skipping invalid edge: {u} -> {v}")
+                    continue
+                adj_list[u.name].append(v.name)
 
-        visited = {node.name: False for node in dag.nodes}
-        stack = []
+            visited = {node.name: False for node in dag.nodes}
+            temp_visited = set()  # For cycle detection
+            stack = []
 
-        for node in dag.nodes:
-            if not visited[node.name]:
-                dfs(node.name, visited, stack)
+            # Perform DFS for each unvisited node
+            for node in dag.nodes:
+                if not visited.get(node.name, False):
+                    dfs(node.name, visited, temp_visited, stack)
 
-        # Return the nodes in topologically sorted order
-        sorted_nodes = [
-            next(n for n in dag.nodes if n.name == name) for name in stack[::-1]
-        ]
-        return sorted_nodes
+            # Return topologically sorted nodes
+            sorted_nodes = []
+            for name in stack[::-1]:
+                matching_nodes = [n for n in dag.nodes if n.name == name]
+                if matching_nodes:
+                    sorted_nodes.append(matching_nodes[0])
+                else:
+                    logger.warning(f"Could not find node named {name} in DAG node list")
+            
+            # Check if all nodes are included in result
+            if len(sorted_nodes) != len(dag.nodes):
+                logger.warning(f"Number of nodes in topological sort result ({len(sorted_nodes)}) does not match number in DAG ({len(dag.nodes)})")
+            
+            return sorted_nodes
+            
+        except Exception as e:
+            logger.error(f"Error during topological sort: {e}")
+            # On error, return original node list
+            logger.info("Returning unsorted original node list")
+            return dag.nodes
 
     def get_action_queue(
         self,
@@ -392,44 +475,89 @@ class Manager:
         import time
         action_queue_start = time.time()
 
-        planner_info, plan = self._generate_step_by_step_plan(
-            observation,
-            Tu,
-            failed_subtask,
-            completed_subtasks_list,
-            remaining_subtasks_list,
-        )
-
-        # Generate the DAG
-        dag_info, dag = self._generate_dag(Tu, plan)
-
-        # Topological sort of the DAG
-        action_queue = self._topological_sort(dag)
-
-        planner_info.update(dag_info)
-        
-        if action_queue:
-            logger.info(f"NEXT SUBTASK: {action_queue[0]}")
-            self.global_state.log_operation(
-                module="manager",
-                operation="next_subtask",
-                data={"content": str(action_queue[0])}
+        try:
+            planner_info, plan = self._generate_step_by_step_plan(
+                observation,
+                Tu,
+                failed_subtask,
+                completed_subtasks_list,
+                remaining_subtasks_list,
             )
-            
-            if len(action_queue) > 1:
-                logger.info(f"REMAINING SUBTASKS: {action_queue[1:]}")
+
+            # Generate the DAG
+            try:
+                dag_info, dag = self._generate_dag(Tu, plan)
+            except Exception as e:
+                logger.error(f"Error generating DAG: {e}")
+                # Create a simple default DAG with just one "Execute Task" node
+                default_node = Node(name="Execute Task", info=f"Execute instruction: {Tu}")
+                dag = Dag(nodes=[default_node], edges=[])
+                dag_info = {"dag": "Failed to generate DAG, using default DAG"}
+                
                 self.global_state.log_operation(
                     module="manager",
-                    operation="remaining_subtasks",
-                    data={"content": str(action_queue[1:])}
+                    operation="dag_generation_error",
+                    data={"error": str(e), "content": "Using default DAG due to error in DAG generation"}
                 )
-        
-        action_queue_time = time.time() - action_queue_start
-        logger.info(f"[Timing] manager.get_action_queue execution time: {action_queue_time:.2f} seconds")
-        self.global_state.log_operation(
-            module="manager",
-            operation="manager.get_action_queue",
-            data={"duration": action_queue_time}
-        )
 
-        return planner_info, action_queue
+            # Topological sort of the DAG
+            try:
+                action_queue = self._topological_sort(dag)
+            except Exception as e:
+                logger.error(f"Error during topological sort of DAG: {e}")
+                # If topological sort fails, use node list directly
+                action_queue = dag.nodes
+                
+                self.global_state.log_operation(
+                    module="manager",
+                    operation="topological_sort_error",
+                    data={"error": str(e), "content": "Topological sort failed, using node list directly"}
+                )
+
+            planner_info.update(dag_info)
+            
+            if action_queue:
+                logger.info(f"NEXT SUBTASK: {action_queue[0]}")
+                self.global_state.log_operation(
+                    module="manager",
+                    operation="next_subtask",
+                    data={"content": str(action_queue[0])}
+                )
+                
+                if len(action_queue) > 1:
+                    logger.info(f"REMAINING SUBTASKS: {action_queue[1:]}")
+                    self.global_state.log_operation(
+                        module="manager",
+                        operation="remaining_subtasks",
+                        data={"content": str(action_queue[1:])}
+                    )
+            
+            action_queue_time = time.time() - action_queue_start
+            logger.info(f"[Timing] manager.get_action_queue execution time: {action_queue_time:.2f} seconds")
+            self.global_state.log_operation(
+                module="manager",
+                operation="manager.get_action_queue",
+                data={"duration": action_queue_time}
+            )
+
+            return planner_info, action_queue
+            
+        except Exception as e:
+            # Handle any unhandled exceptions in the entire process
+            logger.error(f"Unhandled exception in get_action_queue function: {e}")
+            
+            # Create a simple default task node
+            default_node = Node(name="Execute Task", info=f"Execute instruction: {Tu}")
+            action_queue = [default_node]
+            planner_info = {"error": str(e), "fallback": "Using default task node"}
+            
+            self.global_state.log_operation(
+                module="manager",
+                operation="get_action_queue_error",
+                data={"error": str(e), "content": "Unhandled exception occurred, using default task node"}
+            )
+            
+            action_queue_time = time.time() - action_queue_start
+            logger.info(f"[Timing] manager.get_action_queue (error path) execution time: {action_queue_time:.2f} seconds")
+            
+            return planner_info, action_queue

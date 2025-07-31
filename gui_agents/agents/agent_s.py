@@ -110,10 +110,10 @@ class AgentS2(UIAgent):
         # Load tools configuration from tools_config.json
         tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
         with open(tools_config_path, "r") as f:
-            tools_config = json.load(f)
+            self.tools_config = json.load(f)
             print(f"Loaded tools configuration from: {tools_config_path}")
             self.Tools_dict = {}
-            for tool in tools_config["tools"]:
+            for tool in self.tools_config["tools"]:
                 tool_name = tool["tool_name"]
                 self.Tools_dict[tool_name] = {
                     "provider": tool["provider"],
@@ -146,7 +146,7 @@ class AgentS2(UIAgent):
             Tools_dict=self.Tools_dict,
             local_kb_path=self.local_kb_path,
             platform=self.platform,
-            enable_search=self.enable_search,
+            enable_search=self.enable_search,  # Pass global switch to Manager
         )
         
         self.worker = Worker(
@@ -154,6 +154,8 @@ class AgentS2(UIAgent):
             local_kb_path=self.local_kb_path,
             platform=self.platform,
             enable_takeover=self.enable_takeover,
+            enable_search=self.enable_search,  # Pass global switch to Worker
+            tools_config=self.tools_config,    # Pass complete tools configuration
         )
 
         self.grounding = Grounding(
@@ -564,10 +566,10 @@ class AgentSFast(UIAgent):
         # Load tools configuration from tools_config.json
         tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
         with open(tools_config_path, "r") as f:
-            tools_config = json.load(f)
+            self.tools_config = json.load(f)
             print(f"Loaded tools configuration from: {tools_config_path}")
             self.Tools_dict = {}
-            for tool in tools_config["tools"]:
+            for tool in self.tools_config["tools"]:
                 tool_name = tool["tool_name"]
                 self.Tools_dict[tool_name] = {
                     "provider": tool["provider"],
@@ -596,9 +598,40 @@ class AgentSFast(UIAgent):
         # Initialize the fast action generator tool
         self.fast_action_generator = Tools()
         self.fast_action_generator_tool = "fast_action_generator_with_takeover" if self.enable_takeover else "fast_action_generator"
-        self.fast_action_generator.register_tool(self.fast_action_generator_tool, 
-                                               self.Tools_dict[self.fast_action_generator_tool]["provider"], 
-                                               self.Tools_dict[self.fast_action_generator_tool]["model"])
+        
+        # Get tool configuration from tools_config
+        tool_config = None
+        for tool in self.tools_config["tools"]:
+            if tool["tool_name"] == self.fast_action_generator_tool:
+                tool_config = tool
+                break
+        
+        # Prepare tool parameters
+        tool_params = {}
+        
+        # First check global search switch
+        if not self.enable_search:
+            # If global search is disabled, force disable search for this tool
+            tool_params["enable_search"] = False
+            logger.info(f"Configuring {self.fast_action_generator_tool} with search DISABLED (global switch off)")
+        else:
+            # If global search is enabled, check tool-specific config
+            if tool_config and "enable_search" in tool_config:
+                # Use enable_search from config file
+                enable_search = tool_config.get("enable_search", False)
+                tool_params["enable_search"] = enable_search
+                tool_params["search_provider"] = tool_config.get("search_provider", "bocha")
+                tool_params["search_model"] = tool_config.get("search_model", "")
+                
+                logger.info(f"Configuring {self.fast_action_generator_tool} with search enabled: {enable_search} (from config)")
+        
+        # Register the tool with parameters
+        self.fast_action_generator.register_tool(
+            self.fast_action_generator_tool, 
+            self.Tools_dict[self.fast_action_generator_tool]["provider"], 
+            self.Tools_dict[self.fast_action_generator_tool]["model"],
+            **tool_params
+        )
 
         self.grounding_width, self.grounding_height = self.fast_action_generator.tools[self.fast_action_generator_tool].get_grounding_wh()
         if self.grounding_width is None or self.grounding_height is None:

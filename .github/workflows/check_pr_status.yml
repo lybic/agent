@@ -1,0 +1,23 @@
+name: Check PR Status
+
+on:
+  pull_request:
+    types: [opened, edited]
+
+jobs:
+  check_pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title
+        id: check_title
+        run: |
+          if [[ "${{ github.event.pull_request.title }}" == *"WIP"* ]] || [[ "${{ github.event.pull_request.title }}" == *"Work In Progress"* ]]; then
+            echo "::set-output name=status::Pr is working"
+          else
+            echo "::set-output name=status::Ready to review"
+          fi
+
+      - name: Set PR Status
+        run: |
+          echo "${{ steps.check_title.outputs.status }}"
+

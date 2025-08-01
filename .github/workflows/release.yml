@@ -1,0 +1,121 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_branch:
+        description: 'The base branch to create the release from (e.g., master)'
+        required: true
+      new_tag:
+        description: 'The new tag to create (e.g., v0.4.0)'
+        required: true
+      previous_tag:
+        description: 'The previous tag for changelog generation (e.g., v0.3.58)'
+        required: true
+
+jobs:
+  create_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # To push tags, branches, and commits
+      pull-requests: write # To create and merge pull requests
+    steps:
+      - name: Checkout master branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.base_branch }}
+          fetch-depth: 0 # Required for changelog generation from git history
+
+      - name: Configure Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+      - name: Create release branch
+        run: |
+          git checkout -b release_${{ github.event.inputs.new_tag }}
+
+      - name: Update version in pyproject.toml
+        run: |
+          # Remove 'v' prefix from tag if present (e.g., v0.4.0 -> 0.4.0)
+          VERSION=${{ github.event.inputs.new_tag }}
+          VERSION=${VERSION#v}
+          
+          # Update version in pyproject.toml
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+          
+          # Commit the version update
+          git add pyproject.toml
+          git commit -m "build: bump pypi package version to $VERSION"
+          git push --set-upstream origin release_${{ github.event.inputs.new_tag }}
+
+      - name: Create and push new tag
+        run: |
+          git tag ${{ github.event.inputs.new_tag }}
+          git push origin ${{ github.event.inputs.new_tag }}
+
+      - name: Generate changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEW_TAG: ${{ github.event.inputs.new_tag }}
+          PREVIOUS_TAG: ${{ github.event.inputs.previous_tag }}
+        run: |
+          echo "## Changelog for $NEW_TAG" > changelog.md
+          echo "" >> changelog.md
+          echo "Update from $PREVIOUS_TAG to $NEW_TAG" >> changelog.md
+          echo "" >> changelog.md
+          echo "Release timestamp: $(date +%Y-%m-%d)" >> changelog.md
+          echo "" >> changelog.md
+          gh api repos/${{ github.repository }}/compare/${PREVIOUS_TAG}...${NEW_TAG} --jq '.commits[] | "- \(.commit.message | split("\n")[0]) (by @\(.author.login // .commit.author.name) in `\(.sha | tostring | .[0:7])`) "' >> changelog.md
+          mkdir -p CHANGELOGS
+          mv changelog.md CHANGELOGS/${NEW_TAG}-release.md
+
+      - name: Commit and push changelog
+        run: |
+          git add CHANGELOGS/${{ github.event.inputs.new_tag }}-release.md
+          git commit -m "docs(changelog): Generate changelog for ${{ github.event.inputs.new_tag }}"
+          git push --set-upstream origin release_${{ github.event.inputs.new_tag }}
+
+      - name: Create Changelog Pull Request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEW_TAG: ${{ github.event.inputs.new_tag }}
+        run:  |
+          gh pr create --title "build: bump lybic-sdk-version to ${NEW_TAG}" --body "build: bump lybic-sdk-version to ${NEW_TAG}" --base master --head release_${{ github.event.inputs.new_tag }}
+          # gh pr merge --auto --squash # todo: To automatically merge, we need to enable the "Allow Automatic Merge" option in the repository Settings, but I couldn't find where this switch is
+
+  publish:
+    name: Publish Python Package to PyPI
+    needs: create_release
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/lybic
+    permissions:
+      id-token: write # Required for trusted publishing with OIDC
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: release_${{ github.event.inputs.new_tag }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install twine wheel setuptools build
+
+    - name: Build package
+      run: make build
+
+    - name: Publish package to PyPI
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.LYBIC_PYPI_KEY }}
+      run: make publish

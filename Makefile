@@ -34,19 +34,24 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  help               Display this help message"
-	@echo "  build              Build the python package"
-	@echo "  create-venv        Create a virtual environment in .venv/ via uv"
-	@echo "  clean              Remove build artifacts"
-	@echo "  clean-build-cache  Remove Python cache files"
-	@echo "  clean-venv         Remove the virtual environment"
-	@echo "  install-uv         Install the uv package"
-	@echo "  publish            Publish the package to PyPI"
+	@echo "  help               	Display this help message"
+	@echo "  build              	Build the python package"
+	@echo "  create-venv        	Create a virtual environment in .venv/ via uv"
+	@echo "  clean              	Remove build artifacts"
+	@echo "  clean-build-cache  	Remove Python cache files"
+	@echo "  clean-venv         	Remove the virtual environment"
+	@echo "  convert-dependencies	Convert dependency formats"
+	@echo "  install-uv         	Install the uv package"
+	@echo "  publish            	Publish the package to PyPI"
+
+convert-dependencies:
+	rm -f requirements.txt
+	$(PYTHON) scripts/covert_dependencies.py
 
 create-venv:
 	@echo "Creating a virtual environment via uv..."
-	uv python install 3.12.12
-	uv venv -p 3.12.12
+	uv python install 3.12.11
+	uv venv -p 3.12.11
 	source .venv/bin/activate
 	uv sync
 

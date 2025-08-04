@@ -3,9 +3,6 @@ name: Create Release
 on:
   workflow_dispatch:
     inputs:
-      base_branch:
-        description: 'The base branch to create the release from (e.g., master)'
-        required: true
       new_tag:
         description: 'The new tag to create (e.g., v0.4.0)'
         required: true
@@ -20,10 +17,10 @@ jobs:
       contents: write      # To push tags, branches, and commits
       pull-requests: write # To create and merge pull requests
     steps:
-      - name: Checkout master branch
+      - name: Checkout main branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.base_branch }}
+          ref: main
           fetch-depth: 0 # Required for changelog generation from git history
 
       - name: Configure Git user
@@ -81,7 +78,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           NEW_TAG: ${{ github.event.inputs.new_tag }}
         run:  |
-          gh pr create --title "build: bump lybic-sdk-version to ${NEW_TAG}" --body "build: bump lybic-sdk-version to ${NEW_TAG}" --base master --head release_${{ github.event.inputs.new_tag }}
+          gh pr create --title "build: bump gui-agents to ${NEW_TAG}" --body "build: bump gui-agents to ${NEW_TAG}" --base main --head release_${{ github.event.inputs.new_tag }}
           # gh pr merge --auto --squash # todo: To automatically merge, we need to enable the "Allow Automatic Merge" option in the repository Settings, but I couldn't find where this switch is
 
   publish:
@@ -107,9 +104,8 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install twine wheel setuptools build
+        python -m pip install --upgrade pip uv
+        make create-venv
 
     - name: Build package
       run: make build

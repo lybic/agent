@@ -61,11 +61,11 @@ install-uv:
 
 build:
 	@echo "Building the package..."
-	uv -m build
+	uv build
 
 publish:
 	@echo "Publishing the package..."
-	twine upload dist/*
+	uv publish
 
 clean: clean-build-cache
 	@echo "Cleaning build artifacts..."

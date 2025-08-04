@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import toml
 import sys
 from packaging import version

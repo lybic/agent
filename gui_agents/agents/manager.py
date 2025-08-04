@@ -12,6 +12,7 @@ from gui_agents.utils.common_utils import (
     Dag,
     Node,
     parse_dag,
+    agent_log_to_string,
 )
 from gui_agents.tools.tools import Tools
 from PIL import Image
@@ -183,7 +184,7 @@ class Manager:
                 data={
                     "tokens": total_tokens,
                     "cost": cost_string,
-                    "content": "Most similar task: " + most_similar_task + "\n" + "Retrieved experience: " + retrieved_experience.strip(),
+                    "content": "Most similar task: " + most_similar_task + "\n" + retrieved_experience.strip(),
                     "duration": narrative_time
                 }
             )
@@ -253,16 +254,20 @@ class Manager:
 
         # Re-plan on failure case
         if failed_subtask:
+            agent_log = agent_log_to_string(self.global_state.get_agent_log())
             generator_message = (
                 f"The subtask {failed_subtask} cannot be completed. Please generate a new plan for the remainder of the trajectory.\n\n"
                 f"Successfully Completed Subtasks:\n{format_subtask_list(completed_subtasks_list)}\n"
+                f"Please refer to the agent log to understand the progress and context of the task so far.\n{agent_log}"
             )
         # Re-plan on subtask completion case
         elif len(completed_subtasks_list) + len(remaining_subtasks_list) > 0:
+            agent_log = agent_log_to_string(self.global_state.get_agent_log())
             generator_message = (
                 "The current trajectory and desktop state is provided. Please revise the plan for the following trajectory.\n\n"
                 f"Successfully Completed Subtasks:\n{format_subtask_list(completed_subtasks_list)}\n"
                 f"Future Remaining Subtasks:\n{format_subtask_list(remaining_subtasks_list)}\n"
+                f"Please refer to the agent log to understand the progress and context of the task so far.\n{agent_log}"
             )
         # Initial plan case
         else:

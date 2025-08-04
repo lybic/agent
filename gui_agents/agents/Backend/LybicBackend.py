@@ -17,7 +17,8 @@ from gui_agents.agents.Action import (
     # ScrollAxis,
     # Open,
     # SwitchApp,
-    Screenshot
+    Screenshot,
+    Memorize
 )
 
 from gui_agents.agents.Backend.Backend import Backend
@@ -42,7 +43,7 @@ def _px(v: int) -> Dict[str, Any]:
 
 class LybicBackend(Backend):
     _supported = {Click, DoubleClick, Drag, TypeText, Scroll, Hotkey,
-                   Wait, Screenshot }
+                   Wait, Screenshot, Memorize }
 
     # ---------- ctor ----------
     def __init__(self, 
@@ -87,6 +88,7 @@ class LybicBackend(Backend):
         elif isinstance(action, Hotkey):       self._hotkey(action)
         elif isinstance(action, Screenshot):   return self._screenshot()   # type: ignore
         elif isinstance(action, Wait):         time.sleep(action.duration if action.duration is not None else 0.2)
+        elif isinstance(action, Memorize):     log.info(f"Memorizing information: {action.information}")  # Abstract action, no hardware execution needed
 
     # ---------- internal helpers ----------
     def _do(self, lybic_action: Dict[str, Any]):

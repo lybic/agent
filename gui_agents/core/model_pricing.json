@@ -24,19 +24,19 @@
         "claude-3-5-haiku-20241022": {"input": "0.8$", "output": "4$"}
       },
       "qwen": {
-        "qwen-max-latest": {"input": "2￥", "output": "8￥"},
-        "qwen-plus-latest": {"input": "0.0008￥", "output": "0.002￥"},
-        "qwen-turbo-latest": {"input": "0.0003￥", "output": "0.0006￥"},
-        "qwen-vl-max-latest": {"input": "0.003￥", "output": "0.009￥"},
-        "qwen-vl-plus-latest": {"input": "0.0015￥", "output": "0.0045￥"}
+        "qwen-max-latest": {"input": "2.4￥", "output": "9.6￥"},
+        "qwen-plus-latest": {"input": "0.8￥", "output": "2￥"},
+        "qwen-turbo-latest": {"input": "0.3￥", "output": "0.6￥"},
+        "qwen-vl-max-latest": {"input": "3￥", "output": "9￥"},
+        "qwen-vl-plus-latest": {"input": "1.5￥", "output": "4.5￥"}
       },
       "doubao": {
-        "doubao-seed-1-6-flash-250615": {"input": "0.00015￥", "output": "0.0015￥"},
-        "doubao-seed-1-6-thinking-250715": {"input": "0.0004￥", "output": "0.004￥"},
-        "doubao-seed-1-6-250615": {"input": "0.0004￥", "output": "0.001￥"},
-        "doubao-1.5-vision-pro-250328": {"input": "0.003￥", "output": "0.009￥"},
-        "doubao-1-5-thinking-vision-pro-250428": {"input": "0.003￥", "output": "0.009￥"},
-        "doubao-1-5-ui-tars-250428": {"input": "0.0035￥", "output": "0.012￥"}
+        "doubao-seed-1-6-flash-250615": {"input": "0.15￥", "output": "1.50￥"},
+        "doubao-seed-1-6-thinking-250715": {"input": "0.8￥", "output": "8￥"},
+        "doubao-seed-1-6-250615": {"input": "0.8￥", "output": "2￥"},
+        "doubao-1.5-vision-pro-250328": {"input": "3￥", "output": "9￥"},
+        "doubao-1-5-thinking-vision-pro-250428": {"input": "3￥", "output": "9￥"},
+        "doubao-1-5-ui-tars-250428": {"input": "3.5￥", "output": "12￥"}
       },
       "deepseek": {
         "deepseek-chat": {"input": "2￥", "output": "8￥"},

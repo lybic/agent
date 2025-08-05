@@ -30,6 +30,9 @@ from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
 from gui_agents.agents.hardware_interface import HardwareInterface
 
+# Import analyze_display functionality
+from gui_agents.utils.analyze_display import analyze_display_json, aggregate_results, format_output_line
+
 current_platform = platform.system().lower()
 
 logger = logging.getLogger()
@@ -73,6 +76,82 @@ logger.addHandler(stdout_handler)
 logger.addHandler(sdebug_handler)
 
 platform_os = platform.system()
+
+
+def auto_analyze_execution(timestamp_dir: str):
+    """
+    Automatically analyze execution statistics from display.json files after task completion
+    
+    Args:
+        timestamp_dir: Directory containing the execution logs and display.json
+    """
+    import time
+    
+    try:
+        # Analyze the display.json file for this execution
+        display_json_path = os.path.join(timestamp_dir, "display.json")
+        
+        # Wait for file to be fully written
+        max_wait_time = 10  # Maximum wait time in seconds
+        wait_interval = 0.5  # Check every 0.5 seconds
+        waited_time = 0
+        
+        while waited_time < max_wait_time:
+            if os.path.exists(display_json_path):
+                # Check if file is still being written by monitoring its size
+                try:
+                    size1 = os.path.getsize(display_json_path)
+                    time.sleep(wait_interval)
+                    size2 = os.path.getsize(display_json_path)
+                    
+                    # If file size hasn't changed in the last 0.5 seconds, it's likely complete
+                    if size1 == size2:
+                        logger.info(f"Display.json file appears to be complete (size: {size1} bytes)")
+                        break
+                    else:
+                        logger.info(f"Display.json file still being written (size changed from {size1} to {size2} bytes)")
+                        waited_time += wait_interval
+                        continue
+                except OSError:
+                    # File might be temporarily inaccessible
+                    time.sleep(wait_interval)
+                    waited_time += wait_interval
+                    continue
+            else:
+                logger.info(f"Waiting for display.json file to be created... ({waited_time:.1f}s)")
+                time.sleep(wait_interval)
+                waited_time += wait_interval
+        
+        if os.path.exists(display_json_path):
+            logger.info(f"Auto-analyzing execution statistics from: {display_json_path}")
+            
+            # Analyze the single display.json file
+            result = analyze_display_json(display_json_path)
+            
+            if result:
+                # Format and log the statistics
+                output_line = format_output_line(result)
+                logger.info("=" * 80)
+                logger.info("EXECUTION STATISTICS:")
+                logger.info("Steps, Duration (seconds), (Input Tokens, Output Tokens, Total Tokens), Cost")
+                logger.info("=" * 80)
+                logger.info(output_line)
+                logger.info("=" * 80)
+                
+                # Also print to console for immediate visibility
+                print("\n" + "=" * 80)
+                print("EXECUTION STATISTICS:")
+                print("Steps, Duration (seconds), (Input Tokens, Output Tokens, Total Tokens), Cost")
+                print("=" * 80)
+                print(output_line)
+                print("=" * 80)
+            else:
+                logger.warning("No valid data found in display.json for analysis")
+        else:
+            logger.warning(f"Display.json file not found at: {display_json_path} after waiting {max_wait_time} seconds")
+            
+    except Exception as e:
+        logger.error(f"Error during auto-analysis: {e}")
 
 
 def show_permission_dialog(code: str, action_description: str):
@@ -217,6 +296,10 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
     global_state.log_operation(module="other",
                                operation="total_execution_time",
                                data={"duration": total_duration})
+    
+    # Auto-analyze execution statistics after task completion
+    timestamp_dir = os.path.join(log_dir, datetime_str)
+    auto_analyze_execution(timestamp_dir)
 
 
 def run_agent_fast(agent,
@@ -335,6 +418,10 @@ def run_agent_fast(agent,
     global_state.log_operation(module="other",
                                operation="total_execution_time_fast",
                                data={"duration": total_duration})
+    
+    # Auto-analyze execution statistics after task completion
+    timestamp_dir = os.path.join(log_dir, datetime_str)
+    auto_analyze_execution(timestamp_dir)
 
 
 def main():

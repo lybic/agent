@@ -109,33 +109,36 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
     global_state.set_Tu(instruction)
     global_state.set_running_state("running")
     hwi = hwi_para
-    
+
     total_start_time = time.time()
     for _ in range(max_steps):
         while global_state.get_running_state() == "stopped":
-            user_input = input("Agent execution is paused. Enter 'continue' to resume: ")
+            user_input = input(
+                "Agent execution is paused. Enter 'continue' to resume: ")
             if user_input == "continue":
                 global_state.set_running_state("running")
                 logger.info("Agent execution resumed by user")
                 break
             time.sleep(0.5)
-            
-        screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
-        global_state.set_screenshot(scale_screenshot_dimensions(screenshot, hwi_para)) # type: ignore
+
+        screenshot: Image.Image = hwi.dispatch(Screenshot())  # type: ignore
+        global_state.set_screenshot(
+            scale_screenshot_dimensions(screenshot, hwi_para))  # type: ignore
         obs = global_state.get_obs_for_manager()
 
         predict_start = time.time()
         info, code = agent.predict(instruction=instruction, observation=obs)
         predict_time = time.time() - predict_start
-        logger.info(f"[Step Timing] agent.predict execution time: {predict_time:.2f} seconds")
-        
-        global_state.log_operation(
-            module="agent",
-            operation="agent.predict", 
-            data={"duration": predict_time}
+        logger.info(
+            f"[Step Timing] agent.predict execution time: {predict_time:.2f} seconds"
         )
 
-        if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower():
+        global_state.log_operation(module="agent",
+                                   operation="agent.predict",
+                                   data={"duration": predict_time})
+
+        if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower(
+        ):
             if platform.system() == "Darwin":
                 os.system(
                     f'osascript -e \'display dialog "Task Completed" with title "OpenACI Agent" buttons "OK" default button "OK"\''
@@ -154,13 +157,13 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
         if "wait" in code[0]["type"].lower():
             time.sleep(5)
             continue
-            
+
         if enable_takeover and "usertakeover" in code[0]["type"].lower():
             message = code[0].get("message", "need user takeover")
             logger.info(f"User takeover request: {message}")
-            
+
             global_state.set_running_state("stopped")
-            
+
             if platform.system() == "Darwin":
                 os.system(
                     f'osascript -e \'display dialog "{message}" with title "User takeover request" buttons "Continue" default button "Continue"\''
@@ -169,11 +172,13 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
                 os.system(
                     f'zenity --info --title="User takeover request" --text="{message}" --width=300 --height=150'
                 )
-            
+
             logger.info("Agent execution paused waiting for user takeover")
             continue
         elif not enable_takeover and "usertakeover" in code[0]["type"].lower():
-            logger.info(f"User takeover request received but takeover is disabled. Continuing execution.")
+            logger.info(
+                f"User takeover request received but takeover is disabled. Continuing execution."
+            )
             continue
 
         else:
@@ -183,79 +188,88 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
             step_dispatch_start = time.time()
             hwi.dispatchDict(code[0])
             step_dispatch_time = time.time() - step_dispatch_start
-            logger.info(f"[Step Timing] hwi.dispatchDict execution time: {step_dispatch_time:.2f} seconds")
+            logger.info(
+                f"[Step Timing] hwi.dispatchDict execution time: {step_dispatch_time:.2f} seconds"
+            )
             logger.info(f"HARDWARE INTERFACE: Executed")
-            
+
             # Record executed code and time
-            global_state.log_operation(
-                module="hardware",
-                operation="executing_code", 
-                data={"content": str(code[0])}
-            )
-            global_state.log_operation(
-                module="hardware",
-                operation="hwi.dispatchDict", 
-                data={"duration": step_dispatch_time}
-            )
+            global_state.log_operation(module="hardware",
+                                       operation="executing_code",
+                                       data={"content": str(code[0])})
+            global_state.log_operation(module="hardware",
+                                       operation="hwi.dispatchDict",
+                                       data={"duration": step_dispatch_time})
 
             time.sleep(1.0)
 
             # Update task and subtask trajectories and optionally the episodic memory
-            traj += (
-                "\n\nReflection:\n"
-                + str(info.get("reflection", ""))
-                + "\n\n----------------------\n\nPlan:\n"
-                + info.get("executor_plan", "")
-            )
+            traj += ("\n\nReflection:\n" + str(info.get("reflection", "")) +
+                     "\n\n----------------------\n\nPlan:\n" +
+                     info.get("executor_plan", ""))
             subtask_traj = agent.update_episodic_memory(info, subtask_traj)
-    
+
     total_end_time = time.time()
     total_duration = total_end_time - total_start_time
-    logger.info(f"[Total Timing] Total execution time for this task: {total_duration:.2f} seconds")
-    global_state.log_operation(
-        module="other",
-        operation="total_execution_time", 
-        data={"duration": total_duration}
+    logger.info(
+        f"[Total Timing] Total execution time for this task: {total_duration:.2f} seconds"
     )
+    global_state.log_operation(module="other",
+                               operation="total_execution_time",
+                               data={"duration": total_duration})
 
 
-def run_agent_fast(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50, enable_takeover: bool = False):
+def run_agent_fast(agent,
+                   instruction: str,
+                   hwi_para: HardwareInterface,
+                   max_steps: int = 50,
+                   enable_takeover: bool = False):
     import time
     obs = {}
-    global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
+    global_state: GlobalState = Registry.get("GlobalStateStore")  # type: ignore
     global_state.set_Tu(instruction)
     global_state.set_running_state("running")
     hwi = hwi_para
-    
+
     total_start_time = time.time()
     action_history = []
     for step in range(max_steps):
         while global_state.get_running_state() == "stopped":
-            user_input = input("Agent execution is paused. Enter 'continue' to resume: ")
+            user_input = input(
+                "Agent execution is paused. Enter 'continue' to resume: ")
             if user_input == "continue":
                 global_state.set_running_state("running")
                 logger.info("[Fast Mode] Agent execution resumed by user")
                 break
             time.sleep(0.5)
-            
-        screenshot: Image.Image = hwi.dispatch(Screenshot()) # type: ignore
-        global_state.set_screenshot(scale_screenshot_dimensions(screenshot, hwi_para)) # type: ignore
+
+        screenshot: Image.Image = hwi.dispatch(Screenshot())  # type: ignore
+        global_state.set_screenshot(
+            scale_screenshot_dimensions(screenshot, hwi_para))  # type: ignore
         obs = global_state.get_obs_for_manager()
 
         predict_start = time.time()
-        info, code = agent.predict(instruction=instruction, observation=obs, action_history=action_history)
+        info, code = agent.predict(instruction=instruction,
+                                   observation=obs,
+                                   action_history=action_history)
         action_history.append(code[0])
         predict_time = time.time() - predict_start
-        logger.info(f"[Fast Mode] [Step {step+1}] Prediction time: {predict_time:.2f} seconds")
-        
-        global_state.log_operation(
-            module="agent_fast",
-            operation="agent.predict_fast", 
-            data={"duration": predict_time, "step": step+1}
+        logger.info(
+            f"[Fast Mode] [Step {step+1}] Prediction time: {predict_time:.2f} seconds"
         )
 
-        if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower():
-            logger.info(f"[Fast Mode] Task {'completed' if 'done' in code[0]['type'].lower() else 'failed'}")
+        global_state.log_operation(module="agent_fast",
+                                   operation="agent.predict_fast",
+                                   data={
+                                       "duration": predict_time,
+                                       "step": step + 1
+                                   })
+
+        if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower(
+        ):
+            logger.info(
+                f"[Fast Mode] Task {'completed' if 'done' in code[0]['type'].lower() else 'failed'}"
+            )
             if platform.system() == "Darwin":
                 os.system(
                     f'osascript -e \'display dialog "Task Completed" with title "OpenACI Agent (Fast)" buttons "OK" default button "OK"\''
@@ -271,13 +285,13 @@ def run_agent_fast(agent, instruction: str, hwi_para: HardwareInterface, max_ste
             logger.info(f"[Fast Mode] Waiting for {wait_duration} seconds")
             time.sleep(wait_duration)
             continue
-            
+
         if enable_takeover and "usertakeover" in code[0]["type"].lower():
             message = code[0].get("message", "need user takeover")
             logger.info(f"[Fast Mode] User takeover request: {message}")
-            
+
             global_state.set_running_state("stopped")
-            
+
             if platform.system() == "Darwin":
                 os.system(
                     f'osascript -e \'display dialog "{message}" with title "User takeover request (Fast)" buttons "Continue" default button "Continue"\''
@@ -286,55 +300,77 @@ def run_agent_fast(agent, instruction: str, hwi_para: HardwareInterface, max_ste
                 os.system(
                     f'zenity --info --title="User takeover request (Fast)" --text="{message}" --width=300 --height=150'
                 )
-            
-            logger.info("[Fast Mode] Agent execution paused waiting for user takeover")
+
+            logger.info(
+                "[Fast Mode] Agent execution paused waiting for user takeover")
             continue
         elif not enable_takeover and "usertakeover" in code[0]["type"].lower():
-            logger.info(f"[Fast Mode] User takeover request received but takeover is disabled. Continuing execution.")
+            logger.info(
+                f"[Fast Mode] User takeover request received but takeover is disabled. Continuing execution."
+            )
             continue
 
         logger.info(f"[Fast Mode] Executing action: {code[0]}")
         step_dispatch_start = time.time()
         hwi.dispatchDict(code[0])
         step_dispatch_time = time.time() - step_dispatch_start
-        logger.info(f"[Fast Mode] Action execution time: {step_dispatch_time:.2f} seconds")
-        
-        global_state.log_operation(
-            module="hardware_fast",
-            operation="executing_code_fast", 
-            data={
-                "content": str(code[0]),
-                "duration": step_dispatch_time,
-                "step": step+1
-            }
+        logger.info(
+            f"[Fast Mode] Action execution time: {step_dispatch_time:.2f} seconds"
         )
 
+        global_state.log_operation(module="hardware_fast",
+                                   operation="executing_code_fast",
+                                   data={
+                                       "content": str(code[0]),
+                                       "duration": step_dispatch_time,
+                                       "step": step + 1
+                                   })
+
         time.sleep(0.5)
-    
+
     total_end_time = time.time()
     total_duration = total_end_time - total_start_time
-    logger.info(f"[Fast Mode] Total execution time: {total_duration:.2f} seconds")
-    global_state.log_operation(
-        module="other",
-        operation="total_execution_time_fast", 
-        data={"duration": total_duration}
-    )
+    logger.info(
+        f"[Fast Mode] Total execution time: {total_duration:.2f} seconds")
+    global_state.log_operation(module="other",
+                               operation="total_execution_time_fast",
+                               data={"duration": total_duration})
+
 
 def main():
     parser = argparse.ArgumentParser(description='GUI Agent CLI Application')
-    parser.add_argument('--backend', type=str, default='lybic', help='Backend to use (e.g., lybic, pyautogui, pyautogui_vmware)')
-    parser.add_argument('--query', type=str, default='', help='Initial query to execute')
-    parser.add_argument('--max-steps', type=int, default=50, help='Maximum number of steps to execute (default: 50)')
-    parser.add_argument('--mode', type=str, default='normal', choices=['normal', 'fast'], help='Agent mode: normal or fast (default: normal)')
-    parser.add_argument('--enable-takeover', action='store_true', help='Enable user takeover functionality')
-    parser.add_argument('--disable-search', action='store_true', help='Disable web search functionality (default: enabled)')
+    parser.add_argument(
+        '--backend',
+        type=str,
+        default='lybic',
+        help='Backend to use (e.g., lybic, pyautogui, pyautogui_vmware)')
+    parser.add_argument('--query',
+                        type=str,
+                        default='',
+                        help='Initial query to execute')
+    parser.add_argument('--max-steps',
+                        type=int,
+                        default=50,
+                        help='Maximum number of steps to execute (default: 50)')
+    parser.add_argument('--mode',
+                        type=str,
+                        default='normal',
+                        choices=['normal', 'fast'],
+                        help='Agent mode: normal or fast (default: normal)')
+    parser.add_argument('--enable-takeover',
+                        action='store_true',
+                        help='Enable user takeover functionality')
+    parser.add_argument(
+        '--disable-search',
+        action='store_true',
+        help='Disable web search functionality (default: enabled)')
     args = parser.parse_args()
 
     # Ensure necessary directory structure exists
     timestamp_dir = os.path.join(log_dir, datetime_str)
     cache_dir = os.path.join(timestamp_dir, "cache", "screens")
     state_dir = os.path.join(timestamp_dir, "state")
-    
+
     os.makedirs(cache_dir, exist_ok=True)
     os.makedirs(state_dir, exist_ok=True)
 
@@ -344,19 +380,22 @@ def main():
             screenshot_dir=cache_dir,
             tu_path=os.path.join(state_dir, "tu.json"),
             search_query_path=os.path.join(state_dir, "search_query.json"),
-            completed_subtasks_path=os.path.join(state_dir, "completed_subtasks.json"),
-            failed_subtasks_path=os.path.join(state_dir, "failed_subtasks.json"),
-            remaining_subtasks_path=os.path.join(state_dir, "remaining_subtasks.json"),
-            termination_flag_path=os.path.join(state_dir, "termination_flag.json"),
+            completed_subtasks_path=os.path.join(state_dir,
+                                                 "completed_subtasks.json"),
+            failed_subtasks_path=os.path.join(state_dir,
+                                              "failed_subtasks.json"),
+            remaining_subtasks_path=os.path.join(state_dir,
+                                                 "remaining_subtasks.json"),
+            termination_flag_path=os.path.join(state_dir,
+                                               "termination_flag.json"),
             running_state_path=os.path.join(state_dir, "running_state.json"),
             display_info_path=os.path.join(timestamp_dir, "display.json"),
-        )
-    )
+            agent_log_path=os.path.join(timestamp_dir, "agent_log.json")))
     global current_platform
     # Set platform to Windows if backend is lybic
     if args.backend == 'lybic':
         current_platform = 'windows'
-    
+
     # Initialize agent based on mode
     if args.mode == 'fast':
         agent = AgentSFast(
@@ -374,27 +413,28 @@ def main():
         )
         logger.info("Running in NORMAL mode with full agent")
         run_agent_func = run_agent_normal
-    
+
     # Log whether user takeover is enabled
     if args.enable_takeover:
         logger.info("User takeover functionality is ENABLED")
     else:
         logger.info("User takeover functionality is DISABLED")
-    
+
     # Log whether web search is enabled
     if args.disable_search:
         logger.info("Web search functionality is DISABLED")
     else:
         logger.info("Web search functionality is ENABLED")
-    
+
     # Initialize hardware interface
     hwi = HardwareInterface(backend=args.backend, platform=platform_os)
 
     # if query is provided, run the agent on the query
     if args.query:
         agent.reset()
-        run_agent_func(agent, args.query, hwi, args.max_steps, args.enable_takeover)
-        
+        run_agent_func(agent, args.query, hwi, args.max_steps,
+                       args.enable_takeover)
+
     else:
         while True:
             query = input("Query: ")

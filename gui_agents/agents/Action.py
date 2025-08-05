@@ -34,8 +34,18 @@ from typing import Any, Dict, List, Tuple, Type, TypeVar, ClassVar
 __all__ = [
     "Action",
     # concrete actions ↓
-    "Click", "DoubleClick", "Move", "Scroll", "Drag", "TypeText", "Hotkey", "Wait", "Done", "Fail", "Screenshot",
-
+    "Click",
+    "DoubleClick",
+    "Move",
+    "Scroll",
+    "Drag",
+    "TypeText",
+    "Hotkey",
+    "Wait",
+    "Done",
+    "Fail",
+    "Screenshot",
+    "Memorize",
 ]
 
 T_Action = TypeVar("T_Action", bound="Action")
@@ -187,6 +197,11 @@ class Done(Action):
 @dataclass(slots=True)
 class Failed(Action):
     message: str = ''
+
+
+@dataclass(slots=True)
+class Memorize(Action):
+    information: str
 
 
 @dataclass(slots=True)

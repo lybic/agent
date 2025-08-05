@@ -16,26 +16,26 @@ from abc import ABC, abstractmethod
 import logging
 from gui_agents.core.mllm import LLMAgent, WebSearchAgent, EmbeddingAgent
 import threading
+from gui_agents.prompts.prompts import system_prompts
 
 logger = logging.getLogger("desktopenv.tools")
 
 class BaseTool(ABC):
     """Base class for all tools."""
-    _prompts_json = None
-    _prompts_json_lock = threading.Lock()
+    _prompts_dict = None
+    _prompts_dict_lock = threading.Lock()
 
     @classmethod
-    def _load_prompts_json(cls):
-        if cls._prompts_json is None:
-            with cls._prompts_json_lock:
-                if cls._prompts_json is None:
-                    prompts_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts", "prompts.json")
+    def _load_prompts_dict(cls):
+        if cls._prompts_dict is None:
+            with cls._prompts_dict_lock:
+                if cls._prompts_dict is None:
                     try:
-                        with open(prompts_path, 'r', encoding='utf-8') as f:
-                            cls._prompts_json = json.load(f)
+                        # Import prompts from prompts.py module
+                        cls._prompts_dict = system_prompts
                     except Exception as e:
-                        logger.error(f"Failed to load prompts.json: {e}")
-                        cls._prompts_json = {}
+                        logger.error(f"Failed to load prompts from prompts.py: {e}")
+                        cls._prompts_dict = {}
 
     def __init__(self, provider: str, model_name: str, tool_name: str):
         """
@@ -43,12 +43,12 @@ class BaseTool(ABC):
         Args:
             provider: API provider name (e.g., "gemini", "openai")
             model_name: Model name to use (e.g., "gemini-2.5-pro")
-            tool_name: Name of the tool (used as key in prompts.json)
+            tool_name: Name of the tool (used as key in prompts.py)
         """
         self.provider = provider
         self.model_name = model_name
         self.tool_name = tool_name
-        self._load_prompts_json()
+        self._load_prompts_dict()
         self._prompt_template = self._get_prompt_template()
         # Create LLMAgent instance for tool usage
         self.engine_params = {
@@ -60,7 +60,7 @@ class BaseTool(ABC):
     def _get_prompt_template(self) -> str:
         if self.tool_name is None:
             return ""
-        prompts = self.__class__._prompts_json
+        prompts = self.__class__._prompts_dict
         if prompts is None:
             return ""
         return prompts.get(self.tool_name, "")
@@ -702,4 +702,26 @@ class Tools:
         if tool_name not in self.tools:
             raise ValueError(f"Tool {tool_name} is not registered")
         
-        return self.tools[tool_name].execute(tool_input) 
+        return self.tools[tool_name].execute(tool_input)
+
+    def reset(self, tool_name: Optional[str] = None):
+        """
+        Reset tools by resetting their llm_agent if available.
+        
+        Args:
+            tool_name: Optional name of the specific tool to reset. If None, resets all tools.
+        """
+        if tool_name is not None:
+            # Reset a specific tool
+            if tool_name not in self.tools:
+                raise ValueError(f"Tool {tool_name} is not registered")
+            
+            tool = self.tools[tool_name]
+            if hasattr(tool, 'llm_agent') and tool.llm_agent is not None:
+                tool.llm_agent.reset()
+        else:
+            # Reset all tools
+            for tool in self.tools.values():
+                # Only reset if the tool has an llm_agent attribute
+                if hasattr(tool, 'llm_agent') and tool.llm_agent is not None:
+                    tool.llm_agent.reset() 

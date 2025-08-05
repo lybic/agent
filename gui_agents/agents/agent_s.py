@@ -780,6 +780,10 @@ class AgentSFast(UIAgent):
                     self.latest_action = action_code
                 else:
                     logger.error("Could not parse action, using wait action")
+                    self.global_state.add_agent_log({
+                        "type": "Wrong action code format",
+                        "content": action_code
+                    })
                     agent: FastGrounding = self.grounding # type: ignore
                     exec_code = eval("agent.wait(1000)") # type: ignore
                     actions = [exec_code]

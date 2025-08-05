@@ -621,6 +621,7 @@ GENERAL RULES:
 12. For text input fields, always confirm with Enter or by clicking a confirmation button after typing
 13. Be precise with coordinates
 14. Always include meaningful element descriptions for better action logging and debugging
+15. Prefer using combination actions to replace the drag action when possible (e.g. In excel, move to start point, optional with scroll, then move to end point with holdKey 'shift')
 
 Remember: Your goal is to generate the most efficient and reliable action with exact coordinates and clear element descriptions to progress toward completing the user's instruction.
 """,

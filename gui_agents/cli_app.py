@@ -448,6 +448,11 @@ def main():
         '--disable-search',
         action='store_true',
         help='Disable web search functionality (default: enabled)')
+    parser.add_argument(
+        '--lybic-sid',
+        type=str,
+        default=None,
+        help='Lybic precreated sandbox ID (if not provided, will use LYBIC_PRECREATE_SID environment variable)')
     args = parser.parse_args()
 
     # Ensure necessary directory structure exists
@@ -511,7 +516,14 @@ def main():
         logger.info("Web search functionality is ENABLED")
 
     # Initialize hardware interface
-    hwi = HardwareInterface(backend=args.backend, platform=platform_os)
+    backend_kwargs = {"platform": platform_os}
+    if args.lybic_sid is not None:
+        backend_kwargs["precreate_sid"] = args.lybic_sid
+        logger.info(f"Using Lybic SID from command line: {args.lybic_sid}")
+    else:
+        logger.info("Using Lybic SID from environment variable LYBIC_PRECREATE_SID")
+    
+    hwi = HardwareInterface(backend=args.backend, **backend_kwargs)
 
     # if query is provided, run the agent on the query
     if args.query:
@@ -542,5 +554,7 @@ if __name__ == "__main__":
     python gui_agents/cli_app.py --backend lybic --mode fast --enable-takeover
     python gui_agents/cli_app.py --backend lybic --disable-search
     python gui_agents/cli_app.py --backend pyautogui --mode fast --disable-search
+    python gui_agents/cli_app.py --backend lybic --lybic-sid SBX-01K1X6ZKAERXAN73KTJ1XXJXAF
+    python gui_agents/cli_app.py --backend lybic --mode fast --lybic-sid SBX-01K1X6ZKAERXAN73KTJ1XXJXAF
     """
     main()

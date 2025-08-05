@@ -274,7 +274,7 @@ class GlobalState:
             width, height = screenshot.size
             logger.info("Current screen size from %s: [%d, %d]", latest.name,
                         width, height)
-            return [width, 1080]
+            return [width, height]
         except Exception as e:
             logger.error("Failed to get screen size from %s: %s", latest, e)
             return [1920, 1080]

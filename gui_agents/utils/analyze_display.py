@@ -95,20 +95,20 @@ def analyze_display_json(file_path: str) -> Dict:
                 if operation.get('operation') == 'fast_action_execution':
                     fast_action_count += 1
                     
-                    # Extract tokens
-                    tokens = operation.get('tokens', [0, 0, 0])
-                    if len(tokens) >= 3:
-                        total_input_tokens += tokens[0]
-                        total_output_tokens += tokens[1]
-                        total_tokens += tokens[2]
-                    
-                    # Extract cost
-                    cost_str = operation.get('cost', '0￥')
-                    cost_value, currency = extract_cost_value(cost_str)
-                    # Convert to yuan for consistent calculation
-                    cost_in_yuan = convert_currency_to_yuan(cost_value, currency)
-                    total_cost += cost_in_yuan
-                    currency_symbol = "￥"  # Always use ￥ for consistency
+                # Extract tokens
+                tokens = operation.get('tokens', [0, 0, 0])
+                if len(tokens) >= 3:
+                    total_input_tokens += tokens[0]
+                    total_output_tokens += tokens[1]
+                    total_tokens += tokens[2]
+                
+                # Extract cost
+                cost_str = operation.get('cost', '0￥')
+                cost_value, currency = extract_cost_value(cost_str)
+                # Convert to yuan for consistent calculation
+                cost_in_yuan = convert_currency_to_yuan(cost_value, currency)
+                total_cost += cost_in_yuan
+                currency_symbol = "￥"  # Always use ￥ for consistency
         
         # Extract total execution time for fast mode
         if 'operations' in data and 'other' in data['operations']:

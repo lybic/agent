@@ -223,6 +223,13 @@ class LMMEngineDoubao(LMMEngine):
             messages=messages,
             max_tokens=max_new_tokens if max_new_tokens else 4096,
             temperature=temperature,
+            extra_body={
+                "thinking": {
+                    "type": "disabled",
+                    # "type": "enabled",
+                    # "type": "auto",
+                }
+            },
             **kwargs,
         )
         

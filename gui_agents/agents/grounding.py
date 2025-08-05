@@ -214,7 +214,7 @@ class Grounding(ACI):
             "button": button,
             "holdKey": holdKey
         }
-        action_details = f"Clicked at coordinates ({x}, {y}) with button {button}"
+        action_details = f"Clicked at coordinates ({x}, {y}) with button {button}, element: {element_description}"
         self._record_passive_memory("Click", action_details)
         return actionDict
 
@@ -234,7 +234,7 @@ class Grounding(ACI):
             "button": button,
             "holdKey": holdKey
         }
-        action_details = f"Double clicked at coordinates ({x}, {y}) with button {button}"
+        action_details = f"Double clicked at coordinates ({x}, {y}) with button {button}, element: {element_description}"
         self._record_passive_memory("DoubleClick", action_details)
         return actionDict
 
@@ -252,7 +252,7 @@ class Grounding(ACI):
             "element_description": element_description,
             "holdKey": holdKey
         }
-        action_details = f"Moved to coordinates ({x}, {y})"
+        action_details = f"Moved to coordinates ({x}, {y}), element: {element_description}"
         self._record_passive_memory("Move", action_details)
         return actionDict
 
@@ -274,7 +274,7 @@ class Grounding(ACI):
                 "stepVertical": clicks,
                 "holdKey": holdKey
             }
-            action_details = f"Scrolled vertically at coordinates ({x}, {y}) with {clicks} clicks"
+            action_details = f"Scrolled vertically at coordinates ({x}, {y}) with {clicks} clicks, element: {element_description}"
         else:
             actionDict = {
                 "type": "Scroll",
@@ -284,7 +284,7 @@ class Grounding(ACI):
                 "stepHorizontal": clicks,
                 "holdKey": holdKey
             }
-            action_details = f"Scrolled horizontally at coordinates ({x}, {y}) with {clicks} clicks"
+            action_details = f"Scrolled horizontally at coordinates ({x}, {y}) with {clicks} clicks, element: {element_description}"
         self._record_passive_memory("Scroll", action_details)
         return actionDict
 
@@ -307,7 +307,7 @@ class Grounding(ACI):
             "starting_description": starting_description,
             "ending_description": ending_description
         }
-        action_details = f"Dragged from ({x1}, {y1}) to ({x2}, {y2})"
+        action_details = f"Dragged from ({x1}, {y1}) to ({x2}, {y2}), starting: {starting_description}, ending: {ending_description}"
         self._record_passive_memory("Drag", action_details)
         return actionDict
 
@@ -446,6 +446,7 @@ class FastGrounding(ACI):
         self,
         x: int,
         y: int,
+        element_description: str = "",
         button: int = 1,
         holdKey: List[str] = [],
     ):
@@ -454,11 +455,11 @@ class FastGrounding(ACI):
             "type": "Click",
             "x": x,
             "y": y,
-            "element_description": f"Coordinates ({x}, {y})",
+            "element_description": element_description or f"Coordinates ({x}, {y})",
             "button": button,
             "holdKey": holdKey
         }
-        action_details = f"Clicked at coordinates ({x}, {y}) with button {button}"
+        action_details = f"Clicked at coordinates ({x}, {y}) with button {button}, element: {element_description or f'Coordinates ({x}, {y})'}"
         self._record_passive_memory("Click", action_details)
         return actionDict
 
@@ -467,6 +468,7 @@ class FastGrounding(ACI):
         self,
         x: int,
         y: int,
+        element_description: str = "",
         button: int = 1,
         holdKey: List[str] = [],
     ):
@@ -475,11 +477,11 @@ class FastGrounding(ACI):
             "type": "DoubleClick",
             "x": x,
             "y": y,
-            "element_description": f"Coordinates ({x}, {y})",
+            "element_description": element_description or f"Coordinates ({x}, {y})",
             "button": button,
             "holdKey": holdKey
         }
-        action_details = f"Double clicked at coordinates ({x}, {y}) with button {button}"
+        action_details = f"Double clicked at coordinates ({x}, {y}) with button {button}, element: {element_description or f'Coordinates ({x}, {y})'}"
         self._record_passive_memory("DoubleClick", action_details)
         return actionDict
 
@@ -488,6 +490,7 @@ class FastGrounding(ACI):
         self,
         x: int,
         y: int,
+        element_description: str = "",
         holdKey: List[str] = [],
     ):
         x, y = self.resize_coordinates([x, y])
@@ -495,10 +498,10 @@ class FastGrounding(ACI):
             "type": "Move",
             "x": x,
             "y": y,
-            "element_description": f"Coordinates ({x}, {y})",
+            "element_description": element_description or f"Coordinates ({x}, {y})",
             "holdKey": holdKey
         }
-        action_details = f"Moved to coordinates ({x}, {y})"
+        action_details = f"Moved to coordinates ({x}, {y}), element: {element_description or f'Coordinates ({x}, {y})'}"
         self._record_passive_memory("Move", action_details)
         return actionDict
 
@@ -508,6 +511,7 @@ class FastGrounding(ACI):
         x: int,
         y: int,
         clicks: int,
+        element_description: str = "",
         vertical: bool = True,
         holdKey: List[str] = [],
     ):
@@ -517,21 +521,21 @@ class FastGrounding(ACI):
                 "type": "Scroll",
                 "x": x,
                 "y": y,
-                "element_description": f"Coordinates ({x}, {y})",
+                "element_description": element_description or f"Coordinates ({x}, {y})",
                 "stepVertical": clicks,
                 "holdKey": holdKey
             }
-            action_details = f"Scrolled vertically at coordinates ({x}, {y}) with {clicks} clicks"
+            action_details = f"Scrolled vertically at coordinates ({x}, {y}) with {clicks} clicks, element: {element_description or f'Coordinates ({x}, {y})'}"
         else:
             actionDict = {
                 "type": "Scroll",
                 "x": x,
                 "y": y,
-                "element_description": f"Coordinates ({x}, {y})",
+                "element_description": element_description or f"Coordinates ({x}, {y})",
                 "stepHorizontal": clicks,
                 "holdKey": holdKey
             }
-            action_details = f"Scrolled horizontally at coordinates ({x}, {y}) with {clicks} clicks"
+            action_details = f"Scrolled horizontally at coordinates ({x}, {y}) with {clicks} clicks, element: {element_description or f'Coordinates ({x}, {y})'}"
         self._record_passive_memory("Scroll", action_details)
         return actionDict
 
@@ -542,6 +546,8 @@ class FastGrounding(ACI):
         startY: int,
         endX: int,
         endY: int,
+        starting_description: str = "",
+        ending_description: str = "",
         holdKey: List[str] = [],
     ):
         startX, startY = self.resize_coordinates([startX, startY])
@@ -553,10 +559,10 @@ class FastGrounding(ACI):
             "endX": endX,
             "endY": endY,
             "holdKey": holdKey,
-            "starting_description": f"Coordinates ({startX}, {startY})",
-            "ending_description": f"Coordinates ({endX}, {endY})"
+            "starting_description": starting_description or f"Coordinates ({startX}, {startY})",
+            "ending_description": ending_description or f"Coordinates ({endX}, {endY})"
         }
-        action_details = f"Dragged from ({startX}, {startY}) to ({endX}, {endY})"
+        action_details = f"Dragged from ({startX}, {startY}) to ({endX}, {endY}), starting: {starting_description or f'Coordinates ({startX}, {startY})'}, ending: {ending_description or f'Coordinates ({endX}, {endY})'}"
         self._record_passive_memory("Drag", action_details)
         return actionDict
 

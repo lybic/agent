@@ -792,7 +792,7 @@ class AgentSFast(UIAgent):
             logger.error("Error in parsing action code: %s", e)
             self.global_state.add_agent_log({
                     "type": "Error in parsing action code",
-                    "content": e
+                    "content": str(e)  # Convert Exception to string
                 })
             agent: FastGrounding = self.grounding # type: ignore
             exec_code = eval("agent.wait(1000)") # type: ignore

@@ -315,7 +315,6 @@ def run_agent_fast(agent,
     hwi = hwi_para
 
     total_start_time = time.time()
-    action_history = []
     for step in range(max_steps):
         while global_state.get_running_state() == "stopped":
             user_input = input(
@@ -333,9 +332,7 @@ def run_agent_fast(agent,
 
         predict_start = time.time()
         info, code = agent.predict(instruction=instruction,
-                                   observation=obs,
-                                   action_history=action_history)
-        action_history.append(code[0])
+                                   observation=obs)
         predict_time = time.time() - predict_start
         logger.info(
             f"[Fast Mode] [Step {step+1}] Prediction time: {predict_time:.2f} seconds"

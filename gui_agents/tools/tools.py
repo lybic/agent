@@ -702,4 +702,26 @@ class Tools:
         if tool_name not in self.tools:
             raise ValueError(f"Tool {tool_name} is not registered")
         
-        return self.tools[tool_name].execute(tool_input) 
+        return self.tools[tool_name].execute(tool_input)
+
+    def reset(self, tool_name: Optional[str] = None):
+        """
+        Reset tools by resetting their llm_agent if available.
+        
+        Args:
+            tool_name: Optional name of the specific tool to reset. If None, resets all tools.
+        """
+        if tool_name is not None:
+            # Reset a specific tool
+            if tool_name not in self.tools:
+                raise ValueError(f"Tool {tool_name} is not registered")
+            
+            tool = self.tools[tool_name]
+            if hasattr(tool, 'llm_agent') and tool.llm_agent is not None:
+                tool.llm_agent.reset()
+        else:
+            # Reset all tools
+            for tool in self.tools.values():
+                # Only reset if the tool has an llm_agent attribute
+                if hasattr(tool, 'llm_agent') and tool.llm_agent is not None:
+                    tool.llm_agent.reset() 

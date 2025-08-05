@@ -7,6 +7,7 @@ from gui_agents.agents.Action import (
     Action,
     Click,
     DoubleClick,
+    Move,
     Drag,
     TypeText,
     Scroll,
@@ -40,9 +41,8 @@ def _px(v: int) -> Dict[str, Any]:
 
 
 
-
 class LybicBackend(Backend):
-    _supported = {Click, DoubleClick, Drag, TypeText, Scroll, Hotkey,
+    _supported = {Click, DoubleClick, Move, Drag, TypeText, Scroll, Hotkey,
                    Wait, Screenshot, Memorize }
 
     # ---------- ctor ----------
@@ -82,6 +82,7 @@ class LybicBackend(Backend):
 
         if   isinstance(action, Click):        self._click(action)
         elif isinstance(action, DoubleClick):         self._doubleClick(action)
+        elif isinstance(action, Move):         self._move(action)
         elif isinstance(action, Drag):         self._drag(action)
         elif isinstance(action, TypeText):     self._type(action)
         elif isinstance(action, Scroll):       self._scroll(action)
@@ -138,6 +139,15 @@ class LybicBackend(Backend):
             "holdKey": "+".join(act.holdKey)
         })
     
+    def _move(self, act: Move) -> None:
+        self._do({
+            "type": "mouse:move",
+            "x": _px(act.x),
+            "y": _px(act.y),
+            "holdKey": "+".join(act.holdKey)
+        })
+    
+
     def _drag(self, act: Drag) -> None:
         self._do({
             "type": "mouse:drag",

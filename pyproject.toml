@@ -88,3 +88,5 @@ dependencies = [
     'pywinauto; platform_system == "Windows"',
     'pywin32; platform_system == "Windows"',
 ]
+[tool.uv]
+index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"

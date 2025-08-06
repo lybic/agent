@@ -17,8 +17,8 @@
     },
     {
       "tool_name": "traj_reflector",
-      "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615"
+      "provider": "gemini",
+      "model_name": "gemini-2.5-pro"
     },
     {
       "tool_name": "memory_retrival",

@@ -701,6 +701,7 @@ class AgentSFast(UIAgent):
                         "str_input": text_content,
                         "img_input": observation["screenshot"]
                     })
+                reflection = str(reflection)
                 self.reflection_agent.reset("traj_reflector")
                 self.global_state.add_agent_log({
                     "type": "passive",

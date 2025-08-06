@@ -365,6 +365,17 @@ class LMMEngineGemini(LMMEngine):
             messages=messages,
             max_tokens=max_new_tokens if max_new_tokens else 4096,
             temperature=temperature,
+            # reasoning_effort="low",
+            extra_body={
+                'extra_body': {
+                    "google": {
+                        "thinking_config": {
+                            "thinking_budget": 128,
+                            "include_thoughts": True
+                        }
+                    }
+                }
+            },
             **kwargs,
         )
         

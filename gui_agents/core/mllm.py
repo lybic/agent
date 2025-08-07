@@ -58,7 +58,7 @@ class CostManager:
     @classmethod
     def format_cost(cls, cost: float, engine) -> str:
         currency = cls.get_currency_symbol(engine)
-        return f"{cost:.6f}{currency}"
+        return f"{cost:.7f}{currency}"
     
     @classmethod
     def add_costs(cls, cost1: str, cost2: str) -> str:

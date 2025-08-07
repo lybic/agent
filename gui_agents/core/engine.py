@@ -35,18 +35,56 @@ class ModelPricing:
                 print(f"Warning: Failed to load pricing file {self.pricing_file}: {e}")
         
         return {
-            "default": {"input": 0.1, "output": 0.1}
+            "default": {"input": 0, "output": 0}
         }
     
     def get_price(self, model: str) -> Dict[str, float]:
-        if model in self.pricing_data:
-            return self.pricing_data[model]
+        # Handle nested pricing data structure
+        if "llm_models" in self.pricing_data:
+            # Iterate through all LLM model categories
+            for category, models in self.pricing_data["llm_models"].items():
+                # Direct model name matching
+                if model in models:
+                    pricing = models[model]
+                    return self._parse_pricing(pricing)
+                
+                # Fuzzy matching for model names
+                for model_name in models:
+                    if model_name in model or model in model_name:
+                        pricing = models[model_name]
+                        return self._parse_pricing(pricing)
         
-        for pricing_model in self.pricing_data:
-            if pricing_model in model or model in pricing_model:
-                return self.pricing_data[pricing_model]
+        # Handle embedding models
+        if "embedding_models" in self.pricing_data:
+            for category, models in self.pricing_data["embedding_models"].items():
+                if model in models:
+                    pricing = models[model]
+                    return self._parse_pricing(pricing)
+                
+                for model_name in models:
+                    if model_name in model or model in model_name:
+                        pricing = models[model_name]
+                        return self._parse_pricing(pricing)
         
-        return self.pricing_data.get("default", {"input": 0.1, "output": 0.1})
+        # Default pricing
+        return {"input": 0, "output": 0}
+    
+    def _parse_pricing(self, pricing: Dict[str, str]) -> Dict[str, float]:
+        """Parse pricing strings and convert to numeric values"""
+        result = {}
+        
+        for key, value in pricing.items():
+            if isinstance(value, str):
+                # Remove currency symbols and units, convert to float
+                clean_value = value.replace('$', '').replace('￥', '').replace(',', '')
+                try:
+                    result[key] = float(clean_value)
+                except ValueError:
+                    result[key] = 0.0
+            else:
+                result[key] = float(value) if value else 0.0
+        
+        return result
     
     def calculate_cost(self, model: str, input_tokens: int, output_tokens: int) -> float:
         pricing = self.get_price(model)
@@ -54,7 +92,9 @@ class ModelPricing:
         output_cost = (output_tokens / 1000000) * pricing["output"]
         return input_cost + output_cost
 
-pricing_manager = ModelPricing()
+# Initialize pricing manager with correct pricing file path
+pricing_file = os.path.join(os.path.dirname(__file__), 'model_pricing.json')
+pricing_manager = ModelPricing(pricing_file)
 
 def extract_token_usage(response, provider: str) -> Tuple[int, int]:
     if "-" in provider:
@@ -223,6 +263,13 @@ class LMMEngineDoubao(LMMEngine):
             messages=messages,
             max_tokens=max_new_tokens if max_new_tokens else 4096,
             temperature=temperature,
+            extra_body={
+                "thinking": {
+                    "type": "disabled",
+                    # "type": "enabled",
+                    # "type": "auto",
+                }
+            },
             **kwargs,
         )
         
@@ -318,6 +365,17 @@ class LMMEngineGemini(LMMEngine):
             messages=messages,
             max_tokens=max_new_tokens if max_new_tokens else 4096,
             temperature=temperature,
+            # reasoning_effort="low",
+            extra_body={
+                'extra_body': {
+                    "google": {
+                        "thinking_config": {
+                            "thinking_budget": 128,
+                            "include_thoughts": True
+                        }
+                    }
+                }
+            },
             **kwargs,
         )
         

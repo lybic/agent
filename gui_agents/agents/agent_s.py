@@ -3,6 +3,7 @@ import logging
 from math import log
 import os
 import platform
+import textwrap
 from typing import Dict, List, Optional, Tuple
 
 from gui_agents.agents.grounding import ACI
@@ -17,6 +18,7 @@ from gui_agents.utils.common_utils import (
     parse_single_code_from_string,
     sanitize_code,
     extract_first_agent_function,
+    agent_log_to_string,
 )
 from gui_agents.tools.tools import Tools
 
@@ -71,7 +73,6 @@ class UIAgent:
             Updated subtask trajectory
         """
         pass
-
 
 class AgentS2(UIAgent):
     """Agent that uses hierarchical planning and directed acyclic graph modeling for UI automation"""
@@ -274,7 +275,6 @@ class AgentS2(UIAgent):
                 self.needs_next_subtask = False
                 self.subtask_status = "Start"
                 
-                # 记录当前子任务信息
                 self.global_state.log_operation(
                     module="agent",
                     operation="current_subtask",
@@ -284,7 +284,6 @@ class AgentS2(UIAgent):
                     }
                 )
 
-            # 记录worker执行开始时间
             worker_start_time = time.time()
             
             # get the next action from the worker
@@ -300,7 +299,6 @@ class AgentS2(UIAgent):
             
             worker_execution_time = time.time() - worker_start_time
             
-            # 记录worker执行时间
             self.global_state.log_operation(
                 module="agent",
                 operation="worker_execution",
@@ -541,6 +539,8 @@ class AgentSFast(UIAgent):
         kb_release_tag: str = "v0.2.2",
         enable_takeover: bool = False,
         enable_search: bool = True,
+        enable_reflection: bool = True,
+        # enable_reflection: bool = False,
     ):
         """Initialize AgentSFast
 
@@ -551,6 +551,7 @@ class AgentSFast(UIAgent):
             kb_release_tag: Release tag for knowledge base. Defaults to "v0.2.2".
             enable_takeover: Whether to enable user takeover functionality. Defaults to False.
             enable_search: Whether to enable web search functionality. Defaults to True.
+            enable_reflection: Whether to enable reflection functionality. Defaults to True.
         """
         super().__init__(
             platform,
@@ -562,6 +563,7 @@ class AgentSFast(UIAgent):
         self.screen_size = screen_size
         self.enable_takeover = enable_takeover
         self.enable_search = enable_search
+        self.enable_reflection = enable_reflection
 
         # Load tools configuration from tools_config.json
         tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
@@ -633,6 +635,14 @@ class AgentSFast(UIAgent):
             **tool_params
         )
 
+        if self.enable_reflection:
+            self.reflection_agent = Tools()
+            self.reflection_agent.register_tool(
+                "traj_reflector", self.Tools_dict["traj_reflector"]["provider"],
+                self.Tools_dict["traj_reflector"]["model"])
+            self.reflections = []
+            self.planner_history = []
+
         self.grounding_width, self.grounding_height = self.fast_action_generator.tools[self.fast_action_generator_tool].get_grounding_wh()
         if self.grounding_width is None or self.grounding_height is None:
             self.grounding_width = self.screen_size[0]
@@ -652,7 +662,7 @@ class AgentSFast(UIAgent):
         self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
         self.latest_action = None
 
-    def predict(self, instruction: str, observation: Dict, action_history: List[Dict] = []) -> Tuple[Dict, List[str]]:
+    def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:
         """Generate next action prediction using only the fast_action_generator tool
 
         Args:
@@ -667,18 +677,69 @@ class AgentSFast(UIAgent):
         
         fast_action_start_time = time.time()
 
-        if action_history:
-            history_str = "\n\n[history of previous actions]:\n" + json.dumps(action_history, ensure_ascii=False, indent=2)
-        else:
-            history_str = ""
+        reflection = None
+        if self.enable_reflection:
+            if self.turn_count == 0:
+                text_content = textwrap.dedent(f"""
+                    Task Description: {instruction}
+                    """)
+                self.reflection_agent.tools["traj_reflector"].llm_agent.add_message(
+                    text_content + "\n\nThe initial screen is provided. No action has been taken yet.",
+                    image_content=observation["screenshot"],
+                    role="user")
+                self.global_state.add_agent_log({
+                    "type": "passive",
+                    "content": "Reflection: " + text_content + "\n\nThe initial screen is provided. No action has been taken yet."
+                })
+            else:
+                agent_log = agent_log_to_string(self.global_state.get_agent_log())
+                text_content = f"Please refer to the agent log to understand the progress and context of the task so far.\n{agent_log}"
+
+                reflection_start = time.time()
+                reflection, total_tokens, cost_string = self.reflection_agent.execute_tool(
+                    "traj_reflector", {
+                        "str_input": text_content,
+                        "img_input": observation["screenshot"]
+                    })
+                reflection = str(reflection)
+                self.reflection_agent.reset("traj_reflector")
+                self.global_state.add_agent_log({
+                    "type": "passive",
+                    "content": "Reflection: " + reflection
+                })
+                logger.info(f"Trajectory reflector tokens: {total_tokens}, cost: {cost_string}")
+                reflection_time = time.time() - reflection_start
+                logger.info(f"[Timing] AgentSFast.traj_reflector execution time: {reflection_time:.2f} seconds")
+                self.reflections.append(reflection)
+                logger.info("REFLECTION: %s", reflection)
+                self.global_state.log_operation(
+                    module="agent",
+                    operation="reflection",
+                    data={
+                        "tokens": total_tokens,
+                        "cost": cost_string,
+                        "content": reflection,
+                        "duration": reflection_time
+                    })
+
+        agent_log = agent_log_to_string(self.global_state.get_agent_log())
+        
+        generator_message = textwrap.dedent(f"""
+            Task Description: {instruction}
+        """)
+        
+        generator_message += f"\n\nPlease refer to the agent log to understand the progress and context of the task so far.\n{agent_log}"
+
+        fast_action_start_time = time.time()
         
         plan, total_tokens, cost_string = self.fast_action_generator.execute_tool(
             self.fast_action_generator_tool,
             {
-                "str_input": instruction + history_str,
+                "str_input": generator_message,
                 "img_input": observation["screenshot"]
             }
         )
+        self.fast_action_generator.reset(self.fast_action_generator_tool)
         
         fast_action_execution_time = time.time() - fast_action_start_time
         
@@ -693,8 +754,6 @@ class AgentSFast(UIAgent):
         )
         
         logger.info("Fast Action Plan: %s", plan)
-        
-        actions = []
 
         current_width, current_height = self.global_state.get_screen_size()
         self.grounding.reset_screen_size(current_width, current_height)
@@ -722,12 +781,20 @@ class AgentSFast(UIAgent):
                     self.latest_action = action_code
                 else:
                     logger.error("Could not parse action, using wait action")
+                    self.global_state.add_agent_log({
+                        "type": "Wrong action code format",
+                        "content": action_code
+                    })
                     agent: FastGrounding = self.grounding # type: ignore
                     exec_code = eval("agent.wait(1000)") # type: ignore
                     actions = [exec_code]
                     self.latest_action = "agent.wait(1000)"
         except Exception as e:
             logger.error("Error in parsing action code: %s", e)
+            self.global_state.add_agent_log({
+                    "type": "Error in parsing action code",
+                    "content": str(e)  # Convert Exception to string
+                })
             agent: FastGrounding = self.grounding # type: ignore
             exec_code = eval("agent.wait(1000)") # type: ignore
             actions = [exec_code]
@@ -747,7 +814,7 @@ class AgentSFast(UIAgent):
         
         executor_info = {
             "executor_plan": plan,
-            "reflection": "",
+            "reflection": reflection or "",
             "plan_code": self.latest_action
         }
         

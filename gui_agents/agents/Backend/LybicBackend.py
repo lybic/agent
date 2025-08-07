@@ -7,6 +7,7 @@ from gui_agents.agents.Action import (
     Action,
     Click,
     DoubleClick,
+    Move,
     Drag,
     TypeText,
     Scroll,
@@ -17,7 +18,8 @@ from gui_agents.agents.Action import (
     # ScrollAxis,
     # Open,
     # SwitchApp,
-    Screenshot
+    Screenshot,
+    Memorize
 )
 
 from gui_agents.agents.Backend.Backend import Backend
@@ -39,10 +41,9 @@ def _px(v: int) -> Dict[str, Any]:
 
 
 
-
 class LybicBackend(Backend):
-    _supported = {Click, DoubleClick, Drag, TypeText, Scroll, Hotkey,
-                   Wait, Screenshot }
+    _supported = {Click, DoubleClick, Move, Drag, TypeText, Scroll, Hotkey,
+                   Wait, Screenshot, Memorize }
 
     # ---------- ctor ----------
     def __init__(self, 
@@ -81,12 +82,14 @@ class LybicBackend(Backend):
 
         if   isinstance(action, Click):        self._click(action)
         elif isinstance(action, DoubleClick):         self._doubleClick(action)
+        elif isinstance(action, Move):         self._move(action)
         elif isinstance(action, Drag):         self._drag(action)
         elif isinstance(action, TypeText):     self._type(action)
         elif isinstance(action, Scroll):       self._scroll(action)
         elif isinstance(action, Hotkey):       self._hotkey(action)
         elif isinstance(action, Screenshot):   return self._screenshot()   # type: ignore
         elif isinstance(action, Wait):         time.sleep(action.duration if action.duration is not None else 0.2)
+        elif isinstance(action, Memorize):     log.info(f"Memorizing information: {action.information}")  # Abstract action, no hardware execution needed
 
     # ---------- internal helpers ----------
     def _do(self, lybic_action: Dict[str, Any]):
@@ -136,6 +139,15 @@ class LybicBackend(Backend):
             "holdKey": "+".join(act.holdKey)
         })
     
+    def _move(self, act: Move) -> None:
+        self._do({
+            "type": "mouse:move",
+            "x": _px(act.x),
+            "y": _px(act.y),
+            "holdKey": "+".join(act.holdKey)
+        })
+    
+
     def _drag(self, act: Drag) -> None:
         self._do({
             "type": "mouse:drag",

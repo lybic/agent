@@ -94,6 +94,9 @@ class HardwareInterface:
             actions = [actions]
 
         for act in actions:
+            # 特殊处理Memorize动作，不传递给后端执行
+            if type(act).__name__ == "Memorize":
+                return None
             if not self.backend.supports(type(act)):
                 raise NotImplementedError(
                     f"{type(act).__name__} is not supported by backend {self.backend.__class__.__name__}"

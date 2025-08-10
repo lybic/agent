@@ -126,7 +126,7 @@ class LLMAgent:
                     self.engine = LMMEngineHuggingFace(**engine_params)
                 elif engine_type == "gemini":
                     self.engine = LMMEngineGemini(**engine_params)
-                elif engine_type == "open_router":
+                elif engine_type == "openrouter":
                     self.engine = LMMEngineOpenRouter(**engine_params)
                 elif engine_type == "dashscope":
                     self.engine = LMMEngineQwen(**engine_params)

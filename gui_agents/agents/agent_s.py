@@ -21,6 +21,7 @@ from gui_agents.utils.common_utils import (
     agent_log_to_string,
 )
 from gui_agents.tools.tools import Tools
+from gui_agents.agents.execution_monitor import Directive, StepResult
 
 logger = logging.getLogger("desktopenv.agent")
 
@@ -108,6 +109,7 @@ class AgentSNormal(UIAgent):
         self.enable_takeover = enable_takeover
         self.enable_search = enable_search
 
+
         # Load tools configuration from tools_config.json
         tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
         with open(tools_config_path, "r") as f:
@@ -148,6 +150,7 @@ class AgentSNormal(UIAgent):
             local_kb_path=self.local_kb_path,
             platform=self.platform,
             enable_search=self.enable_search,  # Pass global switch to Manager
+
         )
         
         self.worker = Worker(
@@ -155,9 +158,12 @@ class AgentSNormal(UIAgent):
             local_kb_path=self.local_kb_path,
             platform=self.platform,
             enable_takeover=self.enable_takeover,
+            enable_reflection=False,
             enable_search=self.enable_search,  # Pass global switch to Worker
             tools_config=self.tools_config,    # Pass complete tools configuration
         )
+
+        # Execution monitoring handled by Manager
 
         self.grounding = Grounding(
             Tools_dict=self.Tools_dict,
@@ -188,6 +194,9 @@ class AgentSNormal(UIAgent):
         self.step_count = 0
 
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:
+        # Bind agent object once for eval environment
+        agent: Grounding = self.grounding  # type: ignore
+
         # Initialize the three info dictionaries
         planner_info = {}
         executor_info = {}
@@ -247,6 +256,11 @@ class AgentSNormal(UIAgent):
                     self.failure_subtask = None
                     if self.current_subtask is not None:
                         self.global_state.add_completed_subtask(self.current_subtask)
+                    # Clear current subtask in global state when all done
+                    try:
+                        self.global_state.set_current_subtask(None)
+                    except Exception:
+                        pass
                     # reset executor state
                     self.reset_executor_state()
                     self.should_send_action = True
@@ -271,11 +285,21 @@ class AgentSNormal(UIAgent):
 
                 self.current_subtask = self.subtasks.pop(0)
                 self.global_state.set_remaining_subtasks(self.subtasks)
+                # Persist current subtask for Manager and others to consume
+                try:
+                    self.global_state.set_current_subtask(self.current_subtask)
+                except Exception:
+                    pass
                 logger.info(f"NEXT SUBTASK: {self.current_subtask}")
                 logger.info(f"REMAINING SUBTASKS: {self.subtasks}")
                 logger.info(f"REMAINING SUBTASKS FROM GLOBAL STATE: {self.global_state.get_remaining_subtasks()}")
                 self.needs_next_subtask = False
                 self.subtask_status = "Start"
+                # Expose current subtask name to Worker for budgeting context
+                try:
+                    self.worker.current_subtask_name = self.current_subtask.name  # type: ignore[attr-defined]
+                except Exception:
+                    pass
                 
                 self.global_state.log_operation(
                     module="agent",
@@ -286,9 +310,15 @@ class AgentSNormal(UIAgent):
                     }
                 )
 
+
             worker_start_time = time.time()
             
             # get the next action from the worker
+            # Get guidance from manager if available
+            guidance = None
+            if hasattr(self.manager, 'get_guidance') and self.current_subtask is not None:
+                guidance = self.manager.get_guidance()
+            
             executor_info = self.worker.generate_next_action(
                 Tu=instruction,
                 search_query=self.search_query,
@@ -297,7 +327,54 @@ class AgentSNormal(UIAgent):
                 future_tasks=self.global_state.get_remaining_subtasks(),
                 done_task=self.global_state.get_completed_subtasks(),
                 obs=self.global_state.get_obs_for_manager(),
+                guidance=guidance,
             )
+            
+            # Execution feedback to Manager and gating
+            tel: StepResult | None = executor_info.get("_step_result") if isinstance(executor_info, dict) else None  # type: ignore
+            # Do not feed the execution monitor here to avoid double-counting per step.
+            # Post-execution feedback (after hardware dispatch) will drive PATCH/REPLAN.
+            directive = Directive.CONTINUE
+
+            # REPLAN path
+            if directive == Directive.REPLAN:
+                self.requires_replan = True
+                self.needs_next_subtask = True
+                self.global_state.add_failed_subtask(self.current_subtask) # type: ignore
+                self.failure_subtask = self.global_state.get_latest_failed_subtask()
+                
+                # 触发失败学习
+                try:
+                    if hasattr(self.manager, 'learn_from_failure') and self.current_subtask is not None:
+                        failure_context = {
+                            "subtask_name": self.current_subtask.name,
+                            "subtask_info": self.current_subtask.info,
+                            "step_count": self.step_count,
+                            "turn_count": self.turn_count,
+                            "platform": self.platform,
+                            "reason": "directive_replan"
+                        }
+                        self.manager.learn_from_failure(
+                            subtask_id=self.current_subtask.name,
+                            failure_reason="Directive REPLAN triggered",
+                            action_taken="directive_replan",
+                            context=failure_context
+                        )
+                        logger.info(f"Triggered failure learning for REPLAN directive: {self.current_subtask.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to trigger failure learning for REPLAN: {e}")
+                
+                self.reset_executor_state()
+                self.global_state.log_operation(
+                    module="agent",
+                    operation="directive_replan",
+                    data={
+                        "content": str(self.current_subtask),
+                        "status": "replan"
+                    }
+                )
+                # Skip sending any action; re-enter loop to replan
+                continue
             
             worker_execution_time = time.time() - worker_start_time
             
@@ -310,6 +387,7 @@ class AgentSNormal(UIAgent):
                 }
             )
 
+            # grounding 执行
             try:
                 grounding_start_time = time.time()
                 current_width, current_height = self.global_state.get_screen_size()
@@ -319,8 +397,8 @@ class AgentSNormal(UIAgent):
                 plan_code = parse_single_code_from_string(raw_grounded_action)
                 plan_code = sanitize_code(plan_code)
                 plan_code = extract_first_agent_function(plan_code)
-                agent: Grounding = self.grounding # type: ignore
-                exec_code = eval(plan_code) # type: ignore
+                
+                exec_code = eval(plan_code)  # type: ignore
                 grounding_execution_time = time.time() - grounding_start_time
                 
                 # 记录grounding执行时间
@@ -339,8 +417,7 @@ class AgentSNormal(UIAgent):
                     "content": f"error={str(e)}; raw_grounded_action={(raw_grounded_action if 'raw_grounded_action' in locals() else None)!r}"
                 })
                 plan_code = "agent.wait(1.0)"
-                agent: Grounding = self.grounding # this agent will be used in next code
-                exec_code = eval(plan_code) # type: ignore
+                exec_code = eval(plan_code)  # type: ignore
                 
                 # 记录grounding错误
                 self.global_state.log_operation(
@@ -353,7 +430,29 @@ class AgentSNormal(UIAgent):
                         "plan": executor_info.get("executor_plan", "")
                     }
                 )
-            
+                
+                # 触发失败学习（grounding错误）
+                try:
+                    if hasattr(self.manager, 'learn_from_failure') and self.current_subtask is not None:
+                        failure_context = {
+                            "subtask_name": self.current_subtask.name,
+                            "subtask_info": self.current_subtask.info,
+                            "step_count": self.step_count,
+                            "turn_count": self.turn_count,
+                            "platform": self.platform,
+                            "error_type": "grounding_error",
+                            "error_details": str(e)
+                        }
+                        self.manager.learn_from_failure(
+                            subtask_id=self.current_subtask.name,
+                            failure_reason=f"Grounding error: {str(e)}",
+                            action_taken="grounding_execution",
+                            context=failure_context
+                        )
+                        logger.info(f"Triggered failure learning for grounding error: {self.current_subtask.name}")
+                except Exception as learn_error:
+                    logger.warning(f"Failed to trigger failure learning for grounding error: {learn_error}")
+
             actions = [exec_code]
             
             if plan_code == (self.last_exec_plan_code or None):
@@ -374,6 +473,7 @@ class AgentSNormal(UIAgent):
             # set the should_send_action flag to True if the executor returns an action
             self.should_send_action = True
 
+
             # replan on failure
             if "fail" in actions[0]["type"].lower():
                 self.requires_replan = True
@@ -392,6 +492,26 @@ class AgentSNormal(UIAgent):
                         "status": "failed"
                     }
                 )
+                
+                # 触发失败学习
+                try:
+                    if hasattr(self.manager, 'learn_from_failure') and self.current_subtask is not None:
+                        failure_context = {
+                            "subtask_name": self.current_subtask.name,
+                            "subtask_info": self.current_subtask.info,
+                            "step_count": self.step_count,
+                            "turn_count": self.turn_count,
+                            "platform": self.platform
+                        }
+                        self.manager.learn_from_failure(
+                            subtask_id=self.current_subtask.name,
+                            failure_reason="Subtask execution failed",
+                            action_taken="subtask_execution",
+                            context=failure_context
+                        )
+                        logger.info(f"Triggered failure learning for subtask: {self.current_subtask.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to trigger failure learning: {e}")
 
                 # reset the step count, executor, and evaluator
                 self.reset_executor_state()
@@ -461,6 +581,8 @@ class AgentSNormal(UIAgent):
 
         return info, actions # type: ignore
 
+
+
     def update_narrative_memory(self, trajectory: str) -> None:
         """Update narrative memory from task trajectory
 
@@ -507,12 +629,12 @@ class AgentSNormal(UIAgent):
                 subtask_key = subtask_trajectory.split(
                     "\n----------------------\n\nPlan:\n"
                 )[0]
+                subtask_path = os.path.join(
+                    self.local_kb_path, self.platform, "episodic_memory.json"
+                )
                 try:
-                    subtask_path = os.path.join(
-                        self.local_kb_path, self.platform, "episodic_memory.json"
-                    )
                     kb = json.load(open(subtask_path))
-                except:
+                except Exception:
                     kb = {}
                 if subtask_key not in kb.keys():
                     subtask_summarization = self.manager.summarize_episode(
@@ -562,6 +684,7 @@ class AgentSFast(UIAgent):
         enable_takeover: bool = False,
         enable_search: bool = True,
         enable_reflection: bool = True,
+
         # enable_reflection: bool = False,
     ):
         """Initialize AgentSFast
@@ -574,6 +697,7 @@ class AgentSFast(UIAgent):
             enable_takeover: Whether to enable user takeover functionality. Defaults to False.
             enable_search: Whether to enable web search functionality. Defaults to True.
             enable_reflection: Whether to enable reflection functionality. Defaults to True.
+            # enable_reflection: Whether to enable reflection functionality. Defaults to False.
         """
         super().__init__(
             platform,
@@ -586,6 +710,7 @@ class AgentSFast(UIAgent):
         self.enable_takeover = enable_takeover
         self.enable_search = enable_search
         self.enable_reflection = enable_reflection
+
 
         # Load tools configuration from tools_config.json
         tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
@@ -653,8 +778,21 @@ class AgentSFast(UIAgent):
             **tool_params
         )
 
+<<<<<<< HEAD
         # Use normal Grounding (description -> coordinates) instead of direct coordinate execution
         self.grounding = Grounding(
+=======
+        # Reflection is now owned by Manager. Keep fields for compatibility if referenced.
+        self.reflection_agent = None
+        self.reflections = []
+        self.planner_history = []
+
+        self.grounding_width, self.grounding_height = self.fast_action_generator.tools[self.fast_action_generator_tool].get_grounding_wh()
+        if self.grounding_width is None or self.grounding_height is None:
+            self.grounding_width = self.screen_size[0]
+            self.grounding_height = self.screen_size[1]
+        self.grounding = FastGrounding(
+>>>>>>> 7dc3b17 (feat(agent): manager worker改造)
             Tools_dict=self.Tools_dict,
             platform=self.platform,
             width=self.screen_size[0],
@@ -683,7 +821,16 @@ class AgentSFast(UIAgent):
         import time
         predict_start_time = time.time()
         
+<<<<<<< HEAD
         # Build planning message that includes history for implicit reflection within the same call
+=======
+        fast_action_start_time = time.time()
+
+        reflection = None
+        if self.enable_reflection and self.reflection_agent is not None:
+            pass
+
+>>>>>>> 7dc3b17 (feat(agent): manager worker改造)
         agent_log = agent_log_to_string(self.global_state.get_agent_log())
         generator_message = textwrap.dedent(f"""
             Task Description: {instruction}
@@ -747,6 +894,7 @@ class AgentSFast(UIAgent):
             actions = [exec_code]
             self.latest_action = plan_code
             
+<<<<<<< HEAD
             if plan_code == (self.last_exec_plan_code or None):
                 self.last_exec_repeat += 1
             else:
@@ -758,6 +906,61 @@ class AgentSFast(UIAgent):
                 self.global_state.add_agent_log({
                     "type": "warning",
                     "content": warning_msg
+=======
+            if match:
+                action_code = match.group(1).strip()
+                logger.info("Extracted action code: %s", action_code)
+                
+                agent: FastGrounding = self.grounding # type: ignore
+                exec_code = eval(action_code) # type: ignore
+                actions = [exec_code]
+                self.latest_action = action_code
+                
+                # 记录成功执行
+                self.global_state.log_operation(
+                    module="agent",
+                    operation="fast_action_success",
+                    data={"action": action_code}
+                )
+            else:
+                logger.warning("No code block found, trying to parse the entire response")
+                action_code = plan.strip()
+                
+                if action_code.startswith("agent."):
+                    agent: FastGrounding = self.grounding # type: ignore
+                    exec_code = eval(action_code) # type: ignore
+                    actions = [exec_code]
+                    self.latest_action = action_code
+                    
+                    # 记录成功执行
+                    self.global_state.log_operation(
+                        module="agent",
+                        operation="fast_action_success",
+                        data={"action": action_code}
+                    )
+                else:
+                    logger.error("Could not parse action, using wait action")
+                    self.global_state.add_agent_log({
+                        "type": "Wrong action code format",
+                        "content": action_code
+                    })
+                    agent: FastGrounding = self.grounding # type: ignore
+                    exec_code = eval("agent.wait(1000)") # type: ignore
+                    actions = [exec_code]
+                    self.latest_action = "agent.wait(1000)"
+                    
+                    # 记录解析失败
+                    self.global_state.log_operation(
+                        module="agent",
+                        operation="fast_action_parse_failure",
+                        data={"content": action_code}
+                    )
+        except Exception as e:
+            logger.error("Error in parsing action code: %s", e)
+            self.global_state.add_agent_log({
+                    "type": "Error in parsing action code",
+                    "content": str(e)  # Convert Exception to string
+>>>>>>> 7dc3b17 (feat(agent): manager worker改造)
                 })
         except Exception as e:
             logger.error("Error in parsing/grounding action code: %s | raw_grounded_action: %s", e, self.raw_grounded_action)
@@ -770,6 +973,7 @@ class AgentSFast(UIAgent):
             actions = [exec_code]
             self.latest_action = "agent.wait(1000)"
             
+<<<<<<< HEAD
             if self.latest_action == (self.last_exec_plan_code or None):
                 self.last_exec_repeat += 1
             else:
@@ -783,6 +987,9 @@ class AgentSFast(UIAgent):
                     "content": warning_msg
                 })
             
+=======
+            # 记录执行失败
+>>>>>>> 7dc3b17 (feat(agent): manager worker改造)
             self.global_state.log_operation(
                 module="agent",
                 operation="fast_action_error",

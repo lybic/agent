@@ -7,7 +7,7 @@ from gui_agents.agents.Backend.LybicBackend import LybicBackend
 from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
 from gui_agents.agents.Backend.PyAutoGUIVMwareBackend import PyAutoGUIVMwareBackend
 """hardware_interface.py  ▸  Execute Action objects on real devices / emulators
-===============================================================================
+==============================================================================
 This module is the *single entry point* that upper‑layer planners / executors
 use to perform UI operations.  It is deliberately thin:
 
@@ -41,7 +41,7 @@ hwi.dispatchDict({"type": "Click", "xy": [200, 300]})
 ```
 """
 
-from typing import List, Type, Dict, Set, Union
+from typing import List, Type, Dict, Set, Union, Any
 
 # Import your Action primitives
 from gui_agents.agents.Action import (
@@ -96,28 +96,26 @@ class HardwareInterface:
         for act in actions:
             # 特殊处理Memorize动作，不传递给后端执行
             if type(act).__name__ == "Memorize":
-                return None
+                continue
             if not self.backend.supports(type(act)):
                 raise NotImplementedError(
                     f"{type(act).__name__} is not supported by backend {self.backend.__class__.__name__}"
                 )
             if (not isinstance(actions, list)) or (len(actions)==1):
-                return self.backend.execute(act)
+                result = self.backend.execute(act)
+                # If a single action returns a value (e.g., Screenshot), propagate it
+                return result
             else:
                 self.backend.execute(act)
+        # For batch execution with no explicit return
+        return None
 
-    def dispatchDict(self, actionDict: Dict):
-        """Execute one  actions *in order*.
-
-        Args:
-            actionDict: `Action` instance or list thereof.
-        """
-        """
-        Convenience helper – accept JSON-style dict(s) instead of Action objects.
+    def dispatchDict(self, actionDict: Union[Dict[str, Any], List[Dict[str, Any]]]):
+        """Execute one or multiple actions provided as JSON‑style dict(s).
 
         Parameters
         ----------
-        payload : Dict | List[Dict]
+        actionDict : Dict[str, Any] | List[Dict[str, Any]]
             - Dict:  single action, e.g. {"type": "Click", "xy": [100,200], ...}
             - List:  sequence of actions in the above format
         """

@@ -19,28 +19,28 @@ backend_kwargs = dict(   # 传给 PyAutoGUIBackend 的额外参数
 )
 
 # # 1. 构建动作序列
-plan = [
-    Click(x=10, y=300, element_description=''),
-    # TypeText(text="Hello Action!"),
-    # Wait(time=0.5),
-    # Drag(start=(400, 300), end=(800, 300), hold_keys=[],
-    #      starting_description="拖起点", ending_description="拖终点"),
-    # Hotkey(keys=["ctrl", "s"]),
-    # Open(app_or_filename='maps')
-    # Screenshot()
-    # Hotkey(keys=["command", "space"]),
-    # TypeText(text="测试", element_description="", press_enter=True)
-]
+# plan = [
+#     Click(x=10, y=300, element_description=''),
+#     # TypeText(text="Hello Action!"),
+#     # Wait(time=0.5),
+#     # Drag(start=(400, 300), end=(800, 300), hold_keys=[],
+#     #      starting_description="拖起点", ending_description="拖终点"),
+#     # Hotkey(keys=["ctrl", "s"]),
+#     # Open(app_or_filename='maps')
+#     # Screenshot()
+#     # Hotkey(keys=["command", "space"]),
+#     # TypeText(text="测试", element_description="", press_enter=True)
+# ]
 
 plan = [
-    # {'type': 'Hotkey', 'keys': ['command', 'space'], 'duration': 80}
-    {
-        "type": "Click",
-        "x": 50,
-        "y": 400,
-        "button": 1,
-        "holdKey": []
-    },
+    {'type': 'Hotkey', 'keys': ['left'], 'duration': 80}
+    # {
+    #     "type": "Click",
+    #     "x": 50,
+    #     "y": 400,
+    #     "button": 1,
+    #     "holdKey": []
+    # },
     # {
     #     "type": "TypeText",
     #     "text": "hello",
@@ -59,7 +59,7 @@ if dry_run:
         print(a)
 else:
     print("开始执行 Action 序列…")
-    # time.sleep(5)
+    time.sleep(5)
     # hwi.dispatch(plan)
     res = hwi.dispatchDict(plan)
     # print(res)

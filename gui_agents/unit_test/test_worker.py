@@ -134,7 +134,7 @@ class TestWorker(unittest.TestCase):
         
         # Verify if a new agent instance is created
         self.assertIsNotNone(self.worker.generator_agent)
-        self.assertIsNotNone(self.worker.reflection_agent)
+        # Reflection is now owned by Manager; Worker no longer requires reflection_agent
         self.assertIsNotNone(self.worker.knowledge_base)
 
     def test_generate_next_action_first_turn(self):
@@ -156,7 +156,7 @@ class TestWorker(unittest.TestCase):
         
         # Call generate_next_action method
         executor_info = self.worker.generate_next_action(
-            instruction=instruction,
+            Tu=instruction,
             search_query=search_query,
             subtask=subtask,
             subtask_info=subtask_info,
@@ -201,7 +201,7 @@ class TestWorker(unittest.TestCase):
         
         # Call generate_next_action method
         executor_info = self.worker.generate_next_action(
-            instruction=instruction,
+            Tu=instruction,
             search_query=search_query,
             subtask=subtask,
             subtask_info=subtask_info,

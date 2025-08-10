@@ -25,6 +25,7 @@ from PIL import Image
 # from gui_agents.agents.grounding import OSWorldACI
 from gui_agents.agents.Action import Screenshot
 from gui_agents.agents.agent_s import AgentSNormal, AgentSFast
+from gui_agents.agents.execution_monitor import StepResult, build_step_result
 
 from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
@@ -215,7 +216,7 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
         global_state.log_operation(module="agent",
                                    operation="agent.predict",
                                    data={"duration": predict_time})
-
+        # 整个任务完成或者失败
         if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower(
         ):
             if platform.system() == "Darwin":
@@ -234,7 +235,9 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
             continue
 
         if "wait" in code[0]["type"].lower():
-            time.sleep(5)
+            wait_duration = code[0].get("duration", 5000) / 1000
+            logger.info(f"Waiting for {wait_duration} seconds")
+            time.sleep(wait_duration)
             continue
 
         if enable_takeover and "usertakeover" in code[0]["type"].lower():
@@ -264,8 +267,14 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
             time.sleep(1.0)
             logger.info(f"EXECUTING CODE: {code[0]}")
 
+            # Execute and measure latency; capture execution errors
             step_dispatch_start = time.time()
-            hwi.dispatchDict(code[0])
+            exec_error: str | None = None
+            try:
+                hwi.dispatchDict(code[0])
+            except Exception as e:
+                exec_error = str(e)
+                logger.warning(f"Hardware dispatch raised: {exec_error}")
             step_dispatch_time = time.time() - step_dispatch_start
             logger.info(
                 f"[Step Timing] hwi.dispatchDict execution time: {step_dispatch_time:.2f} seconds"
@@ -279,6 +288,30 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
             global_state.log_operation(module="hardware",
                                        operation="hwi.dispatchDict",
                                        data={"duration": step_dispatch_time})
+
+            # Post-execution feedback to Manager for gating
+            try:
+                post_result = build_step_result(
+                    global_state=agent.global_state,
+                    code=code,
+                    exec_error=exec_error,
+                    step_dispatch_time_sec=step_dispatch_time,
+                    fallback_step_id=f"step-{_}",
+                )  # is_patch will be inferred from global_state
+                directive, patch_action = agent.manager.handle_post_exec(post_result)
+                if directive.name == "PATCH" and patch_action is not None:
+                    agent.worker.prepend_patch_action(patch_action)
+                    # Skip immediate execution; next predict loop will pick up the injected patch action
+                    continue
+                elif directive.name == "REPLAN":
+                    agent.requires_replan = True
+                    agent.needs_next_subtask = True
+                    agent.global_state.add_failed_subtask(agent.current_subtask)  # type: ignore
+                    agent.failure_subtask = agent.global_state.get_latest_failed_subtask()
+                    agent.reset_executor_state()
+                    continue
+            except Exception as e:
+                logger.warning(f"Post-execution feedback hook failed: {e}")
 
             time.sleep(1.0)
 
@@ -392,7 +425,12 @@ def run_agent_fast(agent,
 
         logger.info(f"[Fast Mode] Executing action: {code[0]}")
         step_dispatch_start = time.time()
-        hwi.dispatchDict(code[0])
+        exec_error: str | None = None
+        try:
+            hwi.dispatchDict(code[0])
+        except Exception as e:
+            exec_error = str(e)
+            logger.warning(f"[Fast Mode] Hardware dispatch raised: {exec_error}")
         step_dispatch_time = time.time() - step_dispatch_start
         logger.info(
             f"[Fast Mode] Action execution time: {step_dispatch_time:.2f} seconds"
@@ -514,6 +552,9 @@ def main():
         logger.info("Web search functionality is DISABLED")
     else:
         logger.info("Web search functionality is ENABLED")
+
+    # Smart reflection is always enabled by default
+    logger.info("Smart reflection functionality is ENABLED")
 
     # Initialize hardware interface
     backend_kwargs = {"platform": platform_os}

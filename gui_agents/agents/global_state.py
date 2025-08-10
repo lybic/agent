@@ -169,6 +169,9 @@ class GlobalState:
             agent_log_path: str,
             display_info_path:
         str = "",  # New parameter for storing display information
+            actions_path: str = "",
+            current_subtask_path: str = "",
+
     ):
         self.screenshot_dir = Path(screenshot_dir)
         self.tu_path = Path(tu_path)
@@ -187,6 +190,21 @@ class GlobalState:
         else:
             self.display_info_path = Path(display_info_path)
 
+        # Default locations for actions and current_subtask files if not provided
+        if not actions_path:
+            self.actions_path = Path(
+                os.path.join(self.running_state_path.parent, "actions.json")
+            )
+        else:
+            self.actions_path = Path(actions_path)
+
+        if not current_subtask_path:
+            self.current_subtask_path = Path(
+                os.path.join(self.running_state_path.parent, "current_subtask.json")
+            )
+        else:
+            self.current_subtask_path = Path(current_subtask_path)
+
         # Ensure necessary directories / files exist
         self.screenshot_dir.mkdir(parents=True, exist_ok=True)
         for p in [
@@ -199,15 +217,18 @@ class GlobalState:
                 self.running_state_path,
                 self.display_info_path,
                 self.agent_log_path,
+                self.actions_path,
+                self.current_subtask_path,
         ]:
             if not p.exists():
                 p.parent.mkdir(parents=True, exist_ok=True)
                 if p in [
                         self.completed_subtasks_path, self.failed_subtasks_path,
-                        self.remaining_subtasks_path, self.agent_log_path
+                        self.remaining_subtasks_path, self.agent_log_path,
+                        self.actions_path,
                 ]:
                     safe_write_text(p, "[]")
-                elif p in [self.display_info_path]:
+                elif p in [self.display_info_path, self.current_subtask_path]:
                     safe_write_text(p, "{}")
                 else:
                     safe_write_text(p, "")
@@ -365,6 +386,36 @@ class GlobalState:
         lst = self.get_failed_subtasks()
         lst.append(node)
         self._save_subtasks(self.failed_subtasks_path, lst)
+    
+    def add_failed_subtask_with_info(
+        self, 
+        name: str,
+        info: str,
+        error_type: Optional[str] = None, 
+        error_message: Optional[str] = None, 
+        suggested_action: Optional[str] = None
+        ) -> None:
+        """Add a failed subtask with enhanced information"""
+        from datetime import datetime
+        
+        # Get existing failed subtasks to check failure count
+        lst = self.get_failed_subtasks()
+        existing_failures = [n for n in lst if n.name == name]
+        failure_count = len(existing_failures) + 1
+        
+        # Create enhanced Node with new fields
+        failed_node = Node(
+            name=name,
+            info=info,
+            error_type=error_type,
+            error_message=error_message,
+            failure_count=failure_count,
+            last_failure_time=datetime.now().isoformat(),
+            suggested_action=suggested_action
+        )
+        
+        lst.append(failed_node)
+        self._save_subtasks(self.failed_subtasks_path, lst)
 
     def get_latest_failed_subtask(self) -> Optional[Node]:
         lst = self.get_failed_subtasks()
@@ -410,6 +461,78 @@ class GlobalState:
                     pass
             raise
 
+    # ====== actions (step results) ======
+    def get_actions(self) -> List[Dict[str, Any]]:
+        try:
+            with locked(self.actions_path, "r") as f:
+                data = safe_json_load(f)
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            logger.warning(
+                f"Failed to load actions from {self.actions_path}: {e}")
+            return []
+
+    def set_actions(self, actions: List[Dict[str, Any]]) -> None:
+        tmp = self.actions_path.with_suffix(".tmp")
+        try:
+            with locked(tmp, "w") as f:
+                safe_json_dump(actions, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            tmp.replace(self.actions_path)
+        except Exception as e:
+            logger.error(
+                f"Failed to set actions to {self.actions_path}: {e}")
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except Exception:
+                    pass
+            raise
+
+    def add_action(self, action_entry: Dict[str, Any]) -> None:
+        try:
+            actions = self.get_actions()
+            # Auto-increment id
+            action_entry["id"] = len(actions) + 1
+            actions.append(action_entry)
+            self.set_actions(actions)
+        except Exception as e:
+            logger.error(f"Failed to add action to {self.actions_path}: {e}")
+
+    def get_last_action(self) -> Optional[str]:
+        """Get the action from the most recent action entry"""
+        try:
+            actions = self.get_actions()
+            if actions:
+                return actions[-1].get("action")
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to get last action: {e}")
+            return None
+
+    def get_last_step_id(self) -> Optional[str]:
+        """Get the step_id from the most recent action entry"""
+        try:
+            actions = self.get_actions()
+            if actions:
+                return actions[-1].get("step_id")
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to get last step_id: {e}")
+            return None
+
+    def get_last_is_patch(self) -> bool:
+        """Get the is_patch from the most recent action entry"""
+        try:
+            actions = self.get_actions()
+            if actions:
+                return actions[-1].get("is_patch", False)
+            return False
+        except Exception as e:
+            logger.warning(f"Failed to get last is_patch: {e}")
+            return False
+
     # ====== remaining_subtasks ======
     def get_remaining_subtasks(self) -> List[Node]:
         return self._load_subtasks(self.remaining_subtasks_path)
@@ -421,6 +544,40 @@ class GlobalState:
         lst = self.get_remaining_subtasks()
         lst.append(node)
         self._save_subtasks(self.remaining_subtasks_path, lst)
+
+    # ====== current_subtask ======
+    def get_current_subtask(self) -> Optional[Node]:
+        try:
+            with locked(self.current_subtask_path, "r") as f:
+                data = safe_json_load(f)
+            if isinstance(data, dict) and data:
+                return node_from_dict(data)
+            return None
+        except Exception as e:
+            logger.warning(
+                f"Failed to get current subtask from {self.current_subtask_path}: {e}")
+            return None
+
+    def set_current_subtask(self, node: Optional[Node]) -> None:
+        tmp = self.current_subtask_path.with_suffix(".tmp")
+        try:
+            with locked(tmp, "w") as f:
+                if node is None:
+                    safe_json_dump({}, f, ensure_ascii=False, indent=2)
+                else:
+                    safe_json_dump(node_to_dict(node), f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            tmp.replace(self.current_subtask_path)
+        except Exception as e:
+            logger.error(
+                f"Failed to set current subtask to {self.current_subtask_path}: {e}")
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except Exception:
+                    pass
+            raise
 
     # ---------- termination_flag ----------
     def get_termination_flag(self) -> str:
@@ -556,6 +713,9 @@ class GlobalState:
                 - Other custom fields
         """
         try:
+            # Log to normal.log for real-time monitoring
+            self._log_to_normal_log(module, operation, data)
+            
             info = self.get_display_info()
 
             # Ensure the module exists
@@ -608,3 +768,54 @@ class GlobalState:
         except Exception as e:
             logger.error(f"Failed to log operation {module}.{operation}: {e}")
             # Don't raise the exception to avoid breaking the main flow
+
+    def _log_to_normal_log(self, module: str, operation: str, data: Dict[str, Any]) -> None:
+        """
+        Log operation information to normal.log for real-time monitoring
+        
+        Args:
+            module: Module name
+            operation: Operation name
+            data: Operation data
+        """
+        try:
+            # Format the log message
+            log_parts = [f"[{module.upper()}.{operation.upper()}]"]
+            
+            # Add duration if available
+            if "duration" in data:
+                log_parts.append(f"Duration: {data['duration']:.2f}s")
+            
+            # Add token information if available
+            if "tokens" in data:
+                if isinstance(data["tokens"], (list, tuple)) and len(data["tokens"]) >= 3:
+                    input_tokens, output_tokens, total_tokens = data["tokens"]
+                    log_parts.append(f"Tokens: {input_tokens}+{output_tokens}={total_tokens}")
+                else:
+                    log_parts.append(f"Tokens: {data['tokens']}")
+            
+            # Add cost information if available
+            if "cost" in data:
+                log_parts.append(f"Cost: {data['cost']}")
+            
+            # Add input information if available (truncated for readability)
+            if "input" in data:
+                input_text = str(data["input"])
+                if len(input_text) > 200:
+                    input_text = input_text[:200] + "..."
+                log_parts.append(f"Input: {input_text}")
+            
+            # Add content information if available (truncated for readability)
+            if "content" in data:
+                content_text = str(data["content"])
+                if len(content_text) > 200:
+                    content_text = content_text[:200] + "..."
+                log_parts.append(f"Output: {content_text}")
+            
+            # Log the formatted message
+            log_message = " | ".join(log_parts)
+            logger.info(log_message)
+            
+        except Exception as e:
+            # Don't let logging errors break the main flow
+            logger.warning(f"Failed to log to normal.log for {module}.{operation}: {e}")

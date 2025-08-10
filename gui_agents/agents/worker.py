@@ -1,7 +1,6 @@
 import logging
 import re
-import textwrap
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional
 import platform
 import os
 import json
@@ -18,6 +17,7 @@ from gui_agents.utils.common_utils import (
 from gui_agents.tools.tools import Tools
 from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
+from gui_agents.agents.execution_monitor import StepResult
 
 logger = logging.getLogger("desktopenv.agent")
 
@@ -127,10 +127,8 @@ class Worker:
             self.Tools_dict[self.action_generator_tool]["provider"],
             self.Tools_dict[self.action_generator_tool]["model"], **tool_params)
 
-        self.reflection_agent = Tools()
-        self.reflection_agent.register_tool(
-            "traj_reflector", self.Tools_dict["traj_reflector"]["provider"],
-            self.Tools_dict["traj_reflector"]["model"])
+        # Reflection now owned by Manager; keep attributes for backward compatibility if needed
+        self.reflection_agent = None
 
         self.embedding_engine = Tools()
         self.embedding_engine.register_tool(
@@ -151,6 +149,20 @@ class Worker:
         self.planner_history = []
         self.latest_action = None
         self.max_trajector_length = 8
+        self.last_step_result = None
+        # Queue for Manager-injected patch actions. Items are simple dicts like {"type":"WAIT","duration":800}
+        self._patch_action_queue: List[Dict] = []
+
+    def prepend_patch_action(self, patch_action: Dict) -> None:
+        """Prepend a patch action to be executed on the next generate_next_action call.
+
+        patch_action examples:
+          - {"type": "WAIT", "duration": 800}
+          - {"type": "SCROLL", "delta": 120, "element_description": "center of screen"}
+        """
+        # Insert at head so it runs before any original actions
+        self._patch_action_queue.insert(0, patch_action)
+
 
     def generate_next_action(
         self,
@@ -162,24 +174,70 @@ class Worker:
         done_task: List[Node],
         obs: Dict,
         running_state: str = "running",
+        guidance: Optional[str] = None,
     ) -> Dict:
-        """
-        Predict the next action(s) based on the current observation.
-        """
+        """Generate the next action based on the current state"""
         import time
-        action_start = time.time()
+        import re
+        from gui_agents.utils.common_utils import agent_log_to_string
 
-        # Log the result of the previous hardware action, which is the current observation.
-        if self.turn_count > 0 and self.latest_action:
-            self.global_state.add_agent_log({
-                "type":
-                    "passive",
-                "content":
-                    f"Hardware action `{self.latest_action}` has been executed. The result is reflected in the current screenshot."
-            })
+        # Get comprehensive failure context (without error messages)
+        failed_tasks = self.global_state.get_failed_subtasks()
+        failed_tasks_info = ""
+        if failed_tasks:
+            failed_tasks_info = "❌ 失败任务详情:\n"
+            for failed_task in failed_tasks[-3:]:  # Last 3 failed tasks
+                # Use enhanced Node fields if available
+                if hasattr(failed_task, 'error_type') and failed_task.error_type:
+                    failed_tasks_info += f"• 任务名称: {failed_task.name}\n"
+                    failed_tasks_info += f"  任务描述: {failed_task.info}\n"
+                    failed_tasks_info += f"  错误类型: {failed_task.error_type}\n"
+                    # 移除错误信息，不包含error_message
+                    if failed_task.suggested_action:
+                        failed_tasks_info += f"  建议动作: {failed_task.suggested_action}\n"
+                    if hasattr(failed_task, 'failure_count') and failed_task.failure_count:
+                        failed_tasks_info += f"  失败次数: {failed_task.failure_count}\n"
+                else:
+                    # Fallback to old method
+                    failure_reason = "未知原因"
+                    failed_tasks_info += f"• 任务名称: {failed_task.name}\n"
+                    failed_tasks_info += f"  任务描述: {failed_task.info}\n"
+                    failed_tasks_info += f"  失败原因: {failure_reason}\n"
+                
+                failed_tasks_info += "\n"  # 添加空行分隔
+
+        # Get recent actions for context
+        recent_actions = self.global_state.get_agent_log()[-5:] if self.global_state.get_agent_log() else []
+        recent_actions_info = ""
+        if recent_actions:
+            recent_actions_info = "📋 最近动作记录:\n"
+            for action in recent_actions:
+                if isinstance(action, dict):
+                    action_type = action.get('action', '未知动作')
+                    success = action.get('ok', True)
+                    status = "✅" if success else "❌"
+                    recent_actions_info += f"{status} {action_type}\n"
+
+        # Enhanced context information
+        context_info = ""
+        if failed_tasks_info:
+            context_info += f"\n{failed_tasks_info}"
+        if recent_actions_info:
+            context_info += f"\n{recent_actions_info}"
 
         # Get RAG knowledge, only update system message at t=0
         if self.turn_count == 0:
+            # Apply guidance from Manager if available
+            if guidance:
+                logger.info(f"Applying Manager guidance: {guidance[:100]}...")
+                # Enhance subtask info with guidance
+                enhanced_subtask_info = f"{subtask_info}\n\n📖 Manager指导:\n{guidance}"
+                subtask_info = enhanced_subtask_info
+                
+            # Add comprehensive context to subtask info
+            if context_info:
+                subtask_info += f"\n\n🔍 执行上下文信息:\n{context_info}"
+                
             if self.use_subtask_experience:
                 subtask_query_key = ("Task:\n" + search_query +
                                      "\n\nSubtask: " + subtask +
@@ -223,77 +281,58 @@ class Worker:
                             "Retrieved subtask experience: " +
                             retrieved_subtask_experience.strip(),
                         "duration":
-                            retrieve_time
+                            retrieve_time,
+                        "input": subtask_query_key
                     })
                 Tu += "\nYou may refer to some similar subtask experience if you think they are useful. {}".format(
                     retrieved_similar_subtask + "\n" +
                     retrieved_subtask_experience)
 
-            prefix_message = f"SUBTASK_DESCRIPTION is {subtask}\n\nTASK_DESCRIPTION is {Tu}\n\nFUTURE_TASKS is {', '.join([f.name for f in future_tasks])}\n\nDONE_TASKS is {', '.join(d.name for d in done_task)}"
+            # 格式化任务列表，包含name和info
+            def format_task_list(tasks: list) -> str:
+                if not tasks:
+                    return "无"
+                formatted_tasks = []
+                for task in tasks:
+                    formatted_tasks.append(f"{task.name}: {task.info}")
+                return "\n".join([f"- {task}" for task in formatted_tasks])
+            
+            prefix_message = f"SUBTASK_DESCRIPTION is name: {subtask}, info: {subtask_info}\n\nTASK_DESCRIPTION is {Tu}\n\nFUTURE_TASKS is:\n{format_task_list(future_tasks)}\n\nDONE_TASKS is:\n{format_task_list(done_task)}"
+
+        else:
+            prefix_message = ""
 
         # Reflection generation does not add its own response, it only gets the trajectory
         reflection = None
+        # Reflection is now fully handled by Manager; Worker does not interact with any reflector
         if self.enable_reflection:
-            # Load the initial subtask info
-            if self.turn_count == 0:
-                text_content = textwrap.dedent(f"""
-                    Subtask Description: {subtask}
-                    Subtask Information: {subtask_info}
-                    Current Trajectory below:
-                    """)
-                self.reflection_agent.tools["traj_reflector"].llm_agent.add_message(
-                    text_content +
-                    "\n\nThe initial screen is provided. No action has been taken yet.",
-                    image_content=obs["screenshot"],
-                    role="user")
-
-            else:
-                if self.planner_history and self.planner_history[-1] is not None:
-                    text_content = self.clean_worker_generation_for_reflection(
-                        self.planner_history[-1])
-                else:
-                    text_content = "No previous action available for reflection"
-
-                reflection_start = time.time()
-                reflection, total_tokens, cost_string = self.reflection_agent.execute_tool(
-                    "traj_reflector", {
-                        "str_input": text_content,
-                        "img_input": obs["screenshot"]
-                    })
-                logger.info(
-                    f"Trajectory reflector tokens: {total_tokens}, cost: {cost_string}"
-                )
-                reflection_time = time.time() - reflection_start
-                logger.info(
-                    f"[Timing] Worker.traj_reflector execution time: {reflection_time:.2f} seconds"
-                )
-                self.reflections.append(reflection)
-                logger.info("REFLECTION: %s", reflection)
-                self.global_state.log_operation(module="manager",
-                                                operation="reflection",
-                                                data={
-                                                    "tokens": total_tokens,
-                                                    "cost": cost_string,
-                                                    "content": reflection,
-                                                    "duration": reflection_time
-                                                })
+            pass
 
         generator_message = ""
 
-        # Only provide subinfo in the very first message to avoid over influence and redundancy
+        # Always provide essential context information
         if self.turn_count == 0:
+            # First turn: provide full context
             generator_message += prefix_message
             generator_message += f"Remember only complete the subtask: {subtask}\n"
             generator_message += f"You can use this extra information for completing the current subtask: {subtask_info}.\n"
         else:
+            # Subsequent turns: provide essential context + previous action info
+            generator_message += prefix_message
+            generator_message += f"Remember only complete the subtask: {subtask}\n"
+            generator_message += f"You can use this extra information for completing the current subtask: {subtask_info}.\n"
+            
+            # Add previous action information
             agent_log = agent_log_to_string(self.global_state.get_agent_log())
             generator_message += f"\nYour previous action was: {self.latest_action}\n"
+            
             generator_message += (
                 f"\nYou may use this reflection on the previous action and overall trajectory: {reflection}\n"
                 if reflection and self.turn_count > 0 else "")
             generator_message += f"Please refer to the agent log to understand the progress and context of the task so far.\n{agent_log}"
 
         action_generator_start = time.time()
+        
         plan, total_tokens, cost_string = self.generator_agent.execute_tool(
             "action_generator_with_takeover"
             if self.enable_takeover else "action_generator", {
@@ -315,12 +354,15 @@ class Worker:
                                             "tokens": total_tokens,
                                             "cost": cost_string,
                                             "content": plan,
-                                            "duration": action_generator_time
+                                            "duration": action_generator_time,
+                                            "input": generator_message
                                         })
 
         # Add the generated plan to the agent log as passive memory
         self.global_state.add_agent_log({"type": "passive", "content": plan})
 
+        parse_ok = True
+        parse_error: str | None = None
         try:
             action_code = parse_single_code_from_string(
                 plan.split("Grounded Action")[-1])
@@ -329,6 +371,8 @@ class Worker:
         except Exception as e:
             logger.warning(f"Failed to parse action from plan: {e}")
             self.latest_action = None
+            parse_ok = False
+            parse_error = f"PARSE_ACTION_FAILED: {e}"
 
         executor_info = {
             "current_subtask": subtask,
@@ -340,6 +384,17 @@ class Worker:
 
         self.screenshot_inputs.append(obs["screenshot"])
 
+        step_result = StepResult(
+            step_id=f"{subtask}.step-{self.turn_count}",
+            ok=parse_ok,
+            error=None if parse_ok else parse_error,
+            latency_ms=int(action_generator_time * 1000) if 'action_generator_time' in locals() else 0,
+            action=self.latest_action,
+            is_patch=False,
+        )
+        self.last_step_result = step_result
+        
+        executor_info["_step_result"] = step_result
         return executor_info
 
     # Removes the previous action verification, and removes any extraneous grounded actions

@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 import platform
@@ -17,6 +18,8 @@ from gui_agents.utils.common_utils import (
 from gui_agents.tools.tools import Tools
 from PIL import Image
 import io
+from gui_agents.agents.execution_monitor import ExecutionMonitor, Directive, StepResult
+from gui_agents.agents.reflector import Reflector
 
 logger = logging.getLogger("desktopenv.agent")
 
@@ -31,6 +34,13 @@ class Manager:
         multi_round: bool = False,
         platform: str = platform.system().lower(),
         enable_search: bool = True,
+        # Patch controls (defaults per spec)
+        patch_enabled: bool = True,
+        max_patches_per_step: int = 2,
+        max_patches_per_subtask: Optional[int] = 5,
+        scroll_delta_default: int = 120,
+        wait_ms_default: int = 800,
+
     ):
         self.platform = platform
         self.Tools_dict = Tools_dict
@@ -82,6 +92,103 @@ class Manager:
 
         self.multi_round = multi_round
 
+        # Execution monitor owned by Manager
+        self.exec_monitor = ExecutionMonitor(window=3)
+
+        # Reflector owned by Manager
+        self.reflector = Reflector(
+            tools_dict=self.Tools_dict,
+            tool_name="traj_reflector",
+            logger_cb=lambda op, data: self.global_state.log_operation(
+                module="manager", operation=op, data=data
+            ),
+        )
+
+        # ---- Patch controls/state ----
+        self.patch_enabled = patch_enabled
+        self.scroll_delta_default = int(scroll_delta_default)
+        self.wait_ms_default = int(wait_ms_default)
+        self.max_patches_per_step = int(max_patches_per_step)
+        self.max_patches_per_subtask = int(max_patches_per_subtask) if max_patches_per_subtask is not None else None
+        # Counters
+        self._patches_used_for_step: Dict[str, int] = {}
+        self._patches_used_for_subtask: Dict[str, int] = {}
+
+        # Per-subtask step counting for periodic reflection gating
+        self._current_subtask_name: Optional[str] = None
+        self._steps_in_current_subtask: int = 0
+
+        # ---- Failure Learning ----
+        self.failure_history: List[Dict] = []
+
+
+    # ---------------- PatchPolicy: choose(patch) -----------------
+    def _choose_patch(self, step_result: StepResult, last_action: Optional[str]) -> Dict:
+        """Stage-1 simple policy per spec.
+        - If the last original action was not a scroll -> scroll(+delta)
+        - Else -> wait(wait_ms_default)
+        """
+        if (last_action is None) or ("scroll(" not in last_action.lower()):
+            return {"type": "SCROLL", "delta": self.scroll_delta_default, "element_description": "center of screen"}
+        return {"type": "WAIT", "duration": self.wait_ms_default}
+
+    # ---------------- PatchBudget: allow(step_id) -----------------
+    def _allow_patch(self, step_id: str, subtask_name: Optional[str]) -> bool:
+        # Per-step budget
+        used_for_step = self._patches_used_for_step.get(step_id, 0)
+        if used_for_step >= self.max_patches_per_step:
+            return False
+        # Per-subtask budget (optional)
+        if self.max_patches_per_subtask is not None and subtask_name is not None:
+            used_for_subtask = self._patches_used_for_subtask.get(subtask_name, 0)
+            if used_for_subtask >= self.max_patches_per_subtask:
+                return False
+        return True
+
+    def _record_patch_use(self, step_id: str, subtask_name: Optional[str]) -> None:
+        self._patches_used_for_step[step_id] = self._patches_used_for_step.get(step_id, 0) + 1
+        if subtask_name is not None:
+            self._patches_used_for_subtask[subtask_name] = self._patches_used_for_subtask.get(subtask_name, 0) + 1
+
+    def _patch_count_for_step(self, step_id: str) -> int:
+        return self._patches_used_for_step.get(step_id, 0)
+
+    # ---------------- Failure Pattern Learning -----------------
+    def learn_from_failure(self, subtask_id: str, failure_reason: str, action_taken: str, context: Optional[Dict] = None):
+        
+        # Store failure information in GlobalState for easy access by Worker
+        failure_info = {
+            'failure_reason': failure_reason,
+            'failure_action': action_taken,
+            'failure_context': context,
+            'timestamp': time.time(),
+            'last_action': action_taken,  # 记录最后的动作
+            'step_count': context.get('step_count', 0) if context else 0,  # 记录步数
+            'turn_count': context.get('turn_count', 0) if context else 0,  # 记录轮数
+            'platform': context.get('platform', 'unknown') if context else 'unknown'  # 记录平台
+        }
+        
+        self.global_state.add_failed_subtask_info(subtask_id, failure_info)
+        
+        logger.info(f"Manager learned from failure: {failure_reason} for subtask {subtask_id}")
+
+
+    # manager给worker传递数据
+    def get_guidance(self) -> str:
+        """Get guidance for this subtask"""
+        
+        return ""
+
+    def _get_recent_actions(self) -> List[str]:
+        """Get recent actions for context"""
+        # For now, return a simple list based on current state
+        actions = []
+        if hasattr(self, '_current_subtask_name') and self._current_subtask_name:
+            actions.append(f"current_subtask: {self._current_subtask_name}")
+        if hasattr(self, '_steps_in_current_subtask'):
+            actions.append(f"steps_in_subtask: {self._steps_in_current_subtask}")
+        return actions
+
     def summarize_episode(self, trajectory):
         """Summarize the episode experience for lifelong learning reflection
         Args:
@@ -98,7 +205,8 @@ class Manager:
             data={
                 "tokens": total_tokens,
                 "cost": cost_string,
-                "content": subtask_summarization
+                "content": subtask_summarization,
+                "input": trajectory
             }
         )
 
@@ -119,7 +227,8 @@ class Manager:
             data={
                 "tokens": total_tokens,
                 "cost": cost_string,
-                "content": lifelong_learning_reflection
+                "content": lifelong_learning_reflection,
+                "input": trajectory
             }
         )
 
@@ -133,7 +242,7 @@ class Manager:
         completed_subtasks_list: List[Node] = [],
         remaining_subtasks_list: List[Node] = [],
     ) -> Tuple[Dict, str]:
-
+        
         import time
         step_start = time.time()
         # Converts a list of DAG Nodes into a natural langauge list
@@ -162,7 +271,8 @@ class Manager:
                     "tokens": total_tokens,
                     "cost": cost_string,
                     "content": self.search_query,
-                    "duration": formulate_query_time
+                    "duration": formulate_query_time,
+                    "input": f"The task is: {instruction}"
                 }
             )
             self.global_state.set_search_query(self.search_query)
@@ -185,7 +295,8 @@ class Manager:
                     "tokens": total_tokens,
                     "cost": cost_string,
                     "content": "Most similar task: " + most_similar_task + "\n" + retrieved_experience.strip(),
-                    "duration": narrative_time
+                    "duration": narrative_time,
+                    "input": instruction
                 }
             )
             
@@ -213,7 +324,8 @@ class Manager:
                         "tokens": total_tokens,
                         "cost": cost_string,
                         "content": retrieved_knowledge,
-                        "duration": knowledge_time
+                        "duration": knowledge_time,
+                        "input": f"instruction: {instruction}, search_query: {self.search_query}"
                     }
                 )
                 
@@ -239,7 +351,8 @@ class Manager:
                             "tokens": total_tokens,
                             "cost": cost_string,
                             "content": integrated_knowledge,
-                            "duration": fusion_time
+                            "duration": fusion_time,
+                            "input": f"Task: {instruction}\nWeb search result: {retrieved_knowledge}\nSimilar task: {most_similar_task}\nExperience: {retrieved_experience}"
                         }
                     )
                     
@@ -255,23 +368,32 @@ class Manager:
         # Re-plan on failure case
         if failed_subtask:
             agent_log = agent_log_to_string(self.global_state.get_agent_log())
+            
+            # Get detailed failure information
+            failed_subtasks_info = self._get_failed_subtasks_summary()
+            failure_context = ""
+            if failed_subtasks_info:
+                failure_context = f"\n\n❌ 失败任务详细信息:\n{failed_subtasks_info}"
+            
             generator_message = (
-                f"The subtask {failed_subtask} cannot be completed. Please generate a new plan for the remainder of the trajectory.\n\n"
-                f"Successfully Completed Subtasks:\n{format_subtask_list(completed_subtasks_list)}\n"
-                f"Please refer to the agent log to understand the progress and context of the task so far.\n{agent_log}"
+                f"⚠️ 重要：子任务 '{failed_subtask.name}' 执行失败，需要重新规划剩余轨迹。\n\n"
+                f"失败原因和上下文信息已在任务描述中提供，请仔细分析失败原因并生成改进的计划。\n\n"
+                f"✅ 已成功完成的子任务:\n{format_subtask_list(completed_subtasks_list)}\n"
+                f"{failure_context}\n"
+                f"请参考代理日志了解任务进展和上下文:\n{agent_log}"
             )
         # Re-plan on subtask completion case
         elif len(completed_subtasks_list) + len(remaining_subtasks_list) > 0:
             agent_log = agent_log_to_string(self.global_state.get_agent_log())
             generator_message = (
-                "The current trajectory and desktop state is provided. Please revise the plan for the following trajectory.\n\n"
-                f"Successfully Completed Subtasks:\n{format_subtask_list(completed_subtasks_list)}\n"
-                f"Future Remaining Subtasks:\n{format_subtask_list(remaining_subtasks_list)}\n"
-                f"Please refer to the agent log to understand the progress and context of the task so far.\n{agent_log}"
+                "📋 任务进展更新：当前轨迹和桌面状态已提供，请根据最新情况修订后续轨迹计划。\n\n"
+                f"✅ 已成功完成的子任务:\n{format_subtask_list(completed_subtasks_list)}\n"
+                f"🔄 待执行的剩余子任务:\n{format_subtask_list(remaining_subtasks_list)}\n"
+                f"请参考代理日志了解任务进展和上下文:\n{agent_log}"
             )
         # Initial plan case
         else:
-            generator_message = "Please generate the initial plan for the task.\n"
+            generator_message = "🚀 初始规划：请为当前任务生成初始执行计划。\n"
         
         generator_message = prefix_message + "\n" + generator_message
         logger.info("GENERATOR MESSAGE: %s", generator_message)
@@ -289,7 +411,8 @@ class Manager:
                 "tokens": total_tokens,
                 "cost": cost_string,
                 "content": plan,
-                "duration": subtask_planner_time
+                "duration": subtask_planner_time,
+                "input": generator_message
             }
         )
         
@@ -328,6 +451,10 @@ class Manager:
         max_retries = 2
         retry_count = 0
         dag = None
+        dag_raw = ""
+        total_tokens = 0
+        cost_string = ""
+        dag_input = f"Instruction: {instruction}\nPlan: {plan}"
 
         while retry_count < max_retries and dag is None:
             if retry_count > 0:
@@ -339,7 +466,7 @@ class Manager:
                 )
             
             # Generate DAG
-            dag_raw, total_tokens, cost_string = self.dag_translator_agent.execute_tool("dag_translator", {"str_input": f"Instruction: {instruction}\nPlan: {plan}"})
+            dag_raw, total_tokens, cost_string = self.dag_translator_agent.execute_tool("dag_translator", {"str_input": dag_input})
             logger.info(f"DAG translator tokens: {total_tokens}, cost: {cost_string}")
 
             # Try to parse DAG
@@ -364,7 +491,8 @@ class Manager:
                 "cost": cost_string,
                 "content": dag_raw,
                 "duration": dag_time,
-                "retry_count": retry_count
+                "retry_count": retry_count,
+                "input": dag_input
             }
         )
 
@@ -481,9 +609,32 @@ class Manager:
         action_queue_start = time.time()
 
         try:
+            # Get reflector insights if available
+            reflector_insights = ""
+            if hasattr(self, "reflector") and self.global_state.get_agent_log():
+                try:
+                    recent_actions = self.global_state.get_agent_log()[-10:]  # Last 10 actions
+                    if recent_actions:
+                        reflector_insights = self.reflector.reflect_agent_log(
+                            recent_actions, "PLANNING_CONTEXT"
+                        )
+                        logger.info(f"Reflector insights for planning: {reflector_insights}")
+                except Exception as e:
+                    logger.warning(f"Failed to get reflector insights: {e}")
+
+            # Get comprehensive failure information
+            failed_subtasks_info = self._get_failed_subtasks_summary()
+            
+            # Enhance instruction with failure context and reflector insights
+            enhanced_instruction = Tu
+            if failed_subtasks_info:
+                enhanced_instruction += f"\n\n📋 失败任务信息:\n{failed_subtasks_info}"
+            if reflector_insights:
+                enhanced_instruction += f"\n\n🔍 Reflector分析:\n{reflector_insights}"
+
             planner_info, plan = self._generate_step_by_step_plan(
                 observation,
-                Tu,
+                enhanced_instruction,  # Use enhanced instruction
                 failed_subtask,
                 completed_subtasks_list,
                 remaining_subtasks_list,
@@ -518,6 +669,38 @@ class Manager:
                     operation="topological_sort_error",
                     data={"error": str(e), "content": "Topological sort failed, using node list directly"}
                 )
+            
+            # Enhance subtasks with failure patterns and guidance
+            enhanced_action_queue = []
+            # 只为失败的任务添加reflector信息，普通任务只添加失败指导
+            for subtask in action_queue:
+                # 检查这个任务是否是失败的任务
+                is_failed_task = any(failed.name == subtask.name for failed in self.global_state.get_failed_subtasks())
+                
+                if is_failed_task:
+                    # 失败的任务：添加完整的context（包括reflector信息）
+                    context = {
+                        "previous_actions": self._get_recent_actions(),
+                        "current_platform": self.platform,
+                        "timestamp": time.time(),
+                        "failed_subtasks_info": failed_subtasks_info,
+                        "reflector_insights": reflector_insights
+                    }
+                    enhanced_subtask = self.enhance_subtask_with_guidance(subtask, context)
+                else:
+                    # 普通任务：只添加失败指导，不添加reflector信息
+                    context = {
+                        "previous_actions": self._get_recent_actions(),
+                        "current_platform": self.platform,
+                        "timestamp": time.time(),
+                        "failed_subtasks_info": failed_subtasks_info,
+                        # 不包含 reflector_insights
+                    }
+                    enhanced_subtask = self.enhance_subtask_with_guidance(subtask, context)
+                
+                enhanced_action_queue.append(enhanced_subtask)
+            
+            action_queue = enhanced_action_queue
 
             planner_info.update(dag_info)
             
@@ -566,3 +749,314 @@ class Manager:
             logger.info(f"[Timing] manager.get_action_queue (error path) execution time: {action_queue_time:.2f} seconds")
             
             return planner_info, action_queue
+
+    def _get_failed_subtasks_summary(self) -> str:
+        """Get a comprehensive summary of failed subtasks with reasons"""
+        # 获取增强的失败任务信息
+        failed_subtasks = self.global_state.get_failed_subtasks()
+        failed_subtasks_info = self.global_state.get_failed_subtasks_info()
+        
+        if not failed_subtasks and not failed_subtasks_info:
+            return ""
+        
+        summary = []
+        
+        # 使用新的Node字段信息
+        if failed_subtasks:
+            # Get last 5 failed subtasks
+            recent_failures = failed_subtasks[-5:]
+            
+            for failed_node in recent_failures:
+                summary.append(f"• {failed_node.name}: {failed_node.info}")
+                
+                if failed_node.error_type:
+                    summary.append(f"  错误类型: {failed_node.error_type}")
+                
+                if failed_node.error_message:
+                    summary.append(f"  错误信息: {failed_node.error_message}")
+                
+                if failed_node.failure_count and failed_node.failure_count > 1:
+                    summary.append(f"  失败次数: {failed_node.failure_count}")
+                
+                if failed_node.suggested_action:
+                    summary.append(f"  建议动作: {failed_node.suggested_action}")
+        
+        # 同时显示旧的详细信息（如果有的话）
+        if failed_subtasks_info:
+            summary.append("\n📋 详细失败信息:")
+            recent_failures_info = list(failed_subtasks_info.items())[-3:]  # 只显示最近3个
+            
+            for subtask_name, failure_info in recent_failures_info:
+                failure_reason = failure_info.get('failure_reason', 'Unknown reason')
+                failure_action = failure_info.get('failure_action', 'Unknown action')
+                step_count = failure_info.get('step_count', 0)
+                turn_count = failure_info.get('turn_count', 0)
+                
+                summary.append(f"• {subtask_name}: {failure_reason}")
+                summary.append(f"  动作: {failure_action}, 步数: {step_count}, 轮数: {turn_count}")
+                
+                # 如果是 reflector replan，显示更多信息
+                if failure_action == "reflector_replan":
+                    context = failure_info.get('failure_context', {})
+                    reason = context.get('reason', 'unknown')
+                    steps_in_subtask = context.get('steps_in_subtask', 0)
+                    summary.append(f"  Reflector原因: {reason}, 子任务步数: {steps_in_subtask}")
+        
+        return "\n".join(summary)
+
+    def enhance_subtask_with_guidance(self, subtask: Node, context: Optional[Dict] = None) -> Node:
+        """Enhance subtask with comprehensive failure guidance and context"""
+        guidance = self.get_failure_guidance(subtask.name)
+        
+        enhanced_info = subtask.info
+        
+        # Add failure guidance
+        if guidance:
+            enhanced_info += f"\n\n📖 失败指导:\n{guidance}"
+        
+        # Add context information if available
+        if context:
+            if context.get("failed_subtasks_info"):
+                enhanced_info += f"\n\n📋 失败任务上下文:\n{context['failed_subtasks_info']}"
+            
+            # 只有当context中明确包含reflector_insights时才添加
+            if context.get("reflector_insights") and context["reflector_insights"].strip():
+                enhanced_info += f"\n\n🔍 Reflector分析:\n{context['reflector_insights']}"
+        
+        enhanced_subtask = Node(
+            name=subtask.name,
+            info=enhanced_info
+        )
+        return enhanced_subtask
+
+    def handle_execution_feedback(self, result: Optional[StepResult]) -> Directive:
+        """Accept step execution feedback and return a directive.
+
+        Centralizes monitoring in Manager so that Manager can decide whether to
+        continue, apply a small patch, or trigger replanning.
+        """
+        try:
+            directive = self.exec_monitor.feed(result)
+            # Log directive for observability
+            self.global_state.log_operation(
+                module="manager",
+                operation="execution_feedback",
+                data={
+                    "step_id": getattr(result, "step_id", None),
+                    "ok": getattr(result, "ok", None),
+                    "error": getattr(result, "error", None),
+                    "latency_ms": getattr(result, "latency_ms", None),
+                    "action": getattr(result, "action", None),
+                    "is_patch": getattr(result, "is_patch", False),
+                    "directive": directive.name if hasattr(directive, "name") else str(directive),
+                    "patch_count_for_step": self._patch_count_for_step(getattr(result, "step_id", "")) if result else 0,
+                },
+            )
+            # Persist the action into GlobalState actions list, similar to subtasks
+            try:
+                if result is not None:
+                    current_node = self.global_state.get_current_subtask()
+                    self.global_state.add_action({
+                        "step_id": result.step_id,
+                        "action": result.action,
+                        "ok": result.ok,
+                        "error": result.error,
+                        "latency_ms": result.latency_ms,
+                        "is_patch": getattr(result, "is_patch", False),
+                        "subtask_name": current_node.name if current_node else None,
+                        "timestamp": time.time(),
+                    })
+                    
+                    # Learn from failures for future improvement
+                    if not result.ok and result.error:
+                        subtask_name = current_node.name if current_node else "unknown"
+                        context = {
+                            "step_id": result.step_id,
+                            "action": result.action,
+                            "latency_ms": result.latency_ms,
+                            "is_patch": getattr(result, "is_patch", False)
+                        }
+                        self.learn_from_failure(
+                            subtask_id=subtask_name,
+                            failure_reason=result.error,
+                            action_taken=result.action if result.action else "unknown_action",
+                            context=context
+                        )
+            except Exception:
+                pass
+            return directive
+        except Exception:
+            # On any unexpected issue, default to CONTINUE
+            return Directive.CONTINUE
+
+    def handle_post_exec(self, result: Optional[StepResult]) -> Tuple[Directive, Optional[Dict]]:
+        """Single entry point for post-execution handling.
+
+        - Feeds the execution monitor
+        - Logs feedback consistently
+        - If directive is PATCH, respects patch budget and returns a patch action
+        - If over budget on PATCH, escalates to REPLAN
+        Returns: (directive, patch_action)
+        """
+        directive = self.handle_execution_feedback(result)
+
+        # Periodic reflection: every 3 actions within the same subtask, if not completed yet
+        try:
+            current_node = self.global_state.get_current_subtask()
+            subtask_name: Optional[str] = current_node.name if current_node else None
+            if subtask_name != self._current_subtask_name:
+                self._current_subtask_name = subtask_name
+                self._steps_in_current_subtask = 0
+
+            if result is not None:
+                self._steps_in_current_subtask += 1
+
+            trigger_periodic_reflect = (
+                subtask_name is not None and
+                self._steps_in_current_subtask > 0 and
+                self._steps_in_current_subtask % 3 == 0
+            )
+
+            if trigger_periodic_reflect and hasattr(self, "reflector") and getattr(self, "Tools_dict", None):
+                # Get all steps for current subtask, not just recent 5
+                all_recent: List[StepResult] = getattr(self.exec_monitor, "get_recent", lambda n=None: [])(None)  # type: ignore
+                
+                # Filter steps for current subtask based on step_id pattern
+                # Assuming step_id contains subtask information or we can track subtask boundaries
+                current_subtask_steps = []
+                if subtask_name:
+                    # Get all steps since the start of current subtask
+                    # We'll use a simple heuristic: get all steps from the last subtask change
+                    # This is a simplified approach - in a more robust implementation,
+                    # we'd track subtask boundaries more precisely
+                    current_subtask_steps = all_recent[-self._steps_in_current_subtask:] if self._steps_in_current_subtask > 0 else all_recent
+                else:
+                    # Fallback to recent steps if no subtask name
+                    current_subtask_steps = all_recent[-5:] if len(all_recent) >= 5 else all_recent
+                
+                recent_summary = [
+                    f"step_id={r.step_id}, ok={r.ok}, error={r.error}, latency_ms={r.latency_ms}, action={r.action}"
+                    for r in current_subtask_steps
+                ]
+                recent_text = "\n".join(recent_summary) if recent_summary else "(no recent results)"
+
+                decision = self.reflector.reflect_manager_decision(current_subtask_steps, f"PERIODIC_{self._steps_in_current_subtask}_STEPS_IN_SUBTASK_{subtask_name}")
+                
+                if decision == "REPLAN":
+                    directive = Directive.REPLAN
+                elif decision == "PATCH":
+                    directive = Directive.PATCH
+                elif decision == "CONTINUE":
+                    # Keep current directive (CONTINUE), no intervention needed
+                    directive = Directive.CONTINUE
+                elif decision == "UNKNOWN":
+                    # For UNKNOWN, use a conservative approach:
+                    # - If there are errors, default to PATCH first
+                    # - If no errors but actions are failing, default to REPLAN
+                    # - Otherwise, continue
+                    has_errors = any(r.error is not None for r in current_subtask_steps)
+                    has_failures = any(not r.ok for r in current_subtask_steps)
+                    
+                    if has_errors:
+                        directive = Directive.PATCH
+                        logger.info(f"Reflector returned UNKNOWN, defaulting to PATCH due to errors")
+                    elif has_failures:
+                        directive = Directive.REPLAN
+                        logger.info(f"Reflector returned UNKNOWN, defaulting to REPLAN due to failures")
+                    else:
+                        directive = Directive.CONTINUE
+                        logger.info(f"Reflector returned UNKNOWN, defaulting to CONTINUE")
+                else:
+                    # Fallback for any unexpected decision
+                    directive = Directive.CONTINUE
+                    logger.warning(f"Unexpected reflector decision: {decision}, defaulting to CONTINUE")
+
+                self.global_state.log_operation(
+                    module="manager",
+                    operation="reflector_decision",
+                    data={
+                        "reason": f"PERIODIC_{self._steps_in_current_subtask}_STEPS_IN_SUBTASK_{subtask_name}",
+                        "decision": directive.name,
+                        "reflector_decision": decision,
+                        "recent": recent_text,
+                        "subtask": subtask_name,
+                        "steps_in_subtask": self._steps_in_current_subtask,
+                    },
+                )
+                
+                # 如果 reflector 决定 REPLAN，直接记录到 failed_subtasks
+                if decision == "REPLAN" and subtask_name:
+                    failure_info = {
+                        "failure_reason": f"Reflector triggered REPLAN: {recent_text}",
+                        "failure_action": "reflector_replan",
+                        "failure_context": {
+                            "reflector_decision": decision,
+                            "reason": f"PERIODIC_{self._steps_in_current_subtask}_STEPS_IN_SUBTASK_{subtask_name}",
+                            "steps_in_subtask": self._steps_in_current_subtask,
+                            "recent_actions": recent_text
+                        },
+                        "step_count": len(current_subtask_steps),
+                        "turn_count": self.turn_count,
+                        "platform": getattr(self, "platform", "unknown")
+                    }
+                    self.global_state.add_failed_subtask_info(subtask_name, failure_info)
+                    
+                    # 同时使用新的方法创建增强的失败任务记录
+                    self.global_state.add_failed_subtask_with_info(
+                        name=subtask_name,
+                        info=f"Reflector triggered REPLAN after {self._steps_in_current_subtask} steps",
+                        error_type="REFLECTOR_REPLAN",
+                        error_message=failure_info["failure_reason"],
+                        suggested_action="replan_subtask"
+                    )
+        except Exception as e:
+            logger.warning(f"Periodic reflector gating failed: {e}")
+
+        if directive == Directive.PATCH:
+            should_patch, patch_action, over_budget = self.maybe_get_patch(result)
+            if over_budget:
+                # Treat as REPLAN when patch budget is exceeded
+                return Directive.REPLAN, None
+            if should_patch and patch_action is not None:
+                # Return patch action to caller to inject
+                return Directive.PATCH, patch_action
+            # If no patch selected, just continue with current directive
+            return directive, None
+
+        return directive, None
+
+    # Orchestrated manager loop hook (called from AgentS2.predict): returns (should_patch, patch_action, exceeded_budget)
+    def maybe_get_patch(self, step_result: Optional[StepResult]) -> Tuple[bool, Optional[Dict], bool]:
+        if (not self.patch_enabled) or (step_result is None):
+            return False, None, False
+        # The caller should only invoke this when a PATCH directive has already been issued.
+        # Avoid double-feeding the monitor here.
+
+        # Budgeting
+        current_node = self.global_state.get_current_subtask()
+        subtask_name: Optional[str] = current_node.name if current_node else None
+        if not self._allow_patch(step_result.step_id, subtask_name):
+            # Over budget -> request REPLAN
+            self.global_state.log_operation(
+                module="manager",
+                operation="directive_patch_over_budget",
+                data={
+                    "step_id": step_result.step_id,
+                    "patch_count_for_step": self._patch_count_for_step(step_result.step_id),
+                    "max_patches_per_step": self.max_patches_per_step,
+                },
+            )
+            return False, None, True
+        # Choose and return patch (do not read from worker; rely on the last executed action)
+        patch_action = self._choose_patch(step_result, step_result.action)
+        self._record_patch_use(step_result.step_id, subtask_name)
+        self.global_state.log_operation(
+            module="manager",
+            operation="directive_patch_chosen",
+            data={
+                "step_id": step_result.step_id,
+                "patch_action": patch_action,
+                "patch_count_for_step": self._patch_count_for_step(step_result.step_id),
+            },
+        )
+        return True, patch_action, False

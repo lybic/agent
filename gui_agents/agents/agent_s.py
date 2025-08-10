@@ -763,7 +763,7 @@ class AgentSFast(UIAgent):
             logger.error("Error in parsing/grounding action code: %s | raw_grounded_action: %s", e, self.raw_grounded_action)
             self.global_state.add_agent_log({
                 "type": "Error in parsing action code",
-                "content": f"error={str(e)}; raw_grounded_action={self.raw_grounded_action}"
+                "content": f"error={str(e)}; latest_grounded_action={self.raw_grounded_action}"
             })
             agent: Grounding = self.grounding  # type: ignore
             exec_code = eval("agent.wait(1000)")  # type: ignore
@@ -776,7 +776,7 @@ class AgentSFast(UIAgent):
                 self.last_exec_plan_code = self.latest_action
                 self.last_exec_repeat = 1
             if self.last_exec_repeat >= 3:
-                warning_msg = f"Action repeated {self.last_exec_repeat} times, possible stuck: {self.latest_action}"
+                warning_msg = f"Action repeated {self.last_exec_repeat} times, possible stuck: {self.raw_grounded_action}"
                 logger.warning(warning_msg)
                 self.global_state.add_agent_log({
                     "type": "warning",

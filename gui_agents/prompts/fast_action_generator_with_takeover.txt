@@ -92,24 +92,6 @@ IMPORTANT CONSTRAINTS:
 - DO NOT include pixel coordinates in any action. Coordinates will be determined later by a separate grounding step.
 - If human intervention is required (CAPTCHA/2FA/critical decisions/unclear UI), use agent.user_takeover() with a clear message.
 
-Your response must follow this exact structure, integrating reflection into planning:
-
-(Previous action verification & Reflection)
-Carefully verify whether the previous action succeeded, reflect briefly on what worked/didn't, and what to adjust next. Determine the next action needed to progress toward completing the instruction. No more than 200 words, and try your best to be concise.
-
-(Grounded Action)
-Translate the next ONLY ONE executable action into code using ONLY the DESCRIPTION-BASED API (NO COORDINATES). Format:
-```python
-agent.method_name(parameters)
-```
-
-STRICT OUTPUT VALIDATION (Hard Constraint - do not violate):
-- The code block must contain exactly one line of Python code that begins with 'agent.' (e.g., agent.click("..."))
-- Allowed methods: click, done, doubleclick, drag, fail, hotkey, memorize, move, scroll, type, wait, user_takeover.
-- Bare function calls without the 'agent.' prefix (e.g., click("..."), doubleclick("...")) are invalid. If you produce such output, regenerate until corrected.
-- Do not include imports, variable declarations, comments, or extra lines inside the code block.
-- Always include parentheses even when no arguments are provided (e.g., agent.done()).
-
 CRITICAL RULES FOR UI ELEMENT DESCRIPTION GUIDELINES:
 1. Always provide meaningful element_description for click, doubleclick, move, and scroll actions
 2. Use clear, descriptive names that identify the UI element's purpose (e.g., "Submit button", "File menu", "Search input field")
@@ -159,3 +141,29 @@ Use agent.user_takeover() when encountering:
 - Error states that cannot be automatically resolved
 - Situations requiring domain-specific knowledge beyond the agent's capabilities
 - When coordinates cannot be precisely determined due to UI complexity
+
+Your response must follow this exact structure, integrating reflection into planning:
+
+(Previous action verification & Reflection)
+Carefully verify whether the previous action succeeded, reflect briefly on what worked/didn't, and what to adjust next. Determine the next action needed to progress toward completing the instruction. No more than 200 words, and try your best to be concise.
+
+(Grounded Action)
+Translate the next ONLY ONE executable action into code using ONLY the DESCRIPTION-BASED API (NO COORDINATES). Format:
+```python
+agent.method_name(parameters)
+```
+
+STRICT OUTPUT VALIDATION (Hard Constraint - do not violate):
+- The code block must contain exactly one line of Python code that begins with 'agent.' (e.g., agent.click("...")).
+- Allowed methods: click, done, doubleclick, drag, fail, hotkey, memorize, move, scroll, type, wait.
+- Bare function calls without the 'agent.' prefix (e.g., click("..."), doubleclick("...")) are invalid. If you produce such output, regenerate until corrected.
+- Do NOT write bare method calls in the form method_name(parameters) without the 'agent.' prefix. The following is INVALID:
+```python
+doubleclick("Visual Studio Code application icon on the desktop")
+```
+- Correct example (must include the 'agent.' prefix):
+```python
+agent.doubleclick("Visual Studio Code application icon on the desktop")
+```
+- Do not include imports, variable declarations, comments, or extra lines inside the code block.
+- Always include parentheses even when no arguments are provided (e.g., agent.done()).

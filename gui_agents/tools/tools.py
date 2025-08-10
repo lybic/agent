@@ -43,6 +43,7 @@ class BaseTool(ABC):
                                 try:
                                     with open(fpath, "r", encoding="utf-8") as f:
                                         prompts[key] = f.read()
+                                        logger.info(f"Loaded prompt file: {fpath}")
                                 except Exception as e:
                                     logger.error(f"Failed to read prompt file: {fpath}: {e}")
                         else:

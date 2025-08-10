@@ -67,7 +67,24 @@ class Grounding(ACI):
         grounding_start_time = time.time()
         self.grounding_model.tools["grounding"].llm_agent.reset()
         prompt = (
-            f"Task: Visual Grounding - Locate and return coordinates\n Query:{ref_expr}\n Instructions: 1. Carefully analyze the provided screenshot image \n 2. Locate the EXACT element/area described in the query \n 3. Return ONLY the pixel coordinates [x, y] of one representative point within the target area \n 4. Choose a point that is clearly inside the described element/region \n 5. Coordinates must be integers representing pixel positions on the image \n 6. If the described element has multiple instances, select the most prominent or central one 7. - If this appears to be for dragging (selecting text, moving items, etc.): * For START points: Position slightly to the LEFT of text/content in empty space  * For END points: Position slightly to the RIGHT of text/content in empty space  * Avoid placing coordinates directly ON text characters to prevent text selection issues  * Keep offset minimal (3-5 pixels) - don't go too far from the target area  * Still return only ONE coordinate as requested \n Output Format: Return only two integers separated by comma, like: (900, 400)\n Important Notes: - Focus on the main descriptive elements in the query (colors, positions, objects) - Ignore any additional context that doesn't help locate the target - The returned point should be clickable/actionable within the target area \n CRITICAL REQUIREMENTS: - MUST return exactly ONE coordinate pair under ALL circumstances - NO explanations, NO multiple coordinates, NO additional text \n"
+            f"Task: Visual Grounding - Locate and return coordinates\n"
+            f"Query: {ref_expr}\n"
+            "Instructions: "
+            "1. Carefully analyze the provided screenshot image. "
+            "2. Locate the EXACT element/area described in the query. "
+            "3. Return ONLY the pixel coordinates [x, y] of one representative point strictly inside the target area. "
+            "4. Choose a point that is clearly inside the described element/region "
+            "5. Coordinates must be integers representing pixel positions on the image. "
+            "6. If the described element has multiple instances, select the most prominent or central one "
+            "7. If this appears to be for dragging (selecting text, moving items, etc.): For START points: Position slightly to the LEFT of text/content in empty space For END points: Position slightly to the RIGHT of text/content in empty space Avoid placing coordinates directly ON text characters to prevent text selection issues Keep offset minimal (3-5 pixels) - don't go too far from the target area Still return only ONE coordinate as requested \nStill return only ONE coordinate as requested \n"
+            "Output Format: Return only two integers separated by comma, like: (900, 400)\n"
+            "Important Notes: "
+            "- Focus on the main descriptive elements in the query (colors, positions, objects) "
+            "- Ignore any additional context "
+            "- The returned point should be clickable/actionable within the target area \n"
+            "CRITICAL REQUIREMENTS: "
+            "- MUST return exactly ONE coordinate pair under ALL circumstances "
+            "- NO explanations, NO multiple coordinates, NO additional text \n"
         )
         response, total_tokens, cost_string = self.grounding_model.execute_tool(
             "grounding", {

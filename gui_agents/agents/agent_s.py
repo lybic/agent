@@ -668,6 +668,7 @@ class AgentSFast(UIAgent):
         self.latest_action = None
         self.last_exec_plan_code: Optional[str] = None
         self.last_exec_repeat: int = 0
+        self.raw_grounded_action: Optional[str] = None
 
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:
         """Generate next action prediction using two steps: (1) plan with integrated reflection, (2) ground to coordinates
@@ -725,9 +726,9 @@ class AgentSFast(UIAgent):
         self.grounding.reset_screen_size(current_width, current_height)
         try:
             grounding_start_time = time.time()
+            self.raw_grounded_action = plan.split("Grounded Action")[-1]
+            plan_code = parse_single_code_from_string(self.raw_grounded_action)
             self.grounding.assign_coordinates(plan, observation)
-            raw_grounded_action = plan.split("Grounded Action")[-1]
-            plan_code = parse_single_code_from_string(raw_grounded_action)
             plan_code = sanitize_code(plan_code)
             plan_code = extract_first_agent_function(plan_code)
             agent: Grounding = self.grounding  # type: ignore
@@ -759,10 +760,10 @@ class AgentSFast(UIAgent):
                     "content": warning_msg
                 })
         except Exception as e:
-            logger.error("Error in parsing/grounding action code: %s | raw_grounded_action: %s", e, 'raw_grounded_action' in locals() and raw_grounded_action or None)
+            logger.error("Error in parsing/grounding action code: %s | raw_grounded_action: %s", e, self.raw_grounded_action)
             self.global_state.add_agent_log({
                 "type": "Error in parsing action code",
-                "content": f"error={str(e)}; raw_grounded_action={(raw_grounded_action if 'raw_grounded_action' in locals() else None)!r}"
+                "content": f"error={str(e)}; raw_grounded_action={self.raw_grounded_action}"
             })
             agent: Grounding = self.grounding  # type: ignore
             exec_code = eval("agent.wait(1000)")  # type: ignore
@@ -788,7 +789,7 @@ class AgentSFast(UIAgent):
                 data={
                     "content": str(e),
                     "fallback_action": "agent.wait(1000)",
-                    "raw_grounded_action": (raw_grounded_action if 'raw_grounded_action' in locals() else None),
+                    "raw_grounded_action": self.raw_grounded_action,
                     "plan": plan
                 }
             )

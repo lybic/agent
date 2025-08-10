@@ -4,95 +4,67 @@ INSTRUCTION: {instruction}
 
 You have access to the following methods to interact with the desktop (DESCRIPTION-BASED, NO COORDINATES):
 
-class Agent:
+- `agent.click(element_description: str, button: int = 1, holdKey: List[str] = [])`
+  - One click on the element
+  - Args:
+    - element_description: a detailed description of which element to click. At least a full sentence.
+    - button: which mouse button to press can be 1, 2, 4, 8, or 16. 1 for left click, 2 for right click, 4 for middle click.
+    - holdKey: list of keys to hold while clicking.
 
-    def click(self, element_description: str, button: int = 1, holdKey: List[str] = []):
-        '''One click on the element
-        Args:
-            element_description:str, a detailed description of which element to click. At least a full sentence.
-            button:int, which mouse button to press can be 1, 2, 4, 8, or 16. 1 for left click, 2 for right 
-            click, 4 for middle click.
-            holdKey:List[str], list of keys to hold while clicking.
-        '''
-        
-    def done(self, message: str = ''):
-        '''End the current task with success and an optional return message.'''
-        
-    def doubleclick(self, element_description: str, button: int = 1, holdKey: List[str] = []):
-        '''Double click at the specified coordinates
-        Args:
-            element_description:str, description of the UI element being double clicked (e.g., "Application 
-            icon", "File name", "Folder")
-            button:int, which mouse button to press can be 1, 2, 4, 8, or 16. 1 for left click, 2 for right 
-            click, 4 for middle click.
-            holdKey:List[str], list of keys to hold while double clicking.
-        '''
-        
-    def drag(self, starting_description: str, ending_description: str, holdKey: List[str] = []):
-        '''Drag from the starting coordinates to the ending coordinates
-        Args:
-            starting_description:str, description of the starting UI element (e.g., "File icon", "Text 
-            selection start", "Window title bar")
-            ending_description:str, description of the ending UI element (e.g., "Target folder", "Text 
-            selection end", "New position")
-            holdKey:List[str], list of keys to hold while dragging.
-        '''
-        
-    def fail(self, message: str = ''):
-        '''End the current task with a failure message, and replan the whole task.'''
-        
-    def hotkey(self, keys: List[str] = [], duration: int = 80):
-        '''Press a hotkey combination
-        Args:
-            keys:List[str], the keys to press in combination in a list format. The list can contain 
-            multiple modifier keys (e.g. ctrl, alt, shift) but only one non-modifier key (e.g. ['ctrl', 
-            'alt', 'c']).
-            duration:int, duration in milliseconds, Range 1 <= value <= 5000. If specified, the hotkey will 
-            be held for a while and then released.
-        '''
-        
-    def memorize(self, information: str):
-        '''Memorize a piece of information for later use. The information stored should be clear, accurate, helpful, descriptive, and summary-like. This is not only for storing concrete data like file paths or URLs, but also for remembering the answer to an abstract question or the solution to a non-hardware problem solved in a previous step. This memorized information can then be used to inform future actions or to provide a final answer.
-        Args:
-            information:str, the information to be memorized.
-        '''
-        
-    def move(self, element_description: str, holdKey: List[str] = []):
-        '''Move to the specified coordinates
-        Args:
-            element_description:str, description of the UI element being moved to (e.g., "Menu item", 
-            "Button", "Text field")
-            holdKey:List[str], list of keys to hold while moving the mouse.
-        '''
-        
-    def scroll(self, element_description: str, clicks: int, vertical: bool = True, holdKey: List[str] = []):
-        '''Scroll at the specified coordinates
-        Args:
-            clicks:int, the number of clicks to scroll can be positive (for up and left) or negative (for 
-            down and right).
-            element_description:str, description of the UI element being scrolled (e.g., "Document 
-            content", "File list", "Web page")
-            vertical:bool, whether to vertical scrolling.
-            holdKey:List[str], list of keys to hold while scrolling.
-        '''
-        
-    def type(self, text: str = ''):
-        '''Type text
-        Args:
-            text:str, the text to type.
-        '''
-        
-    def user_takeover(self, message: str = ''):
-        '''Request user to take over control temporarily
-        Args:
-            message:str, the message to display to the user explaining why takeover is needed
-        '''
-        
-    def wait(self, duration: int):
-        '''Wait for a specified amount of time in milliseconds
-        Args:
-            duration:int the amount of time to wait in milliseconds
-        '''
+- `agent.done(message: str = '')`
+  - End the current task with success and an optional return message.
+
+- `agent.doubleclick(element_description: str, button: int = 1, holdKey: List[str] = [])`
+  - Double click on the specified element
+  - Args:
+    - element_description: description of the UI element being double clicked (e.g., "Application icon", "File name", "Folder").
+    - button: which mouse button to press can be 1, 2, 4, 8, or 16. 1 for left click, 2 for right click, 4 for middle click.
+    - holdKey: list of keys to hold while double clicking.
+
+- `agent.drag(starting_description: str, ending_description: str, holdKey: List[str] = [])`
+  - Drag from the starting element to the ending element
+  - Args:
+    - starting_description: description of the starting UI element (e.g., "File icon", "Text selection start", "Window title bar").
+    - ending_description: description of the ending UI element (e.g., "Target folder", "Text selection end", "New position").
+    - holdKey: list of keys to hold while dragging.
+
+- `agent.fail(message: str = '')`
+  - End the current task with a failure message, and replan the whole task.
+
+- `agent.hotkey(keys: List[str] = [], duration: int = 80)`
+  - Press a hotkey combination
+  - Args:
+    - keys: the keys to press in combination in a list format. The list can contain multiple modifier keys (e.g. ctrl, alt, shift) but only one non-modifier key (e.g. ['ctrl', 'alt', 'c']).
+    - duration: duration in milliseconds, Range 1 <= value <= 5000. If specified, the hotkey will be held for a while and then released.
+
+- `agent.memorize(information: str)`
+  - Memorize a piece of information for later use. The information stored should be clear, accurate, helpful, descriptive, and summary-like. This is not only for storing concrete data like file paths or URLs, but also for remembering the answer to an abstract question or the solution to a non-hardware problem solved in a previous step.
+  - Args:
+    - information: the information to be memorized.
+
+- `agent.move(element_description: str, holdKey: List[str] = [])`
+  - Move to the specified element
+  - Args:
+    - element_description: description of the UI element being moved to (e.g., "Menu item", "Button", "Text field").
+    - holdKey: list of keys to hold while moving the mouse.
+
+- `agent.scroll(element_description: str, clicks: int, vertical: bool = True, holdKey: List[str] = [])`
+  - Scroll relative to the specified element
+  - Args:
+    - clicks: the number of clicks to scroll can be positive (for up and left) or negative (for down and right).
+    - element_description: description of the UI element being scrolled (e.g., "Document content", "File list", "Web page").
+    - vertical: whether to do vertical scrolling.
+    - holdKey: list of keys to hold while scrolling.
+
+- `agent.type(text: str = '')`
+  - Type text
+  - Args:
+    - text: the text to type.
+
+- `agent.wait(duration: int)`
+  - Wait for a specified amount of time in milliseconds
+  - Args:
+    - duration: the amount of time to wait in milliseconds
 
 ### Workflow Examples with `memorize`
 **Example 1: Remembering file content to avoid re-opening it.**
@@ -187,5 +159,3 @@ Use agent.user_takeover() when encountering:
 - Error states that cannot be automatically resolved
 - Situations requiring domain-specific knowledge beyond the agent's capabilities
 - When coordinates cannot be precisely determined due to UI complexity
-
-Remember: Output a single, description-based action. Never include numeric coordinates; a separate grounding step will locate precise pixels.

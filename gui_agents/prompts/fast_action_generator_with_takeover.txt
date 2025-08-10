@@ -131,6 +131,13 @@ Translate the next ONLY ONE executable action into code using ONLY the DESCRIPTI
 agent.method_name(parameters)
 ```
 
+STRICT OUTPUT VALIDATION (Hard Constraint - do not violate):
+- The code block must contain exactly one line of Python code that begins with 'agent.' (e.g., agent.click("..."))
+- Allowed methods: click, done, doubleclick, drag, fail, hotkey, memorize, move, scroll, type, wait, user_takeover.
+- Bare function calls without the 'agent.' prefix (e.g., click("..."), doubleclick("...")) are invalid. If you produce such output, regenerate until corrected.
+- Do not include imports, variable declarations, comments, or extra lines inside the code block.
+- Always include parentheses even when no arguments are provided (e.g., agent.done()).
+
 CRITICAL RULES FOR UI ELEMENT DESCRIPTION GUIDELINES:
 1. Always provide meaningful element_description for click, doubleclick, move, and scroll actions
 2. Use clear, descriptive names that identify the UI element's purpose (e.g., "Submit button", "File menu", "Search input field")

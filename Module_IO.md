@@ -1,209 +1,228 @@
-# Manager
-## 输入
+# Module IO
 
-| 字段名 | 类型 | 描述 |
+## Manager
+
+### Manager Input
+
+| Field | Type | Description |
 |-----|-----|-----|
-| local_kb_path | String | 本地叙事记忆和情景记忆的文件路径 | 
-| Tu | String | 用户任务指令，文本形式 |
-| observation | Dict | 其中包含key“screenshot”，value为全局状态类Global_Instance的get_screenshot方法得到的图片对象 |
-| Running_state | String | 运行状态标记，文本形式，"running" 或 "stopped" |
-| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性，应包含“memory_retrival”、“websearch”、“context_fusion”和“subtask_planner” |
-| Failed_subtask | Node | 失败子任务，Node对象 |
-| Completed_subtasks_list | List[Node] | 已完成子任务列表，Node对象列表 |
-| Remaining_subtasks_list | List[Node] | 剩余子任务列表，Node对象列表 |
+| local_kb_path | String | File path to local narrative memory and episodic memory |
+| Tu | String | User task instruction, as text |
+| observation | Dict | Contains key "screenshot"; value is the image object returned by Global_Instance.get_screenshot |
+| Running_state | String | Run-state flag, "running" or "stopped" |
+| Tools_dict | Dict | Tool dictionary per the Tools class configuration; should include "memory_retrival", "websearch", "context_fusion", and "subtask_planner" |
+| Failed_subtask | Node | Failed subtask, a Node object |
+| Completed_subtasks_list | List[Node] | List of completed subtasks, list of Node objects |
+| Remaining_subtasks_list | List[Node] | List of remaining subtasks, list of Node objects |
 
+### Manager Output
 
-## 输出
-| 字段名 | 类型 | 描述 |
+| Field | Type | Description |
 |-----|-----|-----|
-| Subtasks | List[Node] | 子任务列表，Node对象列表，类定义参考[common_utils.py](./gui_agents/s2/utils/common_utils.py) |
-| Manager_info | Dict | Manager信息，字典形式，python字符串 |
+| Subtasks | List[Node] | List of subtasks, list of Node objects; class defined in [common_utils.py](./gui_agents/s2/utils/common_utils.py) |
+| Manager_info | Dict | Manager information, dictionary serialized as a Python string |
 
-- 子任务（Subtask）：
-  - Node对象列表，类定义参考[common_utils.py](./gui_agents/s2/utils/common_utils.py)
-  - 示例：
-     ```python
-     [Node(name='Open Finder', info='Click on the Finder icon in the dock to open Finder.')]
-     ```
-- Manager信息（Manager Info）：
-  - 字典形式，python字符串
-  - 示例：
-     ```python
-     {
-        'search_query': 'How to open Finder on macOS?', 
-        'goal_plan': '1. Click on the Finder icon in the dock to open Finder.',
-        'num_input_tokens_plan': 1776, 
-        'num_output_tokens_plan': 14, 
-        'goal_plan_cost': 0.00909, 
-        'dag': '<json>\n{\n  "dag": {\n    "nodes": [\n      {\n        "name": "Open Finder",\n        "info": "Click on the Finder icon in the dock to open Finder."\n      }\n    ],\n    "edges": []\n  }\n}\n</json>', 
-        'num_input_tokens_dag': 503, 
-        'num_output_tokens_dag': 56, 'dag_cost': 0.0033550000000000003
-    }
-     ```
+- Subtask:
+  - List of Node objects; class defined in [common_utils.py](./gui_agents/s2/utils/common_utils.py)
+  - Example:
 
-# GlobalState
-| 字段名 | 类型 | 描述 |
+```python
+[Node(name='Open Finder', info='Click on the Finder icon in the dock to open Finder.')]
+```
+
+- Manager Info:
+  - Dictionary serialized as a Python string
+  - Example:
+
+```python
+{
+'search_query': 'How to open Finder on macOS?', 
+'goal_plan': '1. Click on the Finder icon in the dock to open Finder.',
+'num_input_tokens_plan': 1776, 
+'num_output_tokens_plan': 14, 
+'goal_plan_cost': 0.00909, 
+'dag': '<json>\n{\n  "dag": {\n    "nodes": [\n      {\n        "name": "Open Finder",\n        "info": "Click on the Finder icon in the dock to open Finder."\n      }\n    ],\n    "edges": []\n  }\n}\n</json>', 
+'num_input_tokens_dag': 503, 
+'num_output_tokens_dag': 56, 'dag_cost': 0.0033550000000000003
+}
+```
+
+## GlobalState
+
+| Field | Type | Description |
 |-----|-----|-----|
-| screenshot_dir | String | 截图文件夹路径 |
-| tu_path | String | 用户任务指令文件路径 |
-| search_query_path | String | 环境相关的任务总结查询文件路径 |
-| failed_subtasks_path | String | 失败子任务文件路径 |
-| completed_subtasks_path | String | 已完成子任务文件路径 |
-| remaining_subtasks_path | String | 剩余子任务文件路径 |
-| termination_flag_path | String | 终止标记文件路径 |
-| running_state_path | String | 运行状态标记文件路径 |
+| screenshot_dir | String | Screenshot folder path |
+| tu_path | String | User task instruction file path |
+| search_query_path | String | Environment-related task summary query file path |
+| failed_subtasks_path | String | Failed subtask file path |
+| completed_subtasks_path | String | Completed subtask file path |
+| remaining_subtasks_path | String | Remaining subtask file path |
+| termination_flag_path | String | Termination flag file path |
+| running_state_path | String | Running state flag file path |
 
-## 存储对象
-- 环境观测（obs）：
-  - 截屏（Screenshot）：一个文件夹内，以时间戳命名的PNG图片形式，对应subtask，即图像-子任务配对。通过方法返回PIL (Pillow) 库的 Image 对象
-  - 用户任务指令（Tu）：json格式存储，通过方法读取文件并返回文本形式，python字符串
-  - 环境相关的任务总结查询（search_query）：json格式存储，通过方法读取文件并返回文本形式，python字符串
-  - 已完成子任务（Completed_subtask）：json格式存储，Node对象列表，通过方法读取并返回Node对象列表。仅存储当前任务真正执行过的子任务，不存储未来规划中的任务。
-  - 剩余子任务（Remaining_subtask）：json格式存储，Node对象列表，通过方法读取并返回Node对象列表。仅存储当前任务未来规划中的任务，不存储真正执行过的子任务。
-  - 失败子任务（Failed_subtask）：json格式存储，Node对象列表，通过方法读取并返回Node对象列表。仅存储当前任务真正执行过的子任务，不存储未来规划中的任务。
-  - 终止标记（termination_flag）：json格式存储，通过方法读取并返回文本形式，python字符串，"terminated" 或 "not_terminated"，作为终止按钮的标记。
-- 运行状态标记（running_state）：json格式存储，通过方法读取并返回文本形式，python字符串，"running" 或 "stopped"，作为暂停按钮的标记。
+### Stored Objects
 
-## 读取方法
-| 方法名 | 参数 | 返回值 | 描述 |
+- Observation (obs):
+  - Screenshot: A folder containing PNG images named by timestamp, corresponding to subtasks; returned as a PIL (Pillow) library Image object by method
+  - User task instruction (Tu): Stored in JSON format, read from file and returned as text by method
+  - Environment-related task summary query (search_query): Stored in JSON format, read from file and returned as text by method
+  - Completed subtask (Completed_subtask): Stored in JSON format, read and returned as a list of Node objects by method; only stores subtasks actually executed in the current task, not future planned tasks
+  - Remaining subtask (Remaining_subtask): Stored in JSON format, read and returned as a list of Node objects by method; only stores future planned tasks in the current task, not subtasks actually executed
+  - Failed subtask (Failed_subtask): Stored in JSON format, read and returned as a list of Node objects by method; only stores subtasks actually executed in the current task, not future planned tasks
+  - Termination flag (termination_flag): Stored in JSON format, read and returned as text by method; "terminated" or "not_terminated", used as a termination button flag
+- Running state flag (running_state): Stored in JSON format, read and returned as text by method; "running" or "stopped", used as a pause button flag
+
+### Read Methods
+
+| Method Name | Parameters | Return Value | Description |
 |-----|-----|-----|-----|
-| get_screenshot | 无 | PIL (Pillow) 库的 Image 对象 | 从```Screenshot_dir```文件夹中获取当前最新时间戳的截图 |
-| get_Tu | 无 | String | 从```Tu_path```文件中获取用户任务指令 |
-| get_search_query | 无 | String | 从```Search_query_path```文件中获取环境相关的任务总结查询 |
-| get_failed_subtasks | 无 | List[Node] | 从```Failed_subtask_path```文件中获取失败子任务 |
-| get_completed_subtasks | 无 | List[Node] | 从```Completed_subtask_path```文件中获取已完成子任务 |
-| get_remaining_subtasks | 无 | List[Node] | 从```Remaining_subtask_path```文件中获取剩余子任务 |
-| get_termination_flag | 无 | String | 从```Termination_flag_path```文件中获取终止标记 |
-| get_running_state | 无 | String | 从```Running_state_path```文件中获取运行状态标记 |
+| get_screenshot | None | PIL (Pillow) library Image object | Get the latest screenshot from the ```Screenshot_dir``` folder |
+| get_Tu | None | String | Get the user task instruction from the ```Tu_path``` file |
+| get_search_query | None | String | Get the environment-related task summary query from the ```Search_query_path``` file |
+| get_failed_subtasks | None | List[Node] | Get the failed subtasks from the ```Failed_subtask_path``` file |
+| get_completed_subtasks | None | List[Node] | Get the completed subtasks from the ```Completed_subtask_path``` file |
+| get_remaining_subtasks | None | List[Node] | Get the remaining subtasks from the ```Remaining_subtask_path``` file |
+| get_termination_flag | None | String | Get the termination flag from the ```Termination_flag_path``` file |
+| get_running_state | None | String | Get the running state flag from the ```Running_state_path``` file |
 
+### Write Methods
 
-
-## 写入方法
-| 方法名 | 参数 | 描述 |
+| Method Name | Parameters | Description |
 |-----|-----|-----|
-| set_screenshot | PIL (Pillow) 库的 Image 对象 | 将截图保存到```Screenshot_dir```文件夹中，以时间戳命名 |
-| set_Tu | String | 将用户任务指令保存到```Tu_path```文件中 |
-| set_search_query | String | 将环境相关的任务总结查询保存到```Search_query_path```文件中 |
-| set_failed_subtasks | List[Node] | 将失败子任务保存到```Failed_subtask_path```文件中 |
-| add_failed_subtask | Node | 将失败子任务保存到```Failed_subtask_path```文件中 |
-| set_completed_subtasks | List[Node] | 将已完成子任务保存到```Completed_subtask_path```文件中 |
-| add_completed_subtask | Node | 将已完成子任务保存到```Completed_subtask_path```文件中 |
-| set_remaining_subtasks | List[Node] | 将剩余子任务保存到```Remaining_subtask_path```文件中 |
-| add_remaining_subtask | Node | 将剩余子任务保存到```Remaining_subtask_path```文件中 |
-| set_termination_flag | String | 将终止标记保存到```Termination_flag_path```文件中 |
-| set_running_state | String | 将运行状态标记保存到```Running_state_path```文件中 |
+| set_screenshot | PIL (Pillow) library Image object | Save the screenshot to the ```Screenshot_dir``` folder with a timestamp as the name |
+| set_Tu | String | Save the user task instruction to the ```Tu_path``` file |
+| set_search_query | String | Save the environment-related task summary query to the ```Search_query_path``` file |
+| set_failed_subtasks | List[Node] | Save the failed subtasks to the ```Failed_subtask_path``` file |
+| add_failed_subtask | Node | Save the failed subtask to the ```Failed_subtask_path``` file |
+| set_completed_subtasks | List[Node] | Save the completed subtasks to the ```Completed_subtask_path``` file |
+| add_completed_subtask | Node | Save the completed subtask to the ```Completed_subtask_path``` file |
+| set_remaining_subtasks | List[Node] | Save the remaining subtasks to the ```Remaining_subtask_path``` file |
+| add_remaining_subtask | Node | Save the remaining subtask to the ```Remaining_subtask_path``` file |
+| set_termination_flag | String | Save the termination flag to the ```Termination_flag_path``` file |
+| set_running_state | String | Save the running state flag to the ```Running_state_path``` file |
 
-- Manager：
-  - 环境观测（obs）中的环境相关的任务总结查询（search_query）
-- HardwareInterface：
-  - 环境观测（obs）中的截屏（Screenshot）
-- Evaluator：
-  - 环境观测（obs）中的终止标记（termination_flag）
+- Manager:
+  - Environment-related task summary query (search_query) in observation (obs)
+- HardwareInterface:
+  - Screenshot (Screenshot) in observation (obs)
+- Evaluator:
+  - Termination flag (termination_flag) in observation (obs)
 
-# Tools
-## 属性
-| 字段名 | 类型 | 描述 |
+## Tools
+
+### Properties
+
+| Field | Type | Description |
 |-----|-----|-----|
-| tool_name | String | 工具名称，有种：“websearch”、“context_fusion”、“subtask_planner”、“traj_reflector”、"memory_retrival"、“grounding”、"evaluator"、“action_generator”、“fast_action_generator”、“dag_translator”、“embedding”、"query_formulator"、“text_span”、“narrative_summarization”、“episode_summarization”|
-| provider | String | API供应商名称，如“gemini” |
-| model_name | String | 工具调用的模型名称，如“gemini-2.5-pro” |
-| prompt_path | String | 提示词文件路径，文本形式，python字符串。选定tool_name后，根据tool_name选择固定路径下的提示词文件 |
+| tool_name | String | Tool name, including: "websearch", "context_fusion", "subtask_planner", "traj_reflector", "memory_retrival", "grounding", "evaluator", "action_generator", "fast_action_generator", "dag_translator", "embedding", "query_formulator", "text_span", "narrative_summarization", "episode_summarization" |
+| provider | String | API provider name, such as "gemini" |
+| model_name | String | Model name used by the tool, such as "gemini-2.5-pro" |
+| prompt_path | String | Prompt file path, text format, Python string; select the prompt file based on the tool_name from a fixed path |
 
-## 输入
-| 字段名 | 类型 | 描述 |
+### Tools Input
+
+| Field | Type | Description |
 |-----|-----|-----|
-| tool_input | Dict | 环境观测，字典形式，python字符串，包含str_input和img_input两个key，str_input是文本输入，img_input是图像输入 |
+| tool_input | Dict | Observation, dictionary format, Python string, containing str_input and img_input keys; str_input is text input, img_input is image input |
 
-## 输出
-| 字段名 | 类型 | 描述 |
+### Tools Output
+
+| Field | Type | Description |
 |-----|-----|-----|
-| tool_output | String | 工具输出，文本形式，python字符串 |
+| tool_output | String | Tool output, text format, Python string |
 
-# KnowledgeBase
-## 存储对象
-| 字段名 | 类型 | 描述 |
+## KnowledgeBase
+
+### Tools Stored Objects
+
+| Field | Type | Description |
 |-----|-----|-----|
-| local_kb_path | String | 本地叙事记忆和情景记忆的文件路径 |
-| embedding_engine | Tools | 嵌入引擎，Tools对象 |
-| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性，应包含“query_formulator”、“narrative_summarization”、“context_fusion”和“episode_summarization” |
+| local_kb_path | String | File path to local narrative memory and episodic memory |
+| embedding_engine | Tools | Embedding engine, Tools object |
+| Tools_dict | Dict | Tool dictionary per the Tools class configuration; should include "query_formulator", "narrative_summarization", "context_fusion", and "episode_summarization" |
 
+### Methods
 
-## 方法
-| 方法名 | 参数 | 返回值 | 描述 |
+| Method Name | Parameters | Return Value | Description |
 |-----|-----|-----|-----|
-| formulate_query | String | String | 根据用户任务指令和环境相关的任务总结查询，生成环境相关的任务总结查询 |
-| retrieve_narrative_experience | String | String | 根据用户任务指令，生成叙事记忆 |
-| retrieve_episode_experience | String | String | 根据用户任务指令，生成情景记忆 |
-| retrieve_knowledge | String | String | 根据用户任务指令和环境相关的任务总结查询，生成知识 |
+| formulate_query | String | String | Generate environment-related task summary query based on user task instruction and environment-related task summary query |
+| retrieve_narrative_experience | String | String | Generate narrative memory based on user task instruction |
+| retrieve_episode_experience | String | String | Generate episodic memory based on user task instruction |
+| retrieve_knowledge | String | String | Generate knowledge based on user task instruction and environment-related task summary query |
 
+## Worker
 
+### Input
 
-# Worker
-## 输入
-| 字段名 | 类型 | 描述 |
+| Field | Type | Description |
 |-----|-----|-----|
-| local_kb_path | String | 本地叙事记忆和情景记忆的文件路径 | 
-| Tu | String | 用户任务指令，文本形式 |
-| Search_query | String | 环境相关的任务总结查询，文本形式，由全局状态类Global_Instance的get_search_query方法得到 |
-| subtask | String | 当前子任务，文本形式 |
-| subtask_info | Dict | 当前子任务的情境描述，字典形式，python字符串 |
-| future_tasks | List[Node] | 未来子任务列表，Node对象列表 |
-| done_task | List[Node] | 已完成子任务列表，Node对象列表 |
-| obs | Dict | 其中包含key“screenshot”，value为全局状态类Global_Instance的get_screenshot方法得到的图片对象 |
-| Running_state | String | 运行状态标记，文本形式，"running" 或 "stopped"。由全局状态类Global_Instance的get_running_state方法得到 |
-| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性，应包含“memory_retrival”、“traj_reflector”和“action_generator” |
+| local_kb_path | String | File path to local narrative memory and episodic memory |
+| Tu | String | User task instruction, text format |
+| Search_query | String | Environment-related task summary query, text format, obtained by Global_Instance.get_search_query method |
+| subtask | String | Current subtask, text format |
+| subtask_info | Dict | Context description of the current subtask, dictionary format, Python string |
+| future_tasks | List[Node] | List of future subtasks, list of Node objects |
+| done_task | List[Node] | List of completed subtasks, list of Node objects |
+| obs | Dict | Contains key "screenshot"; value is the image object returned by Global_Instance.get_screenshot |
+| Running_state | String | Run-state flag, "running" or "stopped"; obtained by Global_Instance.get_running_state method |
+| Tools_dict | Dict | Tool dictionary per the Tools class configuration; should include "memory_retrival", "traj_reflector", and "action_generator" |
 
+### Output
 
-## 输出
-| 字段名 | 类型 | 描述 |
+| Field | Type | Description |
 |-----|-----|-----|
-| worker_plan | String | 计划，文本形式，python字符串 |
+| worker_plan | String | Plan, text format, Python string |
 
-- 示例1：
+- Example 1:
 (Previous action verification)\nThe previous action was to open Spotlight Search. However, the screenshot does not show Spotlight Search open. It shows the VS Code application and the dock. The previous action was likely not successful, or the screenshot was taken before the Spotlight Search appeared. Given the current state, I will proceed assuming Spotlight Search is not visible.\n\n(Screenshot Analysis)\nThe current screenshot displays the VS Code application as the active window. At the bottom of the screen, the macOS Dock is visible, showing various application icons. The Maps application icon, which is a blue icon with a white map symbol, is visible in the Dock.\n\n(Next Action)\nClick the Maps application icon in the dock to open it.\n\n(Grounded Action)\n```python\nagent.click("The Maps application icon in the dock, which is a blue icon with a white map symbol", 1, "left")\n```
 
-- 示例2：
+- Example 2:
 (Previous action verification)\nThe previous action `agent.open("Finder")` did not successfully open the Finder application. The screenshot shows the desktop without any open Finder windows.\n\n
 (Screenshot Analysis)\nThe current screenshot shows the macOS desktop. No applications are open in the foreground. The dock is visible at the bottom. WeChat is not open. Given that multiple attempts to open or click the WeChat icon using various methods (direct click, dock click, and Spotlight search) have failed, and even opening Finder has failed, it indicates that the subtask cannot be completed in the current environment.\n\n(Next Action)\nSince all attempts to open WeChat have failed, and even opening other applications like Finder is not working, it indicates that the environment is not allowing applications to be launched. Therefore, I must report failure.\n\n(Grounded Action)\n```python\nagent.fail()\n```
 
-- 示例3：
-(Previous action verification)\nThe previous action of typing "App Store" into Spotlight and pressing enter was successful, as the App Store application is now open on the screen.\n\n(Screenshot Analysis)\nThe current screenshot shows the App Store application open. The window displays a sidebar on the left with options like "搜索" (Search), "探索" (Explore), "创作" (Create), "工作" (Work), "游戏" (Games), "开发" (Develop), "类别" (Categories), and "更新" (Updates). The main content area is currently showing "探索" (Explore). The dock is still visible at the bottom of the screen.\n\n(Next Action)\nThe subtask was to "Click App Store icon". The App Store is now open. Therefore, the subtask is complete.\n\n(Grounded Action)\n```python\nagent.done()\n```
+- Example 3:
+(Previous action verification)\nThe previous action of typing "App Store" into Spotlight and pressing enter was successful, as the App Store application is now open on the screen.\n\n(Screenshot Analysis)\nThe current screenshot shows the App Store application open. The window displays a sidebar on the left with options like Search, Explore, Create, Work, Games, Develop, Categories, and Updates. The main content area is currently showing Explore. The dock is still visible at the bottom of the screen.\n\n(Next Action)\nThe subtask was to "Click App Store icon". The App Store is now open. Therefore, the subtask is complete.\n\n(Grounded Action)\n```python\nagent.done()\n```
 
-# Grounding
-## 输入
-| 字段名 | 类型 | 描述 |
-|-----|-----|-----|
-| grounding_input | Dict | 环境观测，字典形式，python字符串，包含str_input和img_input两个key，str_input是文本输入，即为Worker输出的worker_plan全文，img_input是图像输入，即为全局状态类Global_Instance的get_screenshot方法得到的图片对象 |
-| Tools_dict | Dict | 工具字典配置参照Tools类的创建属性，应包含“grounding”、“text_span” |
+## Grounding
 
-## 输出
-| 字段名 | 类型 | 描述 |
+### Grounding Input
+
+| Field | Type | Description |
 |-----|-----|-----|
-| grounding_output | Dict | 与具体硬件环境无关的指令输出，字典形式|
-- 示例1：
+| grounding_input | Dict | Observation, dictionary format, Python string, containing str_input and img_input keys; str_input is text input, which is the full text of Worker's worker_plan output, img_input is image input, which is the image object returned by Global_Instance.get_screenshot |
+| Tools_dict | Dict | Tool dictionary per the Tools class configuration; should include "grounding" and "text_span" |
+
+### Grounding Output
+
+| Field | Type | Description |
+|-----|-----|-----|
+| grounding_output | Dict | Instruction output unrelated to specific hardware environment, dictionary format |
+
+- Example 1:
   {'type': 'Click', 'xy': [10, 20]}
 
-## action schema
-| 字段名 | 类型 | 描述 |
+### action schema
+
+| Field | Type | Description |
 |-----|-----|-----|
-| type | String | 必须项。动作，文本形式，包含“Click”、“SwitchApp”、“Open”、“TypeText”、“Drag”、“Scroll”、“Hotkey”、“HoldAndPress”、“Wait”、“Fail”、“Done” |
-| xy | List[int] | 坐标，列表形式，包含x和y两个元素 |
-| num_clicks | int | 点击次数，整数形式 |
-| clicks | int | 滚动的点击次数，可以是正数（向上）或负数（向下），整数形式 |
-| button_type | String | 按钮类型，文本形式，包含“left”、“middle”、“right” |
-| hold_keys | List[str] | 在操作中需要按住的按键，列表形式，包含按键名称 |
-| press_keys | List[str] | 在操作中需要依次按下的按键，列表形式，包含按键名称 |
-| keys | List[str] | 组合键，列表形式，包含按键名称 |
-| app_code | String | 从提供的打开的应用程序列表中切换到的应用程序的代码名称，python字符串 |
-| app_or_filename | String | 应用名称或文件名，文本形式，python字符串 |
-| text | String | 文本，文本形式，python字符串 |
-| overwrite | bool | 是否覆盖，布尔形式 |
-| enter | bool | 是否按下回车键，布尔形式 |
-| start | List[int] | 开始坐标，列表形式，包含x和y两个元素 |
-| end | List[int] | 结束坐标，列表形式，包含x和y两个元素 |
-| vertical | bool | 是否进行纵向滚动，布尔形式，默认True |
-| seconds | float | 等待时间，浮点数形式 |
-| return_value | Any | 返回值，Any类型 |
+| type | String | Required. Action, text format, including "Click", "SwitchApp", "Open", "TypeText", "Drag", "Scroll", "Hotkey", "HoldAndPress", "Wait", "Fail", "Done" |
+| xy | List[int] | Coordinates, list format, containing x and y elements |
+| num_clicks | int | Number of clicks, integer format |
+| clicks | int | Number of clicks for scrolling, can be positive (up) or negative (down), integer format |
+| button_type | String | Button type, text format, including "left", "middle", "right" |
+| hold_keys | List[str] | Keys to hold down during the operation, list format, containing key names |
+| press_keys | List[str] | Keys to press in sequence during the operation, list format, containing key names |
+| keys | List[str] | Combination keys, list format, containing key names |
+| app_code | String | Code name of the application to switch to from the provided list of open applications, Python string |
+| app_or_filename | String | Application name or file name, text format, Python string |
+| text | String | Text, text format, Python string |
+| overwrite | bool | Overwrite flag, boolean format |
+| enter | bool | Enter key press flag, boolean format |
+| start | List[int] | Starting coordinates, list format, containing x and y elements |
+| end | List[int] | Ending coordinates, list format, containing x and y elements |
+| vertical | bool | Vertical scroll flag, boolean format, default True |
+| seconds | float | Wait time, float format |
+| return_value | Any | Return value, Any type |
 
 ```python
 # --------------------------------------
@@ -293,16 +312,18 @@ class Fail(Action):
     pass
 ```
 
-# HardwareInterface
-## 输入
-| 字段名 | 类型 | 描述 |
+## HardwareInterface
+
+### HardwareInterface Input
+
+| Field | Type | Description |
 |-----|-----|-----|
-| hardware_input | Dict | 由Grounding输出的与具体硬件环境无关的指令输出，字典形式 |
+| hardware_input | Dict | Instruction output unrelated to specific hardware environment, dictionary format, output by Grounding |
 
-## 输出
-| 字段名 | 类型 | 描述 |
+### HardwareInterface Output
+
+| Field | Type | Description |
 |-----|-----|-----|
-| hardware_output | String | 适配Lybic硬件环境相关的指令输出，文本形式，python字符串 |
-- 示例："XXX"
+| hardware_output | String | Instruction output related to Lybic hardware environment, text format, Python string |
 
-
+- Example: "XXX"

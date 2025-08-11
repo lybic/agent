@@ -1,4 +1,4 @@
-"""OSWorld's run.py with AgentS2."""
+"""OSWorld's run.py with AgentSNormal."""
 
 """Script to run end-to-end evaluation on the benchmark.
 Utils and basic architecture credit to https://github.com/web-arena-x/webarena/blob/main/run.py.
@@ -11,7 +11,7 @@ import logging
 import os
 import sys
 
-from gui_agents.agents.agent_s import AgentS2
+from gui_agents.agents.agent_s import AgentSNormal,AgentSFast
 from gui_agents.agents.grounding import Grounding
 from tqdm import tqdm
 
@@ -80,10 +80,27 @@ def config() -> argparse.Namespace:
         description="Run end-to-end evaluation on the benchmark"
     )
 
+    # platform config
+    parser.add_argument(
+        "--platform", 
+        type=str, 
+        choices=["linux", "windows"], 
+        default="windows",
+        help="Platform to run on (linux or windows)"
+    )
+    
+    # agent mode config
+    parser.add_argument(
+        "--agent_mode",
+        type=str,
+        choices=["normal", "fast"],
+        default="normal", 
+        help="Agent mode to use (normal or fast)"
+    )
+
     # environment config
-    # vm_path = os.path.join("vmware_vm_data", "Ubuntu0", "Ubuntu0.vmx")
-    vm_path = os.path.join("vmware_vm_data", "Windows-x86", "Windows 10 x64.vmx")
-    parser.add_argument("--path_to_vm", type=str, default=vm_path)
+    # vm_path will be set based on platform
+    parser.add_argument("--path_to_vm", type=str, default=None)
     parser.add_argument(
         "--headless", action="store_true", help="Run in headless machine"
     )
@@ -109,8 +126,7 @@ def config() -> argparse.Namespace:
     # example config
     parser.add_argument("--domain", type=str, default="all")
     parser.add_argument(
-        # "--test_all_meta_path", type=str, default="evaluation_examples/test_tiny.json"
-        "--test_all_meta_path", type=str, default="evaluation_examples/test_tiny_windows.json"
+        "--test_all_meta_path", type=str, default=None
     )
 
     # logging related
@@ -119,6 +135,19 @@ def config() -> argparse.Namespace:
     parser.add_argument("--kb_name", default="kb_s2", type=str)
 
     args = parser.parse_args()
+
+    # Set platform-specific defaults if not provided
+    if args.path_to_vm is None:
+        if args.platform == "linux":
+            args.path_to_vm = os.path.join("vmware_vm_data", "Ubuntu0", "Ubuntu0.vmx")
+        else:  # windows
+            args.path_to_vm = os.path.join("vmware_vm_data", "Windows-x86", "Windows 10 x64.vmx")
+    
+    if args.test_all_meta_path is None:
+        if args.platform == "linux":
+            args.test_all_meta_path = "evaluation_examples/test_tiny.json"
+        else:  # windows
+            args.test_all_meta_path = "evaluation_examples/test_tiny_windows.json"
 
     return args
 
@@ -195,13 +224,20 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
                     termination_flag_path=os.path.join(example_state_dir, "termination_flag.json"),
                     running_state_path=os.path.join(example_state_dir, "running_state.json"),
                     display_info_path=os.path.join(example_timestamp_dir, "display.json"),
+                    agent_log_path=os.path.join(example_timestamp_dir, "agent.log"),
                 )
             )
 
-            agent = AgentS2(
-                platform=current_platform,
-                screen_size = [scaled_width, scaled_height]
-            )
+            if args.agent_mode == "fast":
+                agent = AgentSFast(
+                    platform=args.platform,
+                    screen_size = [scaled_width, scaled_height]
+                )
+            else:  # normal mode
+                agent = AgentSNormal(
+                    platform=args.platform,
+                    screen_size = [scaled_width, scaled_height]
+                )
             
             example_result_dir = os.path.join(
                 args.result_dir,
@@ -314,7 +350,12 @@ def get_result(action_space, observation_type, result_dir, total_file_json):
 
 
 if __name__ == "__main__":
-    ####### The complete version of the list of examples #######
+    """
+    python osworld_setup/run.py --platform windows --agent_mode normal --test_all_meta_path evaluation_examples/test_tiny_windows.json --max_steps 100
+    python osworld_setup/run.py --platform windows --agent_mode fast --test_all_meta_path evaluation_examples/test_tiny_windows.json --max_steps 100
+    python osworld_setup/run.py --platform linux --agent_mode normal --test_all_meta_path evaluation_examples/test_tiny.json --max_steps 100
+    python osworld_setup/run.py --platform linux --agent_mode fast --test_all_meta_path evaluation_examples/test_tiny.json --max_steps 100
+    """
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     args = config()
 

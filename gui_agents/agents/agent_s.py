@@ -74,7 +74,7 @@ class UIAgent:
         """
         pass
 
-class AgentS2(UIAgent):
+class AgentSNormal(UIAgent):
     """Agent that uses hierarchical planning and directed acyclic graph modeling for UI automation"""
 
     def __init__(
@@ -87,7 +87,7 @@ class AgentS2(UIAgent):
         enable_takeover: bool = False,
         enable_search: bool = True,
     ):
-        """Initialize AgentS2
+        """Initialize AgentSNormal
 
         Args:
             platform: Operating system platform (darwin, linux, windows)
@@ -550,7 +550,7 @@ class AgentS2(UIAgent):
         return subtask_trajectory
 
 class AgentSFast(UIAgent):
-    """Fast version of AgentS2 that generates a description-based plan with reflection, then grounds to precise coordinates before execution"""
+    """Fast version of AgentSNormal that generates a description-based plan with reflection, then grounds to precise coordinates before execution"""
 
     def __init__(
         self,

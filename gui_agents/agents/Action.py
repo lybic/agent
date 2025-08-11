@@ -195,7 +195,7 @@ class Done(Action):
 
 
 @dataclass(slots=True)
-class Failed(Action):
+class Fail(Action):
     message: str = ''
 
 

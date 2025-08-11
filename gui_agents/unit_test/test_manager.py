@@ -300,8 +300,11 @@ class TestManager(unittest.TestCase):
             logger.info(f"Input parameters: Tu={self.test_instruction}, Screenshot=Image(100x100), Running_state='初始状态'")
             planner_info, action_queue = self.manager.get_action_queue(
                 Tu=self.test_instruction,
-                Screenshot=self.test_image,
-                Running_state="初始状态"
+                running_state="running",
+                observation=self.test_observation,
+                failed_subtask=None,
+                completed_subtasks_list=[],
+                remaining_subtasks_list=[]
             )
             
             # Output results

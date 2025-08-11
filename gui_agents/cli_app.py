@@ -24,7 +24,7 @@ from PIL import Image
 
 # from gui_agents.agents.grounding import OSWorldACI
 from gui_agents.agents.Action import Screenshot
-from gui_agents.agents.agent_s import AgentS2, AgentSFast
+from gui_agents.agents.agent_s import AgentSNormal, AgentSFast
 
 from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
@@ -495,7 +495,7 @@ def main():
         logger.info("Running in FAST mode")
         run_agent_func = run_agent_fast
     else:
-        agent = AgentS2(
+        agent = AgentSNormal(
             platform=current_platform,
             enable_takeover=args.enable_takeover,
             enable_search=not args.disable_search,

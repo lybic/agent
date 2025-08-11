@@ -94,7 +94,7 @@ class HardwareInterface:
             actions = [actions]
 
         for act in actions:
-            # 特殊处理Memorize动作，不传递给后端执行
+            # Special handling for Memorize action, do not pass to backend execution
             if type(act).__name__ == "Memorize":
                 continue
             if not self.backend.supports(type(act)):

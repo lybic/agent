@@ -119,7 +119,7 @@ class Manager:
         self.failure_history: List[Dict] = []
 
 
-    # ---------------- Failure Pattern Learning 未实现-----------------
+    # ---------------- Failure Pattern Learning Not implemented-----------------
     def learn_from_failure(self, subtask_id: str, failure_reason: str, action_taken: str, context: Optional[Dict] = None):
         
         # Store failure information in GlobalState for easy access by Worker
@@ -128,17 +128,17 @@ class Manager:
         #     'failure_action': action_taken,
         #     'failure_context': context,
         #     'timestamp': time.time(),
-        #     'last_action': action_taken,  # 记录最后的动作
-        #     'step_count': context.get('step_count', 0) if context else 0,  # 记录步数
-        #     'turn_count': context.get('turn_count', 0) if context else 0,  # 记录轮数
-        #     'platform': context.get('platform', 'unknown') if context else 'unknown'  # 记录平台
+        #     'last_action': action_taken,  # Record the last action
+        #     'step_count': context.get('step_count', 0) if context else 0,  # Record step count
+        #     'turn_count': context.get('turn_count', 0) if context else 0,  # Record turn count
+        #     'platform': context.get('platform', 'unknown') if context else 'unknown'  # Record platform
         # }
         return
         
         
 
 
-    # manager给worker传递数据
+    # Manager pass data to Worker
     def get_guidance(self) -> str:
         """Get guidance for this subtask"""
         
@@ -338,27 +338,27 @@ class Manager:
             failed_subtasks_info = self._get_failed_subtasks_summary()
             failure_context = ""
             if failed_subtasks_info:
-                failure_context = f"\n\n❌ 失败任务详细信息:\n{failed_subtasks_info}"
+                failure_context = f"\n\n❌ Failed task detailed information:\n{failed_subtasks_info}"
             
             generator_message = (
-                f"⚠️ 重要：子任务 '{failed_subtask.name}' 执行失败，需要重新规划剩余轨迹。\n\n"
-                f"失败原因和上下文信息已在任务描述中提供，请仔细分析失败原因并生成改进的计划。\n\n"
-                f"✅ 已成功完成的子任务:\n{format_subtask_list(completed_subtasks_list)}\n"
+                f"⚠️ Important: Subtask '{failed_subtask.name}' execution failed, need to re-plan the remaining trajectory.\n\n"
+                f"Failure reason and context information is provided in the task description, please carefully analyze the failure reason and generate an improved plan.\n\n"
+                f"✅ Completed subtasks:\n{format_subtask_list(completed_subtasks_list)}\n"
                 f"{failure_context}\n"
-                f"请参考代理日志了解任务进展和上下文:\n{agent_log}"
+                f"Please refer to the agent log to understand the task progress and context:\n{agent_log}"
             )
         # Re-plan on subtask completion case
         elif len(completed_subtasks_list) + len(remaining_subtasks_list) > 0:
             agent_log = agent_log_to_string(self.global_state.get_agent_log())
             generator_message = (
-                "📋 任务进展更新：当前轨迹和桌面状态已提供，请根据最新情况修订后续轨迹计划。\n\n"
-                f"✅ 已成功完成的子任务:\n{format_subtask_list(completed_subtasks_list)}\n"
-                f"🔄 待执行的剩余子任务:\n{format_subtask_list(remaining_subtasks_list)}\n"
-                f"请参考代理日志了解任务进展和上下文:\n{agent_log}"
+                "📋 Task progress update: The current trajectory and desktop state are provided, please revise the subsequent trajectory plan based on the latest situation.\n\n"
+                f"✅ Completed subtasks:\n{format_subtask_list(completed_subtasks_list)}\n"
+                f"🔄 Remaining subtasks to be executed:\n{format_subtask_list(remaining_subtasks_list)}\n"
+                f"Please refer to the agent log to understand the task progress and context:\n{agent_log}"
             )
         # Initial plan case
         else:
-            generator_message = "🚀 初始规划：请为当前任务生成初始执行计划。\n"
+            generator_message = "🚀 Initial planning: Please generate an initial execution plan for the current task.\n"
         
         generator_message = prefix_message + "\n" + generator_message
         logger.info("GENERATOR MESSAGE: %s", generator_message)
@@ -593,9 +593,9 @@ class Manager:
             # Enhance instruction with failure context and reflector insights
             enhanced_instruction = Tu
             if failed_subtasks_info:
-                enhanced_instruction += f"\n\n📋 失败任务信息:\n{failed_subtasks_info}"
+                enhanced_instruction += f"\n\n📋 Failed task information:\n{failed_subtasks_info}"
             if reflector_insights:
-                enhanced_instruction += f"\n\n🔍 Reflector分析:\n{reflector_insights}"
+                enhanced_instruction += f"\n\n🔍 Reflector analysis:\n{reflector_insights}"
 
             planner_info, plan = self._generate_step_by_step_plan(
                 observation,
@@ -637,13 +637,13 @@ class Manager:
             
             # Enhance subtasks with failure patterns and guidance
             enhanced_action_queue = []
-            # 只为失败的任务添加reflector信息，普通任务只添加失败指导
+            # Only add reflector information to failed tasks, add failure guidance to normal tasks
             for subtask in action_queue:
-                # 检查这个任务是否是失败的任务
+                # Check if this task is a failed task
                 is_failed_task = any(failed.name == subtask.name for failed in self.global_state.get_failed_subtasks())
                 
                 if is_failed_task:
-                    # 失败的任务：添加完整的context（包括reflector信息）
+                    # Failed task: add complete context (including reflector information)
                     context = {
                         "previous_actions": self._get_recent_actions(),
                         "current_platform": self.platform,
@@ -653,13 +653,13 @@ class Manager:
                     }
                     enhanced_subtask = self.enhance_subtask_with_guidance(subtask, context)
                 else:
-                    # 普通任务：只添加失败指导，不添加reflector信息
+                    # Normal task: add failure guidance, not add reflector information
                     context = {
                         "previous_actions": self._get_recent_actions(),
                         "current_platform": self.platform,
                         "timestamp": time.time(),
                         "failed_subtasks_info": failed_subtasks_info,
-                        # 不包含 reflector_insights
+                        # Not include reflector_insights
                     }
                     enhanced_subtask = self.enhance_subtask_with_guidance(subtask, context)
                 
@@ -717,7 +717,7 @@ class Manager:
 
     def _get_failed_subtasks_summary(self) -> str:
         """Get a comprehensive summary of failed subtasks with reasons"""
-        # 获取增强的失败任务信息
+        # Get enhanced failed task information
         failed_subtasks = self.global_state.get_failed_subtasks()
         
         if not failed_subtasks:
@@ -725,7 +725,7 @@ class Manager:
         
         summary = []
         
-        # 使用新的Node字段信息
+        # Use new Node field information
         if failed_subtasks:
             # Get last 5 failed subtasks
             recent_failures = failed_subtasks[-5:]
@@ -734,16 +734,16 @@ class Manager:
                 summary.append(f"• {failed_node.name}: {failed_node.info}")
                 
                 if failed_node.error_type:
-                    summary.append(f"  错误类型: {failed_node.error_type}")
+                    summary.append(f"  Error type: {failed_node.error_type}")
                 
                 if failed_node.error_message:
-                    summary.append(f"  错误信息: {failed_node.error_message}")
+                    summary.append(f"  Error message: {failed_node.error_message}")
                 
                 if failed_node.failure_count and failed_node.failure_count > 1:
-                    summary.append(f"  失败次数: {failed_node.failure_count}")
+                    summary.append(f"  Failure count: {failed_node.failure_count}")
                 
                 if failed_node.suggested_action:
-                    summary.append(f"  建议动作: {failed_node.suggested_action}")
+                    summary.append(f"  Suggested action: {failed_node.suggested_action}")
         
         return "\n".join(summary)
 
@@ -755,16 +755,16 @@ class Manager:
         
         # Add failure guidance
         if guidance:
-            enhanced_info += f"\n\n📖 失败指导:\n{guidance}"
+            enhanced_info += f"\n\n📖 Failure guidance:\n{guidance}"
         
         # Add context information if available
         if context:
             if context.get("failed_subtasks_info"):
-                enhanced_info += f"\n\n📋 失败任务上下文:\n{context['failed_subtasks_info']}"
+                enhanced_info += f"\n\n📋 Failed task context:\n{context['failed_subtasks_info']}"
             
-            # 只有当context中明确包含reflector_insights时才添加
+            # Only add reflector_insights when it is explicitly included in the context
             if context.get("reflector_insights") and context["reflector_insights"].strip():
-                enhanced_info += f"\n\n🔍 Reflector分析:\n{context['reflector_insights']}"
+                enhanced_info += f"\n\n🔍 Reflector analysis:\n{context['reflector_insights']}"
         
         enhanced_subtask = Node(
             name=subtask.name,

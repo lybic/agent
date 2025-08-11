@@ -10,7 +10,7 @@ from PIL import Image
 from gui_agents.agents.worker import Worker
 from gui_agents.utils.common_utils import Node
 
-# 配置彩色日志
+# Configure colored logging
 class ColoredFormatter(logging.Formatter):
     """Custom colored log formatter"""
     COLORS = {

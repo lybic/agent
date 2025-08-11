@@ -23,10 +23,10 @@ class LybicClient:
     # ---------- low-level ----------
     async def _req(self, path: str, method: str = "GET", json: Any = None):
         r = await self.http.request(method, f"{self.base}{path}", json=json)
-        # ▶ 打印调试信息
-        req = r.request                        # httpx.Request 对象
+        # ▶ Print debug information
+        req = r.request                        # httpx.Request object
         print(
-            "[HTTP]", req.method, req.url,     # 完整 URL（含 querystring）
+            "[HTTP]", req.method, req.url,     # Full URL (including querystring)
             "json=",   json,
             "status=", r.status_code,
         )

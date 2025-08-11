@@ -15,12 +15,12 @@ import pickle
 class Node(BaseModel):
     name: str
     info: str
-    # 新增字段用于失败任务分析
-    error_type: Optional[str] = None  # 错误类型：UI_ERROR, EXECUTION_ERROR, PLANNING_ERROR等
-    error_message: Optional[str] = None  # 具体错误信息
-    failure_count: Optional[int] = 0  # 失败次数
-    last_failure_time: Optional[str] = None  # 最后失败时间
-    suggested_action: Optional[str] = None  # 建议的修复动作
+    # New fields for failed task analysis
+    error_type: Optional[str] = None  # Error type: UI_ERROR, EXECUTION_ERROR, PLANNING_ERROR, etc.
+    error_message: Optional[str] = None  # Specific error message
+    failure_count: Optional[int] = 0  # Failure count
+    last_failure_time: Optional[str] = None  # Last failure time
+    suggested_action: Optional[str] = None  # Suggested repair action
 
 
 class Dag(BaseModel):

@@ -207,11 +207,11 @@ class AgentSNormal(UIAgent):
             "evaluator_cost": 0.0,
         }
         actions = []
-
-        # 记录预测开始时间
+        
+        # Record prediction start time
         import time
         predict_start_time = time.time()
-
+        
         # If the DONE response by the executor is for a subtask, then the agent should continue with the next subtask without sending the action to the environment
         while not self.should_send_action:
             time.sleep(5.0)
@@ -272,7 +272,7 @@ class AgentSNormal(UIAgent):
                     }
                     actions = [{"type": "DONE"}]
                     
-                    # 记录任务完成
+                    # Record task completion
                     self.global_state.log_operation(
                         module="agent",
                         operation="task_complete",
@@ -341,7 +341,7 @@ class AgentSNormal(UIAgent):
                 }
             )
 
-            # grounding 执行
+            # Grounding execution
             try:
                 grounding_start_time = time.time()
                 current_width, current_height = self.global_state.get_screen_size()
@@ -355,7 +355,7 @@ class AgentSNormal(UIAgent):
                 exec_code = eval(plan_code)  # type: ignore
                 grounding_execution_time = time.time() - grounding_start_time
                 
-                # 记录grounding执行时间
+                # Record grounding execution time
                 self.global_state.log_operation(
                     module="agent",
                     operation="grounding_execution",
@@ -373,7 +373,7 @@ class AgentSNormal(UIAgent):
                 plan_code = "agent.wait(1.0)"
                 exec_code = eval(plan_code)  # type: ignore
                 
-                # 记录grounding错误
+                # Record grounding error
                 self.global_state.log_operation(
                     module="agent",
                     operation="grounding_error",
@@ -411,19 +411,19 @@ class AgentSNormal(UIAgent):
                 self.requires_replan = True
                 self.needs_next_subtask = True
 
-                # 使用增强的失败记录方法，包含详细的失败信息
+                # Use enhanced failure logging with detailed information
                 if self.current_subtask:
-                    # 构建包含上下文的错误消息
+                    # Build error message with context
                     context_parts = []
-                    context_parts.append(f"步骤数: {self.step_count}")
-                    context_parts.append(f"轮数: {self.turn_count}")
+                    context_parts.append(f"Step count: {self.step_count}")
+                    context_parts.append(f"Turn count: {self.turn_count}")
                     if hasattr(self, 'worker') and hasattr(self.worker, 'latest_action'):
-                        context_parts.append(f"最后动作: {self.worker.latest_action}")
-                    context_parts.append(f"平台: {platform.system().lower()}")
+                        context_parts.append(f"Last action: {self.worker.latest_action}")
+                    context_parts.append(f"Platform: {platform.system().lower()}")
                     
-                    enhanced_error_message = "Worker执行失败，返回fail动作"
+                    enhanced_error_message = "Worker execution failed, returned a fail action"
                     if context_parts:
-                        enhanced_error_message += f" | 上下文: {' | '.join(context_parts)}"
+                        enhanced_error_message += f" | Context: {' | '.join(context_parts)}"
                     
                     self.global_state.add_failed_subtask_with_info(
                         name=self.current_subtask.name,
@@ -432,17 +432,17 @@ class AgentSNormal(UIAgent):
                         error_message=enhanced_error_message
                     )
                 else:
-                    # 如果current_subtask为空，使用fallback
+                    # If current_subtask is None, use fallback
                     self.global_state.add_failed_subtask_with_info(
                         name="unknown_subtask",
-                        info="未知子任务",
+                        info="Unknown subtask",
                         error_type="WORKER_FAIL",
-                        error_message="Worker执行失败，返回fail动作"
+                        error_message="Worker execution failed, returned a fail action"
                     )
                 
                 self.failure_subtask = self.global_state.get_latest_failed_subtask()
                 
-                # 记录失败的子任务
+                # Log failed subtask
                 self.global_state.log_operation(
                     module="agent",
                     operation="subtask_failed",
@@ -467,7 +467,7 @@ class AgentSNormal(UIAgent):
                 self.failure_subtask = None
                 self.global_state.add_completed_subtask(self.current_subtask) # type: ignore
                 
-                # 记录完成的子任务
+                # Log completed subtask
                 self.global_state.log_operation(
                     module="agent",
                     operation="subtask_completed",
@@ -506,7 +506,7 @@ class AgentSNormal(UIAgent):
             }
         )
         
-        # 记录predict函数总执行时间
+        # Record total execution time of predict function
         predict_total_time = time.time() - predict_start_time
         self.global_state.log_operation(
             module="agent",

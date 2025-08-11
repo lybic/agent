@@ -173,35 +173,35 @@ class Worker:
         failed_tasks = self.global_state.get_failed_subtasks()
         failed_tasks_info = ""
         if failed_tasks:
-            failed_tasks_info = "❌ 失败任务详情:\n"
+            failed_tasks_info = "❌ Failed task details:\n"
             for failed_task in failed_tasks[-3:]:  # Last 3 failed tasks
                 # Use enhanced Node fields if available
                 if hasattr(failed_task, 'error_type') and failed_task.error_type:
-                    failed_tasks_info += f"• 任务名称: {failed_task.name}\n"
-                    failed_tasks_info += f"  任务描述: {failed_task.info}\n"
-                    failed_tasks_info += f"  错误类型: {failed_task.error_type}\n"
+                    failed_tasks_info += f"• Task name: {failed_task.name}\n"
+                    failed_tasks_info += f"  Task description: {failed_task.info}\n"
+                    failed_tasks_info += f"  Error type: {failed_task.error_type}\n"
                     # 移除错误信息，不包含error_message
                     if failed_task.suggested_action:
-                        failed_tasks_info += f"  建议动作: {failed_task.suggested_action}\n"
+                        failed_tasks_info += f"  Suggested action: {failed_task.suggested_action}\n"
                     if hasattr(failed_task, 'failure_count') and failed_task.failure_count:
-                        failed_tasks_info += f"  失败次数: {failed_task.failure_count}\n"
+                        failed_tasks_info += f"  Failure count: {failed_task.failure_count}\n"
                 else:
                     # Fallback to old method
-                    failure_reason = "未知原因"
-                    failed_tasks_info += f"• 任务名称: {failed_task.name}\n"
-                    failed_tasks_info += f"  任务描述: {failed_task.info}\n"
-                    failed_tasks_info += f"  失败原因: {failure_reason}\n"
+                    failure_reason = "Unknown reason"
+                    failed_tasks_info += f"• Task name: {failed_task.name}\n"
+                    failed_tasks_info += f"  Task description: {failed_task.info}\n"
+                    failed_tasks_info += f"  Failure reason: {failure_reason}\n"
                 
-                failed_tasks_info += "\n"  # 添加空行分隔
+                failed_tasks_info += "\n"  # Add empty line to separate tasks
 
         # Get recent actions for context
         recent_actions = self.global_state.get_agent_log()[-5:] if self.global_state.get_agent_log() else []
         recent_actions_info = ""
         if recent_actions:
-            recent_actions_info = "📋 最近动作记录:\n"
+            recent_actions_info = "📋 Recent action records:\n"
             for action in recent_actions:
                 if isinstance(action, dict):
-                    action_type = action.get('action', '未知动作')
+                    action_type = action.get('action', 'Unknown action')
                     success = action.get('ok', True)
                     status = "✅" if success else "❌"
                     recent_actions_info += f"{status} {action_type}\n"
@@ -219,12 +219,12 @@ class Worker:
             if guidance:
                 logger.info(f"Applying Manager guidance: {guidance[:100]}...")
                 # Enhance subtask info with guidance
-                enhanced_subtask_info = f"{subtask_info}\n\n📖 Manager指导:\n{guidance}"
+                enhanced_subtask_info = f"{subtask_info}\n\n📖 Manager guidance:\n{guidance}"
                 subtask_info = enhanced_subtask_info
                 
             # Add comprehensive context to subtask info
             if context_info:
-                subtask_info += f"\n\n🔍 执行上下文信息:\n{context_info}"
+                subtask_info += f"\n\n🔍 Execution context information:\n{context_info}"
                 
             if self.use_subtask_experience:
                 subtask_query_key = ("Task:\n" + search_query +
@@ -276,10 +276,10 @@ class Worker:
                     retrieved_similar_subtask + "\n" +
                     retrieved_subtask_experience)
 
-            # 格式化任务列表，包含name和info
+            # Format task list, including name and info
             def format_task_list(tasks: list) -> str:
                 if not tasks:
-                    return "无"
+                    return "None"
                 formatted_tasks = []
                 for task in tasks:
                     formatted_tasks.append(f"{task.name}: {task.info}")

@@ -5,7 +5,7 @@ def pad_to_square(image: Image.Image,
                   fill_color=(0, 0, 0),
                   padding: int = 0) -> Image.Image:
     """
-    先补成正方形，再在四周扩展padding像素。
+    First make it a square, then expand the padding pixels around it.
     """
     width, height = image.size
     if width == height:

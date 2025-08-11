@@ -286,8 +286,6 @@
 
 **Supported Models:**
 
-- `GLM-4.5`
-- `GLM-4.5V`
 - `GLM-4-Plus`
 - `GLM-4-Air-250414`
 - `GLM-4-AirX` (Grounding)

@@ -12,13 +12,13 @@ from gui_agents.agents.Action import (
 current_platform = platform.system().lower()
 
 # -------------------------------------------------------------
-dry_run = False          # ← True 时只打印，不执行
-backend_kwargs = dict(   # 传给 PyAutoGUIBackend 的额外参数
-    platform=current_platform,    # "darwin" / "linux" / "win32"，自动检测可删掉
+dry_run = False          # ← True when only print, not execute
+backend_kwargs = dict(   # Extra parameters passed to PyAutoGUIBackend
+    platform=current_platform,    # "darwin" / "linux" / "win32", automatically detect can be removed
     default_move_duration=0.05,
 )
 
-# # 1. 构建动作序列
+# # 1. Build action sequence
 # plan = [
 #     Click(x=10, y=300, element_description=''),
 #     # TypeText(text="Hello Action!"),
@@ -48,20 +48,20 @@ plan = [
     # {'type': 'Click', 'xy': [154, 64], 'element_description': 'The Chromium browser icon on the desktop, which is a circular icon with red, green, yellow, and blue colors', 'num_clicks': 2, 'button_type': 'left', 'hold_keys': []}
 ]
 
-# 2. 创建硬件接口
+# 2. Create hardware interface
 # hwi = HardwareInterface(backend="lybic", **backend_kwargs)
 hwi = HardwareInterface(backend="pyautogui", **backend_kwargs)
 
-# 3. 执行
+# 3. Execute
 if dry_run:
-    print("Dry-run 模式，仅打印 Action：")
+    print("Dry-run mode, only print Action:")
     for a in plan:
         print(a)
 else:
-    print("开始执行 Action 序列…")
+    print("Start executing Action sequence…")
     time.sleep(5)
     # hwi.dispatch(plan)
     res = hwi.dispatchDict(plan)
     # print(res)
 
-    print("执行完毕")
+    print("Execution completed")

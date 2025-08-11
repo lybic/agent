@@ -110,9 +110,6 @@ class Manager:
         self.wait_ms_default = int(wait_ms_default)
         self.max_patches_per_step = int(max_patches_per_step)
         self.max_patches_per_subtask = int(max_patches_per_subtask) if max_patches_per_subtask is not None else None
-        # Counters
-        self._patches_used_for_step: Dict[str, int] = {}
-        self._patches_used_for_subtask: Dict[str, int] = {}
 
         # Per-subtask step counting for periodic reflection gating
         self._current_subtask_name: Optional[str] = None
@@ -122,55 +119,23 @@ class Manager:
         self.failure_history: List[Dict] = []
 
 
-    # ---------------- PatchPolicy: choose(patch) -----------------
-    def _choose_patch(self, step_result: StepResult, last_action: Optional[str]) -> Dict:
-        """Stage-1 simple policy per spec.
-        - If the last original action was not a scroll -> scroll(+delta)
-        - Else -> wait(wait_ms_default)
-        """
-        if (last_action is None) or ("scroll(" not in last_action.lower()):
-            return {"type": "SCROLL", "delta": self.scroll_delta_default, "element_description": "center of screen"}
-        return {"type": "WAIT", "duration": self.wait_ms_default}
-
-    # ---------------- PatchBudget: allow(step_id) -----------------
-    def _allow_patch(self, step_id: str, subtask_name: Optional[str]) -> bool:
-        # Per-step budget
-        used_for_step = self._patches_used_for_step.get(step_id, 0)
-        if used_for_step >= self.max_patches_per_step:
-            return False
-        # Per-subtask budget (optional)
-        if self.max_patches_per_subtask is not None and subtask_name is not None:
-            used_for_subtask = self._patches_used_for_subtask.get(subtask_name, 0)
-            if used_for_subtask >= self.max_patches_per_subtask:
-                return False
-        return True
-
-    def _record_patch_use(self, step_id: str, subtask_name: Optional[str]) -> None:
-        self._patches_used_for_step[step_id] = self._patches_used_for_step.get(step_id, 0) + 1
-        if subtask_name is not None:
-            self._patches_used_for_subtask[subtask_name] = self._patches_used_for_subtask.get(subtask_name, 0) + 1
-
-    def _patch_count_for_step(self, step_id: str) -> int:
-        return self._patches_used_for_step.get(step_id, 0)
-
-    # ---------------- Failure Pattern Learning -----------------
+    # ---------------- Failure Pattern Learning 未实现-----------------
     def learn_from_failure(self, subtask_id: str, failure_reason: str, action_taken: str, context: Optional[Dict] = None):
         
         # Store failure information in GlobalState for easy access by Worker
-        failure_info = {
-            'failure_reason': failure_reason,
-            'failure_action': action_taken,
-            'failure_context': context,
-            'timestamp': time.time(),
-            'last_action': action_taken,  # 记录最后的动作
-            'step_count': context.get('step_count', 0) if context else 0,  # 记录步数
-            'turn_count': context.get('turn_count', 0) if context else 0,  # 记录轮数
-            'platform': context.get('platform', 'unknown') if context else 'unknown'  # 记录平台
-        }
+        # failure_info = {
+        #     'failure_reason': failure_reason,
+        #     'failure_action': action_taken,
+        #     'failure_context': context,
+        #     'timestamp': time.time(),
+        #     'last_action': action_taken,  # 记录最后的动作
+        #     'step_count': context.get('step_count', 0) if context else 0,  # 记录步数
+        #     'turn_count': context.get('turn_count', 0) if context else 0,  # 记录轮数
+        #     'platform': context.get('platform', 'unknown') if context else 'unknown'  # 记录平台
+        # }
+        return
         
-        self.global_state.add_failed_subtask_info(subtask_id, failure_info)
         
-        logger.info(f"Manager learned from failure: {failure_reason} for subtask {subtask_id}")
 
 
     # manager给worker传递数据
@@ -754,9 +719,8 @@ class Manager:
         """Get a comprehensive summary of failed subtasks with reasons"""
         # 获取增强的失败任务信息
         failed_subtasks = self.global_state.get_failed_subtasks()
-        failed_subtasks_info = self.global_state.get_failed_subtasks_info()
         
-        if not failed_subtasks and not failed_subtasks_info:
+        if not failed_subtasks:
             return ""
         
         summary = []
@@ -781,32 +745,11 @@ class Manager:
                 if failed_node.suggested_action:
                     summary.append(f"  建议动作: {failed_node.suggested_action}")
         
-        # 同时显示旧的详细信息（如果有的话）
-        if failed_subtasks_info:
-            summary.append("\n📋 详细失败信息:")
-            recent_failures_info = list(failed_subtasks_info.items())[-3:]  # 只显示最近3个
-            
-            for subtask_name, failure_info in recent_failures_info:
-                failure_reason = failure_info.get('failure_reason', 'Unknown reason')
-                failure_action = failure_info.get('failure_action', 'Unknown action')
-                step_count = failure_info.get('step_count', 0)
-                turn_count = failure_info.get('turn_count', 0)
-                
-                summary.append(f"• {subtask_name}: {failure_reason}")
-                summary.append(f"  动作: {failure_action}, 步数: {step_count}, 轮数: {turn_count}")
-                
-                # 如果是 reflector replan，显示更多信息
-                if failure_action == "reflector_replan":
-                    context = failure_info.get('failure_context', {})
-                    reason = context.get('reason', 'unknown')
-                    steps_in_subtask = context.get('steps_in_subtask', 0)
-                    summary.append(f"  Reflector原因: {reason}, 子任务步数: {steps_in_subtask}")
-        
         return "\n".join(summary)
 
     def enhance_subtask_with_guidance(self, subtask: Node, context: Optional[Dict] = None) -> Node:
         """Enhance subtask with comprehensive failure guidance and context"""
-        guidance = self.get_failure_guidance(subtask.name)
+        guidance = self.get_guidance()
         
         enhanced_info = subtask.info
         
@@ -849,41 +792,8 @@ class Manager:
                     "action": getattr(result, "action", None),
                     "is_patch": getattr(result, "is_patch", False),
                     "directive": directive.name if hasattr(directive, "name") else str(directive),
-                    "patch_count_for_step": self._patch_count_for_step(getattr(result, "step_id", "")) if result else 0,
                 },
             )
-            # Persist the action into GlobalState actions list, similar to subtasks
-            try:
-                if result is not None:
-                    current_node = self.global_state.get_current_subtask()
-                    self.global_state.add_action({
-                        "step_id": result.step_id,
-                        "action": result.action,
-                        "ok": result.ok,
-                        "error": result.error,
-                        "latency_ms": result.latency_ms,
-                        "is_patch": getattr(result, "is_patch", False),
-                        "subtask_name": current_node.name if current_node else None,
-                        "timestamp": time.time(),
-                    })
-                    
-                    # Learn from failures for future improvement
-                    if not result.ok and result.error:
-                        subtask_name = current_node.name if current_node else "unknown"
-                        context = {
-                            "step_id": result.step_id,
-                            "action": result.action,
-                            "latency_ms": result.latency_ms,
-                            "is_patch": getattr(result, "is_patch", False)
-                        }
-                        self.learn_from_failure(
-                            subtask_id=subtask_name,
-                            failure_reason=result.error,
-                            action_taken=result.action if result.action else "unknown_action",
-                            context=context
-                        )
-            except Exception:
-                pass
             return directive
         except Exception:
             # On any unexpected issue, default to CONTINUE
@@ -921,13 +831,11 @@ class Manager:
                 # Get all steps for current subtask, not just recent 5
                 all_recent: List[StepResult] = getattr(self.exec_monitor, "get_recent", lambda n=None: [])(None)  # type: ignore
                 
-                # Filter steps for current subtask based on step_id pattern
                 # Assuming step_id contains subtask information or we can track subtask boundaries
                 current_subtask_steps = []
                 if subtask_name:
                     # Get all steps since the start of current subtask
                     # We'll use a simple heuristic: get all steps from the last subtask change
-                    # This is a simplified approach - in a more robust implementation,
                     # we'd track subtask boundaries more precisely
                     current_subtask_steps = all_recent[-self._steps_in_current_subtask:] if self._steps_in_current_subtask > 0 else all_recent
                 else:
@@ -949,23 +857,6 @@ class Manager:
                 elif decision == "CONTINUE":
                     # Keep current directive (CONTINUE), no intervention needed
                     directive = Directive.CONTINUE
-                elif decision == "UNKNOWN":
-                    # For UNKNOWN, use a conservative approach:
-                    # - If there are errors, default to PATCH first
-                    # - If no errors but actions are failing, default to REPLAN
-                    # - Otherwise, continue
-                    has_errors = any(r.error is not None for r in current_subtask_steps)
-                    has_failures = any(not r.ok for r in current_subtask_steps)
-                    
-                    if has_errors:
-                        directive = Directive.PATCH
-                        logger.info(f"Reflector returned UNKNOWN, defaulting to PATCH due to errors")
-                    elif has_failures:
-                        directive = Directive.REPLAN
-                        logger.info(f"Reflector returned UNKNOWN, defaulting to REPLAN due to failures")
-                    else:
-                        directive = Directive.CONTINUE
-                        logger.info(f"Reflector returned UNKNOWN, defaulting to CONTINUE")
                 else:
                     # Fallback for any unexpected decision
                     directive = Directive.CONTINUE
@@ -984,79 +875,10 @@ class Manager:
                     },
                 )
                 
-                # 如果 reflector 决定 REPLAN，直接记录到 failed_subtasks
-                if decision == "REPLAN" and subtask_name:
-                    failure_info = {
-                        "failure_reason": f"Reflector triggered REPLAN: {recent_text}",
-                        "failure_action": "reflector_replan",
-                        "failure_context": {
-                            "reflector_decision": decision,
-                            "reason": f"PERIODIC_{self._steps_in_current_subtask}_STEPS_IN_SUBTASK_{subtask_name}",
-                            "steps_in_subtask": self._steps_in_current_subtask,
-                            "recent_actions": recent_text
-                        },
-                        "step_count": len(current_subtask_steps),
-                        "turn_count": self.turn_count,
-                        "platform": getattr(self, "platform", "unknown")
-                    }
-                    self.global_state.add_failed_subtask_info(subtask_name, failure_info)
-                    
-                    # 同时使用新的方法创建增强的失败任务记录
-                    self.global_state.add_failed_subtask_with_info(
-                        name=subtask_name,
-                        info=f"Reflector triggered REPLAN after {self._steps_in_current_subtask} steps",
-                        error_type="REFLECTOR_REPLAN",
-                        error_message=failure_info["failure_reason"],
-                        suggested_action="replan_subtask"
-                    )
         except Exception as e:
             logger.warning(f"Periodic reflector gating failed: {e}")
 
-        if directive == Directive.PATCH:
-            should_patch, patch_action, over_budget = self.maybe_get_patch(result)
-            if over_budget:
-                # Treat as REPLAN when patch budget is exceeded
-                return Directive.REPLAN, None
-            if should_patch and patch_action is not None:
-                # Return patch action to caller to inject
-                return Directive.PATCH, patch_action
-            # If no patch selected, just continue with current directive
-            return directive, None
 
         return directive, None
 
-    # Orchestrated manager loop hook (called from AgentS2.predict): returns (should_patch, patch_action, exceeded_budget)
-    def maybe_get_patch(self, step_result: Optional[StepResult]) -> Tuple[bool, Optional[Dict], bool]:
-        if (not self.patch_enabled) or (step_result is None):
-            return False, None, False
-        # The caller should only invoke this when a PATCH directive has already been issued.
-        # Avoid double-feeding the monitor here.
-
-        # Budgeting
-        current_node = self.global_state.get_current_subtask()
-        subtask_name: Optional[str] = current_node.name if current_node else None
-        if not self._allow_patch(step_result.step_id, subtask_name):
-            # Over budget -> request REPLAN
-            self.global_state.log_operation(
-                module="manager",
-                operation="directive_patch_over_budget",
-                data={
-                    "step_id": step_result.step_id,
-                    "patch_count_for_step": self._patch_count_for_step(step_result.step_id),
-                    "max_patches_per_step": self.max_patches_per_step,
-                },
-            )
-            return False, None, True
-        # Choose and return patch (do not read from worker; rely on the last executed action)
-        patch_action = self._choose_patch(step_result, step_result.action)
-        self._record_patch_use(step_result.step_id, subtask_name)
-        self.global_state.log_operation(
-            module="manager",
-            operation="directive_patch_chosen",
-            data={
-                "step_id": step_result.step_id,
-                "patch_action": patch_action,
-                "patch_count_for_step": self._patch_count_for_step(step_result.step_id),
-            },
-        )
-        return True, patch_action, False
+    

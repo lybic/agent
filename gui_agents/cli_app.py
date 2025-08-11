@@ -289,10 +289,10 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
                                        operation="hwi.dispatchDict",
                                        data={"duration": step_dispatch_time})
 
-            # Post-execution feedback to Manager for gating
+            # Post-execution feedback to Manager for gating，manager监督是否需要重新规划
             try:
                 post_result = build_step_result(
-                    global_state=agent.global_state,
+                    global_state=global_state,
                     code=code,
                     exec_error=exec_error,
                     step_dispatch_time_sec=step_dispatch_time,
@@ -300,13 +300,35 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
                 )  # is_patch will be inferred from global_state
                 directive, patch_action = agent.manager.handle_post_exec(post_result)
                 if directive.name == "PATCH" and patch_action is not None:
-                    agent.worker.prepend_patch_action(patch_action)
-                    # Skip immediate execution; next predict loop will pick up the injected patch action
+                    # 暂时不考虑patch
                     continue
                 elif directive.name == "REPLAN":
                     agent.requires_replan = True
                     agent.needs_next_subtask = True
-                    agent.global_state.add_failed_subtask(agent.current_subtask)  # type: ignore
+                    
+                    # 使用增强的失败记录方法，包含详细的失败信息
+                    if agent.current_subtask:
+                        # 构建包含上下文的错误消息
+                        context_parts = []
+                        if hasattr(agent, 'step_count'):
+                            context_parts.append(f"步骤数: {agent.step_count}")
+                        if hasattr(agent, 'turn_count'):
+                            context_parts.append(f"轮数: {agent.turn_count}")
+                        if hasattr(agent, 'worker') and hasattr(agent.worker, 'latest_action'):
+                            context_parts.append(f"最后动作: {agent.worker.latest_action}")
+                        context_parts.append(f"平台: {platform.system().lower()}")
+                        
+                        enhanced_error_message = f"执行监控器触发重新规划，原因: {agent.manager.exec_monitor.get_last_reason()}"
+                        if context_parts:
+                            enhanced_error_message += f" | 上下文: {' | '.join(context_parts)}"
+                        
+                        global_state.add_failed_subtask_with_info(
+                            name=agent.current_subtask.name,
+                            info=agent.current_subtask.info,
+                            error_type="EXECUTION_MONITOR_REPLAN",
+                            error_message=enhanced_error_message
+                        )
+                    
                     agent.failure_subtask = agent.global_state.get_latest_failed_subtask()
                     agent.reset_executor_state()
                     continue

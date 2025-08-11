@@ -150,19 +150,7 @@ class Worker:
         self.latest_action = None
         self.max_trajector_length = 8
         self.last_step_result = None
-        # Queue for Manager-injected patch actions. Items are simple dicts like {"type":"WAIT","duration":800}
-        self._patch_action_queue: List[Dict] = []
-
-    def prepend_patch_action(self, patch_action: Dict) -> None:
-        """Prepend a patch action to be executed on the next generate_next_action call.
-
-        patch_action examples:
-          - {"type": "WAIT", "duration": 800}
-          - {"type": "SCROLL", "delta": 120, "element_description": "center of screen"}
-        """
-        # Insert at head so it runs before any original actions
-        self._patch_action_queue.insert(0, patch_action)
-
+   
 
     def generate_next_action(
         self,

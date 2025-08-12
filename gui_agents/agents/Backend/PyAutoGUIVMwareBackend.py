@@ -77,7 +77,7 @@ class PyAutoGUIVMwareBackend(Backend):
 
 
     # ------------------------------------------------------------------
-    def execute(self, action: Action) -> str:
+    def execute(self, action: Action) -> str: # type: ignore
         if not self.supports(type(action)):
             raise NotImplementedError(f"{type(action).__name__} not supported by PyAutoGUIBackend")
         
@@ -247,4 +247,4 @@ class PyAutoGUIVMwareBackend(Backend):
             return "screenshot = pyautogui.screenshot(); return screenshot"
         else:
             obs = self.env._get_obs()
-            return screenshot_bytes_to_pil_image(obs["screenshot"])
+            return screenshot_bytes_to_pil_image(obs["screenshot"]) #type: ignore

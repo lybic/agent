@@ -53,8 +53,8 @@
     },
     {
       "tool_name": "fast_action_generator",
-      "provider": "openrouter",
-      "model_name": "openai/gpt-5-chat",
+      "provider": "zhipu",
+      "model_name": "GLM-4.5V",
       "enable_search": false,
       "search_provider": "bocha",
       "search_model": ""

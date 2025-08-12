@@ -43,7 +43,7 @@ __all__ = [
     "Hotkey",
     "Wait",
     "Done",
-    "Fail",
+    "Failed",
     "Screenshot",
     "Memorize",
 ]
@@ -195,7 +195,7 @@ class Done(Action):
 
 
 @dataclass(slots=True)
-class Fail(Action):
+class Failed(Action):
     message: str = ''
 
 

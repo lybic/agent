@@ -1,23 +1,42 @@
-<h1 align="center">
-  Lybic GUI Agent:
-  <small>A Framework for Computer Use Agents</small>
-</h1>
+<p align="center">
+  <a href="https://lybic.ai/">
+    <img src="https://avatars.githubusercontent.com/lybic" alt="Lybic Logo" width="300" height="300">
+  </a>
+</p>
 
-Lybic GUI Agent is based upon the [Agent-S](https://github.com/simular-ai/Agent-S) codebase, allowing us to focus on making the best interaction experience with Lybic while maintaining a familiar execution logic.
+<h1 align="center">Lybic GUI Agent</h1>
+
+<p align="center">
+    <a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
+    &nbsp;
+    <a href="https://github.com/lybic/agent/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/pypi/l/lybic-guiagents"></a>
+    &nbsp;
+    <a href="https://github.com/lybic/agent"><img alt="Stars" src="https://img.shields.io/github/stars/lybic/agent?style=social"></a>
+</p>
+
+<p align="center">An open-source agentic framework for Computer Use Agents</p>
+
+<p align="center"><small>Lybic GUI Agent is based upon the <a href="https://github.com/simular-ai/Agent-S">Agent-S</a> codebase, allowing us to focus on making the best interaction experience with Lybic while maintaining a familiar execution logic.</small></p>
+
+[What is Lybic?](https://lybic.ai/docs)
 
 ## 🥳 Updates
-- [x] **2025/07/25**: Released v0.1.0 of [Lybic GUI Agent](https://git.flam.dev/lybic/agent/lybicguiagents) library, with support for Windows, Mac, Ubuntu and Lybic API!
+- [x] **2025/07/25**: Released v0.1.0 of [Lybic GUI Agent](https://github.com/lybic/agent) library, with support for Windows, Mac, Ubuntu and Lybic API!
 
 ## Table of Contents
 
-1. [🛠️ Installation & Setup](#%EF%B8%8F-installation--setup) 
-2. [🚀 Usage](#-usage)
+1. [🎉 Agents Demo](#%EF%B8%8F-agents-demo)
+2. [🛠️ Installation & Setup](#%EF%B8%8F-installation--setup) 
+3. [🚀 Usage](#-usage)
+
+## 🎉 Agents Demo
+
+[![Our demo](https://img.youtube.com/vi/YRLlpQhnMso/maxresdefault.jpg)](https://www.youtube.com/watch?v=YRLlpQhnMso)
 
 ## 🛠️ Installation & Setup
 
-> ❗**Warning**❗: If you are on a Linux machine, creating a `conda` environment will interfere with `pyatspi`. As of now, there's no clean solution for this issue. Proceed through the installation without using `conda` or any virtual environment.
-
-> ⚠️**Disclaimer**⚠️: To leverage the full potential of Lybic GUI Agent, we support multiple model providers including OpenAI, Anthropic, Gemini, and Doubao. For the best visual grounding performance, we recommend using UI-TARS models.
+> [!WARNING]
+> To leverage the full potential of Lybic GUI Agent, we support multiple model providers including OpenAI, Anthropic, Gemini, and Doubao. For the best visual grounding performance, we recommend using UI-TARS models.
 
 ### Installation
 
@@ -59,13 +78,6 @@ The simplest way to configure API keys is to:
 1. Copy `gui_agents/.env.example` to `gui_agents/.env`
 2. Edit the `.env` file and add your API keys
 
-```bash
-OPENAI_API_KEY=your_openai_key
-ANTHROPIC_API_KEY=your_anthropic_key
-GEMINI_API_KEY=your_gemini_key
-ARK_API_KEY=your_doubao_key
-```
-
 ### Tool Configuration
 
 We provide two pre-configured tool settings:
@@ -77,6 +89,16 @@ The agent uses `tools_config.json` by default. You can:
 
 - Copy either `tools_config_en.json` or `tools_config_cn.json` to `tools_config.json`
 - Or create your own custom configuration
+
+If you are using `tools_config_cn.json` and use `pyautogui` backend, the environment variable only `ARK_API_KEY` should be set.
+
+If you are using `tools_config_en.json` and use `pyautogui` backend, you should set those 3 environment variables:
+
+```bash
+GEMINI_ENDPOINT_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+GEMINI_API_KEY=your_gemini_api_key
+ARK_API_KEY=your_ark_api_key
+```
 
 ```bash
 # For English models
@@ -119,7 +141,7 @@ python gui_agents/cli_app.py --backend lybic
 
 Run a single query with the `pyautogui` backend and a maximum of 20 steps:
 ```sh
-python gui_agents/cli_app.py --backend pyautogui --query "计算器中求 8 × 7 的结果" --max-steps 20
+python gui_agents/cli_app.py --backend pyautogui --query "Find the result of 8 × 7 on a calculator" --max-steps 20
 ```
 
 Run in fast mode with the `pyautogui` backend:
@@ -127,7 +149,8 @@ Run in fast mode with the `pyautogui` backend:
 python gui_agents/cli_app.py --backend pyautogui --mode fast
 ```
 
-> ❗**Warning**❗: The agent will directly control your computer with `--backend pyautogui`. Please use with care.
+> [!WARNING]
+> The agent will directly control your computer with `--backend pyautogui`. Please use with care.
 
 ### Lybic Sandbox Configuration
 
@@ -137,11 +160,10 @@ The simplest way to configure Lybic Sandbox is still to edit the `.env` file and
 ```bash
 LYBIC_API_KEY=your_lybic_api_key
 LYBIC_ORG_ID=your_lybic_org_id
-LYBIC_ENDPOINT_URL=https://api.lybic.cn
 LYBIC_MAX_LIFE_SECONDS=3600
 ```
 
-> **Note**: If you want to use a precreated Lybic Sandbox in [Lybic Dashboard](https://dashboard.lybic.cn/orgs/agent-dev/sandboxes), you need to set the `LYBIC_PRECREATE_SID` to the precreated Sandbox ID.
+> **Note**: If you want to use a precreated Lybic Sandbox in [Lybic Dashboard](https://dashboard.lybic.cn/), you need to set the `LYBIC_PRECREATE_SID` to the precreated Sandbox ID.
 
 > 
 > ```bash
@@ -160,3 +182,12 @@ Finally, you need to edit the `.env` file and set the `USE_PRECREATE_VM` environ
 ```bash
 USE_PRECREATE_VM=Ubuntu
 ```
+
+## Stargazers over time
+
+[![Stargazers over time](https://starchart.cc/lybic/agent.svg)](https://starchart.cc/lybic/agent)
+
+## License
+
+This project is distributed under Apache 2.0 License.
+Therefore, you can modify the source code and release it commercially.

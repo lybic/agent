@@ -172,16 +172,16 @@
 
 ### Installation
 
-You can use [UV](https://docs.astral.sh/uv/getting-started/installation/) (a modern Python package manager)  for installation:
+You can use [UV](https://docs.astral.sh/uv/getting-started/installation/) (a modern Python package manager) version 0.8.5 for installation:
 
 ```bash
 # 1. Install UV if not already installed
 # macOS and Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
+curl -LsSf https://astral.sh/uv/0.8.5/install.sh | sh
 # Windows
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/0.8.5/install.ps1 | iex"
 
-# testing uv installation
+# testing uv installation, version should be 0.8.5
 uv --version
 
 # 2. Install the python 3.12

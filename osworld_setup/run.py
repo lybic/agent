@@ -11,7 +11,8 @@ import logging
 import os
 import sys
 
-from gui_agents.agents.agent_s import AgentSNormal,AgentSFast
+from gui_agents.agents.agent_normal import AgentSNormal
+from gui_agents.agents.agent_fast import AgentSFast
 from gui_agents.agents.grounding import Grounding
 from tqdm import tqdm
 

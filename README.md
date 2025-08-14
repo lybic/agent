@@ -1,12 +1,14 @@
-<p align="center">
+<h1 align="center">
   <a href="https://lybic.ai/">
-    <img src="https://avatars.githubusercontent.com/lybic" alt="Lybic Logo" width="300" height="300">
+    <img src="https://avatars.githubusercontent.com/lybic" alt="Lybic Logo" width="60" height="60">
   </a>
-</p>
-
-<h1 align="center">Lybic GUI Agent</h1>
+  Lybic GUI Agent: <small>An open-source agentic framework for Computer Use Agents</small> 
+</h1>
 
 <p align="center">
+    <img src="https://img.shields.io/badge/OS-Windows-blue?logo=windows&logoColor=white" alt="Windows">
+    <img src="https://img.shields.io/badge/OS-macOS-black?logo=apple&logoColor=white" alt="macOS">
+    <img src="https://img.shields.io/badge/OS-Linux-yellow?logo=linux&logoColor=black" alt="Linux">
     <a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
     &nbsp;
     <a href="https://github.com/lybic/agent/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/pypi/l/lybic-guiagents"></a>
@@ -14,24 +16,154 @@
     <a href="https://github.com/lybic/agent"><img alt="Stars" src="https://img.shields.io/github/stars/lybic/agent?style=social"></a>
 </p>
 
-<p align="center">An open-source agentic framework for Computer Use Agents</p>
+<div align="center">
+  <a href="https://www.readme-i18n.com/lybic/agent?lang=de">Deutsch</a> | 
+  <a href="https://www.readme-i18n.com/lybic/agent?lang=es">Español</a> | 
+  <a href="https://www.readme-i18n.com/lybic/agent?lang=fr">français</a> | 
+  <a href="https://www.readme-i18n.com/lybic/agent?lang=ja">日本語</a> | 
+  <a href="https://www.readme-i18n.com/lybic/agent?lang=ko">한국어</a> | 
+  <a href="https://www.readme-i18n.com/lybic/agent?lang=pt">Português</a> | 
+  <a href="https://www.readme-i18n.com/lybic/agent?lang=ru">Русский</a> | 
+  <a href="https://www.readme-i18n.com/lybic/agent?lang=zh">中文</a>
+</div>
 
-<p align="center"><small>Lybic GUI Agent is based upon the <a href="https://github.com/simular-ai/Agent-S">Agent-S</a> codebase, allowing us to focus on making the best interaction experience with Lybic while maintaining a familiar execution logic.</small></p>
+## What is Lybic GUI Agent?
 
-[What is Lybic?](https://lybic.ai/docs)
+[Lybic platform placeholder - comprehensive AI platform for building and deploying intelligent agents] <a href="https://lybic.ai/docs">What is Lybic?</a>. Lybic GUI Agent is an open-source framework that enables developers and businesses to create intelligent computer use agents that can understand and interact with graphical user interfaces across Windows, macOS, and Linux platforms.
+
+<!-- <p align="center"><small>Lybic GUI Agent is based upon the <a href="https://github.com/simular-ai/Agent-S">Agent-S</a> codebase, allowing us to focus on making the best interaction experience with Lybic while maintaining a familiar execution logic.</small></p> -->
+
+<div align="center">
+  &nbsp;&nbsp;
+<p>Skip the setup? Try Lybic GUI Agent in <a href="https://lybic.ai/">Lybic Cloud</a>
+</div>
 
 ## 🥳 Updates
-- [x] **2025/07/25**: Released v0.1.0 of [Lybic GUI Agent](https://github.com/lybic/agent) library, with support for Windows, Mac, Ubuntu and Lybic API!
+- [x] **2025/0x/xx**: Released v0.1.0 of [Lybic GUI Agent](https://github.com/lybic/agent) library, with support for Windows, Mac, Ubuntu and Lybic API!
+- [x] **2025/0x/xx**: Released the [Lybic GUI Agent paper](https://arxiv.org/abs/2410.xxxxx) and codebase!
 
 ## Table of Contents
 
-1. [🎉 Agents Demo](#%EF%B8%8F-agents-demo)
+1. [💡 Introduction](#-introduction)
 2. [🛠️ Installation & Setup](#%EF%B8%8F-installation--setup) 
 3. [🚀 Usage](#-usage)
 
-## 🎉 Agents Demo
+## 💡 Introduction
+
+## ✨ Feature Comparison
+
+<div align="center">
+  <table border="1" cellspacing="0" cellpadding="10">
+    <tr>
+      <th style="background-color: #f8f9fa; font-weight: bold;">Feature</th>
+      <th style="background-color: #f8f9fa; font-weight: bold;">Lybic GUI Agent</th>
+      <th style="background-color: #f8f9fa; font-weight: bold;">xxxxx</th>
+      <th style="background-color: #f8f9fa; font-weight: bold;">xxxxx</th>
+      <th style="background-color: #f8f9fa; font-weight: bold;">xxxxx</th>
+      <th style="background-color: #f8f9fa; font-weight: bold;">xxxxx</th>
+    </tr>
+    <tr>
+      <td><strong>Supported LLMs</strong></td>
+      <td>Rich Variety</td>
+      <td>Rich Variety</td>
+      <td>Rich Variety</td>
+      <td>Rich Variety</td>
+      <td>OpenAI-only</td>
+    </tr>
+    <tr>
+      <td><strong>RAG Engine</strong></td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+    </tr>
+    <tr>
+      <td><strong>Agent</strong></td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>✅</td>
+    </tr>
+    <tr>
+      <td><strong>Observability</strong></td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>❌</td>
+    </tr>
+    <tr>
+      <td><strong>Local Deployment</strong></td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>❌</td>
+    </tr>
+    <tr>
+      <td><strong>GUI Understanding</strong></td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>❌</td>
+    </tr>
+    <tr>
+      <td><strong>Cross-Platform GUI Control</strong></td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>❌</td>
+    </tr>
+    <tr>
+      <td><strong>Cloud Sandbox Environment</strong></td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>❌</td>
+    </tr>
+  </table>
+</div>
+
+<p align="center">🎉 Agents Demo</p>
 
 [![Our demo](https://img.youtube.com/vi/YRLlpQhnMso/maxresdefault.jpg)](https://www.youtube.com/watch?v=YRLlpQhnMso)
+
+<p align="center">🎯 Current Results</p>
+
+<div align="center">
+  <table border="0" cellspacing="0" cellpadding="5">
+    <tr>
+      <th>Benchmark</th>
+      <th>Lybic GUI Agent</th>
+      <th>Previous SOTA</th>
+    </tr>
+    <tr>
+      <td>OSWorld Verified (100 step)</td>
+      <td><b>56.0%</b></td>
+      <td>53.1%</td>
+    </tr>
+<!--     <tr>
+      <td>WindowsAgentArena</td>
+      <td>29.8%</td>
+      <td>19.5% (NAVI)</td>
+    </tr>
+    <tr>
+      <td>AndroidWorld</td>
+      <td>54.3%</td>
+      <td>46.8% (UI-TARS)</td>
+    </tr> -->
+  </table>
+</div>
+
+<p align="center">
+  <img src="assets/structure.png" alt="Lybic GUI Agent system structure" width="700"/>
+</p>
+<p align="center"><b>Fig. Lybic GUI Agent system structure</b></p>
 
 ## 🛠️ Installation & Setup
 
@@ -178,10 +310,95 @@ Next, you need to download the [`Windows-x86.zip`](https://huggingface.co/datase
 
 Finally, you need to edit the `.env` file and set the `USE_PRECREATE_VM` environment variable to the name of the virtual machine. `USE_PRECREATE_VM` support `Windows` and `Ubuntu` on x86 arch computer.
 
-
 ```bash
 USE_PRECREATE_VM=Ubuntu
 ```
+
+## 🔧 Troubleshooting
+
+### Common Runtime Issues
+
+#### 1. API Key Configuration Issues
+
+**Problem**: `KeyError` or authentication errors when running the agent.
+
+**Solution**:
+- Ensure your `.env` file is properly configured with valid API keys
+- Check that environment variables are set correctly:
+  ```bash
+  # For English models
+  export GEMINI_API_KEY=your_gemini_api_key
+  export ARK_API_KEY=your_ark_api_key
+  
+  # For Chinese models  
+  export ARK_API_KEY=your_ark_api_key
+  ```
+- Verify API key permissions and quotas
+
+#### 2. Python Environment Issues
+
+**Problem**: `ModuleNotFoundError` or package import errors.
+
+**Solution**:
+- Ensure you're using Python 3.12.11 as specified
+- Activate the virtual environment:
+  ```bash
+  # macOS/Linux
+  source .venv/bin/activate
+  # Windows
+  .venv\Scripts\activate
+  ```
+- Reinstall dependencies:
+  ```bash
+  uv sync
+  uv pip install -e .
+  ```
+
+#### 3. Lybic Sandbox Connection Issues
+
+**Problem**: `Connection timeout` or `Sandbox creation failed`.
+
+**Solution**:
+- Check network connectivity to Lybic servers
+- Verify `LYBIC_ORG_ID` and `LYBIC_API_KEY` are correct
+- Ensure sufficient quota in your Lybic account
+- Try increasing `LYBIC_MAX_LIFE_SECONDS` if sandbox times out
+
+#### 4. VMware Backend Issues
+
+**Problem**: Virtual machine fails to start or control.
+
+**Solution**:
+- Ensure VMware Workstation Pro is properly installed
+- Check that VM files are extracted to correct directories:
+  - `./vmware_vm_data/Windows-x86/`
+  - `./vmware_vm_data/Ubuntu-x86/`
+- Verify VMware service is running
+- Set correct `USE_PRECREATE_VM` environment variable
+
+#### 5. Model Performance Issues
+
+**Problem**: Slow response times or poor grounding accuracy.
+
+**Solution**:
+
+- Use recommended models for better performance:
+  - Visual grounding: `doubao-1-5-ui-tars-250428`
+  - Action generation: `claude-sonnet-4-20250514`
+- Switch to `--mode fast` for quicker execution
+- Reduce `--max-steps` for shorter tasks
+
+### Getting Help
+
+If you encounter issues not covered here:
+
+1. Check the [GitHub Issues](https://github.com/lybic/agent/issues) for similar problems
+2. Review the [Lybic Documentation](https://lybic.ai/docs)
+3. Create a new issue with:
+   - Your operating system and version
+   - Python version and environment details
+   - Complete error messages
+   - Steps to reproduce the issue
 
 ## Stargazers over time
 

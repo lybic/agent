@@ -24,7 +24,8 @@ from PIL import Image
 
 # from gui_agents.agents.grounding import OSWorldACI
 from gui_agents.agents.Action import Screenshot
-from gui_agents.agents.agent_s import AgentSNormal, AgentSFast
+from gui_agents.agents.agent_normal import AgentSNormal
+from gui_agents.agents.agent_fast import AgentSFast
 from gui_agents.agents.execution_monitor import StepResult, build_step_result
 
 from gui_agents.store.registry import Registry

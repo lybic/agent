@@ -5,12 +5,16 @@ New Controller Implementation
 """
 
 import time
+import os
+import json
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from enum import Enum
+import platform
 
 from .new_global_state import NewGlobalState
+from .new_manager import NewManager
 from .enums import (
     ControllerPhase, ControllerSituation, SubtaskStatus, 
     GateDecision, GateTrigger
@@ -23,13 +27,62 @@ logger = logging.getLogger(__name__)
 class NewController:
     """新控制器实现"""
     
-    def __init__(self, global_state: NewGlobalState):
+    def __init__(
+        self, 
+        global_state: NewGlobalState, 
+        platform: str = platform.system().lower(),
+        screen_size: List[int] = [1920, 1080],
+        memory_root_path: str = os.getcwd(),
+        memory_folder_name: str = "kb_s2",
+        kb_release_tag: str = "v0.2.2",
+        enable_takeover: bool = False,
+        enable_search: bool = True,
+    ):
+
         self.global_state = global_state
+        self.platform = platform
+        self.screen_size = screen_size
+        self.memory_root_path = memory_root_path
+        self.memory_folder_name = memory_folder_name
+        self.kb_release_tag = kb_release_tag
+        self.enable_takeover = enable_takeover
+        self.enable_search = enable_search
+
         self.current_phase = ControllerPhase.INIT
         self.phase_start_time = time.time()
         self.max_phase_duration = 300  # 5分钟最大相位持续时间
         self.phase_switch_count = 0
         self.max_phase_switches = 100  # 最大相位切换次数
+        self.user_query = ""
+        self.Tools_dict = {}
+        
+        # Load tools configuration from tools_config.json
+        tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
+        with open(tools_config_path, "r") as f:
+            self.tools_config = json.load(f)
+            print(f"Loaded tools configuration from: {tools_config_path}")
+            for tool in self.tools_config["tools"]:
+                tool_name = tool["tool_name"]
+                self.Tools_dict[tool_name] = {
+                    "provider": tool["provider"],
+                    "model": tool["model_name"]
+                }
+            print(f"Tools configuration: {self.Tools_dict}")
+
+        # Initialize agent's knowledge base path
+        self.local_kb_path = os.path.join( self.memory_root_path, self.memory_folder_name)
+
+        # Check if knowledge base exists
+        kb_platform_path = os.path.join(self.local_kb_path, self.platform)
+        if not os.path.exists(kb_platform_path):
+            print(f"Warning: Knowledge base for {self.platform} platform not found in {self.local_kb_path}")
+            os.makedirs(kb_platform_path, exist_ok=True)
+            print(f"Created directory: {kb_platform_path}")
+            # raise FileNotFoundError(f"Knowledge base path does not exist: {kb_platform_path}")
+        else:
+            print(f"Found local knowledge base path: {kb_platform_path}")
+
+        self.manager = NewManager(self.Tools_dict, self.global_state, self.local_kb_path, self.platform, self.enable_search)
         
         # 初始化控制器状态
         self.global_state.reset_controller_state()
@@ -154,6 +207,7 @@ class NewController:
                 self.global_state.update_controller_situation(ControllerSituation.PLAN)
                 logger.info("No subtasks available, switching to PLAN phase")
                 self.switch_to_phase(ControllerPhase.PLAN)
+                self.global_state.set_task_objective(self.user_query)
                 
         except Exception as e:
             logger.error(f"Error in INIT phase: {e}")
@@ -326,6 +380,7 @@ class NewController:
             # 调用Manager进行重规划
             # 等待规划完成
             # 检查新的subtask列表
+            self.manager.plan_task("replan")
             
             task = self.global_state.get_task()
             subtasks = self.global_state.get_subtasks()
@@ -357,6 +412,8 @@ class NewController:
         try:
             # 等待Manager补充资料
             # 检查补充状态
+
+            self.manager.plan_task("supplement")
             
             # 检查supplement.md是否有更新
             supplement_content = self.global_state.get_supplement()

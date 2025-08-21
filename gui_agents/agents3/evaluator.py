@@ -293,7 +293,7 @@ class Evaluator:
         elif provider == "gemini":
             api_key = os.getenv("GOOGLE_API_KEY")
         elif provider == "doubao":
-            api_key = os.getenv("DOUBAO_API_KEY")
+            api_key = os.getenv("ARK_API_KEY")
         elif provider == "zhipu":
             api_key = os.getenv("ZHIPU_API_KEY")
         else:

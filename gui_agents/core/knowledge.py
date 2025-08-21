@@ -9,6 +9,7 @@ from gui_agents.utils.common_utils import (
     save_embeddings,
 )
 from gui_agents.tools.tools import Tools
+from gui_agents.tools.new_tools import NewTools
 from gui_agents.agents.global_state import GlobalState
 from gui_agents.store.registry import Registry
 from gui_agents.core.mllm import CostManager
@@ -42,7 +43,7 @@ def get_embedding_dim(model_name):
 class KnowledgeBase:
     def __init__(
         self,
-        embedding_engine: Tools,
+        embedding_engine: Tools | NewTools,
         local_kb_path: str,
         platform: str,
         Tools_dict: Dict,

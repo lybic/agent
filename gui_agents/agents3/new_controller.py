@@ -15,9 +15,9 @@ import platform
 
 from gui_agents.agents3.data_models import SubtaskData
 from gui_agents.agents.hardware_interface import HardwareInterface
-from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
 from PIL import Image
-import pyautogui
+
+from gui_agents.agents3.utils.screenShot import scale_screenshot_dimensions
 
 
 from .new_global_state import NewGlobalState
@@ -32,17 +32,6 @@ from gui_agents.agents.Action import Screenshot
 
 # 设置日志
 logger = logging.getLogger(__name__)
-
-
-def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInterface):
-    screenshot_high = screenshot.height
-    screenshot_width = screenshot.width
-    if isinstance(hwi_para.backend, PyAutoGUIBackend):
-        screen_width, screen_height = pyautogui.size()
-        if screen_width != screenshot_width or screen_height != screenshot_high:
-            screenshot = screenshot.resize((screen_width, screen_height), Image.Resampling.LANCZOS)
-
-    return screenshot
 
 
 class NewController:
@@ -262,7 +251,7 @@ class NewController:
             if pending_subtasks:
                 # 还有待处理的subtask，继续执行
                 next_subtask_id = pending_subtasks[0]
-                self.global_state.set_current_subtask_id(next_subtask_id)
+                self.global_state.advance_to_next_subtask()
                 logger.info(f"Moving to next subtask: {next_subtask_id}")
                 return ControllerState.GET_ACTION
             else:
@@ -286,7 +275,7 @@ class NewController:
             if pending_subtask_ids:
                 # 有subtask，设置第一个为当前subtask
                 first_subtask_id = pending_subtask_ids[0]
-                self.global_state.set_current_subtask_id(first_subtask_id)
+                self.global_state.advance_to_next_subtask()
                 self.global_state.update_controller_state(ControllerState.GET_ACTION)
                 logger.info(f"Set current subtask: {first_subtask_id}")
                 self.switch_to_state(ControllerState.GET_ACTION, "subtask_ready", f"First subtask {first_subtask_id} ready")
@@ -362,57 +351,34 @@ class NewController:
                 self.switch_to_state(ControllerState.INIT)
                 return
             
-            # 检查是否有待执行的动作
-            if self.executor.has_pending_action(current_subtask_id):
-                logger.info(f"Executing action for subtask {current_subtask_id}")
-                
-                # 使用新的执行器执行动作
-                execution_result = self.executor.execute_current_action(current_subtask_id)
-                
-                if execution_result["success"]:
-                    logger.info(f"Action executed successfully for subtask {current_subtask_id} in {execution_result['execution_time']:.2f}s")
-                    # 执行成功，等待状态更新或继续处理
-                else:
-                    # 执行失败，标记subtask为失败并切换到重规划状态
-                    error_msg = execution_result.get("error_message", "Unknown execution error")
-                    logger.warning(f"Action execution failed for subtask {current_subtask_id}: {error_msg}")
-                    
-                    self.global_state.update_subtask_status(
-                        current_subtask_id,
-                        SubtaskStatus.REJECTED,
-                        f"Action execution failed: {error_msg}"
-                    )
-                    self.switch_to_state(ControllerState.PLAN, "execution_error", f"Action execution failed: {error_msg}")
-                    return
+            # 使用新的执行器执行动作
+            execution_result = self.executor.execute_current_action(current_subtask_id)
+            if execution_result["success"]:
+                logger.info(f"Action executed successfully for subtask {current_subtask_id} in {execution_result['execution_time']:.2f}s")
+                # 执行成功，等待状态更新或继续处理
             else:
-                logger.debug(f"No pending action for subtask {current_subtask_id}, waiting for action to be set")
-                # 如果没有action，等待Worker设置
-                pass
-            
-            # 检查执行后的subtask状态，决定下一步
-            updated_subtask = self.global_state.get_subtask(current_subtask_id)
-            subtask_status = updated_subtask.status if updated_subtask else None
-            
-            if subtask_status == SubtaskStatus.FULFILLED.value:
-                # 执行完成，进入质检
-                logger.info(f"Subtask {current_subtask_id} execution completed, switching to QUALITY_CHECK")
-                self.switch_to_state(ControllerState.QUALITY_CHECK, "execution_completed", f"Subtask {current_subtask_id} execution completed")
-            elif subtask_status == SubtaskStatus.REJECTED.value:
-                # 执行失败，需要重规划
-                logger.info(f"Subtask {current_subtask_id} execution failed, switching to PLAN")
-                self.switch_to_state(ControllerState.PLAN, "execution_failed", f"Subtask {current_subtask_id} execution failed")
-            elif subtask_status == SubtaskStatus.STALE.value:
-                # 执行过时，进入质检
-                logger.info(f"Subtask {current_subtask_id} execution stale, switching to QUALITY_CHECK")
-                self.switch_to_state(ControllerState.QUALITY_CHECK, "execution_stale", f"Subtask {current_subtask_id} execution stale")
-            else:
-                # 继续等待执行完成或状态更新
-                logger.debug(f"Waiting for subtask {current_subtask_id} status to update")
-                # 检查是否超时
-                if self._is_state_timeout():
-                    logger.warning(f"EXECUTE_ACTION state timeout for subtask {current_subtask_id}")
-                    self.switch_to_state(ControllerState.PLAN, "timeout", f"EXECUTE_ACTION state timeout for subtask {current_subtask_id}")
+                # 执行失败，标记subtask为失败并切换到重规划状态
+                error_msg = execution_result.get("error_message", "Unknown execution error")
+                logger.warning(f"Action execution failed for subtask {current_subtask_id}: {error_msg}")
                 
+                self.global_state.update_subtask_status(
+                    current_subtask_id,
+                    SubtaskStatus.REJECTED,
+                    f"Action execution failed: {error_msg}"
+                )
+                self.switch_to_state(ControllerState.PLAN, "execution_error", f"Action execution failed: {error_msg}")
+                return
+            
+            # 等待1000秒
+            time.sleep(1000)
+            command = self.global_state.get_current_command_for_subtask(current_subtask_id)
+            if command:
+                screenshot: Image.Image = self.hwi.dispatch(Screenshot())  # type: ignore
+                self.global_state.set_screenshot(
+                    scale_screenshot_dimensions(screenshot, self.hwi))
+                self.switch_to_state(ControllerState.GET_ACTION, "command_completed", f" {command.command_id} command completed")
+
+          
         except Exception as e:
             logger.error(f"Error in EXECUTE_ACTION state: {e}")
             self.global_state.add_event("controller", "error", f"EXECUTE_ACTION state error: {str(e)}")
@@ -451,6 +417,7 @@ class NewController:
                         "Quality check passed"
                     )
                     logger.info(f"Quality check passed for subtask {current_subtask_id}")
+                    self.global_state.advance_to_next_subtask()
                     self.switch_to_state(ControllerState.GET_ACTION, "quality_check_passed", f"Quality check passed for subtask {current_subtask_id}")
                 elif decision == GateDecision.GATE_FAIL.value:
                     # 质检失败，需要重规划
@@ -490,18 +457,18 @@ class NewController:
         try:
             # 调用Manager进行重规划
             # 等待规划完成
-            # 检查新的subtask列表
             self.manager.plan_task("replan")
-            
+            # 检查新的subtask列表
             task = self.global_state.get_task()
-            subtasks = self.global_state.get_subtasks()
+            pending_subtask_ids = task.pending_subtask_ids or []
             
-            # 检查是否有新的subtask
-            if subtasks:
-                # 有subtask，重新开始
+            if pending_subtask_ids:
+                # 有subtask，设置第一个为当前subtask
+                first_subtask_id = pending_subtask_ids[0]
+                self.global_state.advance_to_next_subtask()
                 self.global_state.update_controller_state(ControllerState.GET_ACTION)
-                logger.info(f"Found {len(subtasks)} subtasks, restarting execution")
-                self.switch_to_state(ControllerState.INIT)
+                logger.info(f"Set current subtask: {first_subtask_id}")
+                self.switch_to_state(ControllerState.GET_ACTION, "subtask_ready", f"First subtask {first_subtask_id} ready")
             else:
                 # 没有subtask，任务可能无法完成
                 self.global_state.update_controller_state(ControllerState.PLAN)

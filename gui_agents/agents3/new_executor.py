@@ -78,17 +78,19 @@ class NewExecutor:
             logger.error(error_msg)
             return self._create_execution_result(False, error_msg)
     
-    # get command 有问题，需要修改，应该取最新的command执行
     def _get_command_for_subtask(self, subtask_id: str):
-        """获取指定subtask的command"""
+        """获取指定subtask的最新command"""
         try:
-            commands = self.global_state.get_commands()
-            for command in commands:
-                if command.subtask_id == subtask_id:
-                    return command
-            return None
+            # 使用新的GlobalState方法获取当前command
+            command = self.global_state.get_current_command_for_subtask(subtask_id)
+            if command:
+                logger.debug(f"Found current command {command.command_id} for subtask {subtask_id}")
+            else:
+                logger.debug(f"No current command found for subtask {subtask_id}")
+            return command
+            
         except Exception as e:
-            logger.error(f"Error getting command for subtask {subtask_id}: {e}")
+            logger.error(f"Error getting current command for subtask {subtask_id}: {e}")
             return None
     
     def _execute_action(self, subtask_id: str, action: Dict[str, Any]) -> Dict[str, Any]:

@@ -161,7 +161,7 @@ class CommandData:
     command_id: str
     task_id: str
     subtask_id: Optional[str] = None
-    command: Dict[str, Any] = field(default_factory=dict)
+    action: Dict[str, Any] = field(default_factory=dict)
     pre_screenshot_id: Optional[str] = None
     pre_screenshot_analysis: str = ""
     post_screenshot_id: Optional[str] = None
@@ -177,7 +177,7 @@ class CommandData:
             "command_id": self.command_id,
             "task_id": self.task_id,
             "subtask_id": self.subtask_id,
-            "command": self.command,
+            "action": self.action,
             "pre_screenshot_id": self.pre_screenshot_id,
             "pre_screenshot_analysis": self.pre_screenshot_analysis,
             "post_screenshot_id": self.post_screenshot_id,
@@ -195,7 +195,7 @@ class CommandData:
             command_id=data["command_id"],
             task_id=data["task_id"],
             subtask_id=data.get("subtask_id"),
-            command=data.get("command", {}),
+            action=data.get("action", {}),
             pre_screenshot_id=data.get("pre_screenshot_id"),
             pre_screenshot_analysis=data.get("pre_screenshot_analysis", ""),
             post_screenshot_id=data.get("post_screenshot_id"),
@@ -268,14 +268,14 @@ def create_subtask_data(subtask_id: str, task_id: str, title: str, description: 
     )
 
 
-def create_command_data(command_id: str, task_id: str, command: Dict[str, Any], 
+def create_command_data(command_id: str, task_id: str, action: Dict[str, Any], 
                        subtask_id: Optional[str] = None) -> CommandData:
     """创建新的命令数据"""
     return CommandData(
         command_id=command_id,
         task_id=task_id,
         subtask_id=subtask_id,
-        command=command,
+        action=action,
         exec_status=ExecStatus.EXECUTED.value
     )
 

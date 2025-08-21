@@ -108,8 +108,8 @@ class NewController:
                     self.handle_init_phase()
                 elif current_phase == ControllerPhase.GET_ACTION:
                     self.handle_get_action_phase()
-                elif current_phase == ControllerPhase.ET_ACTION:
-                    self.handle_et_action_phase()
+                elif current_phase == ControllerPhase.EXECUTE_ACTION:
+                    self.handle_execute_action_phase()
                 elif current_phase == ControllerPhase.QUALITY_CHECK:
                     self.handle_quality_check_phase()
                 elif current_phase == ControllerPhase.PLAN:
@@ -237,10 +237,10 @@ class NewController:
             logger.info(f"Subtask {current_subtask_id} status: {subtask_status}")
             
             if subtask_status == SubtaskStatus.READY.value:
-                # 准备执行，切换到ET_ACTION
-                self.global_state.update_controller_situation(ControllerSituation.ET_ACTION)
+                # 准备执行，切换到EXECUTE_ACTION
+                self.global_state.update_controller_situation(ControllerSituation.EXECUTE_ACTION)
                 logger.info(f"Subtask {current_subtask_id} ready for execution")
-                self.switch_to_phase(ControllerPhase.ET_ACTION)
+                self.switch_to_phase(ControllerPhase.EXECUTE_ACTION)
             elif subtask_status == SubtaskStatus.PENDING.value:
                 # 等待中，可能需要补充资料
                 self.global_state.update_controller_situation(ControllerSituation.SUPPLEMENT)
@@ -256,14 +256,14 @@ class NewController:
             self.global_state.add_event("controller", "error", f"GET_ACTION phase error: {str(e)}")
             self.switch_to_phase(ControllerPhase.PLAN)
     
-    def handle_et_action_phase(self):
+    def handle_execute_action_phase(self):
         """执行动作阶段"""
-        logger.info("Handling ET_ACTION phase")
+        logger.info("Handling EXECUTE_ACTION phase")
         
         try:
             current_subtask_id = self.global_state.get_task().get("current_subtask_id")
             if not current_subtask_id:
-                logger.warning("No current subtask ID in ET_ACTION phase")
+                logger.warning("No current subtask ID in EXECUTE_ACTION phase")
                 self.switch_to_phase(ControllerPhase.INIT)
                 return
             
@@ -271,12 +271,12 @@ class NewController:
             # 检查执行结果
             subtask = self.global_state.get_subtask(current_subtask_id)
             if not subtask:
-                logger.warning(f"Subtask {current_subtask_id} not found in ET_ACTION phase")
+                logger.warning(f"Subtask {current_subtask_id} not found in EXECUTE_ACTION phase")
                 self.switch_to_phase(ControllerPhase.INIT)
                 return
             
             subtask_status = subtask.get("status")
-            logger.info(f"Subtask {current_subtask_id} status in ET_ACTION: {subtask_status}")
+            logger.info(f"Subtask {current_subtask_id} status in EXECUTE_ACTION: {subtask_status}")
             
             if subtask_status == SubtaskStatus.FULFILLED.value:
                 # 执行成功，进入质检
@@ -298,13 +298,13 @@ class NewController:
                 logger.debug(f"Waiting for subtask {current_subtask_id} execution to complete")
                 # 检查是否超时
                 if self._is_phase_timeout():
-                    logger.warning(f"ET_ACTION phase timeout for subtask {current_subtask_id}")
+                    logger.warning(f"EXECUTE_ACTION phase timeout for subtask {current_subtask_id}")
                     self.global_state.update_controller_situation(ControllerSituation.PLAN)
                     self.switch_to_phase(ControllerPhase.PLAN)
                 
         except Exception as e:
-            logger.error(f"Error in ET_ACTION phase: {e}")
-            self.global_state.add_event("controller", "error", f"ET_ACTION phase error: {str(e)}")
+            logger.error(f"Error in EXECUTE_ACTION phase: {e}")
+            self.global_state.add_event("controller", "error", f"EXECUTE_ACTION phase error: {str(e)}")
             self.switch_to_phase(ControllerPhase.PLAN)
     
     def handle_quality_check_phase(self):

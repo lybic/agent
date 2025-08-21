@@ -42,6 +42,7 @@ class NewController:
         enable_takeover: bool = False,
         enable_search: bool = True,
         backend: str = "pyautogui",
+        user_query: str = "",
     ):
 
         self.global_state = global_state
@@ -58,7 +59,7 @@ class NewController:
         self.max_state_duration = 300  # 5分钟最大状态持续时间
         self.state_switch_count = 0
         self.max_state_switches = 100  # 最大状态切换次数
-        self.user_query = ""
+        self.user_query = user_query
         self.Tools_dict = {}
         
         # Load tools configuration from tools_config.json
@@ -101,6 +102,58 @@ class NewController:
         # 初始化控制器状态
         self.global_state.reset_controller_state()
         logger.info("NewController initialized")
+    
+    def execute_single_step(self, steps: int = 1) -> None:
+        """单步执行若干次状态机逻辑（执行 steps 步，不进入循环）"""
+        if steps is None or steps <= 0:
+            steps = 1
+        try:
+            for step_index in range(steps):
+                # 检查是否应该终止（单步序列）
+                if self._should_terminate():
+                    logger.info("Termination conditions met for single step batch")
+                    break
+
+                # 获取当前状态
+                current_state = self.get_current_state()
+                logger.info(f"Current state (single step {step_index + 1}/{steps}): {current_state}")
+
+                # 根据状态执行相应处理（一次一步）
+                if current_state == ControllerState.INIT:
+                    self.handle_init_state()
+                elif current_state == ControllerState.GET_ACTION:
+                    self.handle_get_action_state()
+                elif current_state == ControllerState.EXECUTE_ACTION:
+                    self.handle_execute_action_state()
+                elif current_state == ControllerState.QUALITY_CHECK:
+                    self.handle_quality_check_state()
+                elif current_state == ControllerState.PLAN:
+                    self.handle_plan_state()
+                elif current_state == ControllerState.SUPPLEMENT:
+                    self.handle_supplement_state()
+                elif current_state == ControllerState.DONE:
+                    logger.info("Task completed (single step sequence)")
+                    break
+                else:
+                    logger.error(f"Unknown state: {current_state}")
+                    self.switch_to_state(
+                        ControllerState.INIT,
+                        "unknown_state_single_step",
+                        f"Unknown state encountered (single step): {current_state}",
+                    )
+        except Exception as e:
+            logger.error(f"Error in single step batch: {e}")
+            self.global_state.add_event(
+                "controller",
+                "error",
+                f"Single step batch error: {str(e)}",
+            )
+            # 错误恢复：回到INIT状态（单步序列）
+            self.switch_to_state(
+                ControllerState.INIT,
+                "error_recovery_single_step",
+                f"Error recovery from single step batch: {str(e)}",
+            )
     
     def execute_main_loop(self) -> None:
         """主循环执行 - 基于状态状态机"""

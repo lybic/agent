@@ -1,0 +1,74 @@
+[
+  {
+    "event_id": "evt-1540",
+    "task_id": "task-74d0b45f",
+    "actor": "controller",
+    "action": "state_reset",
+    "details": "Controller state reset to default",
+    "timestamp": "2025-08-21T21:57:01.868164"
+  },
+  {
+    "event_id": "evt-9c85",
+    "task_id": "task-74d0b45f",
+    "actor": "controller",
+    "action": "state_change",
+    "details": "State changed to: PLAN (trigger: controller, details: )",
+    "timestamp": "2025-08-21T21:57:01.869094"
+  },
+  {
+    "event_id": "evt-a6b0",
+    "task_id": "task-74d0b45f",
+    "actor": "controller",
+    "action": "state_switch",
+    "details": "State changed: ControllerState.INIT -> ControllerState.PLAN (trigger: no_subtasks, details: No subtasks available, need planning)",
+    "timestamp": "2025-08-21T21:57:01.869414"
+  },
+  {
+    "event_id": "evt-7018",
+    "task_id": "task-74d0b45f",
+    "actor": "controller",
+    "action": "state_change",
+    "details": "State changed to: PLAN (trigger: no_subtasks, details: No subtasks available, need planning)",
+    "timestamp": "2025-08-21T21:57:01.870002"
+  },
+  {
+    "event_id": "evt-82fa",
+    "task_id": "task-74d0b45f",
+    "actor": "manager",
+    "action": "task_planning",
+    "details": "Scenario: initial_plan, Plan_result: 1. Launch the Bilibili application\n   - Worker Role: Operator\n   - Description: Open the Bilibili application from the computer's application launcher or desktop shortcut\n   - Completion Criteria: Bilibili application window is successfully displayed on the screen, Tokens: [2472, 53, 2525], Cost: 0.0020836￥",
+    "timestamp": "2025-08-21T21:57:04.181346"
+  },
+  {
+    "event_id": "evt-5a20",
+    "task_id": "task-74d0b45f",
+    "actor": "manager",
+    "action": "generated_dag",
+    "details": "dag_obj=nodes=[Node(name='Launch the Bilibili application', info=\"Open the Bilibili application from the computer's application launcher or desktop shortcut. Completion Criteria: Bilibili application window is successfully displayed on the screen\", assignee_role='operator', error_type=None, error_message=None, failure_count=0, last_failure_time=None, suggested_action=None)] edges=[], tokens=[2418, 102, 2520], cost=0.0021384￥, retry_count=-1",
+    "timestamp": "2025-08-21T21:57:06.685752"
+  },
+  {
+    "event_id": "evt-7a5e",
+    "task_id": "task-74d0b45f",
+    "actor": "controller",
+    "action": "state_change",
+    "details": "State changed to: GET_ACTION (trigger: controller, details: )",
+    "timestamp": "2025-08-21T21:57:06.690045"
+  },
+  {
+    "event_id": "evt-2cab",
+    "task_id": "task-74d0b45f",
+    "actor": "controller",
+    "action": "state_switch",
+    "details": "State changed: ControllerState.PLAN -> ControllerState.INIT (trigger: controller, details: )",
+    "timestamp": "2025-08-21T21:57:06.690825"
+  },
+  {
+    "event_id": "evt-14e7",
+    "task_id": "task-74d0b45f",
+    "actor": "controller",
+    "action": "state_change",
+    "details": "State changed to: INIT (trigger: controller, details: )",
+    "timestamp": "2025-08-21T21:57:06.692073"
+  }
+]

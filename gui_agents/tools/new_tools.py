@@ -65,7 +65,6 @@ class BaseTool(ABC):
                 # manager prompts
                 "query_formulator": ("manager", "query_formulator"),
                 "narrative_summarization": ("manager", "narrative_summarization"),
-                "text_span": ("manager", "text_span"),
                 "context_fusion": ("manager", "context_fusion"),
                 "planner_role": ("manager", "planner_role"),
                 "supplement_role": ("manager", "supplement_role"),
@@ -75,6 +74,7 @@ class BaseTool(ABC):
                 "technician_role": ("worker", "technician_role"),
                 "analyst_role": ("worker", "analyst_role"),
                 "grounding": ("worker", "grounding"),
+                "text_span": ("worker", "text_span"),
                 "episode_summarization": ("worker", "episode_summarization"),
                 # evaluator prompts
                 "worker_success_role": ("evaluator", "worker_success_role"),
@@ -83,21 +83,51 @@ class BaseTool(ABC):
                 "final_check_role": ("evaluator", "final_check_role"),
             }
 
+            # Tools that should be prefixed with system architecture info
+            tools_require_system_prefix = {
+                "planner_role",
+                "supplement_role",
+                "dag_translator",
+                "operator_role",
+                "technician_role",
+                "analyst_role",
+                "worker_success_role",
+                "worker_stale_role",
+                "periodic_role",
+                "final_check_role",
+            }
+
             category_tuple = prompt_category_map.get(self.tool_name)
+
+            prompt_text = ""
             if category_tuple is None:
                 # Try root-level attribute on module (e.g., system_architecture)
                 if hasattr(module, self.tool_name):
-                    return getattr(module, self.tool_name)
-                return ""
+                    prompt_text = getattr(module, self.tool_name)
+                else:
+                    return ""
+            else:
+                category_name, key_name = category_tuple
+                category_obj = getattr(module, category_name, None)
+                if category_obj is None:
+                    return ""
+                value = getattr(category_obj, key_name, None)
+                if isinstance(value, str) and value:
+                    prompt_text = value
+                else:
+                    return ""
 
-            category_name, key_name = category_tuple
-            category_obj = getattr(module, category_name, None)
-            if category_obj is None:
-                return ""
-            value = getattr(category_obj, key_name, None)
-            if isinstance(value, str) and value:
-                return value
-            return ""
+            # Optionally prefix with system architecture information for selected tools
+            if (
+                isinstance(prompt_text, str)
+                and prompt_text
+                and self.tool_name in tools_require_system_prefix
+            ):
+                system_info = getattr(module, "system_architecture", "")
+                if isinstance(system_info, str) and system_info:
+                    return f"{system_info}\n\n{prompt_text}"
+
+            return prompt_text
         except Exception:
             # Fallback to registry to allow central overrides if available
             return ""
@@ -181,7 +211,6 @@ class ToolFactory:
             "query_formulator": (QueryFormulatorTool, "query_formulator"), # manager
             "websearch": (WebSearchTool, None), # manager
             "narrative_summarization": (NarrativeSummarizationTool, "narrative_summarization"), # manager
-            "text_span": (TextSpanTool, "text_span"), # manager
             "context_fusion": (ContextFusionTool, "context_fusion"), # manager
             "planner_role": (SubtaskPlannerTool, "planner_role"), # manager
             "supplement_role": (SubtaskPlannerTool, "supplement_role"), # manager
@@ -191,6 +220,7 @@ class ToolFactory:
             "technician_role": (ActionGeneratorTool, "technician_role"), # worker
             "analyst_role": (ActionGeneratorTool, "analyst_role"), # worker
             "grounding": (GroundingTool, "grounding"), # worker
+            "text_span": (TextSpanTool, "text_span"), # worker
             "episode_summarization": (EpisodeSummarizationTool, "episode_summarization"), # worker
             
             "worker_success_role": (EvaluatorTool, "worker_success_role"), # evaluator

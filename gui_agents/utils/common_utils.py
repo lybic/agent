@@ -16,6 +16,7 @@ class Node(BaseModel):
     name: str
     info: str
     # New fields for failed task analysis
+    assignee_role: Optional[str] = None
     error_type: Optional[str] = None  # Error type: UI_ERROR, EXECUTION_ERROR, PLANNING_ERROR, etc.
     error_message: Optional[str] = None  # Specific error message
     failure_count: Optional[int] = 0  # Failure count

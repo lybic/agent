@@ -63,6 +63,7 @@ class GateTrigger(str, Enum):
     PERIODIC_CHECK = "periodic_check"  # 定期检查
     WORKER_STALE = "worker_stale"      # Worker过时
     WORKER_SUCCESS = "worker_success"  # Worker成功
+    FINAL_CHECK = "final_check"  # 最终任务验证
 
 
 class TaskStatus(str, Enum):
@@ -110,6 +111,4 @@ class EventType(str, Enum):
     ERROR = "error"         # 错误
     SUCCESS = "success"     # 成功
     PHASE_SWITCH = "phase_switch"  # 相位切换
-    STATUS_CHANGE = "status_change"  # 状态变化 
-
-
+    STATUS_CHANGE = "status_change"  # 状态变化

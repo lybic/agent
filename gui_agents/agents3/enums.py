@@ -52,6 +52,7 @@ class GateTrigger(str, Enum):
     PERIODIC_CHECK = "periodic_check"  # 定期检查
     WORKER_STALE = "worker_stale"      # Worker过时
     WORKER_SUCCESS = "worker_success"  # Worker成功
+    FINAL_CHECK = "final_check"        # 最终检查
 
 
 class TaskStatus(str, Enum):

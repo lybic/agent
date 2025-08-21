@@ -106,11 +106,11 @@ class NewGlobalState:
                 "current_subtask_id": None,
                 "completed_subtasks": [],
                 "pending_subtasks": [],
-                "qa_policy": {
-                    "per_subtask": True,
-                    "final_gate": True,
-                    "risky_actions": ["open", "submit", "hotkey"]
-                }
+                # "qa_policy": {
+                #     "per_subtask": True,
+                #     "final_gate": True,
+                #     "risky_actions": ["open", "submit", "hotkey"]
+                # }
             }
             safe_write_json(self.task_path, default_task)
 

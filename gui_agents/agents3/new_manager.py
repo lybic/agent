@@ -184,7 +184,7 @@ class NewManager:
         try:
             scenario_enum = self._normalize_scenario(scenario)
             self.status = ManagerStatus.PLANNING
-            self.global_state.add_event("manager", "planning_start", f"Scenario: {scenario_enum.value}")
+            # self.global_state.add_event("manager", "planning_start", f"Scenario: {scenario_enum.value}")
             
             if scenario_enum == PlanningScenario.SUPPLEMENT:
                 return self._handle_supplement_scenario()

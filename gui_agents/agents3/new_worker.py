@@ -24,7 +24,7 @@ from gui_agents.utils.common_utils import (
 
 from .new_global_state import NewGlobalState
 from .enums import (
-    ControllerSituation,
+    ControllerState,
     ExecStatus,
     GateTrigger,
 )

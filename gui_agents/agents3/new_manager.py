@@ -16,9 +16,10 @@ from gui_agents.tools.tools import Tools
 from gui_agents.core.knowledge import KnowledgeBase
 
 from .new_global_state import NewGlobalState
+from .data_models import SubtaskData  # Add import for SubtaskData
 from .enums import (
     TaskStatus, SubtaskStatus, GateDecision, GateTrigger,
-    ControllerSituation, ExecStatus, ManagerStatus
+    ControllerState, ExecStatus, ManagerStatus
 )
 
 logger = logging.getLogger(__name__)
@@ -252,12 +253,26 @@ class NewManager:
             enhanced_subtasks = self._enhance_subtasks(subtasks, context)
             
             # Store subtasks in global state
-            for subtask in enhanced_subtasks:
-                self.global_state.add_subtask(subtask)
+            for subtask_dict in enhanced_subtasks:
+                # Convert dict to SubtaskData object
+                subtask_data = SubtaskData(
+                    subtask_id=subtask_dict["subtask_id"],
+                    task_id=subtask_dict["task_id"],
+                    title=subtask_dict["title"],
+                    description=subtask_dict["description"],
+                    assignee_role=subtask_dict["assignee_role"],
+                    attempt_no=subtask_dict["attempt_no"],
+                    status=subtask_dict["status"],
+                    reasons_history=subtask_dict["reasons_history"],
+                    command_trace_ids=subtask_dict["command_trace_ids"],
+                    gate_check_ids=subtask_dict["gate_check_ids"],
+                    created_at=subtask_dict["created_at"]
+                )
+                self.global_state.add_subtask(subtask_data)
             
             # If no current subtask is selected yet, set the first one
             task = self.global_state.get_task()
-            if not task.get("current_subtask_id") and enhanced_subtasks:
+            if not task.current_subtask_id and enhanced_subtasks:
                 self.global_state.set_current_subtask_id(enhanced_subtasks[0]["subtask_id"])
                 self.global_state.update_task_status(TaskStatus.PENDING)
                 self.global_state.add_event(
@@ -398,11 +413,11 @@ class NewManager:
         artifacts = self.global_state.get_artifacts()
         
         context = {
-            "task_objective": task.get("objective", ""),
-            "task_status": task.get("status", ""),
-            "current_subtask_id": task.get("current_subtask_id"),
-            "completed_subtasks": task.get("completed_subtasks", []),
-            "pending_subtasks": task.get("pending_subtasks", []),
+            "task_objective": task.objective or "",
+            "task_status": task.status or "",
+            "current_subtask_id": task.current_subtask_id,
+            "completed_subtask_ids": task.completed_subtask_ids or [],
+            "pending_subtask_ids": task.pending_subtask_ids or [],
             "all_subtasks": subtasks,
             "screenshot": screenshot,
             "artifacts": artifacts,
@@ -427,11 +442,11 @@ class NewManager:
         
         # Get current subtask that needs supplement
         current_subtask = None
-        if task.get("current_subtask_id"):
-            current_subtask = self.global_state.get_subtask(task["current_subtask_id"])
+        if task.current_subtask_id:
+            current_subtask = self.global_state.get_subtask(task.current_subtask_id)
         
         return {
-            "task_objective": task.get("objective", ""),
+            "task_objective": task.objective or "",
             "current_subtask": current_subtask,
             "all_subtasks": subtasks,
             "existing_supplement": supplement,
@@ -662,11 +677,11 @@ Please output the supplementary material collection solution and execute it base
         all_subtasks = self.global_state.get_subtasks()
         
         for subtask in all_subtasks:
-            if subtask.get("status") == SubtaskStatus.REJECTED.value:
+            if subtask.status == SubtaskStatus.REJECTED.value:
                 failed_subtasks.append({
-                    "id": subtask.get("subtask_id"),
-                    "title": subtask.get("title"),
-                    "reason": subtask.get("last_reason_text", "Unknown reason")
+                    "id": subtask.subtask_id,
+                    "title": subtask.title,
+                    "reason": subtask.last_reason_text or "Unknown reason"
                 })
         
         if not failed_subtasks:
@@ -680,8 +695,8 @@ Please output the supplementary material collection solution and execute it base
         all_subtasks = self.global_state.get_subtasks()
         
         for subtask in all_subtasks:
-            if subtask.get("status") == SubtaskStatus.REJECTED.value:
-                reasons = subtask.get("reasons_history", [])
+            if subtask.status == SubtaskStatus.REJECTED.value:
+                reasons = subtask.reasons_history or []
                 if reasons:
                     failure_reasons.extend([r.get("text", "") for r in reasons])
         

@@ -7,24 +7,24 @@ from enum import Enum
 
 class ControllerPhase(str, Enum):
     """控制器相位定义"""
-    INIT = "INIT"                    # 立项阶段
-    GET_ACTION = "GET_ACTION"        # 取下一步动作
-    ET_ACTION = "ET_ACTION"          # 执行动作阶段
-    QUALITY_CHECK = "QUALITY_CHECK"  # 质检门检查
-    PLAN = "PLAN"                    # 重规划阶段
-    SUPPLEMENT = "SUPPLEMENT"        # 资料补全阶段
-    DONE = "DONE"                    # 任务终结
+    INIT = "INIT"                     # 立项阶段
+    GET_ACTION = "GET_ACTION"         # 取下一步动作
+    EXECUTE_ACTION = "EXECUTE_ACTION" # 执行动作阶段
+    QUALITY_CHECK = "QUALITY_CHECK"   # 质检门检查
+    PLAN = "PLAN"                     # 重规划阶段
+    SUPPLEMENT = "SUPPLEMENT"         # 资料补全阶段
+    DONE = "DONE"                     # 任务终结
 
 
 class ControllerSituation(str, Enum):
     """控制器状态定义 - 与ControllerPhase保持一致"""
-    INIT = "INIT"                    # 立项阶段
-    GET_ACTION = "GET_ACTION"        # 取下一步动作
-    ET_ACTION = "ET_ACTION"          # 执行动作阶段
-    QUALITY_CHECK = "QUALITY_CHECK"  # 质检门检查
-    PLAN = "PLAN"                    # 重规划阶段
-    SUPPLEMENT = "SUPPLEMENT"        # 资料补全阶段
-    DONE = "DONE"                    # 任务终结
+    INIT = "INIT"                     # 立项阶段
+    GET_ACTION = "GET_ACTION"         # 取下一步动作
+    EXECUTE_ACTION = "EXECUTE_ACTION" # 执行动作阶段
+    QUALITY_CHECK = "QUALITY_CHECK"   # 质检门检查
+    PLAN = "PLAN"                     # 重规划阶段
+    SUPPLEMENT = "SUPPLEMENT"         # 资料补全阶段
+    DONE = "DONE"                     # 任务终结
 
 
 class SubtaskStatus(str, Enum):

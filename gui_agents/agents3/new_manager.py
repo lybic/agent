@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Any, Tuple, Union
 from enum import Enum
 
 from gui_agents.utils.common_utils import Node
-from gui_agents.tools.tools import Tools
+from gui_agents.tools.new_tools import NewTools
 from gui_agents.core.knowledge import KnowledgeBase
 from gui_agents.prompts import module
 
@@ -101,42 +101,33 @@ class NewManager:
 
     def _initialize_tools(self):
         """Initialize required tools with backward-compatible keys"""
-        # Planner tool: prefer "subtask_planner" (legacy) then "task_planner"
-        planner_cfg = self.tools_dict.get("subtask_planner") or self.tools_dict.get("task_planner")
+        self.planner_agent_name = "planner_role"
+
+        planner_cfg = self.tools_dict.get(self.planner_agent_name)
         if not planner_cfg:
-            raise KeyError("Missing tool config for 'subtask_planner' or 'task_planner'")
-        self.planner_agent = Tools()
+            raise KeyError(f"Missing tool config for {self.planner_agent_name}")
+        
+        self.planner_agent = NewTools()
         self.planner_agent.register_tool(
-            "subtask_planner",
+            self.planner_agent_name,
             planner_cfg["provider"],
             planner_cfg["model"],
         )
         
-        # Supplement LLM tool is optional; if missing we will auto-build a strategy
-        supp_cfg = (
-            self.tools_dict.get("supplement_collector")
-            or self.tools_dict.get("narrative_summarization")
-            or self.tools_dict.get("context_fusion")
+        # Supplement LLM tool
+        self.supplement_agent_name = "supplement_role"
+        supplement_cfg = self.tools_dict.get(self.supplement_agent_name)
+        if not supplement_cfg:
+            raise KeyError(f"Missing tool config for {self.supplement_agent_name}")
+        self.supplement_agent = NewTools()
+        self.supplement_agent.register_tool(
+            self.supplement_agent_name,
+            supplement_cfg["provider"],
+            supplement_cfg["model"],
         )
-        self.supplement_agent: Optional[Tools] = None
-        self.supplement_tool_name: Optional[str] = None
-        if supp_cfg:
-            self.supplement_agent = Tools()
-            # Use declared key name for invocation clarity
-            if "supplement_collector" in self.tools_dict:
-                self.supplement_tool_name = "supplement_collector"
-            elif "narrative_summarization" in self.tools_dict:
-                self.supplement_tool_name = "narrative_summarization"
-            else:
-                self.supplement_tool_name = "context_fusion"
-            self.supplement_agent.register_tool(
-                self.supplement_tool_name,
-                supp_cfg["provider"],
-                supp_cfg["model"],
-            )
         
         # Embedding engine for RAG
-        self.embedding_engine = Tools()
+        self.embedding_engine = NewTools()
         self.embedding_engine.register_tool(
             "embedding",
             self.tools_dict["embedding"]["provider"],
@@ -145,7 +136,7 @@ class NewManager:
         
         # Web search engine (optional)
         if self.enable_search and self.tools_dict.get("websearch"):
-            self.search_engine = Tools()
+            self.search_engine = NewTools()
             self.search_engine.register_tool(
                 "websearch",
                 self.tools_dict["websearch"]["provider"],
@@ -227,7 +218,7 @@ class NewManager:
         
         # Execute planning using the registered planner tool
         plan_result, total_tokens, cost_string = self.planner_agent.execute_tool(
-            "subtask_planner",
+            self.planner_agent_name,
             {"str_input": prompt, "img_input": context.get("screenshot")}
         )
         
@@ -325,9 +316,9 @@ class NewManager:
             prompt = self._generate_supplement_prompt(context)
             
             # Execute supplement plan: use LLM tool if available, otherwise auto-build
-            if self.supplement_agent and self.supplement_tool_name:
+            if self.supplement_agent:
                 supplement_result, total_tokens, cost_string = self.supplement_agent.execute_tool(
-                    self.supplement_tool_name,
+                    self.supplement_agent_name,
                     {"str_input": prompt}
                 )
                 # Log supplement operation

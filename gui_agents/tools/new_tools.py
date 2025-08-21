@@ -707,7 +707,7 @@ class QueryFormulatorTool(BaseTool):
         # Use the prompt template and LMM for query formulation
         return self._call_lmm(tool_input)
 
-class Tools:
+class NewTools:
     """Main Tools class that provides access to all available tools."""
     
     def __init__(self):

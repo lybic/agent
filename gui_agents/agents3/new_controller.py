@@ -62,7 +62,7 @@ class NewController:
         self.Tools_dict = {}
         
         # Load tools configuration from tools_config.json
-        tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
+        tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "new_tools_config.json")
         with open(tools_config_path, "r") as f:
             self.tools_config = json.load(f)
             print(f"Loaded tools configuration from: {tools_config_path}")
@@ -72,7 +72,7 @@ class NewController:
                     "provider": tool["provider"],
                     "model": tool["model_name"]
                 }
-            print(f"Tools configuration: {self.Tools_dict}")
+            # print(f"Tools configuration: {self.Tools_dict}")
 
         # Initialize agent's knowledge base path
         self.local_kb_path = os.path.join( self.memory_root_path, self.memory_folder_name)

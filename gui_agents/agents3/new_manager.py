@@ -14,6 +14,7 @@ from enum import Enum
 from gui_agents.utils.common_utils import Node
 from gui_agents.tools.tools import Tools
 from gui_agents.core.knowledge import KnowledgeBase
+from gui_agents.prompts import module
 
 from .new_global_state import NewGlobalState
 from .data_models import SubtaskData  # Add import for SubtaskData
@@ -64,7 +65,6 @@ class NewManager:
         platform: str = "unknown",
         enable_search: bool = False,
         max_replan_attempts: int = 3,
-        max_supplement_attempts: int = 2
     ):
         """
         Initialize the Manager module
@@ -76,7 +76,6 @@ class NewManager:
             platform: Target platform (windows/mac/linux)
             enable_search: Whether to enable web search
             max_replan_attempts: Maximum replanning attempts
-            max_supplement_attempts: Maximum supplement collection attempts
         """
         self.tools_dict = tools_dict
         self.global_state = global_state
@@ -84,7 +83,6 @@ class NewManager:
         self.platform = platform
         self.enable_search = enable_search
         self.max_replan_attempts = max_replan_attempts
-        self.max_supplement_attempts = max_supplement_attempts
         
         # Initialize status
         self.status = ManagerStatus.IDLE
@@ -233,11 +231,12 @@ class NewManager:
             {"str_input": prompt, "img_input": context.get("screenshot")}
         )
         
-        # Log planning operation
+        # Log planning operation (reflect initial vs replan based on attempts)
+        scenario_label = context.get("planning_scenario", scenario.value)
         self.global_state.add_event(
             "manager", 
             "task_planning", 
-            f"Scenario: {scenario.value}, Tokens: {total_tokens}, Cost: {cost_string}"
+            f"Scenario: {scenario_label}, Tokens: {total_tokens}, Cost: {cost_string}"
         )
         
         # Parse planning result
@@ -283,19 +282,19 @@ class NewManager:
             
             # Update planning history
             self.planning_history.append({
-                "scenario": scenario.value,
+                "scenario": scenario_label,
                 "subtasks": enhanced_subtasks,
                 "timestamp": datetime.now().isoformat(),
                 "tokens": total_tokens,
                 "cost": cost_string
             })
             
-            if scenario == PlanningScenario.REPLAN:
-                self.replan_attempts += 1
+            # Bump attempts after any successful planning to distinguish initial vs replan next time
+            self.replan_attempts += 1
             
             return PlanningResult(
                 success=True,
-                scenario=scenario.value,
+                scenario=scenario_label,
                 subtasks=enhanced_subtasks,
                 supplement="",
                 reason=f"Successfully planned {len(enhanced_subtasks)} subtasks",
@@ -306,7 +305,7 @@ class NewManager:
             logger.error(f"Failed to parse planning result: {e}")
             return PlanningResult(
                 success=False,
-                scenario=scenario.value,
+                scenario=scenario_label,
                 subtasks=[],
                 supplement="",
                 reason=f"Failed to parse planning result: {str(e)}",
@@ -410,7 +409,8 @@ class NewManager:
         task = self.global_state.get_task()
         subtasks = self.global_state.get_subtasks()
         screenshot = self.global_state.get_screenshot()
-        artifacts = self.global_state.get_artifacts()
+        
+        is_replan_now = self.replan_attempts > 0
         
         context = {
             "task_objective": task.objective or "",
@@ -420,15 +420,14 @@ class NewManager:
             "pending_subtask_ids": task.pending_subtask_ids or [],
             "all_subtasks": subtasks,
             "screenshot": screenshot,
-            "artifacts": artifacts,
             "platform": self.platform,
-            "planning_scenario": scenario.value,
+            "planning_scenario": "replan" if is_replan_now else "initial_plan",
             "replan_attempts": self.replan_attempts,
             "planning_history": self.planning_history[-3:] if self.planning_history else []
         }
         
-        # Add failure information for replanning
-        if scenario == PlanningScenario.REPLAN:
+        # Add failure information only when truly re-planning
+        if is_replan_now:
             context["failed_subtasks"] = self._get_failed_subtasks_info()
             context["failure_reasons"] = self._get_failure_reasons()
         
@@ -457,37 +456,50 @@ class NewManager:
     def _generate_planning_prompt(self, scenario: PlanningScenario, context: Dict[str, Any]) -> str:
         """Generate planning prompt based on scenario and context"""
         
+        # Determine scenario from context to ensure auto mode works
+        planning_scenario: str = context.get("planning_scenario", "initial_plan")
+        is_replan: bool = planning_scenario == "replan"
+        
         # Base system information
-        system_info = """
-# System Architecture
-You are the Manager (task planner) in the GUI-Agent system. The system includes:
-- Controller: Central scheduling and process control
-- Manager: Task planning and resource allocation (your role)
-- Worker: Execute specific operations (Operator/Analyst/Technician)
-- Evaluator: Quality inspection
-- Hardware: Low-level execution
+        system_info = module.system_architecture
+        
+        # Scenario-specific planning task section
+        if is_replan:
+            planning_task = """
+# Current Planning Task
+You need to RE-PLAN the task based on prior attempts and failures.
 
-# Your Responsibilities
-As Manager, you are responsible for decomposing user tasks into executable subtasks and re-planning when needed.
+# Planning Focus (Re-plan)
+- Analyze why previous attempts failed and identify bottlenecks
+- Preserve valid progress; DO NOT duplicate completed subtasks
+- Adjust ordering, refine steps, or replace failing subtasks
+- Ensure dependencies remain valid and achievable
+"""
+            decision = """
+# Planning Decision (Re-plan)
+- Prioritize resolving blockers and mitigating risks found previously
+- Introduce new/modified subtasks only where necessary
+- Keep completed subtasks out of the list; reference them only in dependencies
+"""
+        else:
+            planning_task = """
+# Current Planning Task
+You need to perform INITIAL PLANNING to decompose the objective into executable subtasks.
 
-# Worker Capabilities
-- Operator: Execute GUI interface operations like clicking, form filling, drag and drop
-- Analyst: Analyze screen content, provide analytical support and recommendations
-- Technician: Use system terminal to execute command line operations
+# Planning Focus (Initial)
+- Cover the full path from start to completion
+- Define clear, verifiable completion criteria for each subtask
+- Keep reasonable granularity; avoid overly fine steps unless needed for reliability
+"""
+            decision = """
+# Planning Decision (Initial)
+- Decompose the user objective into an ordered set of executable subtasks
+- Make dependencies explicit and minimize unnecessary coupling
+- Assign appropriate worker roles to each subtask
 """
         
-        # Planning prompt template
-        planning_prompt = f"""
-{system_info}
-
-# Current Planning Task
-You need to plan or re-plan the task.
-
-# Planning Decision
-First determine if this is initial planning or re-planning:
-- If initial planning: Decompose user objectives into executable subtasks
-- If re-planning: Analyze failure reasons, adjust strategy, preserve valid progress
-
+        # Common guidance and output schema
+        common_guidance = f"""
 # Decomposition Principles
 1. Each subtask should have clear objectives and completion criteria
 2. Dependencies between subtasks should be clear
@@ -501,32 +513,47 @@ You must output a JSON format subtask list:
     "title": "Brief title",
     "description": "Detailed description including specific steps and expected results",
     "assignee_role": "operator|analyst|technician",
-    "depends_on": ["subtask_id1", "subtask_id2"] // Dependent subtask IDs, can be empty
+    "depends_on": ["subtask_id1", "subtask_id2"]
   }}
 ]
 
 # Task Information
 Objective: {context.get('task_objective', '')}
-Planning Scenario: {context.get('planning_scenario', '')}
+Planning Scenario: {planning_scenario}
 Current Progress: {len(context.get('completed_subtasks', []))} completed, {len(context.get('pending_subtasks', []))} pending
 Platform: {context.get('platform', '')}
 """
         
-        # Add failure information for replanning
-        if scenario == PlanningScenario.REPLAN:
-            planning_prompt += f"""
+        # Replan-specific extra diagnostic information
+        replan_info = ""
+        if is_replan:
+            replan_info = f"""
 # Re-planning Information
 Re-planning Attempts: {context.get('replan_attempts', 0)}
 Failed Subtasks: {context.get('failed_subtasks', '')}
 Failure Reasons: {context.get('failure_reasons', '')}
+
+# Re-plan Output Constraints
+- Only include pending, modified, or new subtasks in the JSON list
+- Do not include already completed subtasks
+- Keep or update dependencies to reference existing subtask IDs when applicable
 """
         
-        planning_prompt += f"""
+        # Environment information
+        env_info = f"""
 # Current Environment Information
 Screenshot Available: {'Yes' if context.get('screenshot') else 'No'}
-Artifacts: {context.get('artifacts', '')[:200]}...
 
 Please output the planning solution based on the above information:
+"""
+        
+        planning_prompt = f"""
+{system_info}
+{planning_task}
+{decision}
+{common_guidance}
+{replan_info}
+{env_info}
 """
         
         return planning_prompt
@@ -710,7 +737,6 @@ Please output the supplementary material collection solution and execute it base
             "supplement_attempts": self.supplement_attempts,
             "planning_history_count": len(self.planning_history),
             "max_replan_attempts": self.max_replan_attempts,
-            "max_supplement_attempts": self.max_supplement_attempts
         }
 
     def reset_planning_state(self):
@@ -725,10 +751,6 @@ Please output the supplementary material collection solution and execute it base
     def can_replan(self) -> bool:
         """Check if replanning is still allowed"""
         return self.replan_attempts < self.max_replan_attempts
-
-    def can_supplement(self) -> bool:
-        """Check if supplement collection is still allowed"""
-        return self.supplement_attempts < self.max_supplement_attempts 
 
 # Export a friendly alias to match the interface name used elsewhere
 Manager = NewManager 

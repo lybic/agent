@@ -59,8 +59,48 @@ class BaseTool(ABC):
     def _get_prompt_template(self) -> str:
         if self.tool_name is None:
             return ""
-        # Fetch from registry to allow central management and overrides
-        return get_prompt(self.tool_name, "")
+        # Prefer reading prompt text directly from gui_agents.prompts.module
+        try:
+            prompt_category_map = {
+                # manager prompts
+                "query_formulator": ("manager", "query_formulator"),
+                "narrative_summarization": ("manager", "narrative_summarization"),
+                "text_span": ("manager", "text_span"),
+                "context_fusion": ("manager", "context_fusion"),
+                "planner_role": ("manager", "planner_role"),
+                "supplement_role": ("manager", "supplement_role"),
+                "dag_translator": ("manager", "dag_translator"),
+                # worker prompts
+                "operator_role": ("worker", "operator_role"),
+                "technician_role": ("worker", "technician_role"),
+                "analyst_role": ("worker", "analyst_role"),
+                "grounding": ("worker", "grounding"),
+                "episode_summarization": ("worker", "episode_summarization"),
+                # evaluator prompts
+                "worker_success_role": ("evaluator", "worker_success_role"),
+                "worker_stale_role": ("evaluator", "worker_stale_role"),
+                "periodic_role": ("evaluator", "periodic_role"),
+                "final_check_role": ("evaluator", "final_check_role"),
+            }
+
+            category_tuple = prompt_category_map.get(self.tool_name)
+            if category_tuple is None:
+                # Try root-level attribute on module (e.g., system_architecture)
+                if hasattr(module, self.tool_name):
+                    return getattr(module, self.tool_name)
+                return ""
+
+            category_name, key_name = category_tuple
+            category_obj = getattr(module, category_name, None)
+            if category_obj is None:
+                return ""
+            value = getattr(category_obj, key_name, None)
+            if isinstance(value, str) and value:
+                return value
+            return ""
+        except Exception:
+            # Fallback to registry to allow central overrides if available
+            return ""
     
     def _call_lmm(self, input_data: Dict[str, Any], temperature: float = 0.0):
         """
@@ -136,22 +176,27 @@ class ToolFactory:
             ValueError: If the tool name is not recognized
         """
         tool_map = {
-            "websearch": (WebSearchTool, None),
-            "context_fusion": (ContextFusionTool, "context_fusion"),
-            "subtask_planner": (SubtaskPlannerTool, "subtask_planner"),
-            "traj_reflector": (TrajReflectorTool, "traj_reflector"),
-            "grounding": (GroundingTool, "grounding"),
-            "evaluator": (EvaluatorTool, "evaluator"),
-            "action_generator": (ActionGeneratorTool, "action_generator"),
-            "action_generator_with_takeover": (ActionGeneratorTool, "action_generator_with_takeover"),
-            "fast_action_generator": (FastActionGeneratorTool, "fast_action_generator"),
-            "fast_action_generator_with_takeover": (FastActionGeneratorTool, "fast_action_generator_with_takeover"),
-            "dag_translator": (DAGTranslatorTool, "dag_translator"),
-            "embedding": (EmbeddingTool, None),
-            "query_formulator": (QueryFormulatorTool, "query_formulator"),
-            "text_span": (TextSpanTool, "text_span"),
-            "narrative_summarization": (NarrativeSummarizationTool, "narrative_summarization"),
-            "episode_summarization": (EpisodeSummarizationTool, "episode_summarization")
+            "embedding": (EmbeddingTool, None), # all
+
+            "query_formulator": (QueryFormulatorTool, "query_formulator"), # manager
+            "websearch": (WebSearchTool, None), # manager
+            "narrative_summarization": (NarrativeSummarizationTool, "narrative_summarization"), # manager
+            "text_span": (TextSpanTool, "text_span"), # manager
+            "context_fusion": (ContextFusionTool, "context_fusion"), # manager
+            "planner_role": (SubtaskPlannerTool, "planner_role"), # manager
+            "supplement_role": (SubtaskPlannerTool, "supplement_role"), # manager
+            "dag_translator": (DAGTranslatorTool, "dag_translator"), # manager
+            
+            "operator_role": (ActionGeneratorTool, "operator_role"), # worker
+            "technician_role": (ActionGeneratorTool, "technician_role"), # worker
+            "analyst_role": (ActionGeneratorTool, "analyst_role"), # worker
+            "grounding": (GroundingTool, "grounding"), # worker
+            "episode_summarization": (EpisodeSummarizationTool, "episode_summarization"), # worker
+            
+            "worker_success_role": (EvaluatorTool, "worker_success_role"), # evaluator
+            "worker_stale_role": (EvaluatorTool, "worker_stale_role"), # evaluator
+            "periodic_role": (EvaluatorTool, "periodic_role"), # evaluator
+            "final_check_role": (EvaluatorTool, "final_check_role"), # evaluator
         }
         
         if tool_name not in tool_map:

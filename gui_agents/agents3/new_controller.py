@@ -15,6 +15,10 @@ import platform
 
 from gui_agents.agents3.data_models import SubtaskData
 from gui_agents.agents.hardware_interface import HardwareInterface
+from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
+from PIL import Image
+import pyautogui
+
 
 from .new_global_state import NewGlobalState
 from .new_manager import NewManager
@@ -23,9 +27,22 @@ from .enums import (
     ControllerState, SubtaskStatus, 
     GateDecision, GateTrigger
 )
+from gui_agents.agents.Action import Screenshot
+
 
 # 设置日志
 logger = logging.getLogger(__name__)
+
+
+def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInterface):
+    screenshot_high = screenshot.height
+    screenshot_width = screenshot.width
+    if isinstance(hwi_para.backend, PyAutoGUIBackend):
+        screen_width, screen_height = pyautogui.size()
+        if screen_width != screenshot_width or screen_height != screenshot_high:
+            screenshot = screenshot.resize((screen_width, screen_height), Image.Resampling.LANCZOS)
+
+    return screenshot
 
 
 class NewController:
@@ -102,6 +119,10 @@ class NewController:
         # 初始化控制器状态
         self.global_state.reset_controller_state()
         logger.info("NewController initialized")
+
+        screenshot: Image.Image = self.hwi.dispatch(Screenshot())  # type: ignore
+        self.global_state.set_screenshot(
+            scale_screenshot_dimensions(screenshot, self.hwi))
     
     def execute_single_step(self, steps: int = 1) -> None:
         """单步执行若干次状态机逻辑（执行 steps 步，不进入循环）"""
@@ -158,7 +179,7 @@ class NewController:
     def execute_main_loop(self) -> None:
         """主循环执行 - 基于状态状态机"""
         logger.info("Starting main loop execution")
-        
+
         while True:
             try:
                 # 检查是否应该终止

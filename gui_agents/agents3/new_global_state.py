@@ -632,7 +632,7 @@ This file tracks supplementary information and materials needed for the task.
         command_data = CommandData(
             command_id="",  # 将由add_command生成
             task_id=self.task_id,
-            command=action,
+            action=action,
             subtask_id=subtask_id,
             pre_screenshot_id=pre_screenshot_id,
             pre_screenshot_analysis="Pre-execution screenshot captured"

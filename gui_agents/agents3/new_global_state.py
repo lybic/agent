@@ -244,11 +244,37 @@ This file tracks supplementary information and materials needed for the task.
         task.current_subtask_id = subtask_id
         self.set_task(task)
 
-    def add_completed_subtask(self, subtask_id: str) -> None:
+    def advance_to_next_subtask(self) -> None:
+        """
+        推进到下一个subtask
+        
+            
+        逻辑：
+        1. 如果当前有current_subtask_id，将其移动到history_subtask_ids
+        2. 设置新的current_subtask_id
+        3. 从pending_subtask_ids中移除第一个元素（如果存在）
+        """
+        task = self.get_task()
+        
+        # 1. 将当前的current_subtask_id移动到history_subtask_ids
+        if task.current_subtask_id:
+            if task.current_subtask_id not in task.history_subtask_ids:
+                task.history_subtask_ids.append(task.current_subtask_id)
+        
+        # 2. 设置新的current_subtask_id为pending_subtask_ids的第一个元素
+        task.current_subtask_id = task.pending_subtask_ids[0]
+        
+        # 3. 从pending_subtask_ids中移除第一个元素（如果存在且与新ID匹配）
+        if task.pending_subtask_ids and task.pending_subtask_ids[0] == task.current_subtask_id:
+            task.pending_subtask_ids.pop(0)
+        
+        self.set_task(task)
+
+    def add_history_subtask(self, subtask_id: str) -> None:
         """Add subtask to completed list"""
         task = self.get_task()
-        if subtask_id not in task.completed_subtask_ids:
-            task.completed_subtask_ids.append(subtask_id)
+        if subtask_id not in task.history_subtask_ids:
+            task.history_subtask_ids.append(subtask_id)
         self.set_task(task)
 
     def add_pending_subtask(self, subtask_id: str) -> None:
@@ -311,7 +337,7 @@ This file tracks supplementary information and materials needed for the task.
         task = self.get_task()
         task.pending_subtask_ids = [sid for sid in task.pending_subtask_ids if sid not in subtask_ids]
         # Defensive: also remove from completed list if present
-        task.completed_subtask_ids = [sid for sid in task.completed_subtask_ids if sid not in subtask_ids]
+        task.history_subtask_ids = [sid for sid in task.history_subtask_ids if sid not in subtask_ids]
         # Clear current pointer if it was deleted
         if task.current_subtask_id in subtask_ids:
             task.current_subtask_id = None
@@ -387,6 +413,28 @@ This file tracks supplementary information and materials needed for the task.
         commands_list = safe_read_json(self.commands_path, [])
         return [CommandData.from_dict(command) for command in commands_list]
 
+    def get_commands_for_subtask(self, subtask_id: str) -> List[CommandData]:
+        """Get all commands for a specific subtask, ordered by creation time"""
+        try:
+            # Get the subtask to find its command trace
+            subtask = self.get_subtask(subtask_id)
+            if not subtask or not subtask.command_trace_ids:
+                return []
+            
+            # Get all commands for this subtask
+            commands = []
+            for command_id in subtask.command_trace_ids:
+                command = self.get_command(command_id)
+                if command:
+                    commands.append(command)
+            
+            # Sort by creation time (newest first)
+            commands.sort(key=lambda x: x.created_at, reverse=True)
+            return commands
+        except Exception as e:
+            logger.error(f"Error getting commands for subtask {subtask_id}: {e}")
+            return []
+
     def get_command(self, command_id: str) -> Optional[CommandData]:
         """Get specific command by ID"""
         commands = self.get_commands()
@@ -394,6 +442,27 @@ This file tracks supplementary information and materials needed for the task.
             if command.command_id == command_id:
                 return command
         return None
+
+    def get_current_command_for_subtask(self, subtask_id: str) -> Optional[CommandData]:
+        """Get the latest command for a specific subtask"""
+        try:
+            # Get the subtask to find its command trace
+            subtask = self.get_subtask(subtask_id)
+            if not subtask or not subtask.command_trace_ids:
+                return None
+            
+            # Get the latest command ID from the trace
+            latest_command_id = subtask.command_trace_ids[-1]
+            
+            # Get the command data
+            return self.get_command(latest_command_id)
+        except Exception as e:
+            logger.error(f"Error getting current command for subtask {subtask_id}: {e}")
+            return None
+
+    def get_latest_command_for_subtask(self, subtask_id: str) -> Optional[CommandData]:
+        """Get the latest command for a specific subtask (alias for get_current_command_for_subtask)"""
+        return self.get_current_command_for_subtask(subtask_id)
 
     def add_command(self, command_data: CommandData) -> str:
         """Add new command and return command ID"""
@@ -775,7 +844,7 @@ This file tracks supplementary information and materials needed for the task.
     def reset_controller_state(self) -> None:
         """Reset controller state to default"""
         default_controller_state = {
-            "current_state": ControllerState.GET_ACTION.value,
+            "current_state": ControllerState.INIT.value,
             "trigger": "controller",
             "trigger_details": "reset",
             "history_state": [],

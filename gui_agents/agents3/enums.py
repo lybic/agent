@@ -18,9 +18,8 @@ class ControllerState(str, Enum):
 
 class SubtaskStatus(str, Enum):
     """子任务状态"""
-    PENDING = "pending"      # 等待中
+    PENDING = "pending"      # 执行中
     READY = "ready"          # 准备执行
-    RUNNING = "running"      # 执行中
     FULFILLED = "fulfilled"  # 已完成
     REJECTED = "rejected"    # 被拒绝
     STALE = "stale"          # 过时
@@ -39,13 +38,11 @@ class GateDecision(str, Enum):
     GATE_DONE = "gate_done"           # 质检通过
     GATE_FAIL = "gate_fail"           # 质检失败
     GATE_SUPPLEMENT = "gate_supplement"  # 需要补充资料
-    GATE_PENDING = "gate_pending"     # 质检中
     GATE_CONTINUE = "gate_continue"   # 继续执行
 
 
 class GateTrigger(str, Enum):
     """质检门触发条件"""
-    AUTO = "auto"           # 自动触发
     MANUAL = "manual"       # 手动触发
     TIMEOUT = "timeout"     # 超时触发
     ERROR = "error"         # 错误触发

@@ -186,7 +186,7 @@ class Evaluator:
         """Infer trigger type from current global state."""
         task = self.global_state.get_task()
         pending = task.pending_subtask_ids or []
-        completed = task.completed_subtask_ids or []
+        completed = task.history_subtask_ids or []
         current_subtask_id = task.current_subtask_id
 
         if not pending and completed:

@@ -13,6 +13,8 @@ from typing import Dict, Any, Optional, List
 from enum import Enum
 import platform
 
+from gui_agents.agents3.data_models import SubtaskData
+
 from .new_global_state import NewGlobalState
 from .new_manager import NewManager
 from .enums import (
@@ -109,7 +111,7 @@ class NewController:
                 elif current_state == ControllerState.GET_ACTION:
                     self.handle_get_action_state()
                 elif current_state == ControllerState.EXECUTE_ACTION:
-                    self.handle_et_action_state()
+                    self.handle_execute_action_state()
                 elif current_state == ControllerState.QUALITY_CHECK:
                     self.handle_quality_check_state()
                 elif current_state == ControllerState.PLAN:
@@ -141,7 +143,7 @@ class NewController:
         """基于globalstate评估应该切换到哪个状态"""
         try:
             task_state = self.global_state.controller_get_task_state()
-            current_subtask = task_state["current_subtask"]
+            current_subtask: SubtaskData = task_state["current_subtask"]
             
             if not current_subtask:
                 return ControllerState.INIT
@@ -193,11 +195,11 @@ class NewController:
         try:
             # 检查是否有待处理的subtask
             task = self.global_state.get_task()
-            pending_subtasks = task.pending_subtask_ids or []
+            pending_subtask_ids = task.pending_subtask_ids or []
             
-            if pending_subtasks:
+            if pending_subtask_ids:
                 # 有subtask，设置第一个为当前subtask
-                first_subtask_id = pending_subtasks[0]
+                first_subtask_id = pending_subtask_ids[0]
                 self.global_state.set_current_subtask_id(first_subtask_id)
                 self.global_state.update_controller_state(ControllerState.GET_ACTION)
                 logger.info(f"Set current subtask: {first_subtask_id}")
@@ -256,7 +258,7 @@ class NewController:
             self.global_state.add_event("controller", "error", f"GET_ACTION state error: {str(e)}")
             self.switch_to_state(ControllerState.PLAN)
     
-    def handle_et_action_state(self):
+    def handle_execute_action_state(self):
         """执行动作阶段"""
         logger.info("Handling ET_ACTION state")
         

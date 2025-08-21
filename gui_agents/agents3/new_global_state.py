@@ -23,7 +23,14 @@ logger = logging.getLogger(__name__)
 # ========= Import Enums =========
 from .enums import (
     TaskStatus, SubtaskStatus, GateDecision, GateTrigger, 
-    ControllerSituation, ExecStatus
+    ControllerState, ExecStatus
+)
+
+# ========= Import Data Models =========
+from .data_models import (
+    TaskData, SubtaskData, CommandData, GateCheckData, ControllerStateData,
+    create_task_data, create_subtask_data, create_command_data, 
+    create_gate_check_data, create_controller_state_data
 )
 
 # ========= File Lock and JSON Operations =========
@@ -155,8 +162,10 @@ This file tracks supplementary information and materials needed for the task.
         """Initialize controller_state.json with default content"""
         if not self.controller_state_path.exists():
             default_controller_state = {
-                "current_situation": ControllerSituation.GET_ACTION.value,
-                "history_situation": [],
+                "current_state": ControllerState.GET_ACTION.value,
+                "trigger": "controller",
+                "trigger_details": "initialization",
+                "history_state": [],
                 "updated_at": datetime.now().isoformat()
             }
             safe_write_json(self.controller_state_path, default_controller_state)
@@ -208,80 +217,82 @@ This file tracks supplementary information and materials needed for the task.
             return [1920, 1080]
 
     # ========= Task Management =========
-    def get_task(self) -> Dict[str, Any]:
+    def get_task(self) -> TaskData:
         """Get current task information"""
-        return safe_read_json(self.task_path, {})
+        task_dict = safe_read_json(self.task_path, {})
+        return TaskData.from_dict(task_dict)
 
-    def set_task(self, task_data: Dict[str, Any]) -> None:
+    def set_task(self, task_data: TaskData) -> None:
         """Update task information"""
-        safe_write_json(self.task_path, task_data)
+        safe_write_json(self.task_path, task_data.to_dict())
 
     def update_task_status(self, status: TaskStatus) -> None:
         """Update task status"""
         task = self.get_task()
-        task["status"] = status.value
+        task.status = status.value
         self.set_task(task)
 
     def set_task_objective(self, objective: str) -> None:
         """Set task objective"""
         task = self.get_task()
-        task["objective"] = objective
+        task.objective = objective
         self.set_task(task)
 
     def set_current_subtask_id(self, subtask_id: str) -> None:
         """Set current subtask ID"""
         task = self.get_task()
-        task["current_subtask_id"] = subtask_id
+        task.current_subtask_id = subtask_id
         self.set_task(task)
 
     def add_completed_subtask(self, subtask_id: str) -> None:
         """Add subtask to completed list"""
         task = self.get_task()
-        if subtask_id not in task["completed_subtasks"]:
-            task["completed_subtasks"].append(subtask_id)
+        if subtask_id not in task.completed_subtask_ids:
+            task.completed_subtask_ids.append(subtask_id)
         self.set_task(task)
 
     def add_pending_subtask(self, subtask_id: str) -> None:
         """Add subtask to pending list"""
         task = self.get_task()
-        if subtask_id not in task["pending_subtasks"]:
-            task["pending_subtasks"].append(subtask_id)
+        if subtask_id not in task.pending_subtask_ids:
+            task.pending_subtask_ids.append(subtask_id)
         self.set_task(task)
 
     def remove_pending_subtask(self, subtask_id: str) -> None:
         """Remove subtask from pending list"""
         task = self.get_task()
-        if subtask_id in task["pending_subtasks"]:
-            task["pending_subtasks"].remove(subtask_id)
+        if subtask_id in task.pending_subtask_ids:
+            task.pending_subtask_ids.remove(subtask_id)
         self.set_task(task)
 
     # ========= Subtask Management =========
-    def get_subtasks(self) -> List[Dict[str, Any]]:
+    def get_subtasks(self) -> List[SubtaskData]:
         """Get all subtasks"""
-        return safe_read_json(self.subtasks_path, [])
+        subtasks_list = safe_read_json(self.subtasks_path, [])
+        return [SubtaskData.from_dict(subtask) for subtask in subtasks_list]
 
-    def get_subtask(self, subtask_id: str) -> Optional[Dict[str, Any]]:
+    def get_subtask(self, subtask_id: str) -> Optional[SubtaskData]:
         """Get specific subtask by ID"""
         subtasks = self.get_subtasks()
         for subtask in subtasks:
-            if subtask.get("subtask_id") == subtask_id:
+            if subtask.subtask_id == subtask_id:
                 return subtask
         return None
 
-    def add_subtask(self, subtask_data: Dict[str, Any]) -> str:
+    def add_subtask(self, subtask_data: SubtaskData) -> str:
         """Add new subtask and return subtask ID"""
         subtasks = self.get_subtasks()
-        subtask_id = subtask_data.get("subtask_id") or self._generate_id("subtask")
-        subtask_data["subtask_id"] = subtask_id
-        subtask_data["task_id"] = self.task_id
-        subtask_data["attempt_no"] = subtask_data.get("attempt_no", 1)
-        subtask_data["status"] = subtask_data.get("status", SubtaskStatus.READY.value)
-        subtask_data["reasons_history"] = subtask_data.get("reasons_history", [])
-        subtask_data["command_trace_ids"] = subtask_data.get("command_trace_ids", [])
-        subtask_data["gate_check_ids"] = subtask_data.get("gate_check_ids", [])
+        subtask_id = subtask_data.subtask_id or self._generate_id("subtask")
+        subtask_data.subtask_id = subtask_id
+        subtask_data.task_id = self.task_id
+        subtask_data.attempt_no = subtask_data.attempt_no or 1
+        subtask_data.status = subtask_data.status or SubtaskStatus.READY.value
+        subtask_data.reasons_history = subtask_data.reasons_history or []
+        subtask_data.command_trace_ids = subtask_data.command_trace_ids or []
+        subtask_data.gate_check_ids = subtask_data.gate_check_ids or []
         
         subtasks.append(subtask_data)
-        safe_write_json(self.subtasks_path, subtasks)
+        safe_write_json(self.subtasks_path, [subtask.to_dict() for subtask in subtasks])
         
         # Add to pending list
         self.add_pending_subtask(subtask_id)
@@ -292,105 +303,94 @@ This file tracks supplementary information and materials needed for the task.
         """Update subtask status and optionally add reason"""
         subtasks = self.get_subtasks()
         for subtask in subtasks:
-            if subtask.get("subtask_id") == subtask_id:
-                subtask["status"] = status.value
+            if subtask.subtask_id == subtask_id:
+                subtask.status = status.value
                 if reason:
                     reason_entry = {
                         "at": datetime.now().isoformat(),
                         "text": reason
                     }
-                    subtask["reasons_history"].append(reason_entry)
-                    subtask["last_reason_text"] = reason
+                    subtask.reasons_history.append(reason_entry)
+                    subtask.last_reason_text = reason
                 break
         
-        safe_write_json(self.subtasks_path, subtasks)
+        safe_write_json(self.subtasks_path, [subtask.to_dict() for subtask in subtasks])
 
     def add_subtask_reason(self, subtask_id: str, reason: str) -> None:
         """Add reason to subtask history"""
         subtasks = self.get_subtasks()
         for subtask in subtasks:
-            if subtask.get("subtask_id") == subtask_id:
+            if subtask.subtask_id == subtask_id:
                 reason_entry = {
                     "at": datetime.now().isoformat(),
                     "text": reason
                 }
-                subtask["reasons_history"].append(reason_entry)
-                subtask["last_reason_text"] = reason
+                subtask.reasons_history.append(reason_entry)
+                subtask.last_reason_text = reason
                 break
         
-        safe_write_json(self.subtasks_path, subtasks)
+        safe_write_json(self.subtasks_path, [subtask.to_dict() for subtask in subtasks])
 
     def add_subtask_command_trace(self, subtask_id: str, command_id: str) -> None:
         """Add command ID to subtask trace"""
         subtasks = self.get_subtasks()
         for subtask in subtasks:
-            if subtask.get("subtask_id") == subtask_id:
-                if command_id not in subtask["command_trace_ids"]:
-                    subtask["command_trace_ids"].append(command_id)
+            if subtask.subtask_id == subtask_id:
+                if command_id not in subtask.command_trace_ids:
+                    subtask.command_trace_ids.append(command_id)
                 break
         
-        safe_write_json(self.subtasks_path, subtasks)
+        safe_write_json(self.subtasks_path, [subtask.to_dict() for subtask in subtasks])
 
     def add_subtask_gate_check(self, subtask_id: str, gate_check_id: str) -> None:
         """Add gate check ID to subtask"""
         subtasks = self.get_subtasks()
         for subtask in subtasks:
-            if subtask.get("subtask_id") == subtask_id:
-                if gate_check_id not in subtask["gate_check_ids"]:
-                    subtask["gate_check_ids"].append(gate_check_id)
+            if subtask.subtask_id == subtask_id:
+                if gate_check_id not in subtask.gate_check_ids:
+                    subtask.gate_check_ids.append(gate_check_id)
                 break
         
-        safe_write_json(self.subtasks_path, subtasks)
+        safe_write_json(self.subtasks_path, [subtask.to_dict() for subtask in subtasks])
 
     def update_subtask_last_gate(self, subtask_id: str, gate_decision: GateDecision) -> None:
         """Update subtask last gate decision"""
         subtasks = self.get_subtasks()
         for subtask in subtasks:
-            if subtask.get("subtask_id") == subtask_id:
-                subtask["last_gate_decision"] = gate_decision.value
+            if subtask.subtask_id == subtask_id:
+                subtask.last_gate_decision = gate_decision.value
                 break
         
-        safe_write_json(self.subtasks_path, subtasks)
+        safe_write_json(self.subtasks_path, [subtask.to_dict() for subtask in subtasks])
 
     # ========= Command Management =========
-    def get_commands(self) -> List[Dict[str, Any]]:
+    def get_commands(self) -> List[CommandData]:
         """Get all commands"""
-        return safe_read_json(self.commands_path, [])
+        commands_list = safe_read_json(self.commands_path, [])
+        return [CommandData.from_dict(command) for command in commands_list]
 
-    def get_command(self, command_id: str) -> Optional[Dict[str, Any]]:
+    def get_command(self, command_id: str) -> Optional[CommandData]:
         """Get specific command by ID"""
         commands = self.get_commands()
         for command in commands:
-            if command.get("command_id") == command_id:
+            if command.command_id == command_id:
                 return command
         return None
 
-    def add_command(self, command_data: Dict[str, Any]) -> str:
+    def add_command(self, command_data: CommandData) -> str:
         """Add new command and return command ID"""
         commands = self.get_commands()
-        command_id = command_data.get("command_id") or self._generate_id("cmd")
+        command_id = command_data.command_id or self._generate_id("cmd")
         
-        command = {
-            "command_id": command_id,
-            "task_id": self.task_id,
-            "subtask_id": command_data.get("subtask_id"),
-            "command": command_data.get("command"),
-            "pre_screenshot_id": command_data.get("pre_screenshot_id"),
-            "pre_screenshot_analysis": command_data.get("pre_screenshot_analysis", ""),
-            "post_screenshot_id": command_data.get("post_screenshot_id"),
-            "exec_status": command_data.get("exec_status", ExecStatus.EXECUTED.value),
-            "exec_message": command_data.get("exec_message", "OK"),
-            "exec_latency_ms": command_data.get("exec_latency_ms", 0),
-            "created_at": command_data.get("created_at", datetime.now().isoformat()),
-            "executed_at": command_data.get("executed_at", datetime.now().isoformat())
-        }
+        command_data.command_id = command_id
+        command_data.task_id = self.task_id
         
-        commands.append(command)
-        safe_write_json(self.commands_path, commands)
+        commands.append(command_data)
+        safe_write_json(self.commands_path, [command.to_dict() for command in commands])
         
         # Add to subtask trace
-        if command["subtask_id"]:
-            self.add_subtask_command_trace(command["subtask_id"], command_id)
+        if command_data.subtask_id:
+            self.add_subtask_command_trace(command_data.subtask_id, command_id)
         
         return command_id
 
@@ -399,50 +399,43 @@ This file tracks supplementary information and materials needed for the task.
         """Update command execution status"""
         commands = self.get_commands()
         for command in commands:
-            if command.get("command_id") == command_id:
-                command["exec_status"] = exec_status.value
-                command["exec_message"] = exec_message
-                command["exec_latency_ms"] = exec_latency_ms
-                command["executed_at"] = datetime.now().isoformat()
+            if command.command_id == command_id:
+                command.exec_status = exec_status.value
+                command.exec_message = exec_message
+                command.exec_latency_ms = exec_latency_ms
+                command.executed_at = datetime.now().isoformat()
                 break
         
-        safe_write_json(self.commands_path, commands)
+        safe_write_json(self.commands_path, [command.to_dict() for command in commands])
 
     # ========= Gate Check Management =========
-    def get_gate_checks(self) -> List[Dict[str, Any]]:
+    def get_gate_checks(self) -> List[GateCheckData]:
         """Get all gate checks"""
-        return safe_read_json(self.gate_checks_path, [])
+        gate_checks_list = safe_read_json(self.gate_checks_path, [])
+        return [GateCheckData.from_dict(gate_check) for gate_check in gate_checks_list]
 
-    def get_gate_check(self, gate_check_id: str) -> Optional[Dict[str, Any]]:
+    def get_gate_check(self, gate_check_id: str) -> Optional[GateCheckData]:
         """Get specific gate check by ID"""
         gate_checks = self.get_gate_checks()
         for gate_check in gate_checks:
-            if gate_check.get("gate_check_id") == gate_check_id:
+            if gate_check.gate_check_id == gate_check_id:
                 return gate_check
         return None
 
-    def add_gate_check(self, gate_check_data: Dict[str, Any]) -> str:
+    def add_gate_check(self, gate_check_data: GateCheckData) -> str:
         """Add new gate check and return gate check ID"""
         gate_checks = self.get_gate_checks()
-        gate_check_id = gate_check_data.get("gate_check_id") or self._generate_id("gc")
+        gate_check_id = gate_check_data.gate_check_id or self._generate_id("gc")
         
-        gate_check = {
-            "gate_check_id": gate_check_id,
-            "task_id": self.task_id,
-            "subtask_id": gate_check_data.get("subtask_id"),
-            "trigger": gate_check_data.get("trigger", GateTrigger.PERIODIC_CHECK.value),
-            "decision": gate_check_data.get("decision"),
-            "notes": gate_check_data.get("notes", ""),
-            "created_at": gate_check_data.get("created_at", datetime.now().isoformat())
-        }
+        gate_check_data.gate_check_id = gate_check_id
+        gate_check_data.task_id = self.task_id
         
-        gate_checks.append(gate_check)
-        safe_write_json(self.gate_checks_path, gate_checks)
+        gate_checks.append(gate_check_data)
+        safe_write_json(self.gate_checks_path, [gate_check.to_dict() for gate_check in gate_checks])
         
-        # Add to subtask
-        if gate_check["subtask_id"]:
-            self.add_subtask_gate_check(gate_check["subtask_id"], gate_check_id)
-            self.update_subtask_last_gate(gate_check["subtask_id"], GateDecision(gate_check["decision"]))
+        # Add to subtask if specified
+        if gate_check_data.subtask_id:
+            self.add_subtask_gate_check(gate_check_data.subtask_id, gate_check_id)
         
         return gate_check_id
 
@@ -534,15 +527,16 @@ This file tracks supplementary information and materials needed for the task.
     # Controller methods
     def controller_get_task_state(self) -> Dict[str, Any]:
         """Controller: Get current task state for decision making"""
+        task = self.get_task()
         return {
-            "task": self.get_task(),
-            "current_subtask": self.get_subtask(self.get_task().get("current_subtask_id", "")),
-            "pending_subtasks": self.get_task().get("pending_subtasks", [])
+            "task": task,
+            "current_subtask": self.get_subtask(task.current_subtask_id or ""),
+            "pending_subtasks": task.pending_subtask_ids
         }
 
-    def controller_switch_phase(self, new_phase: str) -> None:
-        """Controller: Switch to new phase"""
-        self.add_event("controller", f"phase_switch_to_{new_phase}")
+    def controller_switch_state(self, new_state: str) -> None:
+        """Controller: Switch to new state"""
+        self.add_event("controller", f"state_switch_to_{new_state}")
 
     # Manager methods
     def manager_get_planning_context(self) -> Dict[str, Any]:
@@ -557,11 +551,13 @@ This file tracks supplementary information and materials needed for the task.
     def manager_create_subtask(self, title: str, description: str, 
                              assignee_role: str = "operator") -> str:
         """Manager: Create new subtask"""
-        subtask_data = {
-            "title": title,
-            "description": description,
-            "assignee_role": assignee_role
-        }
+        subtask_data = create_subtask_data(
+            subtask_id="",  # 将由add_subtask生成
+            task_id=self.task_id,
+            title=title,
+            description=description,
+            assignee_role=assignee_role
+        )
         subtask_id = self.add_subtask(subtask_data)
         self.add_event("manager", "create_subtask", f"Created subtask: {title}")
         return subtask_id
@@ -603,20 +599,22 @@ This file tracks supplementary information and materials needed for the task.
         
         return {
             "subtask": subtask,
-            "commands": [self.get_command(cmd_id) for cmd_id in subtask.get("command_trace_ids", [])],
-            "gate_checks": [self.get_gate_check(gc_id) for gc_id in subtask.get("gate_check_ids", [])],
+            "commands": [self.get_command(cmd_id) for cmd_id in subtask.command_trace_ids],
+            "gate_checks": [self.get_gate_check(gc_id) for gc_id in subtask.gate_check_ids],
             "screenshot": self.get_screenshot()
         }
 
     def evaluator_make_decision(self, subtask_id: str, decision: GateDecision, 
                                notes: str, trigger: GateTrigger = GateTrigger.PERIODIC_CHECK) -> str:
         """Evaluator: Make quality gate decision"""
-        gate_check_data = {
-            "subtask_id": subtask_id,
-            "decision": decision.value,
-            "notes": notes,
-            "trigger": trigger.value
-        }
+        gate_check_data = create_gate_check_data(
+            gate_check_id="",  # 将由add_gate_check生成
+            task_id=self.task_id,
+            decision=decision.value,
+            notes=notes,
+            trigger=trigger.value,
+            subtask_id=subtask_id
+        )
         
         gate_check_id = self.add_gate_check(gate_check_data)
         self.add_event("evaluator", f"gate_{decision.value}", f"Decision: {decision.value}")
@@ -631,12 +629,14 @@ This file tracks supplementary information and materials needed for the task.
         pre_screenshot_id = self.set_screenshot(pre_screenshot)
         
         # Create command entry
-        command_data = {
-            "subtask_id": subtask_id,
-            "command": action,
-            "pre_screenshot_id": pre_screenshot_id,
-            "pre_screenshot_analysis": "Pre-execution screenshot captured"
-        }
+        command_data = CommandData(
+            command_id="",  # 将由add_command生成
+            task_id=self.task_id,
+            command=action,
+            subtask_id=subtask_id,
+            pre_screenshot_id=pre_screenshot_id,
+            pre_screenshot_analysis="Pre-execution screenshot captured"
+        )
         
         command_id = self.add_command(command_data)
         self.add_event("hardware", "execute_command", f"Executed command: {action}")
@@ -653,24 +653,25 @@ This file tracks supplementary information and materials needed for the task.
         # Update command with results
         commands = self.get_commands()
         for command in commands:
-            if command.get("command_id") == command_id:
-                command["post_screenshot_id"] = post_screenshot_id
-                command["exec_status"] = exec_status.value
-                command["exec_message"] = exec_message
-                command["exec_latency_ms"] = exec_latency_ms
-                command["executed_at"] = datetime.now().isoformat()
+            if command.command_id == command_id:
+                command.post_screenshot_id = post_screenshot_id
+                command.exec_status = exec_status.value
+                command.exec_message = exec_message
+                command.exec_latency_ms = exec_latency_ms
+                command.executed_at = datetime.now().isoformat()
                 break
         
-        safe_write_json(self.commands_path, commands)
+        safe_write_json(self.commands_path, [command.to_dict() for command in commands])
         self.add_event("hardware", "complete_command", f"Completed command: {exec_status.value}")
 
     # ========= Legacy Compatibility Methods =========
     def get_obs_for_manager(self):
         """Legacy: Get observation for manager"""
+        task = self.get_task()
         return {
             "screenshot": self.get_screenshot(),
-            "task": self.get_task(),
-            "current_subtask": self.get_subtask(self.get_task().get("current_subtask_id", ""))
+            "task": task,
+            "current_subtask": self.get_subtask(task.current_subtask_id or "")
         }
 
     def get_obs_for_grounding(self):
@@ -718,44 +719,48 @@ This file tracks supplementary information and materials needed for the task.
         """Update controller state"""
         safe_write_json(self.controller_state_path, controller_state)
 
-    def update_controller_situation(self, situation: ControllerSituation) -> None:
-        """Update controller current situation and add to history"""
+    def update_controller_state(self, state: ControllerState, trigger: str = "controller", trigger_details: str = "") -> None:
+        """Update controller current state and add to history"""
         controller_state = self.get_controller_state()
         
-        # Add current situation to history if it's different
-        current_situation = controller_state.get("current_situation")
-        if current_situation and current_situation != situation.value:
-            if "history_situation" not in controller_state:
-                controller_state["history_situation"] = []
-            controller_state["history_situation"].append(current_situation)
+        # Add current state to history if it's different
+        current_state = controller_state.get("current_state")
+        if current_state and current_state != state.value:
+            if "history_state" not in controller_state:
+                controller_state["history_state"] = []
+            controller_state["history_state"].append(current_state)
         
-        # Update current situation and timestamp
-        controller_state["current_situation"] = situation.value
+        # Update current state, trigger info and timestamp
+        controller_state["current_state"] = state.value
+        controller_state["trigger"] = trigger
+        controller_state["trigger_details"] = trigger_details
         controller_state["updated_at"] = datetime.now().isoformat()
         
         self.set_controller_state(controller_state)
-        self.add_event("controller", "situation_change", f"Situation changed to: {situation.value}")
+        self.add_event("controller", "state_change", f"State changed to: {state.value} (trigger: {trigger}, details: {trigger_details})")
 
-    def get_controller_situation(self) -> ControllerSituation:
-        """Get current controller situation as enum"""
+    def get_controller_state_enum(self) -> ControllerState:
+        """Get current controller state as enum"""
         controller_state = self.get_controller_state()
-        situation_str = controller_state.get("current_situation", ControllerSituation.GET_ACTION.value)
+        state_str = controller_state.get("current_state", ControllerState.GET_ACTION.value)
         try:
-            return ControllerSituation(situation_str)
+            return ControllerState(state_str)
         except ValueError:
-            logger.warning(f"Invalid controller situation: {situation_str}, defaulting to GET_ACTION")
-            return ControllerSituation.GET_ACTION
+            logger.warning(f"Invalid controller state: {state_str}, defaulting to GET_ACTION")
+            return ControllerState.GET_ACTION
 
-    def get_controller_situation_history(self) -> List[str]:
-        """Get controller situation history"""
+    def get_controller_state_history(self) -> List[str]:
+        """Get controller state history"""
         controller_state = self.get_controller_state()
-        return controller_state.get("history_situation", [])
+        return controller_state.get("history_state", [])
 
     def reset_controller_state(self) -> None:
         """Reset controller state to default"""
         default_controller_state = {
-            "current_situation": ControllerSituation.GET_ACTION.value,
-            "history_situation": [],
+            "current_state": ControllerState.GET_ACTION.value,
+            "trigger": "controller",
+            "trigger_details": "reset",
+            "history_state": [],
             "updated_at": datetime.now().isoformat()
         }
         self.set_controller_state(default_controller_state)

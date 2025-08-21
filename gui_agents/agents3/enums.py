@@ -60,11 +60,8 @@ class TaskStatus(str, Enum):
     CREATED = "created"      # 已创建
     PENDING = "pending"      # 等待中
     ON_HOLD = "on_hold"     # 暂停中
-    RUNNING = "running"      # 执行中
     FULFILLED = "fulfilled"  # 已完成
     REJECTED = "rejected"    # 被拒绝
-    COMPLETED = "completed"  # 已完成
-    FAILED = "failed"        # 失败
     CANCELLED = "cancelled"  # 已取消
 
 

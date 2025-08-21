@@ -1,0 +1,18 @@
+[
+  {
+    "subtask_id": "subtask-18d1-1",
+    "task_id": "task-74d0b45f",
+    "title": "Launch the Bilibili application",
+    "description": "Open the Bilibili application from the computer's application launcher or desktop shortcut. Completion Criteria: Bilibili application window is successfully displayed on the screen",
+    "assignee_role": "operator",
+    "attempt_no": 1,
+    "status": "ready",
+    "reasons_history": [],
+    "command_trace_ids": [],
+    "gate_check_ids": [],
+    "last_reason_text": "",
+    "last_gate_decision": "",
+    "created_at": "2025-08-21T21:57:06.686529",
+    "updated_at": "2025-08-21T21:57:06.686534"
+  }
+]

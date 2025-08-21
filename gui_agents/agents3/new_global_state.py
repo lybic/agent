@@ -299,6 +299,24 @@ This file tracks supplementary information and materials needed for the task.
         
         return subtask_id
 
+    def delete_subtasks(self, subtask_ids: List[str]) -> None:
+        """Delete subtasks by IDs and update task's pending and current pointers."""
+        if not subtask_ids:
+            return
+        # Filter out the subtasks to be removed
+        current_subtasks = self.get_subtasks()
+        remaining_subtasks = [s for s in current_subtasks if s.subtask_id not in subtask_ids]
+        safe_write_json(self.subtasks_path, [s.to_dict() for s in remaining_subtasks])
+        # Update task lists
+        task = self.get_task()
+        task.pending_subtask_ids = [sid for sid in task.pending_subtask_ids if sid not in subtask_ids]
+        # Defensive: also remove from completed list if present
+        task.completed_subtask_ids = [sid for sid in task.completed_subtask_ids if sid not in subtask_ids]
+        # Clear current pointer if it was deleted
+        if task.current_subtask_id in subtask_ids:
+            task.current_subtask_id = None
+        self.set_task(task)
+    
     def update_subtask_status(self, subtask_id: str, status: SubtaskStatus, reason: Optional[str] = None) -> None:
         """Update subtask status and optionally add reason"""
         subtasks = self.get_subtasks()

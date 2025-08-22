@@ -240,7 +240,7 @@ def main():
         global_state=global_state,
         platform=current_platform,
         backend=args.backend,
-        enable_search=True,
+        enable_search=False,
         user_query=""
     )
 

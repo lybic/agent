@@ -663,7 +663,6 @@ class Operator:
     # ------------------------------------------------------------------
     def generate_next_action(
         self,
-        *,
         subtask: Dict[str, Any],
         guidance: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -722,8 +721,13 @@ class Operator:
 
         # Parse action code
         try:
+            current_width, current_height = self.global_state.get_screen_size()
+            self.grounding_agent.reset_screen_size(current_width, current_height)
+            self.grounding_agent.assign_coordinates(action_plan, self.global_state.get_obs_for_grounding())
+
             action_code = parse_single_code_from_string(action_plan.split("Grounded Action")[-1])
             action_code = sanitize_code(action_code)
+            self.global_state.add_event("worker", "generated_action_code", f"{action_code}")
         except Exception as e:
             err = f"PARSE_ACTION_FAILED: {e}"
             logger.warning(err)
@@ -747,6 +751,7 @@ class Operator:
         try:
             plan_code = extract_first_agent_function(action_code)
             exec_code = eval(plan_code)  # type: ignore
+            self.global_state.add_event("worker", "generated_exec_code", f"{exec_code}")
             ok = True
             # Determine outcome based on action type
             action_type = ""

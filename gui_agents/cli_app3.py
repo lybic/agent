@@ -23,10 +23,10 @@ from PIL import Image
 from gui_agents.agents3.new_global_state import NewGlobalState
 from gui_agents.agents3.new_executor import NewExecutor
 from gui_agents.agents3.hardware_interface import HardwareInterface
-from gui_agents.agents3.controller import Controller
-from gui_agents.agents3.worker import Worker
-from gui_agents.agents3.manager import Manager
-from gui_agents.agents3.agent3 import Agent3
+from gui_agents.agents3.new_controller import NewController
+from gui_agents.agents3.new_worker import NewWorker
+from gui_agents.agents3.new_manager import NewManager
+from gui_agents.agents3.enums import ControllerState
 
 # Import analyze_display functionality
 from gui_agents.utils.analyze_display import analyze_display_json, aggregate_results, format_output_line
@@ -143,12 +143,12 @@ def auto_analyze_execution(timestamp_dir: str):
         logger.error(f"Error during auto-analysis: {e}")
 
 
-def run_agent3(agent: Agent3, instruction: str, max_steps: int = 50):
+def run_agent3(controller: NewController, instruction: str, max_steps: int = 50):
     """
-    Run the agents3 agent with the given instruction
+    Run the agents3 controller with the given instruction
     
     Args:
-        agent: The Agent3 instance to run
+        controller: The NewController instance to run
         instruction: The instruction/task to execute
         max_steps: Maximum number of steps to execute
     """
@@ -159,37 +159,22 @@ def run_agent3(agent: Agent3, instruction: str, max_steps: int = 50):
     total_start_time = time.time()
     
     try:
-        # Initialize the task
-        agent.initialize_task(instruction)
+        # Set the user query in the controller
+        controller.user_query = instruction
         
         for step in range(max_steps):
             logger.info(f"=== Step {step + 1}/{max_steps} ===")
             
-            # Check if task is completed
-            if agent.is_task_completed():
+            # Execute one step
+            controller.execute_single_step(steps=1)
+            
+            # Check if we should continue based on controller state
+            if controller.current_state == ControllerState.DONE:
                 logger.info("Task completed successfully!")
                 break
             
-            # Execute one step
-            step_result = agent.execute_step()
-            
-            if not step_result.get("success", False):
-                logger.warning(f"Step {step + 1} failed: {step_result.get('error', 'Unknown error')}")
-                # Continue to next step or break based on error severity
-                if step_result.get("fatal", False):
-                    logger.error("Fatal error encountered, stopping execution")
-                    break
-            
             # Small delay between steps
             time.sleep(0.5)
-            
-            # Check if we should continue
-            if step_result.get("stop_execution", False):
-                logger.info("Agent requested to stop execution")
-                break
-        
-        # Finalize task
-        agent.finalize_task()
         
     except Exception as e:
         logger.error(f"Error during agents3 execution: {e}")
@@ -257,36 +242,18 @@ def main():
     # Initialize agents3 components
     global_state = NewGlobalState(
         screenshot_dir=cache_dir,
-        tu_path=os.path.join(state_dir, "tu.json"),
-        search_query_path=os.path.join(state_dir, "search_query.json"),
-        completed_subtasks_path=os.path.join(state_dir, "completed_subtasks.json"),
-        failed_subtasks_path=os.path.join(state_dir, "failed_subtasks.json"),
-        remaining_subtasks_path=os.path.join(state_dir, "remaining_subtasks.json"),
-        termination_flag_path=os.path.join(state_dir, "termination_flag.json"),
-        running_state_path=os.path.join(state_dir, "running_state.json"),
-        display_info_path=os.path.join(timestamp_dir, "display.json"),
-        agent_log_path=os.path.join(timestamp_dir, "agent_log.json")
+        state_dir=state_dir,
+        agent_log_path=os.path.join(timestamp_dir, "agent_log.json"),
+        display_info_path=os.path.join(timestamp_dir, "display.json")
     )
 
-    # Initialize executor
-    executor = NewExecutor(global_state, hwi)
-
-    # Initialize controller
-    controller = Controller(global_state, executor)
-
-    # Initialize worker
-    worker = Worker(global_state, controller)
-
-    # Initialize manager
-    manager = Manager(global_state, worker)
-
-    # Initialize agent3
-    agent = Agent3(
+    # Initialize NewController (which includes all other components)
+    controller = NewController(
         global_state=global_state,
-        controller=controller,
-        worker=worker,
-        manager=manager,
-        platform=current_platform
+        platform=current_platform,
+        backend=args.backend,
+        enable_search=True,
+        user_query=""
     )
 
     logger.info("Agents3 components initialized successfully")
@@ -294,14 +261,14 @@ def main():
     # if query is provided, run the agent on the query
     if args.query:
         logger.info(f"Executing query: {args.query}")
-        run_agent3(agent, args.query, args.max_steps)
+        run_agent3(controller, args.query, args.max_steps)
 
     else:
         while True:
             query = input("Query: ")
 
             # Run the agent on your own device
-            run_agent3(agent, query, args.max_steps)
+            run_agent3(controller, query, args.max_steps)
 
             response = input("Would you like to provide another query? (y/n): ")
             if response.lower() != "y":

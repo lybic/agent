@@ -477,8 +477,8 @@ class NewController:
                                      f"Action execution failed: {error_msg}")
                 return
 
-            # 等待1000秒
-            time.sleep(1000)
+            # 等待1秒
+            time.sleep(1)
             command = self.global_state.get_current_command_for_subtask(
                 current_subtask_id)
             if command:

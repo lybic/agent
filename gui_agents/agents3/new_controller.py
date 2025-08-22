@@ -13,7 +13,7 @@ from typing import Dict, Any, Optional, List
 from enum import Enum
 import platform
 
-from gui_agents.agents3.data_models import SubtaskData
+from gui_agents.agents3.data_models import SubtaskData, TaskData
 from desktop_env.desktop_env import DesktopEnv
 from gui_agents.agents3.hardware_interface import HardwareInterface
 from PIL import Image
@@ -148,19 +148,18 @@ class NewController:
             steps = 1
         try:
             for step_index in range(steps):
-                # 检查是否应该终止（单步序列）
-                if self._should_terminate():
-                    logger.info(
-                        "Termination conditions met for single step batch")
+                # 1. 检查是否应该终止（单步序列）
+                if self.should_exit_loop():
+                    logger.info("Task fulfilled or rejected, terminating single step batch")
                     break
 
-                # 获取当前状态
+                # 2. 获取当前状态
                 current_state = self.get_current_state()
                 logger.info(
                     f"Current state (single step {step_index + 1}/{steps}): {current_state}"
                 )
 
-                # 根据状态执行相应处理（一次一步）
+                # 3. 根据状态执行相应处理（一次一步）
                 if current_state == ControllerState.INIT:
                     self.handle_init_state()
                 elif current_state == ControllerState.GET_ACTION:
@@ -183,6 +182,10 @@ class NewController:
                         "unknown_state_single_step",
                         f"Unknown state encountered (single step): {current_state}",
                     )
+
+                # 4. 每步结束后，处理规则并更新状态
+                self.process_rules_and_update_states()
+
         except Exception as e:
             logger.error(f"Error in single step batch: {e}")
             self.global_state.add_event(
@@ -197,22 +200,57 @@ class NewController:
                 f"Error recovery from single step batch: {str(e)}",
             )
 
+    def should_exit_loop(self) -> bool:
+        """判断是否应该跳出主循环"""
+        try:
+            task = self.global_state.get_task()
+            
+            if not task:
+                return False
+            task_status = task.status
+                            
+            if task_status == TaskStatus.FULFILLED.value:
+                logger.info("Task fulfilled, should exit loop")
+                return True
+            elif task_status == TaskStatus.REJECTED.value:
+                logger.info("Task rejected, should exit loop")
+                return True
+                
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error checking exit condition: {e}")
+            return False
+
+    def process_rules_and_update_states(self) -> None:
+        """处理规则并更新状态 - 每次循环结束后调用"""
+        try:
+            # 1. 检查任务状态规则
+            self._check_task_state_rules()
+
+            # 2. 检查当前状态规则
+            self._check_current_state_rules()
+            
+        except Exception as e:
+            logger.error(f"Error in rule processing: {e}")
+            self.global_state.add_event("controller", "error", f"Rule processing error: {str(e)}")
+
     def execute_main_loop(self) -> None:
         """主循环执行 - 基于状态状态机"""
         logger.info("Starting main loop execution")
 
         while True:
             try:
-                # 检查是否应该终止
-                if self._should_terminate():
-                    logger.info("Main loop termination conditions met")
+                # 1. 检查是否应该退出循环
+                if self.should_exit_loop():
+                    logger.info("Task fulfilled or rejected, breaking main loop")
                     break
 
-                # 获取当前状态
+                # 2. 获取当前状态
                 current_state = self.get_current_state()
                 logger.info(f"Current state: {current_state}")
 
-                # 根据状态执行相应处理
+                # 3. 根据状态执行相应处理
                 if current_state == ControllerState.INIT:
                     self.handle_init_state()
                 elif current_state == ControllerState.GET_ACTION:
@@ -234,7 +272,10 @@ class NewController:
                         ControllerState.INIT, "unknown_state",
                         f"Unknown state encountered: {current_state}")
 
-                # 状态间短暂等待
+                # 4. 每次循环结束后，处理规则并更新状态
+                self.process_rules_and_update_states()
+
+                # 5. 状态间短暂等待
                 time.sleep(0.1)
 
             except Exception as e:
@@ -251,33 +292,6 @@ class NewController:
         """获取当前状态"""
         return self.current_state
 
-    def assess_state_transition(self) -> ControllerState:
-        """基于globalstate评估应该切换到哪个状态"""
-        try:
-            task_state = self.global_state.controller_get_task_state()
-            current_subtask: SubtaskData = task_state["current_subtask"]
-
-            if not current_subtask:
-                return ControllerState.INIT
-
-            subtask_status = current_subtask.status
-
-            if subtask_status == SubtaskStatus.FULFILLED.value:
-                return self._handle_subtask_completion()
-            elif subtask_status == SubtaskStatus.REJECTED.value:
-                return ControllerState.PLAN
-            elif subtask_status == SubtaskStatus.STALE.value:
-                return ControllerState.QUALITY_CHECK
-            elif subtask_status == SubtaskStatus.PENDING.value:
-                return ControllerState.GET_ACTION
-            elif subtask_status == SubtaskStatus.READY.value:
-                return ControllerState.GET_ACTION
-            else:
-                return ControllerState.GET_ACTION
-
-        except Exception as e:
-            logger.error(f"Error assessing state transition: {e}")
-            return ControllerState.INIT
 
     # 不清楚作用，先保留
     def _handle_subtask_completion(self) -> ControllerState:
@@ -699,24 +713,84 @@ class NewController:
         """检查当前状态是否超时"""
         return (time.time() - self.state_start_time) > self.max_state_duration
 
-    def _should_terminate(self) -> bool:
-        """检查是否应该终止主循环"""
-        # 检查状态切换次数
-        if self.state_switch_count >= self.max_state_switches:
-            logger.warning(
-                f"Maximum state switches ({self.max_state_switches}) reached")
-            return True
-
-        # 检查任务状态
+    def _check_current_state_rules(self) -> Optional[ControllerState]:
+        """检查current_state相关规则"""
         try:
             task = self.global_state.get_task()
+            if not task:
+                return None
+                
+            # 距离上次质检过去了5步 - QUALITY_CHECK
+            # 使用state_switch_count作为步数指标，但只在非质检状态下触发
+            if (self.state_switch_count >= 5 and 
+                self.current_state not in [ControllerState.QUALITY_CHECK, ControllerState.DONE]):
+                logger.info(f"5 state switches since start, switching to QUALITY_CHECK")
+                return ControllerState.QUALITY_CHECK
+            
+            # 相同连续动作高于3次 - QUALITY_CHECK
+            # 检查当前subtask的command_trace数量
+            if task.current_subtask_id:
+                subtask = self.global_state.get_subtask(task.current_subtask_id)
+                if subtask and len(subtask.command_trace_ids) >= 3:
+                    logger.info(f"Subtask {task.current_subtask_id} has >= 3 commands, switching to QUALITY_CHECK")
+                    return ControllerState.QUALITY_CHECK
+            
+            # 如果一个subtask的执行action过长，超过15次 - REPLAN
+            if task.current_subtask_id:
+                subtask = self.global_state.get_subtask(task.current_subtask_id)
+                if subtask and len(subtask.command_trace_ids) > 15:
+                    logger.info(f"Subtask {task.current_subtask_id} has > 15 commands, switching to PLAN")
+                    return ControllerState.PLAN
+                    
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error checking current situation rules: {e}")
+            return None
+
+    def _check_task_state_rules(self) -> Optional[ControllerState]:
+        """检查task_state相关规则，包括终止条件"""
+        try:
+            task = self.global_state.get_task()
+            if not task:
+                return
+                
+            # 检查状态切换次数上限
+            if self.state_switch_count >= self.max_state_switches:
+                logger.warning(f"Maximum state switches ({self.max_state_switches}) reached")
+                self.global_state.update_task_status(TaskStatus.REJECTED)
+            
+            # 检查任务状态
             if task.status == "completed":
                 logger.info("Task marked as completed")
-                return True
+                
+            # manager规划次数大于10次 - rejected
+            if self.state_switch_count > 10:
+                logger.warning(f"State switch count > 10, marking task as REJECTED")
+                self.global_state.update_task_status(TaskStatus.REJECTED)
+            
+            # manager重规划连续失败3次 - rejected
+            # 检查是否有连续的状态切换到PLAN，但只在PLAN状态下检查
+            if (self.current_state == ControllerState.PLAN and 
+                self.state_switch_count >= 3):
+                logger.warning(f"Multiple switches to PLAN state, marking task as REJECTED")
+                self.global_state.update_task_status(TaskStatus.REJECTED)
+            
+            # current_step大于50步 - rejected/fulfilled
+            if self.state_switch_count > 50:
+                # 检查是否所有subtask都完成
+                if not task.pending_subtask_ids or len(task.pending_subtask_ids) == 0:
+                    logger.info(f"State switch count > 50 and all subtasks completed, marking task as FULFILLED")
+                    self.global_state.update_task_status(TaskStatus.FULFILLED)
+                else:
+                    logger.warning(f"State switch count > 50 but subtasks not completed, marking task as REJECTED")
+                    self.global_state.update_task_status(TaskStatus.REJECTED)
+                    
+            return
+            
         except Exception as e:
-            logger.warning(f"Failed to check task status: {e}")
-
-        return False
+            logger.error(f"Error checking task state rules: {e}")
+            return
 
     def get_controller_info(self) -> Dict[str, Any]:
         """获取控制器信息"""

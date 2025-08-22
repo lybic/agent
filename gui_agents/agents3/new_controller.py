@@ -47,7 +47,7 @@ class NewController:
         memory_folder_name: str = "kb_s2",
         kb_release_tag: str = "v0.2.2",
         enable_takeover: bool = False,
-        enable_search: bool = True,
+        enable_search: bool = False,
         backend: str = "pyautogui",
         user_query: str = "",
     ):
@@ -115,7 +115,7 @@ class NewController:
         self.manager = NewManager(self.Tools_dict, self.global_state,
                                   self.local_kb_path, self.platform,
                                   self.enable_search)
-        self.worker = NewWorker(self.Tools_dict, self.global_state, self.env,
+        self.worker = NewWorker(self.Tools_dict, self.global_state, self.env, # type:ignore
                                 self.platform, self.enable_search,
                                 self.env_password)
         self.evaluator = Evaluator(

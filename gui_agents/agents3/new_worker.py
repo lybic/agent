@@ -25,12 +25,14 @@ from gui_agents.utils.common_utils import (
     extract_first_agent_function,
 )
 from gui_agents.agents3.grounding import Grounding
+from gui_agents.agents3.data_models import create_command_data
 
 from .new_global_state import NewGlobalState
 from .enums import (
     ControllerState,
     ExecStatus,
     GateTrigger,
+    WorkerDecision,
 )
 
 logger = logging.getLogger(__name__)
@@ -127,7 +129,10 @@ class Technician:
         subtask_title = subtask.get("title", "")
         subtask_desc = subtask.get("description", "")
         
-        system_message = self._get_coder_system_message()
+        system_message = []
+        system_message.append(f"# Your linux username is \"user\"")
+        system_message.append(f"# Your client password is: {self.client_password}")
+        system_message.append(f"# Platform: {self.platform}")
         
         task_prompt = []
         task_prompt.append(f"# Task: {subtask_title}")
@@ -138,7 +143,7 @@ class Technician:
         task_prompt.append("\nGenerate the appropriate bash or python code to complete this task.")
         task_prompt.append("Wrap your code in ```bash or ```python code blocks.")
         
-        full_prompt = system_message + "\n\n" + "\n".join(task_prompt)
+        full_prompt = "\n".join(system_message) + "\n" + "\n".join(task_prompt)
 
         # Get screenshot for context
         screenshot_bytes = self.global_state.get_screenshot()
@@ -177,17 +182,16 @@ class Technician:
 
         # Extract and execute code
         try:
-            execution_result = self._execute_generated_code(command_plan)
+            code_blocks = self._extract_code_blocks(command_plan)
             ok = True
             outcome = "success"
             err = None
         except Exception as e:
             ok = False
             outcome = "CANNOT_EXECUTE"
-            execution_result = f"Execution failed: {str(e)}"
             err = f"CODE_EXECUTION_FAILED: {e}"
             logger.warning(err)
-
+        
         result = StepResult(
             step_id=f"{subtask.get('subtask_id','unknown')}.tech-1",
             ok=ok,
@@ -204,61 +208,11 @@ class Technician:
         )
 
         return {
-            "command_plan": command_plan,
-            "execution_result": execution_result,
+            "command_plan": code_blocks,
             "step_result": result.__dict__,
             "outcome": outcome,
         }
-
-    def _get_coder_system_message(self) -> str:
-        """Get the system message for the coding agent."""
-        return f"""# Your role
-- You are a programmer, you need to solve a task step-by-step given by the user.
-- You can write code in ```bash...``` code blocks for bash scripts, and ```python...``` code blocks for python code.
-- Your linux username is "user".
-- If you want to use sudo, follow the format: "echo {self.client_password} | sudo -S [YOUR COMMANDS]" (no quotes for the word "{self.client_password}").
-
-# Requirements
-- You MUST verify the result before save the changes.
-- When you write code, you must identify the language (whether it is python or bash) of the code.
-- Wrap all your code in ONE code block. DO NOT let user save the code as a file and execute it for you.
-- Do not include __main__ in your python code.
-- When you modify a spreadsheet, **make sure every value is in the expected cell**.
-- When importing a package, you need to check if the package has been installed. If not, you need to install it yourself.
-- You need to print the progressive and final result.
-- If you met execution error, you need to analyze the error message and try to fix the error.
-- Platform: {self.platform}
-"""
-
-    def _execute_generated_code(self, plan: str) -> str:
-        """Extract code blocks from plan and execute them."""
-        code_blocks = self._extract_code_blocks(plan)
-        
-        if not code_blocks:
-            raise ValueError("No code blocks found in generated plan")
-        
-        results = []
-        for lang, code in code_blocks:
-            try:
-                if lang in ["bash", "shell", "sh"]:
-                    output_dict = self.env_controller.run_bash_script(code) #type: ignore
-                    if output_dict.get("status") == "success":
-                        results.append(f"[BASH] Success: {output_dict.get('output', '')}")
-                    else:
-                        results.append(f"[BASH] Error: {output_dict.get('output', '')}")
-                elif lang in ["python", "py"]:
-                    output_dict = self.env_controller.run_python_script(code) #type: ignore
-                    if output_dict.get("status") == "error":
-                        results.append(f"[PYTHON] Error: {output_dict.get('output', '')}")
-                    else:
-                        results.append(f"[PYTHON] Success: {output_dict.get('message', '')}")
-                else:
-                    results.append(f"[{lang.upper()}] Unsupported language")
-            except Exception as e:
-                results.append(f"[{lang.upper()}] Execution error: {str(e)}")
-        
-        return "\n".join(results)
-
+    
     def _extract_code_blocks(self, text: str) -> List[Tuple[str, str]]:
         """Extract code blocks from markdown-style text."""
         import re
@@ -275,7 +229,6 @@ class Technician:
                 code_blocks.append((lang, code))
         
         return code_blocks
-
 
 # ---------------------------------------------------------------------------
 # Analyst – provides data analysis and recommendations
@@ -687,8 +640,8 @@ class Operator:
         subtask_title = subtask.get("title", "")
         subtask_desc = subtask.get("description", "")
         message = []
-        message.append(f"SUBTASK: {subtask_title}")
-        message.append(f"INSTRUCTION: {subtask_desc}")
+        message.append(f"Remember only complete the subtask: {subtask_title}")
+        message.append(f"You can use this extra information for completing the current subtask: {subtask_desc}")
         if guidance:
             message.append(f"GUIDANCE: {guidance}")
         message.append("Return exactly one action as an agent.* function in Python fenced code under (Grounded Action).")
@@ -735,7 +688,21 @@ class Operator:
             plan_code = extract_first_agent_function(action_code)
             exec_code = eval(plan_code)  # type: ignore
             ok = True
-            outcome = "generate_action"
+            # Determine outcome based on action type
+            action_type = ""
+            if isinstance(exec_code, dict):
+                action_type = str(exec_code.get("type", ""))
+            if action_type == "Done":
+                outcome = "worker_done"
+            elif action_type == "Failed":
+                outcome = "worker_fail"
+            elif action_type == "Supplement":
+                outcome = "worker_supplement"
+            elif action_type == "NeedQualityCheck":
+                outcome = "worker_stale_progress"
+            else:
+                outcome = "worker_generate_action"
+
             err = None
         except Exception as e:
             ok = False
@@ -810,6 +777,82 @@ class NewWorker:
             platform=platform,
             enable_search=enable_search,
         )
+        self._global_state = global_state
+        self._tools_dict = tools_dict
+        self._platform = platform
+
+    def process_subtask_and_create_command(self) -> Optional[str]:
+        """Route to the right role, create command/decision if applicable, and return worker_decision string.
+        Returns one of WorkerDecision values or None on no-op/error.
+        """
+        subtask_id = self._global_state.get_task().current_subtask_id
+        subtask = self._global_state.get_subtask(subtask_id) #type: ignore
+        if not subtask:
+            logging.warning(f"Worker: subtask {subtask_id} not found")
+            return None
+
+        role = (subtask.assignee_role or "operator").lower()
+        try:
+            if role == "operator":
+                res = self.operator.generate_next_action(subtask=subtask.to_dict())  # type: ignore
+                outcome = (res.get("outcome") or "").strip()
+                action = res.get("action")
+                if outcome == WorkerDecision.GENERATE_ACTION.value and action:
+                    cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action=action, subtask_id=subtask_id)
+                    command_id = self._global_state.add_command(cmd)
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.GENERATE_ACTION.value)
+                if outcome == WorkerDecision.WORKER_DONE.value:
+                    cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
+                    command_id = self._global_state.add_command(cmd)
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
+                if outcome == WorkerDecision.SUPPLEMENT.value:
+                    cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
+                    command_id = self._global_state.add_command(cmd)
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.SUPPLEMENT.value)
+                if outcome == WorkerDecision.CANNOT_EXECUTE.value:
+                    cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
+                    command_id = self._global_state.add_command(cmd)
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
+                if outcome == WorkerDecision.STALE_PROGRESS.value:
+                    cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
+                    command_id = self._global_state.add_command(cmd)
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
+                return WorkerDecision.CANNOT_EXECUTE.value
+
+            if role == "technician":
+                res = self.technician.execute_task(subtask=subtask.to_dict())  # type: ignore
+                outcome = (res.get("outcome") or "").strip()
+                # record a command entry even for technician for traceability
+                cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
+                command_id = self._global_state.add_command(cmd)
+                if outcome == "success":
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
+                    return WorkerDecision.WORKER_DONE.value
+                if outcome == "STALE_PROGRESS":
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
+                    return WorkerDecision.STALE_PROGRESS.value
+                self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
+                return WorkerDecision.CANNOT_EXECUTE.value
+
+            if role == "analyst":
+                res = self.analyst.analyze_task(subtask=subtask.to_dict(), analysis_type="general")  # type: ignore
+                outcome = (res.get("outcome") or "").strip()
+                cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
+                command_id = self._global_state.add_command(cmd)
+                if outcome == "analysis_complete":
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
+                    return WorkerDecision.STALE_PROGRESS.value
+                if outcome == "STALE_PROGRESS":
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
+                    return WorkerDecision.STALE_PROGRESS.value
+                self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
+                return WorkerDecision.CANNOT_EXECUTE.value
+
+            logging.info(f"Worker: unknown assignee_role '{role}' for subtask {subtask_id}")
+            return WorkerDecision.CANNOT_EXECUTE.value
+        except Exception as e:
+            logging.error(f"Worker: error processing subtask {subtask_id}: {e}")
+            return WorkerDecision.CANNOT_EXECUTE.value
 
 
 # Export friendly alias

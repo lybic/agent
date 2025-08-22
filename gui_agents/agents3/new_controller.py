@@ -131,9 +131,6 @@ class NewController:
         self.executor = NewExecutor(self.global_state, self.hwi)
         logger.info("Executor initialized")
 
-        # 初始化质检器
-        self.evaluator = Evaluator(self.global_state,
-                                   tools_dict=self.Tools_dict)
         self._last_evaluated_subtask_id: Optional[str] = None
 
         # 初始化控制器状态
@@ -348,9 +345,6 @@ class NewController:
                 self.switch_to_state(ControllerState.INIT, "subtask_not_found", f"No current subtask ID in GET_ACTION state")
                 return
 
-            # 调用Worker进行GET_ACTION
-            # self.worker.
-
             # 检查subtask状态
             subtask = self.global_state.get_subtask(current_subtask_id)
             if not subtask:
@@ -363,8 +357,10 @@ class NewController:
             # 方案一拿到outcome作为worker_decision
             # 方案二设置outcome作为command的worker_decision
             # 方案三worker内部处理worker_decision
+            
+            # 由Worker统一处理：根据角色生成action/记录decision/创建command
+            self.worker.process_subtask_and_create_command()
 
-            # 获取当前命令的worker_decision
             worker_decision = self.global_state.get_subtask_worker_decision(current_subtask_id)
 
             if worker_decision:

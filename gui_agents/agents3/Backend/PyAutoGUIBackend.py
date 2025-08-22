@@ -7,7 +7,7 @@ import sys
 import pyperclip
 from PIL import Image
 from numpy import imag
-from gui_agents.agents.Action import (
+from gui_agents.agents3.Action import (
     Action,
     Click,
     DoubleClick,
@@ -20,7 +20,7 @@ from gui_agents.agents.Action import (
     Screenshot
 )
 
-from gui_agents.agents.Backend.Backend import Backend
+from gui_agents.agents3.Backend.Backend import Backend
 import time
 
 

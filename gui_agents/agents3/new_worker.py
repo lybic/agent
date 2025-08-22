@@ -80,7 +80,11 @@ class Technician:
         self.tools_dict = tools_dict
         self.global_state = global_state
         self.platform = platform
-        self.env_controller = env_controller.controller
+        # self.env_controller = env_controller.controller
+        if env_controller:
+            self.env_controller = env_controller.controller
+        else:
+            self.env_controller = None
         self.client_password = client_password
         # self.max_execution_time = max_execution_time
 

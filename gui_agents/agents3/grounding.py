@@ -11,8 +11,6 @@ from pytesseract import Output
 
 from gui_agents.tools.new_tools import NewTools
 from gui_agents.utils.common_utils import parse_single_code_from_string
-from gui_agents.store.registry import Registry
-from gui_agents.agents.global_state import GlobalState
 
 logger = logging.getLogger("desktopenv.agent")
 
@@ -60,8 +58,6 @@ class Grounding(ACI):
             "text_span", self.Tools_dict["text_span"]["provider"],
             self.Tools_dict["text_span"]["model"])
 
-        self.global_state: GlobalState = Registry.get(
-            "GlobalStateStore")  # type: ignore
 
     def generate_coords(self, ref_expr: str, obs: Dict) -> List[int]:
         grounding_start_time = time.time()
@@ -210,10 +206,6 @@ class Grounding(ACI):
 
     def _record_passive_memory(self, action_type: str, action_details: str):
         memory_content = f"Hardware action `{action_type}` has been executed. Details: {action_details}"
-        self.global_state.add_agent_log({
-            "type": "passive",
-            "content": memory_content
-        })
 
     @agent_action
     def click(
@@ -410,10 +402,6 @@ class Grounding(ACI):
         information: str,
         memory_type: str = "active",
     ):
-        self.global_state.add_agent_log({
-            "type": memory_type,
-            "content": information
-        })
         actionDict = {
             "type": "Memorize",
             "information": information,

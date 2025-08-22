@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 from abc import ABC, abstractmethod
 from typing import Any, List, Type, Dict, Set
-from gui_agents.agents.Action import (
+from gui_agents.agents3.Action import (
     Action
 )
 

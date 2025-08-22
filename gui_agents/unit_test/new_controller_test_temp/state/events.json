@@ -1,1 +1,106 @@
-[]
+[
+  {
+    "event_id": "evt-d56f",
+    "task_id": "task-58ce37f2",
+    "actor": "controller",
+    "action": "state_reset",
+    "details": "Controller state reset to default",
+    "timestamp": "2025-08-22T20:29:14.249605"
+  },
+  {
+    "event_id": "evt-aff8",
+    "task_id": "task-58ce37f2",
+    "actor": "controller",
+    "action": "state_change",
+    "details": "State changed to: PLAN (trigger: controller, details: )",
+    "timestamp": "2025-08-22T20:29:18.135179"
+  },
+  {
+    "event_id": "evt-ea1c",
+    "task_id": "task-58ce37f2",
+    "actor": "controller",
+    "action": "state_switch",
+    "details": "State changed: ControllerState.INIT -> ControllerState.PLAN (trigger: no_subtasks, details: No subtasks available, need planning)",
+    "timestamp": "2025-08-22T20:29:18.752386"
+  },
+  {
+    "event_id": "evt-cffb",
+    "task_id": "task-58ce37f2",
+    "actor": "controller",
+    "action": "state_change",
+    "details": "State changed to: PLAN (trigger: no_subtasks, details: No subtasks available, need planning)",
+    "timestamp": "2025-08-22T20:29:19.172317"
+  },
+  {
+    "event_id": "evt-8a8f",
+    "task_id": "task-58ce37f2",
+    "actor": "manager",
+    "action": "task_planning",
+    "details": "Scenario: initial_plan, Plan_result: 1. Open the application launcher [Operator]\n   - Completion criteria: Application launcher interface is displayed\n2. Search for \"bilibili\" [Operator]\n   - Completion criteria: Search results containing bilibili application are displayed\n   - Dependencies: Subtask 1 completed\n3. Launch the bilibili application [Operator]\n   - Completion criteria: Bilibili main interface is fully loaded and displayed\n   - Dependencies: Subtask 2 completed, Tokens: [4150, 99, 4249], Cost: 0.0035180￥",
+    "timestamp": "2025-08-22T20:29:32.760283"
+  },
+  {
+    "event_id": "evt-048a",
+    "task_id": "task-58ce37f2",
+    "actor": "manager",
+    "action": "generated_dag",
+    "details": "dag_obj=nodes=[Node(name='Open the application launcher', info='Completion criteria: Application launcher interface is displayed', assignee_role='operator', error_type=None, error_message=None, failure_count=0, last_failure_time=None, suggested_action=None), Node(name='Search for \"bilibili\"', info='Completion criteria: Search results containing bilibili application are displayed; Dependencies: Subtask 1 completed', assignee_role='operator', error_type=None, error_message=None, failure_count=0, last_failure_time=None, suggested_action=None), Node(name='Launch the bilibili application', info='Completion criteria: Bilibili main interface is fully loaded and displayed; Dependencies: Subtask 2 completed', assignee_role='operator', error_type=None, error_message=None, failure_count=0, last_failure_time=None, suggested_action=None)] edges=[[Node(name='Open the application launcher', info='Completion criteria: Application launcher interface is displayed', assignee_role='operator', error_type=None, error_message=None, failure_count=0, last_failure_time=None, suggested_action=None), Node(name='Search for \"bilibili\"', info='Completion criteria: Search results containing bilibili application are displayed; Dependencies: Subtask 1 completed', assignee_role='operator', error_type=None, error_message=None, failure_count=0, last_failure_time=None, suggested_action=None)], [Node(name='Search for \"bilibili\"', info='Completion criteria: Search results containing bilibili application are displayed; Dependencies: Subtask 1 completed', assignee_role='operator', error_type=None, error_message=None, failure_count=0, last_failure_time=None, suggested_action=None), Node(name='Launch the bilibili application', info='Completion criteria: Bilibili main interface is fully loaded and displayed; Dependencies: Subtask 2 completed', assignee_role='operator', error_type=None, error_message=None, failure_count=0, last_failure_time=None, suggested_action=None)]], tokens=[2464, 379, 2843], cost=0.0027292￥, retry_count=-1",
+    "timestamp": "2025-08-22T20:29:44.846879"
+  },
+  {
+    "event_id": "evt-e84a",
+    "task_id": "task-58ce37f2",
+    "actor": "controller",
+    "action": "state_change",
+    "details": "State changed to: GET_ACTION (trigger: controller, details: )",
+    "timestamp": "2025-08-22T20:29:44.941113"
+  },
+  {
+    "event_id": "evt-0ca5",
+    "task_id": "task-58ce37f2",
+    "actor": "controller",
+    "action": "state_switch",
+    "details": "State changed: ControllerState.PLAN -> ControllerState.GET_ACTION (trigger: subtask_ready, details: First subtask subtask-dfb3-1 ready)",
+    "timestamp": "2025-08-22T20:29:44.948366"
+  },
+  {
+    "event_id": "evt-c766",
+    "task_id": "task-58ce37f2",
+    "actor": "controller",
+    "action": "state_change",
+    "details": "State changed to: GET_ACTION (trigger: subtask_ready, details: First subtask subtask-dfb3-1 ready)",
+    "timestamp": "2025-08-22T20:29:44.949617"
+  },
+  {
+    "event_id": "evt-4608",
+    "task_id": "task-d3aab1c4",
+    "actor": "controller",
+    "action": "state_reset",
+    "details": "Controller state reset to default",
+    "timestamp": "2025-08-22T20:31:38.268836"
+  },
+  {
+    "event_id": "evt-f36c",
+    "task_id": "task-d3aab1c4",
+    "actor": "controller",
+    "action": "state_change",
+    "details": "State changed to: GET_ACTION (trigger: controller, details: )",
+    "timestamp": "2025-08-22T20:31:40.520267"
+  },
+  {
+    "event_id": "evt-e183",
+    "task_id": "task-d3aab1c4",
+    "actor": "controller",
+    "action": "state_switch",
+    "details": "State changed: ControllerState.INIT -> ControllerState.GET_ACTION (trigger: subtask_ready, details: First subtask subtask-e84d-2 ready)",
+    "timestamp": "2025-08-22T20:31:40.520562"
+  },
+  {
+    "event_id": "evt-fde5",
+    "task_id": "task-d3aab1c4",
+    "actor": "controller",
+    "action": "state_change",
+    "details": "State changed to: GET_ACTION (trigger: subtask_ready, details: First subtask subtask-e84d-2 ready)",
+    "timestamp": "2025-08-22T20:31:40.521021"
+  }
+]

@@ -1,9 +1,22 @@
 {
-  "task_id": "task-7db066b2",
-  "created_at": "2025-08-22T19:23:19.682128",
-  "objective": "",
-  "status": "created",
-  "current_subtask_id": null,
-  "completed_subtasks": [],
-  "pending_subtasks": []
+  "task_id": "task-58ce37f2",
+  "created_at": "2025-08-22T20:29:13.297250",
+  "objective": "帮我打开bilibili",
+  "status": "pending",
+  "current_subtask_id": "subtask-e84d-2",
+  "history_subtask_ids": [
+    "subtask-dfb3-1"
+  ],
+  "pending_subtask_ids": [
+    "subtask-d938-3"
+  ],
+  "qa_policy": {
+    "per_subtask": true,
+    "final_gate": true,
+    "risky_actions": [
+      "open",
+      "submit",
+      "hotkey"
+    ]
+  }
 }

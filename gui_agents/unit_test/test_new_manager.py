@@ -30,6 +30,7 @@ from gui_agents.agents3.new_manager import NewManager, PlanningScenario, Plannin
 from gui_agents.agents3.new_global_state import NewGlobalState
 from gui_agents.agents3.enums import TaskStatus, SubtaskStatus, ManagerStatus
 from gui_agents.agents3.new_controller import NewController
+from gui_agents.store.registry import Registry
 
 
 def main():
@@ -51,6 +52,8 @@ def main():
             agent_log_path=str(temp_root / "agent_log.json"),
             display_info_path=str(temp_root / "display.json"),
         )
+        Registry.register(
+        "GlobalStateStore", global_state)
 
         # Initialize NewController
         controller = NewController(

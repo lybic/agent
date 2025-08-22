@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------
 # 2) Android device backend (ADB)
 # ---------------------------------------------------------------------------
-from gui_agents.agents.Action import (
+from gui_agents.agents3.Action import (
     Action,
     Click,
     Drag,
@@ -11,7 +11,7 @@ from gui_agents.agents.Action import (
     Wait,
 )
 
-from gui_agents.agents.Backend.Backend import Backend
+from gui_agents.agents3.Backend.Backend import Backend
 import time
 import subprocess
 

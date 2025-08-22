@@ -42,7 +42,7 @@ else:
 DOWNLOADED_FILE_NAME = URL.split('/')[-1]
 REGISTRY_PATH = '.vmware_vms'
 LOCK_FILE_NAME = '.vmware_lck'
-VMS_DIR = "vmware_vm_data"
+VMS_DIR = "./vmware_vm_data"
 update_lock = threading.Lock()
 
 if platform.system() == 'Windows':
@@ -134,6 +134,13 @@ def _install_vm(vm_name, vms_dir, downloaded_file_name, os_type, original_vm_nam
         elif os_type == "Windows":
             if platform.machine().lower() in ['amd64', 'x86_64']:
                 URL = WINDOWS_X86_URL
+        
+        # Check for HF_ENDPOINT environment variable and replace domain if set to hf-mirror.com
+        hf_endpoint = os.environ.get('HF_ENDPOINT')
+        if hf_endpoint and 'hf-mirror.com' in hf_endpoint:
+            URL = URL.replace('huggingface.co', 'hf-mirror.com')
+            logger.info(f"Using HF mirror: {URL}")
+        
         DOWNLOADED_FILE_NAME = URL.split('/')[-1]
         downloaded_file_name = DOWNLOADED_FILE_NAME
 
@@ -386,7 +393,7 @@ class VMwareVMManager(VMManager):
             vm_names = os.listdir(vms_dir)
             for vm_name in vm_names:
                 # skip the downloaded .zip file
-                if ".zip" in vm_name:
+                if vm_name == DOWNLOADED_FILE_NAME:
                     continue
                 # Skip the .DS_Store file on macOS
                 if vm_name == ".DS_Store":

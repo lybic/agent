@@ -15,6 +15,7 @@ import platform
 
 from gui_agents.agents3.data_models import SubtaskData
 from gui_agents.agents.hardware_interface import HardwareInterface
+from desktop_env.desktop_env import DesktopEnv
 from PIL import Image
 
 from gui_agents.agents3.utils.screenShot import scale_screenshot_dimensions
@@ -22,6 +23,7 @@ from gui_agents.agents3.utils.screenShot import scale_screenshot_dimensions
 
 from .new_global_state import NewGlobalState
 from .new_manager import NewManager
+from .new_worker import NewWorker
 from .new_executor import NewExecutor
 from .enums import (
     ControllerState, TaskStatus, SubtaskStatus, 
@@ -94,7 +96,32 @@ class NewController:
         else:
             print(f"Found local knowledge base path: {kb_platform_path}")
 
-        self.manager = NewManager(self.Tools_dict, self.global_state, self.local_kb_path, self.platform, self.enable_search)
+        scaled_width, scaled_height = 1920, 1080
+        self.env = DesktopEnv(
+            provider_name="vmware",
+            path_to_vm="path_to_vm",
+            action_space="action_space",
+            screen_size=(scaled_width, scaled_height), # type: ignore
+            headless=False,
+            require_a11y_tree=False,
+        )
+        self.env_password = "password"
+
+        self.manager = NewManager(
+            self.Tools_dict, 
+            self.global_state, 
+            self.local_kb_path, 
+            self.platform, 
+            self.enable_search
+        )
+        self.worker = NewWorker(
+            self.Tools_dict, 
+            self.global_state, 
+            self.env, 
+            self.platform, 
+            self.enable_search, 
+            self.env_password
+        )
         
         # 初始化硬件接口
         backend_kwargs = {"platform": platform}
@@ -301,6 +328,9 @@ class NewController:
                 logger.warning("No current subtask ID, switching to INIT")
                 self.switch_to_state(ControllerState.INIT)
                 return
+            
+            # 调用Worker进行GET_ACTION
+            # self.worker.
             
             # 检查subtask状态
             subtask = self.global_state.get_subtask(current_subtask_id)

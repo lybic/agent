@@ -9,7 +9,7 @@ import pytesseract
 from PIL import Image
 from pytesseract import Output
 
-from gui_agents.tools.tools import Tools
+from gui_agents.tools.new_tools import NewTools
 from gui_agents.utils.common_utils import parse_single_code_from_string
 from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
@@ -44,7 +44,7 @@ class Grounding(ACI):
         self.coords1 = None
         self.coords2 = None
 
-        self.grounding_model = Tools()
+        self.grounding_model = NewTools()
         self.grounding_model.register_tool(
             "grounding", self.Tools_dict["grounding"]["provider"],
             self.Tools_dict["grounding"]["model"])
@@ -55,7 +55,7 @@ class Grounding(ACI):
             self.grounding_width = self.width
             self.grounding_height = self.height
 
-        self.text_span_agent = Tools()
+        self.text_span_agent = NewTools()
         self.text_span_agent.register_tool(
             "text_span", self.Tools_dict["text_span"]["provider"],
             self.Tools_dict["text_span"]["model"])
@@ -98,14 +98,14 @@ class Grounding(ACI):
         logger.info(
             f"Grounding model execution time: {grounding_duration:.2f} seconds")
         logger.info(f"RAW GROUNDING MODEL RESPONSE: {response}")
-        self.global_state.log_operation(module="grounding",
-                                        operation="grounding_model_response",
-                                        data={
-                                            "tokens": total_tokens,
-                                            "cost": cost_string,
-                                            "content": response,
-                                            "duration": grounding_duration
-                                        })
+        # self.global_state.log_operation(module="grounding",
+        #                                 operation="grounding_model_response",
+        #                                 data={
+        #                                     "tokens": total_tokens,
+        #                                     "cost": cost_string,
+        #                                     "content": response,
+        #                                     "duration": grounding_duration
+        #                                 })
         numericals = re.findall(r"\d+", response)
         assert len(numericals) >= 2
         return [int(numericals[0]), int(numericals[1])]
@@ -416,253 +416,6 @@ class Grounding(ACI):
         self,
         message: str = '',
     ):
-        self.global_state.set_running_state("stopped")
-        actionDict = {"type": "UserTakeover", "message": message}
-        return actionDict
-
-
-class FastGrounding(ACI):
-
-    def __init__(
-        self,
-        Tools_dict: Dict,
-        platform: str,
-        width: int = 1920,
-        height: int = 1080,
-        grounding_width: int = 1920,
-        grounding_height: int = 1080,
-    ):
-        self.platform = platform
-        self.Tools_dict = Tools_dict
-        self.width = width
-        self.height = height
-        self.grounding_width = grounding_width
-        self.grounding_height = grounding_height
-        self.global_state: GlobalState = Registry.get(
-            "GlobalStateStore")  # type: ignore
-
-    def reset_screen_size(self, width: int, height: int):
-        self.width = width
-        self.height = height
-
-    def resize_coordinates(self, coordinates: List[int]) -> List[int]:
-        return [
-            round(coordinates[0] * self.width / self.grounding_width),
-            round(coordinates[1] * self.height / self.grounding_height),
-        ]
-
-    def _record_passive_memory(self, action_type: str, action_details: str):
-        memory_content = f"Hardware action `{action_type}` has been executed. Details: {action_details}"
-        self.global_state.add_agent_log({
-            "type": "passive",
-            "content": memory_content
-        })
-
-    @agent_action
-    def click(
-        self,
-        x: int,
-        y: int,
-        element_description: str = "",
-        button: int = 1,
-        holdKey: List[str] = [],
-    ):
-        x, y = self.resize_coordinates([x, y])
-        actionDict = {
-            "type": "Click",
-            "x": x,
-            "y": y,
-            "element_description": element_description or f"Coordinates ({x}, {y})",
-            "button": button,
-            "holdKey": holdKey
-        }
-        action_details = f"Clicked at coordinates ({x}, {y}) with button {button}, element: {element_description or f'Coordinates ({x}, {y})'}"
-        self._record_passive_memory("Click", action_details)
-        return actionDict
-
-    @agent_action
-    def doubleclick(
-        self,
-        x: int,
-        y: int,
-        element_description: str = "",
-        button: int = 1,
-        holdKey: List[str] = [],
-    ):
-        x, y = self.resize_coordinates([x, y])
-        actionDict = {
-            "type": "DoubleClick",
-            "x": x,
-            "y": y,
-            "element_description": element_description or f"Coordinates ({x}, {y})",
-            "button": button,
-            "holdKey": holdKey
-        }
-        action_details = f"Double clicked at coordinates ({x}, {y}) with button {button}, element: {element_description or f'Coordinates ({x}, {y})'}"
-        self._record_passive_memory("DoubleClick", action_details)
-        return actionDict
-
-    @agent_action
-    def move(
-        self,
-        x: int,
-        y: int,
-        element_description: str = "",
-        holdKey: List[str] = [],
-    ):
-        x, y = self.resize_coordinates([x, y])
-        actionDict = {
-            "type": "Move",
-            "x": x,
-            "y": y,
-            "element_description": element_description or f"Coordinates ({x}, {y})",
-            "holdKey": holdKey
-        }
-        action_details = f"Moved to coordinates ({x}, {y}), element: {element_description or f'Coordinates ({x}, {y})'}"
-        self._record_passive_memory("Move", action_details)
-        return actionDict
-
-    @agent_action
-    def scroll(
-        self,
-        x: int,
-        y: int,
-        clicks: int,
-        element_description: str = "",
-        vertical: bool = True,
-        holdKey: List[str] = [],
-    ):
-        x, y = self.resize_coordinates([x, y])
-        if vertical:
-            actionDict = {
-                "type": "Scroll",
-                "x": x,
-                "y": y,
-                "element_description": element_description or f"Coordinates ({x}, {y})",
-                "stepVertical": clicks,
-                "holdKey": holdKey
-            }
-            action_details = f"Scrolled vertically at coordinates ({x}, {y}) with {clicks} clicks, element: {element_description or f'Coordinates ({x}, {y})'}"
-        else:
-            actionDict = {
-                "type": "Scroll",
-                "x": x,
-                "y": y,
-                "element_description": element_description or f"Coordinates ({x}, {y})",
-                "stepHorizontal": clicks,
-                "holdKey": holdKey
-            }
-            action_details = f"Scrolled horizontally at coordinates ({x}, {y}) with {clicks} clicks, element: {element_description or f'Coordinates ({x}, {y})'}"
-        self._record_passive_memory("Scroll", action_details)
-        return actionDict
-
-    @agent_action
-    def drag(
-        self,
-        startX: int,
-        startY: int,
-        endX: int,
-        endY: int,
-        starting_description: str = "",
-        ending_description: str = "",
-        holdKey: List[str] = [],
-    ):
-        startX, startY = self.resize_coordinates([startX, startY])
-        endX, endY = self.resize_coordinates([endX, endY])
-        actionDict = {
-            "type": "Drag",
-            "startX": startX,
-            "startY": startY,
-            "endX": endX,
-            "endY": endY,
-            "holdKey": holdKey,
-            "starting_description": starting_description or f"Coordinates ({startX}, {startY})",
-            "ending_description": ending_description or f"Coordinates ({endX}, {endY})"
-        }
-        action_details = f"Dragged from ({startX}, {startY}) to ({endX}, {endY}), starting: {starting_description or f'Coordinates ({startX}, {startY})'}, ending: {ending_description or f'Coordinates ({endX}, {endY})'}"
-        self._record_passive_memory("Drag", action_details)
-        return actionDict
-
-    @agent_action
-    def type(
-        self,
-        text: str = "",
-    ):
-        actionDict = {
-            "type": "TypeText",
-            "text": text,
-        }
-        action_details = f"Typed text: {text}"
-        self._record_passive_memory("TypeText", action_details)
-        return actionDict
-
-    @agent_action
-    def hotkey(
-        self,
-        keys: List[str] = [],
-        duration: int = 0,
-    ):
-        keys = [f"{key}" for key in keys]
-        if 1 <= duration <= 5000:
-            actionDict = {
-                "type": "Hotkey",
-                "keys": keys,
-                "duration": duration,
-            }
-            action_details = f"Pressed hotkey combination: {', '.join(keys)} with duration {duration}ms"
-        else:
-            actionDict = {
-                "type": "Hotkey",
-                "keys": keys,
-            }
-            action_details = f"Pressed hotkey combination: {', '.join(keys)}"
-        self._record_passive_memory("Hotkey", action_details)
-        return actionDict
-
-    @agent_action
-    def wait(self, duration: int):
-        actionDict = {"type": "Wait", "duration": duration}
-        action_details = f"Waited for {duration} milliseconds"
-        self._record_passive_memory("Wait", action_details)
-        return actionDict
-
-    @agent_action
-    def done(
-        self,
-        message: str = '',
-    ):
-        self.returned_info = message
-        actionDict = {"type": "Done", "message": message}
-        return actionDict
-
-    @agent_action
-    def fail(
-        self,
-        message: str = '',
-    ):
-        actionDict = {"type": "Failed", "message": message}
-        return actionDict
-
-    @agent_action
-    def memorize(
-        self,
-        information: str,
-    ):
-        self.global_state.add_agent_log({
-            "type": "active",
-            "content": information
-        })
-        actionDict = {
-            "type": "Memorize",
-            "information": information,
-        }
-        return actionDict
-
-    @agent_action
-    def user_takeover(
-        self,
-        message: str = '',
-    ):
-        self.global_state.set_running_state("stopped")
+        # self.global_state.set_running_state("stopped")
         actionDict = {"type": "UserTakeover", "message": message}
         return actionDict

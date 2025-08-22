@@ -495,6 +495,26 @@ This file tracks supplementary information and materials needed for the task.
         
         safe_write_json(self.commands_path, [command.to_dict() for command in commands])
 
+    def update_command_worker_decision(self, command_id: str, worker_decision: str) -> None:
+        """Update command worker decision"""
+        commands = self.get_commands()
+        for command in commands:
+            if command.command_id == command_id:
+                command.worker_decision = worker_decision
+                break
+        
+        safe_write_json(self.commands_path, [command.to_dict() for command in commands])
+
+    def get_commands_by_worker_decision(self, worker_decision: str) -> List[CommandData]:
+        """Get all commands with specific worker decision"""
+        commands = self.get_commands()
+        return [cmd for cmd in commands if cmd.worker_decision == worker_decision]
+
+    def get_subtask_worker_decision(self, subtask_id: str) -> Optional[str]:
+        """Get the worker decision for the current command of a subtask"""
+        command = self.get_current_command_for_subtask(subtask_id)
+        return command.worker_decision if command else None
+
     # ========= Gate Check Management =========
     def get_gate_checks(self) -> List[GateCheckData]:
         """Get all gate checks"""

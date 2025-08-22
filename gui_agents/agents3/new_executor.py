@@ -10,6 +10,7 @@ from typing import Dict, Any, Optional, List, Tuple
 from gui_agents.agents3.hardware_interface import HardwareInterface
 from .new_global_state import NewGlobalState
 from .enums import SubtaskStatus
+from desktop_env.desktop_env import DesktopEnv
 
 # 设置日志
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 class NewExecutor:
     """动作执行器 - 负责获取和执行动作"""
     
-    def __init__(self, global_state: NewGlobalState, hardware_interface: HardwareInterface, env_controller=None):
+    def __init__(self, global_state: NewGlobalState, hardware_interface: HardwareInterface, env_controller: Optional[DesktopEnv] = None):
         """
         初始化执行器
         
@@ -29,7 +30,7 @@ class NewExecutor:
         """
         self.global_state = global_state
         self.hwi = hardware_interface
-        self.env_controller = env_controller
+        self.env_controller = env_controller.controller if env_controller is not None else None
         self.execution_timeout = 30  # 单次执行超时时间(秒)
         
         logger.info("NewExecutor initialized")
@@ -103,16 +104,24 @@ class NewExecutor:
                 try:
                     if lang in ["bash", "shell", "sh"]:
                         output_dict = self.env_controller.run_bash_script(code)
-                        if output_dict.get("status") == "success":
-                            results.append(f"[BASH] Success: {output_dict.get('output', '')}")
+                        status = (output_dict or {}).get("status")
+                        if status == "success":
+                            results.append(f"[BASH] Success: {(output_dict or {}).get('output', '')}")
                         else:
-                            results.append(f"[BASH] Error: {output_dict.get('output', '')}")
+                            out = (output_dict or {}).get('output', '')
+                            err = (output_dict or {}).get('error', '')
+                            msg = out if out else err
+                            results.append(f"[BASH] Error: {msg}")
                     elif lang in ["python", "py"]:
                         output_dict = self.env_controller.run_python_script(code)
-                        if output_dict.get("status") == "error":
-                            results.append(f"[PYTHON] Error: {output_dict.get('output', '')}")
+                        status = (output_dict or {}).get("status")
+                        if status == "error":
+                            out = (output_dict or {}).get('output', '')
+                            err = (output_dict or {}).get('error', '')
+                            msg = out if out else err
+                            results.append(f"[PYTHON] Error: {msg}")
                         else:
-                            results.append(f"[PYTHON] Success: {output_dict.get('message', '')}")
+                            results.append(f"[PYTHON] Success: {(output_dict or {}).get('message', '')}")
                     else:
                         results.append(f"[{lang.upper()}] Unsupported language")
                 except Exception as e:

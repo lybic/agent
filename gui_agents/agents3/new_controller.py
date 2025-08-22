@@ -101,14 +101,15 @@ class NewController:
             print(f"Found local knowledge base path: {kb_platform_path}")
 
         scaled_width, scaled_height = 1920, 1080
-        self.env = DesktopEnv(
-            provider_name="vmware",
-            path_to_vm="path_to_vm",
-            action_space="action_space",
-            screen_size=(scaled_width, scaled_height),  # type: ignore
-            headless=False,
-            require_a11y_tree=False,
-        )
+        # self.env = DesktopEnv(
+        #     provider_name="vmware",
+        #     path_to_vm="path_to_vm",
+        #     action_space="action_space",
+        #     screen_size=(scaled_width, scaled_height),  # type: ignore
+        #     headless=False,
+        #     require_a11y_tree=False,
+        # )
+        self.env = None
         self.env_password = "password"
 
         self.manager = NewManager(self.Tools_dict, self.global_state,

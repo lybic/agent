@@ -1,1 +1,50 @@
-[]
+[
+  {
+    "subtask_id": "subtask-dfb3-1",
+    "task_id": "task-58ce37f2",
+    "title": "Open the application launcher",
+    "description": "Completion criteria: Application launcher interface is displayed",
+    "assignee_role": "operator",
+    "attempt_no": 1,
+    "status": "ready",
+    "reasons_history": [],
+    "command_trace_ids": [],
+    "gate_check_ids": [],
+    "last_reason_text": "",
+    "last_gate_decision": "",
+    "created_at": "2025-08-22T20:29:44.869869",
+    "updated_at": "2025-08-22T20:29:44.869894"
+  },
+  {
+    "subtask_id": "subtask-e84d-2",
+    "task_id": "task-58ce37f2",
+    "title": "Search for \"bilibili\"",
+    "description": "Completion criteria: Search results containing bilibili application are displayed; Dependencies: Subtask 1 completed",
+    "assignee_role": "operator",
+    "attempt_no": 1,
+    "status": "ready",
+    "reasons_history": [],
+    "command_trace_ids": [],
+    "gate_check_ids": [],
+    "last_reason_text": "",
+    "last_gate_decision": "",
+    "created_at": "2025-08-22T20:29:44.869931",
+    "updated_at": "2025-08-22T20:29:44.869932"
+  },
+  {
+    "subtask_id": "subtask-d938-3",
+    "task_id": "task-58ce37f2",
+    "title": "Launch the bilibili application",
+    "description": "Completion criteria: Bilibili main interface is fully loaded and displayed; Dependencies: Subtask 2 completed",
+    "assignee_role": "operator",
+    "attempt_no": 1,
+    "status": "ready",
+    "reasons_history": [],
+    "command_trace_ids": [],
+    "gate_check_ids": [],
+    "last_reason_text": "",
+    "last_gate_decision": "",
+    "created_at": "2025-08-22T20:29:44.869938",
+    "updated_at": "2025-08-22T20:29:44.869939"
+  }
+]

@@ -6,7 +6,7 @@ import io
 from PIL import Image
 from typing import Optional
 from desktop_env.desktop_env import DesktopEnv
-from gui_agents.agents.Action import (
+from gui_agents.agents3.Action import (
     Action,
     Click,
     DoubleClick,
@@ -21,7 +21,7 @@ from gui_agents.agents.Action import (
     Screenshot
 )
 
-from gui_agents.agents.Backend.Backend import Backend
+from gui_agents.agents3.Backend.Backend import Backend
 import time
 
 def screenshot_bytes_to_pil_image(screenshot_bytes: bytes) -> Optional[Image.Image]:

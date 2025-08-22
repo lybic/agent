@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import pyautogui
-from gui_agents.agents.Backend.Backend import Backend
-from gui_agents.agents.Backend.ADBBackend import ADBBackend
-from gui_agents.agents.Backend.LybicBackend import LybicBackend
-from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
-from gui_agents.agents.Backend.PyAutoGUIVMwareBackend import PyAutoGUIVMwareBackend
+from gui_agents.agents3.Backend.Backend import Backend
+from gui_agents.agents3.Backend.ADBBackend import ADBBackend
+from gui_agents.agents3.Backend.LybicBackend import LybicBackend
+from gui_agents.agents3.Backend.PyAutoGUIBackend import PyAutoGUIBackend
+from gui_agents.agents3.Backend.PyAutoGUIVMwareBackend import PyAutoGUIVMwareBackend
 """hardware_interface.py  ▸  Execute Action objects on real devices / emulators
 ==============================================================================
 This module is the *single entry point* that upper‑layer planners / executors
@@ -44,7 +44,7 @@ hwi.dispatchDict({"type": "Click", "xy": [200, 300]})
 from typing import List, Type, Dict, Set, Union, Any
 
 # Import your Action primitives
-from gui_agents.agents.Action import (
+from gui_agents.agents3.Action import (
     Action,
     Screenshot,
 )

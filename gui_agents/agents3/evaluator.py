@@ -17,7 +17,7 @@ import os
 
 from .new_global_state import NewGlobalState
 from .enums import GateDecision, GateTrigger
-from gui_agents.tools.tools import Tools
+from gui_agents.tools.new_tools import NewTools
 from gui_agents.prompts import get_prompt
 
 
@@ -98,8 +98,16 @@ class Evaluator:
             raise ValueError(
                 "Missing evaluator tool configuration (provider/model)")
 
-        self.evaluator_agent = Tools()
-        self.evaluator_agent.register_tool("evaluator", provider, model_name)
+        # Use the new tool system: register four evaluator role tools by scene
+        self.evaluator_agent = NewTools()
+        for tool_name in ("worker_success_role", "worker_stale_role",
+                          "periodic_role", "final_check_role"):
+            try:
+                self.evaluator_agent.register_tool(tool_name, provider,
+                                                   model_name)
+            except Exception:
+                # Be tolerant: ignore duplicate registrations or other non-critical errors
+                pass
 
     # ========= Public API =========
     def quality_check(self) -> GateCheck:
@@ -122,6 +130,7 @@ class Evaluator:
 
         # Use LLM to make decision via Tools
         scene = trigger_type
+        tool_name = self._scene_to_tool_name(scene)
         # Build prompts
         system_prompt = _build_system_prompt(scene)
         prompt = self.build_prompt(scene)
@@ -129,7 +138,7 @@ class Evaluator:
 
         # Inject system prompt dynamically per scene
         try:
-            tool_obj = self.evaluator_agent.tools.get("evaluator")
+            tool_obj = self.evaluator_agent.tools.get(tool_name)
             if tool_obj and hasattr(tool_obj, "llm_agent"):
                 tool_obj.llm_agent.reset()
                 tool_obj.llm_agent.add_system_prompt(system_prompt)
@@ -137,7 +146,7 @@ class Evaluator:
             pass
 
         content, _tokens, _cost = self.evaluator_agent.execute_tool(
-            "evaluator", {
+            tool_name, {
                 "str_input": prompt,
                 "img_input": screenshot
             })
@@ -202,6 +211,16 @@ class Evaluator:
                     return "WORKER_STALE"
 
         return "PERIODIC_CHECK"
+
+    def _scene_to_tool_name(self, scene: str) -> str:
+        """Map scene name to the concrete tool name in the new tool system."""
+        mapping = {
+            "WORKER_SUCCESS": "worker_success_role",
+            "WORKER_STALE": "worker_stale_role",
+            "PERIODIC_CHECK": "periodic_role",
+            "FINAL_CHECK": "final_check_role",
+        }
+        return mapping.get(scene, "periodic_role")
 
     # ========= Prompt building helpers =========
     def _format_commands(self, commands) -> str:

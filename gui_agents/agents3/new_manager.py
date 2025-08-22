@@ -351,9 +351,9 @@ class NewManager:
                         first_new_subtask_id = new_id
                 
                 # Switch current subtask to the first newly planned subtask
-                if first_new_subtask_id:
-                    self.global_state.set_current_subtask_id(first_new_subtask_id)
-                    self.global_state.update_task_status(TaskStatus.PENDING)
+                # if first_new_subtask_id:
+                    # self.global_state.set_current_subtask_id(first_new_subtask_id)
+                    # self.global_state.update_task_status(TaskStatus.PENDING)
                     # self.global_state.add_event(
                     #     "manager",
                     #     "set_current_subtask",
@@ -381,10 +381,10 @@ class NewManager:
                     self.global_state.add_subtask(subtask_data)
                 
                 # If no current subtask is selected yet, set the first one
-                task = self.global_state.get_task()
-                if not task.current_subtask_id and enhanced_subtasks:
-                    self.global_state.set_current_subtask_id(enhanced_subtasks[0]["subtask_id"])
-                    self.global_state.update_task_status(TaskStatus.PENDING)
+                # task = self.global_state.get_task()
+                # if not task.current_subtask_id and enhanced_subtasks:
+                    # self.global_state.set_current_subtask_id(enhanced_subtasks[0]["subtask_id"])
+                    # self.global_state.update_task_status(TaskStatus.PENDING)
                     # self.global_state.add_event(
                     #     "manager",
                     #     "set_current_subtask",
@@ -529,9 +529,9 @@ class NewManager:
             "task_objective": task.objective or "",
             "task_status": task.status or "",
             "all_subtasks": subtasks,
-            "current_subtask_id": task.current_subtask_id,
-            "history_subtask_ids": task.history_subtask_ids or [],
-            "pending_subtask_ids": task.pending_subtask_ids or [],
+            # "current_subtask_id": task.current_subtask_id,
+            "history_subtasks": self._get_history_subtasks_info(),
+            "pending_subtasks": self._get_pending_subtasks_info(),
             "screenshot": screenshot,
             "platform": self.platform,
             "planning_scenario": "replan" if is_replan_now else "initial_plan",
@@ -571,6 +571,8 @@ class NewManager:
         
         # Determine scenario from context to ensure auto mode works
         planning_scenario: str = context.get("planning_scenario", "initial_plan")
+        history_subtasks: str = context.get("history_subtasks", "")
+        pending_subtasks: str = context.get("pending_subtasks", "")
         is_replan: bool = planning_scenario == "replan"
         
         # Scenario-specific planning task section
@@ -620,7 +622,9 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 # Task Information
 Objective: {context.get('task_objective', '')}
 Planning Scenario: {planning_scenario}
-Current Progress: {len(context.get('completed_subtasks', []))} completed, {len(context.get('pending_subtasks', []))} pending
+Current Progress: {self._count_subtasks_from_info(context.get('history_subtasks', ''))} subtask completed, {self._count_subtasks_from_info(context.get('pending_subtasks', ''))} subtask pending
+History Subtasks: {history_subtasks}
+Pending Subtasks: {pending_subtasks}
 Platform: {context.get('platform', '')}
 """
         
@@ -919,6 +923,65 @@ Please output the supplementary material collection solution and execute it base
                     failure_reasons.extend([r.get("text", "") for r in reasons])
         
         return "; ".join(failure_reasons) if failure_reasons else "No specific failure reasons"
+
+    def _get_history_subtasks_info(self) -> str:
+        """Get information about completed subtasks"""
+        history_subtasks = []
+        task = self.global_state.get_task()
+        all_subtasks = self.global_state.get_subtasks()
+        
+        if task.history_subtask_ids:
+            for subtask_id in task.history_subtask_ids:
+                subtask = next((s for s in all_subtasks if s.subtask_id == subtask_id), None)
+                if subtask:
+                    history_subtasks.append({
+                        "id": subtask.subtask_id,
+                        "title": subtask.title,
+                        "description": subtask.description,
+                        "assignee_role": subtask.assignee_role,
+                        "status": subtask.status,
+                        "completion_reason": subtask.last_reason_text or "Completed successfully",
+                        "last_gate_decision": subtask.last_gate_decision,
+                    })
+        
+        if not history_subtasks:
+            return "No completed subtasks"
+        
+        return json.dumps(history_subtasks, indent=2)
+
+    def _get_pending_subtasks_info(self) -> str:
+        """Get information about pending subtasks"""
+        pending_subtasks = []
+        task = self.global_state.get_task()
+        all_subtasks = self.global_state.get_subtasks()
+        
+        if task.pending_subtask_ids:
+            for subtask_id in task.pending_subtask_ids:
+                subtask = next((s for s in all_subtasks if s.subtask_id == subtask_id), None)
+                if subtask:
+                    pending_subtasks.append({
+                        "id": subtask.subtask_id,
+                        "title": subtask.title,
+                        "description": subtask.description,
+                        "assignee_role": subtask.assignee_role,
+                        "status": subtask.status,
+                        "attempt_no": subtask.attempt_no,
+                    })
+        
+        if not pending_subtasks:
+            return "No pending subtasks"
+        
+        return json.dumps(pending_subtasks, indent=2)
+
+    def _count_subtasks_from_info(self, subtasks_info: str) -> int:
+        """Count subtasks from the JSON string info returned by _get_*_subtasks_info methods"""
+        if not subtasks_info or subtasks_info in ["No completed subtasks", "No pending subtasks"]:
+            return 0
+        try:
+            subtasks_list = json.loads(subtasks_info)
+            return len(subtasks_list) if isinstance(subtasks_list, list) else 0
+        except (json.JSONDecodeError, TypeError):
+            return 0
 
     def get_planning_status(self) -> Dict[str, Any]:
         """Get current planning status"""

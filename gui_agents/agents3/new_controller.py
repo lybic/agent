@@ -24,7 +24,7 @@ from .new_global_state import NewGlobalState
 from .new_manager import NewManager
 from .new_executor import NewExecutor
 from .enums import (
-    ControllerState, SubtaskStatus, 
+    ControllerState, TaskStatus, SubtaskStatus, 
     GateDecision, GateTrigger
 )
 from gui_agents.agents.Action import Screenshot
@@ -466,6 +466,7 @@ class NewController:
                 # 有subtask，设置第一个为当前subtask
                 first_subtask_id = pending_subtask_ids[0]
                 self.global_state.advance_to_next_subtask()
+                self.global_state.update_task_status(TaskStatus.PENDING)
                 self.global_state.update_controller_state(ControllerState.GET_ACTION)
                 logger.info(f"Set current subtask: {first_subtask_id}")
                 self.switch_to_state(ControllerState.GET_ACTION, "subtask_ready", f"First subtask {first_subtask_id} ready")

@@ -435,3 +435,53 @@ class Grounding(ACI):
         # self.global_state.set_running_state("stopped")
         actionDict = {"type": "UserTakeover", "message": message}
         return actionDict
+
+    @agent_action
+    def set_cell_values(
+        self,
+        cell_values: Dict[str, Any],
+        app_name: str,
+        sheet_name: str,
+    ):
+        if str(self.platform).lower() == "windows":
+            raise RuntimeError(
+                "set_cell_values is not supported on Windows in agents3")
+        actionDict = {
+            "type": "SetCellValues",
+            "cell_values": cell_values,
+            "app_name": app_name,
+            "sheet_name": sheet_name,
+        }
+        self._record_passive_memory(
+            "SetCellValues",
+            f"Set values in app '{app_name}', sheet '{sheet_name}', cells: {list(cell_values.keys())}",
+        )
+        return actionDict
+
+    @agent_action
+    def switch_applications(self, app_code: str):
+        actionDict = {
+            "type": "SwitchApplications",
+            "app_code": app_code,
+        }
+        self._record_passive_memory(
+            "SwitchApplications",
+            f"Switch to application '{app_code}' on platform '{self.platform}'",
+        )
+        return actionDict
+
+    @agent_action
+    def switch_app(self, app_code: str):
+        return self.switch_applications(app_code)
+
+    @agent_action
+    def open(self, app_or_filename: str):
+        actionDict = {
+            "type": "Open",
+            "app_or_filename": app_or_filename,
+        }
+        self._record_passive_memory(
+            "Open",
+            f"Open app or file '{app_or_filename}' on platform '{self.platform}'",
+        )
+        return actionDict

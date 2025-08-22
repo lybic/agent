@@ -46,9 +46,13 @@ __all__ = [
     "Failed",
     "Screenshot",
     "Memorize",
+    "SetCellValues",
+    "SwitchApplications",
+    "Open",
 ]
 
 T_Action = TypeVar("T_Action", bound="Action")
+
 
 # ---------------------------------------------------------------------------
 #  Action base‑class with helper registry
@@ -79,12 +83,15 @@ class Action(ABC):
         return data
 
     @classmethod
-    def from_dict(cls: Type[T_Action], data: Dict[str, Any]) -> T_Action:  # noqa: N802 (cls)
+    def from_dict(cls: Type[T_Action],
+                  data: Dict[str, Any]) -> T_Action:  # noqa: N802 (cls)
         if "type" not in data:
             raise ValueError("Missing 'type' key in action dict")
         typ = data["type"]
         if typ not in cls._registry:
-            raise ValueError(f"Unknown action type '{typ}' (registry size={len(cls._registry)})")
+            raise ValueError(
+                f"Unknown action type '{typ}' (registry size={len(cls._registry)})"
+            )
         target_cls = cls._registry[typ]
 
         # Convert strings back to Enum instances where needed
@@ -98,6 +105,7 @@ class Action(ABC):
 # ---------------------------------------------------------------------------
 #  Helper functions for Enum <-> str
 # ---------------------------------------------------------------------------
+
 
 def _enum_to_name(val: Any) -> Any:
     if isinstance(val, Enum):
@@ -114,7 +122,8 @@ def _name_to_enum(expected_type: Any, raw: Any) -> Any:
     origin = getattr(expected_type, "__origin__", None)
     if origin is list:
         sub_type = expected_type.__args__[0]
-        return [_name_to_enum(sub_type, r) for r in raw] if isinstance(raw, list) else raw
+        return [_name_to_enum(sub_type, r) for r in raw] if isinstance(
+            raw, list) else raw
 
     if isinstance(expected_type, type) and issubclass(expected_type, Enum):
         return expected_type[raw] if isinstance(raw, str) else raw
@@ -142,6 +151,7 @@ class DoubleClick(Action):
     button: int = 0
     holdKey: List[str] = field(default_factory=list)
 
+
 @dataclass(slots=True)
 class Move(Action):
     x: int
@@ -158,7 +168,6 @@ class Scroll(Action):
     stepVertical: int | None = None
     stepHorizontal: int | None = None
     holdKey: List[str] = field(default_factory=list)
-
 
 
 # TODO Drag是否需要区分左中右键
@@ -207,3 +216,21 @@ class Memorize(Action):
 @dataclass(slots=True)
 class Screenshot(Action):
     pass
+
+
+# New actions integrated from Agent-S s2.5 grounding
+@dataclass(slots=True)
+class SetCellValues(Action):
+    cell_values: Dict[str, Any]
+    app_name: str
+    sheet_name: str
+
+
+@dataclass(slots=True)
+class SwitchApplications(Action):
+    app_code: str
+
+
+@dataclass(slots=True)
+class Open(Action):
+    app_or_filename: str

@@ -530,7 +530,7 @@ class NewManager:
             "task_status": task.status or "",
             "all_subtasks": subtasks,
             "current_subtask_id": task.current_subtask_id,
-            "completed_subtask_ids": task.completed_subtask_ids or [],
+            "history_subtask_ids": task.history_subtask_ids or [],
             "pending_subtask_ids": task.pending_subtask_ids or [],
             "screenshot": screenshot,
             "platform": self.platform,

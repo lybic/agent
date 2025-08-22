@@ -161,20 +161,8 @@ def run_agent3(controller: NewController, instruction: str, max_steps: int = 50)
     try:
         # Set the user query in the controller
         controller.user_query = instruction
+        controller.execute_main_loop()
         
-        for step in range(max_steps):
-            logger.info(f"=== Step {step + 1}/{max_steps} ===")
-            
-            # Execute one step
-            controller.execute_single_step(steps=1)
-            
-            # Check if we should continue based on controller state
-            if controller.current_state == ControllerState.DONE:
-                logger.info("Task completed successfully!")
-                break
-            
-            # Small delay between steps
-            time.sleep(0.5)
         
     except Exception as e:
         logger.error(f"Error during agents3 execution: {e}")

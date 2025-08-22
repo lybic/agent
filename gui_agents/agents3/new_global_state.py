@@ -337,10 +337,10 @@ This file tracks supplementary information and materials needed for the task.
         task = self.get_task()
         task.pending_subtask_ids = [sid for sid in task.pending_subtask_ids if sid not in subtask_ids]
         # Defensive: also remove from completed list if present
-        task.history_subtask_ids = [sid for sid in task.history_subtask_ids if sid not in subtask_ids]
+        # task.history_subtask_ids = [sid for sid in task.history_subtask_ids if sid not in subtask_ids]
         # Clear current pointer if it was deleted
-        if task.current_subtask_id in subtask_ids:
-            task.current_subtask_id = None
+        # if task.current_subtask_id in subtask_ids:
+            # task.current_subtask_id = None
         self.set_task(task)
     
     def update_subtask_status(self, subtask_id: str, status: SubtaskStatus, reason: Optional[str] = None) -> None:

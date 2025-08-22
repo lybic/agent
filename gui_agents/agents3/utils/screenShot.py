@@ -1,7 +1,7 @@
 from PIL import Image
 
-from gui_agents.agents.hardware_interface import HardwareInterface
-from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
+from gui_agents.agents3.hardware_interface import HardwareInterface
+from gui_agents.agents3.Backend.PyAutoGUIBackend import PyAutoGUIBackend
 import pyautogui
 
 

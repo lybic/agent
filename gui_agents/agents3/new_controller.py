@@ -14,8 +14,8 @@ from enum import Enum
 import platform
 
 from gui_agents.agents3.data_models import SubtaskData
-from gui_agents.agents.hardware_interface import HardwareInterface
 from desktop_env.desktop_env import DesktopEnv
+from gui_agents.agents3.hardware_interface import HardwareInterface
 from PIL import Image
 
 from gui_agents.agents3.utils.screenShot import scale_screenshot_dimensions
@@ -28,9 +28,9 @@ from .evaluator import Evaluator
 from .new_executor import NewExecutor
 from .enums import (
     ControllerState, TaskStatus, SubtaskStatus, 
-    GateDecision, GateTrigger
+    GateDecision, GateTrigger, WorkerDecision
 )
-from gui_agents.agents.Action import Screenshot
+from gui_agents.agents3.Action import Screenshot
 
 
 # 设置日志
@@ -331,7 +331,7 @@ class NewController:
             current_subtask_id = self.global_state.get_task().current_subtask_id
             if not current_subtask_id:
                 logger.warning("No current subtask ID, switching to INIT")
-                self.switch_to_state(ControllerState.INIT)
+                self.switch_to_state(ControllerState.INIT, "subtask_not_found", f"No current subtask ID in GET_ACTION state")
                 return
             
             # 调用Worker进行GET_ACTION
@@ -341,27 +341,54 @@ class NewController:
             subtask = self.global_state.get_subtask(current_subtask_id)
             if not subtask:
                 logger.warning(f"Subtask {current_subtask_id} not found, switching to INIT")
-                self.switch_to_state(ControllerState.INIT)
+                self.switch_to_state(ControllerState.INIT, "subtask_not_found", f"Subtask {current_subtask_id} not found in GET_ACTION state")
                 return
             
-            # 根据subtask状态决定下一步
-            subtask_status = subtask.status
-            logger.info(f"Subtask {current_subtask_id} status: {subtask_status}")
-            
-            if subtask_status == SubtaskStatus.READY.value:
-                # 准备执行，切换到ET_ACTION
-                self.global_state.update_controller_state(ControllerState.EXECUTE_ACTION)
-                logger.info(f"Subtask {current_subtask_id} ready for execution")
-                self.switch_to_state(ControllerState.EXECUTE_ACTION, "subtask_ready", f"Subtask {current_subtask_id} ready for execution")
-            elif subtask_status == SubtaskStatus.PENDING.value:
-                # 等待中，可能需要补充资料
-                self.global_state.update_controller_state(ControllerState.SUPPLEMENT)
-                logger.info(f"Subtask {current_subtask_id} needs supplement")
-                self.switch_to_state(ControllerState.SUPPLEMENT, "subtask_pending", f"Subtask {current_subtask_id} needs supplement")
+            #worker生成command
+            #这块也可以拿到worker的outcome给command的worker_decision
+            # 方案一拿到outcome作为worker_decision
+            # 方案二设置outcome作为command的worker_decision
+            # 方案三worker内部处理worker_decision
+
+            # 获取当前命令的worker_decision
+            worker_decision = self.global_state.get_subtask_worker_decision(current_subtask_id)
+
+            if worker_decision:
+                logger.info(f"Subtask {current_subtask_id} has worker_decision: {worker_decision}")
+                
+                # 根据worker_decision切换状态
+                if worker_decision == WorkerDecision.WORKER_DONE.value:
+                    # 操作成功，进入质检阶段
+                    logger.info(f"Worker decision is WORKER_DONE, switching to QUALITY_CHECK")
+                    self.switch_to_state(ControllerState.QUALITY_CHECK, "worker_success", f"Worker decision success for subtask {current_subtask_id}")
+                    return
+                elif worker_decision == WorkerDecision.CANNOT_EXECUTE.value:
+                    # 无法执行，需要重规划
+                    logger.info(f"Worker decision is CANNOT_EXECUTE, switching to PLAN")
+                    self.switch_to_state(ControllerState.PLAN, "worker_cannot_execute", f"Worker cannot execute subtask {current_subtask_id}")
+                    return
+                elif worker_decision == WorkerDecision.STALE_PROGRESS.value:
+                    # 进展停滞，进入质检阶段
+                    logger.info(f"Worker decision is STALE_PROGRESS, switching to QUALITY_CHECK")
+                    self.switch_to_state(ControllerState.QUALITY_CHECK, "worker_stale_progress", f"Worker progress stale for subtask {current_subtask_id}")
+                    return
+                elif worker_decision == WorkerDecision.SUPPLEMENT.value:
+                    # 需要补充资料
+                    logger.info(f"Worker decision is SUPPLEMENT, switching to SUPPLEMENT")
+                    self.switch_to_state(ControllerState.SUPPLEMENT, "worker_supplement", f"Worker needs supplement for subtask {current_subtask_id}")
+                    return
+                elif worker_decision == WorkerDecision.GENERATE_ACTION.value:
+                    # 生成了新动作，执行动作
+                    logger.info(f"Worker decision is GENERATE_ACTION, switching to EXECUTE_ACTION")
+                    self.switch_to_state(ControllerState.EXECUTE_ACTION, "worker_generate_action", f"Worker generated action for subtask {current_subtask_id}")
+                    return
             else:
-                # 其他状态，继续等待或重规划
-                logger.info(f"Subtask {current_subtask_id} in unexpected status, switching to PLAN")
-                self.switch_to_state(ControllerState.PLAN, "unexpected_status", f"Subtask {current_subtask_id} in unexpected status: {subtask_status}")
+                # 错误处理
+                logger.info(f"Subtask {current_subtask_id} has no worker_decision, switching to PLAN")
+                self.switch_to_state(ControllerState.PLAN, "no_worker_decision", f"Subtask {current_subtask_id} has no worker_decision in GET_ACTION state")
+                return
+            
+            # 如果没有worker_decision或worker_decision不匹配已知类型，根据subtask状态决定下一步，暂时不开发
                 
         except Exception as e:
             logger.error(f"Error in GET_ACTION state: {e}")

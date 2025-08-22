@@ -9,10 +9,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from .enums import (
-    TaskStatus, SubtaskStatus, GateDecision, GateTrigger, 
-    ControllerState, ExecStatus
+    TaskStatus, SubtaskStatus, GateDecision, GateTrigger,
+    ControllerState, ExecStatus, WorkerDecision
 )
-
 
 # ========= Controller State Data Model =========
 @dataclass
@@ -165,6 +164,7 @@ class CommandData:
     pre_screenshot_id: Optional[str] = None
     pre_screenshot_analysis: str = ""
     post_screenshot_id: Optional[str] = None
+    worker_decision: str = field(default_factory=lambda: WorkerDecision.GENERATE_ACTION.value)
     exec_status: str = field(default_factory=lambda: ExecStatus.EXECUTED.value)
     exec_message: str = "OK"
     exec_latency_ms: int = 0
@@ -181,6 +181,7 @@ class CommandData:
             "pre_screenshot_id": self.pre_screenshot_id,
             "pre_screenshot_analysis": self.pre_screenshot_analysis,
             "post_screenshot_id": self.post_screenshot_id,
+            "worker_decision": self.worker_decision,
             "exec_status": self.exec_status,
             "exec_message": self.exec_message,
             "exec_latency_ms": self.exec_latency_ms,
@@ -199,6 +200,7 @@ class CommandData:
             pre_screenshot_id=data.get("pre_screenshot_id"),
             pre_screenshot_analysis=data.get("pre_screenshot_analysis", ""),
             post_screenshot_id=data.get("post_screenshot_id"),
+            worker_decision=data.get("worker_decision", WorkerDecision.GENERATE_ACTION.value),
             exec_status=data.get("exec_status", ExecStatus.EXECUTED.value),
             exec_message=data.get("exec_message", "OK"),
             exec_latency_ms=data.get("exec_latency_ms", 0),

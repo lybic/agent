@@ -16,7 +16,7 @@ from datetime import datetime
 import os
 
 from .new_global_state import NewGlobalState
-from .enums import GateDecision, GateTrigger
+from .enums import GateDecision, GateTrigger, WorkerDecision, WorkerDecision
 from gui_agents.tools.new_tools import NewTools
 from gui_agents.prompts import get_prompt
 
@@ -202,12 +202,13 @@ class Evaluator:
             return "FINAL_CHECK"
 
         if current_subtask_id:
-            subtask = self.global_state.get_subtask(current_subtask_id)
-            if subtask:
-                status = subtask.status
-                if status == "fulfilled":
+            # Get the latest command for current subtask to check worker_decision
+            latest_command = self.global_state.get_current_command_for_subtask(current_subtask_id)
+            if latest_command and latest_command.worker_decision:
+                worker_decision = latest_command.worker_decision
+                if worker_decision == WorkerDecision.WORKER_DONE.value:
                     return "WORKER_SUCCESS"
-                if status == "stale":
+                if worker_decision == WorkerDecision.STALE_PROGRESS.value:
                     return "WORKER_STALE"
 
         return "PERIODIC_CHECK"

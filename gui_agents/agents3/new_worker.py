@@ -853,52 +853,136 @@ class NewWorker:
                 res = self.operator.generate_next_action(subtask=subtask.to_dict())  # type: ignore
                 outcome = (res.get("outcome") or "").strip()
                 action = res.get("action")
-                cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
+                action_plan = res.get("action_plan", "")
+                
+                # Create command with complete information
+                cmd = create_command_data(
+                    command_id="", 
+                    task_id=self._global_state.task_id, 
+                    action=action or {}, 
+                    subtask_id=subtask_id,
+                    assignee_role=subtask.assignee_role or "operator"
+                )
                 command_id = self._global_state.add_command(cmd)
+                
+                pre_screenshot_analysis = ""
+                pre_screenshot_id = self._global_state.get_screenshot_id()
+                # Generate screenshot analysis using analyst role
+                # analysis_res = self.analyst.analyze_task(
+                #     subtask=subtask.to_dict(), 
+                #     analysis_type="screen_content"
+                # )
+                # pre_screenshot_analysis = analysis_res.get("analysis", "")
 
+                # Update command with all fields
+                self._global_state.update_command_fields(
+                    command_id,
+                    assignee_role=subtask.assignee_role or "operator",
+                    action=action or {},
+                    pre_screenshot_id=pre_screenshot_id,
+                    pre_screenshot_analysis=pre_screenshot_analysis
+                )
+
+                # Update worker decision based on outcome
                 if outcome == WorkerDecision.GENERATE_ACTION.value and action:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.GENERATE_ACTION.value)
-                if outcome == WorkerDecision.WORKER_DONE.value:
+                elif outcome == WorkerDecision.WORKER_DONE.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
-                if outcome == WorkerDecision.SUPPLEMENT.value:
+                elif outcome == WorkerDecision.SUPPLEMENT.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.SUPPLEMENT.value)
-                if outcome == WorkerDecision.CANNOT_EXECUTE.value:
+                elif outcome == WorkerDecision.CANNOT_EXECUTE.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
-                if outcome == WorkerDecision.STALE_PROGRESS.value:
+                elif outcome == WorkerDecision.STALE_PROGRESS.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
 
             if role == "technician":
                 res = self.technician.execute_task(subtask=subtask.to_dict())  # type: ignore
                 outcome = (res.get("outcome") or "").strip()
                 action = res.get("action")
-                # record a command entry even for technician for traceability
-                cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
+                command_plan = res.get("command_plan", "")
+                
+                # Create command with complete information
+                cmd = create_command_data(
+                    command_id="", 
+                    task_id=self._global_state.task_id, 
+                    action=action or {}, 
+                    subtask_id=subtask_id,
+                    assignee_role=subtask.assignee_role or "technician"
+                )
                 command_id = self._global_state.add_command(cmd)
+                
+                pre_screenshot_analysis = ""
+                # Add screenshot and get ID
+                pre_screenshot_id = self._global_state.get_screenshot_id()
+                # Generate screenshot analysis using analyst role
+                # analysis_res = self.analyst.analyze_task(
+                #     subtask=subtask.to_dict(), 
+                #     analysis_type="screen_content"
+                # )
+                # pre_screenshot_analysis = analysis_res.get("analysis", "")
 
+                # Update command with all fields
+                self._global_state.update_command_fields(
+                    command_id,
+                    assignee_role=subtask.assignee_role or "technician",
+                    action=action or {},
+                    pre_screenshot_id=pre_screenshot_id,
+                    pre_screenshot_analysis=pre_screenshot_analysis
+                )
+
+                # Update worker decision based on outcome
                 if outcome == WorkerDecision.GENERATE_ACTION.value and action:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.GENERATE_ACTION.value)
-                if outcome == WorkerDecision.WORKER_DONE.value:
+                elif outcome == WorkerDecision.WORKER_DONE.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
-                if outcome == WorkerDecision.STALE_PROGRESS.value:
+                elif outcome == WorkerDecision.STALE_PROGRESS.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
-                if outcome == WorkerDecision.SUPPLEMENT.value:
+                elif outcome == WorkerDecision.SUPPLEMENT.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.SUPPLEMENT.value)
-                if outcome == WorkerDecision.CANNOT_EXECUTE.value:
+                elif outcome == WorkerDecision.CANNOT_EXECUTE.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
 
             if role == "analyst":
                 res = self.analyst.analyze_task(subtask=subtask.to_dict(), analysis_type="general")  # type: ignore
                 outcome = (res.get("outcome") or "").strip()
-                cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
+                analysis = res.get("analysis", "")
+                recommendations = res.get("recommendations", [])
+                extracted_data = res.get("extracted_data", {})
+                
+                # Create command with complete information
+                cmd = create_command_data(
+                    command_id="", 
+                    task_id=self._global_state.task_id, 
+                    action={"analysis": analysis, "recommendations": recommendations, "extracted_data": extracted_data}, 
+                    subtask_id=subtask_id,
+                    assignee_role=subtask.assignee_role or "analyst"
+                )
                 command_id = self._global_state.add_command(cmd)
+                
+                pre_screenshot_analysis = ""
+                # Add screenshot and get ID
+                pre_screenshot_id = self._global_state.get_screenshot_id()
+                # Use the analysis result as pre_screenshot_analysis
+                # pre_screenshot_analysis = analysis
+
+                # Update command with all fields
+                self._global_state.update_command_fields(
+                    command_id,
+                    assignee_role=subtask.assignee_role or "analyst",
+                    action={"analysis": analysis, "recommendations": recommendations, "extracted_data": extracted_data},
+                    pre_screenshot_id=pre_screenshot_id,
+                    pre_screenshot_analysis=pre_screenshot_analysis
+                )
+                
                 if outcome == "analysis_complete":
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
                     return WorkerDecision.STALE_PROGRESS.value
-                if outcome == "STALE_PROGRESS":
+                elif outcome == "STALE_PROGRESS":
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
                     return WorkerDecision.STALE_PROGRESS.value
-                self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
-                return WorkerDecision.CANNOT_EXECUTE.value
+                else:
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
+                    return WorkerDecision.CANNOT_EXECUTE.value
 
             logging.info(f"Worker: unknown assignee_role '{role}' for subtask {subtask_id}")
             return WorkerDecision.CANNOT_EXECUTE.value

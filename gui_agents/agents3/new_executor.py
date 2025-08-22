@@ -37,7 +37,7 @@ class NewExecutor:
     
     def execute_current_action(self, subtask_id: str) -> Dict[str, Any]:
         """
-        执行指定subtask的动作
+        执行指定subtask的动作，根据assignee_role选择不同的执行方式
         
         Args:
             subtask_id: 要执行的subtask ID
@@ -61,8 +61,62 @@ class NewExecutor:
                 logger.warning(error_msg)
                 return self._create_execution_result(False, error_msg)
             
-            # 执行动作
-            return self._execute_action(subtask_id, command.action)
+            # 获取当前subtask的assignee_role
+            subtask = self.global_state.get_subtask(subtask_id)
+            if not subtask:
+                return self._create_execution_result(False, "Subtask not found")
+            
+            assignee_role = getattr(subtask, "assignee_role", "operator")  # 默认为operator
+            
+            # 根据assignee_role选择不同的执行方式
+            if assignee_role == "operator":
+                # operator执行硬件动作
+                logger.info(f"Operator role detected, executing hardware action for subtask {subtask_id}")
+                return self._execute_action(subtask_id, command.action)
+                
+            elif assignee_role == "technician":
+                # technician提取代码块
+                logger.info(f"Technician role detected, extracting code blocks for subtask {subtask_id}")
+                if isinstance(command.action, str):
+                    code_blocks = self._extract_code_blocks(command.action)
+                    if code_blocks:
+                        return self._create_execution_result(
+                            success=True,
+                            action={"type": "code_blocks_extracted", "code_blocks": code_blocks}
+                        )
+                    else:
+                        return self._create_execution_result(False, "No code blocks found in action")
+                else:
+                    return self._create_execution_result(False, "Action is not a string for code extraction")
+                    
+            elif assignee_role == "analyst":
+                # analyst写入到globalstate的artifacts
+                logger.info(f"Analyst role detected, storing artifact for subtask {subtask_id}")
+                try:
+                    artifact_data = {
+                        "subtask_id": subtask_id,
+                        "action": command.action,
+                        "timestamp": time.time(),
+                        "type": "action_artifact"
+                    }
+                    
+                    # 添加到artifacts
+                    self.global_state.add_artifact(subtask_id, artifact_data)
+                    
+                    return self._create_execution_result(
+                        success=True,
+                        action={"type": "artifact_stored", "artifact": artifact_data}
+                    )
+                    
+                except Exception as e:
+                    error_msg = f"Failed to store artifact: {str(e)}"
+                    logger.error(error_msg)
+                    return self._create_execution_result(False, error_msg)
+                    
+            else:
+                # 未知角色，默认执行硬件动作
+                logger.warning(f"Unknown assignee_role '{assignee_role}', falling back to hardware execution")
+                return self._execute_action(subtask_id, command.action)
             
         except Exception as e:
             error_msg = f"Exception in execute_current_action: {str(e)}"
@@ -143,6 +197,71 @@ class NewExecutor:
         except Exception as e:
             execution_time = time.time() - execution_start
             error_msg = f"Code execution failed: {str(e)}"
+            logger.error(error_msg)
+            return self._create_execution_result(False, error_msg, execution_time)
+
+    def execute_code_blocks(self, code_blocks: List[Tuple[str, str]]) -> Dict[str, Any]:
+        """
+        执行代码块列表
+        
+        Args:
+            code_blocks: 代码块列表，每个元素为 (语言, 代码) 的元组
+            
+        Returns:
+            执行结果字典
+        """
+        if not self.env_controller:
+            error_msg = "No environment controller available for code execution"
+            logger.warning(error_msg)
+            return self._create_execution_result(False, error_msg)
+        
+        execution_start = time.time()
+        
+        try:
+            results = []
+            for lang, code in code_blocks:
+                try:
+                    if lang in ["bash", "shell", "sh"]:
+                        output_dict = self.env_controller.run_bash_script(code)
+                        status = (output_dict or {}).get("status")
+                        if status == "success":
+                            results.append(f"[BASH] Success: {(output_dict or {}).get('output', '')}")
+                        else:
+                            out = (output_dict or {}).get('output', '')
+                            err = (output_dict or {}).get('error', '')
+                            msg = out if out else err
+                            results.append(f"[BASH] Error: {msg}")
+                    elif lang in ["python", "py"]:
+                        output_dict = self.env_controller.run_python_script(code)
+                        status = (output_dict or {}).get("status")
+                        if status == "error":
+                            out = (output_dict or {}).get('output', '')
+                            err = (output_dict or {}).get('error', '')
+                            msg = out if out else err
+                            results.append(f"[PYTHON] Error: {msg}")
+                        else:
+                            results.append(f"[PYTHON] Success: {(output_dict or {}).get('message', '')}")
+                    else:
+                        results.append(f"[{lang.upper()}] Unsupported language")
+                except Exception as e:
+                    results.append(f"[{lang.upper()}] Execution error: {str(e)}")
+            
+            execution_time = time.time() - execution_start
+            execution_result = "\n".join(results)
+            
+            # 记录执行结果
+            self.global_state.add_event("executor", "code_blocks_execution_completed", 
+                f"Code blocks execution completed in {execution_time:.2f}s")
+            
+            return self._create_execution_result(
+                success=True,
+                execution_time=execution_time,
+                action={"type": "code_blocks_execution", "result": execution_result}
+            )
+            
+        except Exception as e:
+            execution_time = time.time() - execution_start
+            error_msg = f"Code blocks execution failed: {str(e)}"
             logger.error(error_msg)
             return self._create_execution_result(False, error_msg, execution_time)
 

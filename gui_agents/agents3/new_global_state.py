@@ -199,6 +199,15 @@ This file tracks supplementary information and materials needed for the task.
         logger.debug("Screenshot saved to %s", out)
         return screenshot_id
 
+    def get_screenshot_id(self) -> Optional[str]:
+        """Return the latest screenshot's ID (file stem) or None if none exist"""
+        pngs = sorted(self.screenshot_dir.glob("*.png"))
+        if not pngs:
+            logger.warning("No screenshot found in %s", self.screenshot_dir)
+            return None
+        latest = pngs[-1]
+        return latest.stem
+
     def get_screen_size(self) -> List[int]:
         """Get current screen size from latest screenshot"""
         pngs = sorted(self.screenshot_dir.glob("*.png"))
@@ -501,6 +510,19 @@ This file tracks supplementary information and materials needed for the task.
         for command in commands:
             if command.command_id == command_id:
                 command.worker_decision = worker_decision
+                break
+        
+        safe_write_json(self.commands_path, [command.to_dict() for command in commands])
+
+    def update_command_fields(self, command_id: str, **kwargs) -> None:
+        """Update multiple command fields at once"""
+        commands = self.get_commands()
+        for command in commands:
+            if command.command_id == command_id:
+                for field, value in kwargs.items():
+                    if hasattr(command, field):
+                        setattr(command, field, value)
+                command.updated_at = datetime.now().isoformat()
                 break
         
         safe_write_json(self.commands_path, [command.to_dict() for command in commands])

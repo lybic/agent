@@ -160,6 +160,7 @@ class CommandData:
     command_id: str
     task_id: str
     subtask_id: Optional[str] = None
+    assignee_role: str = "operator"
     action: Dict[str, Any] = field(default_factory=dict)
     pre_screenshot_id: Optional[str] = None
     pre_screenshot_analysis: str = ""
@@ -169,6 +170,7 @@ class CommandData:
     exec_message: str = "OK"
     exec_latency_ms: int = 0
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
     executed_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
@@ -177,6 +179,7 @@ class CommandData:
             "command_id": self.command_id,
             "task_id": self.task_id,
             "subtask_id": self.subtask_id,
+            "assignee_role": self.assignee_role,
             "action": self.action,
             "pre_screenshot_id": self.pre_screenshot_id,
             "pre_screenshot_analysis": self.pre_screenshot_analysis,
@@ -186,6 +189,7 @@ class CommandData:
             "exec_message": self.exec_message,
             "exec_latency_ms": self.exec_latency_ms,
             "created_at": self.created_at,
+            "updated_at": self.updated_at,
             "executed_at": self.executed_at
         }
 
@@ -196,6 +200,7 @@ class CommandData:
             command_id=data["command_id"],
             task_id=data["task_id"],
             subtask_id=data.get("subtask_id"),
+            assignee_role=data.get("assignee_role", "operator"),
             action=data.get("action", {}),
             pre_screenshot_id=data.get("pre_screenshot_id"),
             pre_screenshot_analysis=data.get("pre_screenshot_analysis", ""),
@@ -205,6 +210,7 @@ class CommandData:
             exec_message=data.get("exec_message", "OK"),
             exec_latency_ms=data.get("exec_latency_ms", 0),
             created_at=data.get("created_at", datetime.now().isoformat()),
+            updated_at=data.get("updated_at", datetime.now().isoformat()),
             executed_at=data.get("executed_at", datetime.now().isoformat())
         )
 
@@ -271,12 +277,13 @@ def create_subtask_data(subtask_id: str, task_id: str, title: str, description: 
 
 
 def create_command_data(command_id: str, task_id: str, action: Dict[str, Any], 
-                       subtask_id: Optional[str] = None) -> CommandData:
+                       subtask_id: Optional[str] = None, assignee_role: str = "") -> CommandData:
     """创建新的命令数据"""
     return CommandData(
         command_id=command_id,
         task_id=task_id,
         subtask_id=subtask_id,
+        assignee_role=assignee_role,
         action=action,
         exec_status=ExecStatus.EXECUTED.value
     )

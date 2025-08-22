@@ -468,17 +468,6 @@ class NewController:
                 self.switch_to_state(ControllerState.INIT)
                 return
 
-            # 触发 Evaluator 进行质检（对当前子任务仅触发一次）
-            if self._last_evaluated_subtask_id != current_subtask_id:
-                try:
-                    self.evaluator.quality_check()
-                    self._last_evaluated_subtask_id = current_subtask_id
-                    logger.info(
-                        f"Triggered evaluator for subtask {current_subtask_id}")
-                except Exception as e:
-                    logger.error(f"Evaluator execution failed: {e}")
-                    self.global_state.add_event("evaluator", "error", str(e))
-
             # 等待Evaluator完成质检
             self.evaluator.quality_check()
 

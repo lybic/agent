@@ -13,7 +13,7 @@ class ControllerState(str, Enum):
     QUALITY_CHECK = "QUALITY_CHECK"  # 质检门检查
     PLAN = "PLAN"                    # 重规划阶段
     SUPPLEMENT = "SUPPLEMENT"        # 资料补全阶段
-    DONE = "DONE"                    # 任务终结
+    DONE = "DONE"                    # 任务终结，还没想好怎么处理done状态
 
 
 class SubtaskStatus(str, Enum):

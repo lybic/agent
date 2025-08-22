@@ -128,7 +128,7 @@ class NewController:
         logger.info(f"Hardware interface initialized with backend: {backend}")
 
         # 初始化执行器
-        self.executor = NewExecutor(self.global_state, self.hwi)
+        self.executor = NewExecutor(self.global_state, self.hwi, self.env)
         logger.info("Executor initialized")
 
         self._last_evaluated_subtask_id: Optional[str] = None
@@ -279,6 +279,7 @@ class NewController:
             logger.error(f"Error assessing state transition: {e}")
             return ControllerState.INIT
 
+    # 不清楚作用，先保留
     def _handle_subtask_completion(self) -> ControllerState:
         """处理subtask完成后的逻辑"""
         try:
@@ -294,6 +295,8 @@ class NewController:
             else:
                 # 所有subtask完成，进入终结阶段
                 logger.info("All subtasks completed")
+                # 更新任务状态为完成
+                self.global_state.update_task_status(TaskStatus.FULFILLED)
                 return ControllerState.DONE
 
         except Exception as e:
@@ -313,6 +316,8 @@ class NewController:
                 # 有subtask，设置第一个为当前subtask
                 first_subtask_id = pending_subtask_ids[0]
                 self.global_state.advance_to_next_subtask()
+                # 更新任务状态为进行中
+                self.global_state.update_task_status(TaskStatus.PENDING)
                 self.global_state.update_controller_state(
                     ControllerState.GET_ACTION)
                 logger.info(f"Set current subtask: {first_subtask_id}")
@@ -370,11 +375,19 @@ class NewController:
                 if worker_decision == WorkerDecision.WORKER_DONE.value:
                     # 操作成功，进入质检阶段
                     logger.info(f"Worker decision is WORKER_DONE, switching to QUALITY_CHECK")
+                    # 更新subtask状态为进行中
+                    self.global_state.update_subtask_status(
+                        current_subtask_id, SubtaskStatus.PENDING,
+                        "Worker completed action, waiting for quality check")
                     self.switch_to_state(ControllerState.QUALITY_CHECK, "worker_success", f"Worker decision success for subtask {current_subtask_id}")
                     return
                 elif worker_decision == WorkerDecision.CANNOT_EXECUTE.value:
                     # 无法执行，需要重规划
                     logger.info(f"Worker decision is CANNOT_EXECUTE, switching to PLAN")
+                    # 更新subtask状态为失败
+                    self.global_state.update_subtask_status(
+                        current_subtask_id, SubtaskStatus.REJECTED,
+                        "Worker cannot execute this subtask")
                     self.switch_to_state(ControllerState.PLAN, "worker_cannot_execute", f"Worker cannot execute subtask {current_subtask_id}")
                     return
                 elif worker_decision == WorkerDecision.STALE_PROGRESS.value:
@@ -505,6 +518,18 @@ class NewController:
                     logger.info(
                         f"Quality check passed for subtask {current_subtask_id}"
                     )
+                    
+                    # 检查任务是否完成
+                    task = self.global_state.get_task()
+                    if not task.pending_subtask_ids:
+                        # 所有subtask完成，更新任务状态为完成
+                        # final_check先不开发
+                        self.global_state.update_task_status(TaskStatus.FULFILLED)
+                        logger.info("All subtasks completed, task finished")
+                        self.switch_to_state(ControllerState.DONE, "task_completed", "All subtasks completed")
+                        return
+                    
+                    # 还有待处理的subtask，推进到下一个
                     self.global_state.advance_to_next_subtask()
                     self.switch_to_state(
                         ControllerState.GET_ACTION, "quality_check_passed",
@@ -600,6 +625,8 @@ class NewController:
                 # 继续等待或进入终结状态
                 if self._is_state_timeout():
                     logger.error("PLAN state timeout, no subtasks created")
+                    # 规划超时，更新任务状态为失败
+                    self.global_state.update_task_status(TaskStatus.REJECTED)
                     self.switch_to_state(
                         ControllerState.DONE, "planning_timeout",
                         "PLAN state timeout, no subtasks created")

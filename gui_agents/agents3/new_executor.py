@@ -5,7 +5,8 @@ New Executor Implementation
 
 import time
 import logging
-from typing import Dict, Any, Optional
+import re
+from typing import Dict, Any, Optional, List, Tuple
 from gui_agents.agents3.hardware_interface import HardwareInterface
 from .new_global_state import NewGlobalState
 from .enums import SubtaskStatus
@@ -17,16 +18,18 @@ logger = logging.getLogger(__name__)
 class NewExecutor:
     """动作执行器 - 负责获取和执行动作"""
     
-    def __init__(self, global_state: NewGlobalState, hardware_interface: HardwareInterface):
+    def __init__(self, global_state: NewGlobalState, hardware_interface: HardwareInterface, env_controller=None):
         """
         初始化执行器
         
         Args:
             global_state: 全局状态管理器
             hardware_interface: 硬件接口
+            env_controller: 环境控制器，用于执行代码脚本
         """
         self.global_state = global_state
         self.hwi = hardware_interface
+        self.env_controller = env_controller
         self.execution_timeout = 30  # 单次执行超时时间(秒)
         
         logger.info("NewExecutor initialized")
@@ -43,19 +46,6 @@ class NewExecutor:
         """
         try:
             logger.info(f"Starting action execution for subtask: {subtask_id}")
-            
-            # 获取subtask
-            subtask = self.global_state.get_subtask(subtask_id)
-            if not subtask:
-                error_msg = f"Subtask {subtask_id} not found"
-                logger.error(error_msg)
-                return self._create_execution_result(False, error_msg)
-            
-            # 检查subtask状态是否允许执行
-            if subtask.status != SubtaskStatus.READY.value:
-                error_msg = f"Subtask {subtask_id} is not ready for execution (status: {subtask.status})"
-                logger.warning(error_msg)
-                return self._create_execution_result(False, error_msg)
             
             # 获取相关的command
             command = self._get_command_for_subtask(subtask_id)
@@ -77,6 +67,101 @@ class NewExecutor:
             error_msg = f"Exception in execute_current_action: {str(e)}"
             logger.error(error_msg)
             return self._create_execution_result(False, error_msg)
+
+    def execute_code_script(self, script_content: str, script_type: str = "auto") -> Dict[str, Any]:
+        """
+        执行代码脚本（bash或python）
+        
+        Args:
+            script_content: 脚本内容
+            script_type: 脚本类型 ("bash", "python", "auto")
+            
+        Returns:
+            执行结果字典
+        """
+        if not self.env_controller:
+            error_msg = "No environment controller available for code execution"
+            logger.warning(error_msg)
+            return self._create_execution_result(False, error_msg)
+        
+        execution_start = time.time()
+        
+        try:
+            # 自动检测脚本类型
+            if script_type == "auto":
+                script_type = self._detect_script_type(script_content)
+            
+            # 提取代码块
+            code_blocks = self._extract_code_blocks(script_content)
+            if not code_blocks:
+                error_msg = "No code blocks found in script content"
+                logger.warning(error_msg)
+                return self._create_execution_result(False, error_msg)
+            
+            results = []
+            for lang, code in code_blocks:
+                try:
+                    if lang in ["bash", "shell", "sh"]:
+                        output_dict = self.env_controller.run_bash_script(code)
+                        if output_dict.get("status") == "success":
+                            results.append(f"[BASH] Success: {output_dict.get('output', '')}")
+                        else:
+                            results.append(f"[BASH] Error: {output_dict.get('output', '')}")
+                    elif lang in ["python", "py"]:
+                        output_dict = self.env_controller.run_python_script(code)
+                        if output_dict.get("status") == "error":
+                            results.append(f"[PYTHON] Error: {output_dict.get('output', '')}")
+                        else:
+                            results.append(f"[PYTHON] Success: {output_dict.get('message', '')}")
+                    else:
+                        results.append(f"[{lang.upper()}] Unsupported language")
+                except Exception as e:
+                    results.append(f"[{lang.upper()}] Execution error: {str(e)}")
+            
+            execution_time = time.time() - execution_start
+            execution_result = "\n".join(results)
+            
+            # 记录执行结果
+            self.global_state.add_event("executor", "code_execution_completed", 
+                f"Code execution completed in {execution_time:.2f}s")
+            
+            return self._create_execution_result(
+                success=True,
+                execution_time=execution_time,
+                action={"type": "code_execution", "script_type": script_type, "result": execution_result}
+            )
+            
+        except Exception as e:
+            execution_time = time.time() - execution_start
+            error_msg = f"Code execution failed: {str(e)}"
+            logger.error(error_msg)
+            return self._create_execution_result(False, error_msg, execution_time)
+
+    def _detect_script_type(self, content: str) -> str:
+        """自动检测脚本类型"""
+        content_lower = content.lower()
+        if "```bash" in content_lower or "#!/bin/bash" in content_lower:
+            return "bash"
+        elif "```python" in content_lower or "#!/usr/bin/env python" in content_lower:
+            return "python"
+        else:
+            # 默认返回bash
+            return "bash"
+
+    def _extract_code_blocks(self, text: str) -> List[Tuple[str, str]]:
+        """从markdown样式的文本中提取代码块"""
+        # 匹配 ```language\ncode\n``` 的模式
+        pattern = r'```(\w+)\n(.*?)\n```'
+        matches = re.findall(pattern, text, re.DOTALL)
+        
+        code_blocks = []
+        for lang, code in matches:
+            lang = lang.lower()
+            code = code.strip()
+            if code:
+                code_blocks.append((lang, code))
+        
+        return code_blocks
     
     def _get_command_for_subtask(self, subtask_id: str):
         """获取指定subtask的最新command"""
@@ -190,29 +275,6 @@ class NewExecutor:
             
         return result
     
-    def has_pending_action(self, subtask_id: str) -> bool:
-        """
-        检查指定subtask是否有待执行的动作
-        
-        Args:
-            subtask_id: subtask ID
-            
-        Returns:
-            是否有待执行的动作
-        """
-        try:
-            # 获取subtask
-            subtask = self.global_state.get_subtask(subtask_id)
-            if not subtask or subtask.status != SubtaskStatus.READY.value:
-                return False
-            
-            # 检查是否有相关的command且包含action
-            command = self._get_command_for_subtask(subtask_id)
-            return command is not None and command.action is not None
-            
-        except Exception as e:
-            logger.error(f"Error checking pending action for subtask {subtask_id}: {e}")
-            return False
     
     def get_execution_status(self) -> Dict[str, Any]:
         """获取执行器状态信息"""

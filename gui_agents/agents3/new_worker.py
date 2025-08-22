@@ -105,7 +105,8 @@ class Technician:
         - plan: generated code/script
         - execution_result: output from script execution
         - step_result: StepResult as dict
-        - outcome: one of {"success", "CANNOT_EXECUTE", "STALE_PROGRESS"}
+        - outcome: one of {"worker_done", "worker_fail", "worker_supplement", "worker_stale_progress", "worker_generate_action", "worker_fail"}
+        - action: when outcome is worker_generate_action, a list of (lang, code) blocks
         """
         if not self.env_controller:
             msg = "No environment controller available for Technician"
@@ -116,13 +117,14 @@ class Technician:
                 ok=False,
                 error=msg,
                 latency_ms=0,
-                outcome="CANNOT_EXECUTE",
+                outcome=WorkerDecision.CANNOT_EXECUTE.value,
             )
             return {
                 "plan": "",
                 "execution_result": "",
                 "step_result": result.__dict__,
-                "outcome": "CANNOT_EXECUTE",
+                "outcome": WorkerDecision.CANNOT_EXECUTE.value,
+                "action": None,
             }
 
         # Build coding prompt
@@ -142,6 +144,7 @@ class Technician:
         task_prompt.append(f"# Platform: {self.platform}")
         task_prompt.append("\nGenerate the appropriate bash or python code to complete this task.")
         task_prompt.append("Wrap your code in ```bash or ```python code blocks.")
+        task_prompt.append("If the task is already done, or cannot proceed, or needs info/QA, output a Decision section like 'Decision: Done' | 'Decision: Failed' | 'Decision: Supplement' | 'Decision: NeedQualityCheck'. If you provide code, that's treated as generate_action.")
         
         full_prompt = "\n".join(system_message) + "\n" + "\n".join(task_prompt)
 
@@ -171,25 +174,55 @@ class Technician:
                 ok=False,
                 error=err,
                 latency_ms=int((time.time() - t0) * 1000),
-                outcome="CANNOT_EXECUTE",
+                outcome=WorkerDecision.CANNOT_EXECUTE.value,
             )
             return {
                 "plan": "",
                 "execution_result": "",
                 "step_result": result.__dict__,
-                "outcome": "CANNOT_EXECUTE",
+                "outcome": WorkerDecision.CANNOT_EXECUTE.value,
+                "action": None,
             }
 
-        # Extract and execute code
+        # Extract and classify
         try:
-            code_blocks = self._extract_code_blocks(command_plan)
-            ok = True
-            outcome = "success"
-            err = None
+            decision = self._infer_decision_from_text(command_plan)
+            code_blocks: List[Tuple[str, str]] = []
+
+            # Only try to extract code blocks when no explicit decision is detected
+            if decision is None:
+                code_blocks = self._extract_code_blocks(command_plan)
+
+            if decision is None and code_blocks:
+                ok = True
+                outcome = WorkerDecision.GENERATE_ACTION.value
+                err = None
+            elif decision == "done":
+                ok = True
+                outcome = WorkerDecision.WORKER_DONE.value
+                err = None
+            elif decision == "failed":
+                ok = False
+                outcome = WorkerDecision.CANNOT_EXECUTE.value
+                err = None
+            elif decision == "supplement":
+                ok = False
+                outcome = WorkerDecision.SUPPLEMENT.value
+                err = None
+            elif decision == "need_quality_check":
+                ok = True
+                outcome = WorkerDecision.STALE_PROGRESS.value
+                err = None
+            else:
+                # No clear signal; treat as cannot execute
+                ok = False
+                outcome = WorkerDecision.CANNOT_EXECUTE.value
+                err = "No code blocks or valid decision found"
         except Exception as e:
             ok = False
-            outcome = "CANNOT_EXECUTE"
-            err = f"CODE_EXECUTION_FAILED: {e}"
+            outcome = WorkerDecision.CANNOT_EXECUTE.value
+            code_blocks = []
+            err = f"CLASSIFICATION_FAILED: {e}"
             logger.warning(err)
         
         result = StepResult(
@@ -208,11 +241,12 @@ class Technician:
         )
 
         return {
-            "command_plan": code_blocks,
+            "command_plan": command_plan,
+            "action": code_blocks if outcome == WorkerDecision.GENERATE_ACTION.value else None,
             "step_result": result.__dict__,
             "outcome": outcome,
         }
-    
+
     def _extract_code_blocks(self, text: str) -> List[Tuple[str, str]]:
         """Extract code blocks from markdown-style text."""
         import re
@@ -229,6 +263,28 @@ class Technician:
                 code_blocks.append((lang, code))
         
         return code_blocks
+
+    def _infer_decision_from_text(self, text: str) -> Optional[str]:
+        """Infer high-level decision from free-form LLM text.
+        Returns one of: "done", "failed", "supplement", "need_quality_check", or None.
+        """
+        lowered = text.lower()
+        # Prefer explicit Decision: <label>
+        import re
+        m = re.search(r"decision\s*[:\-]\s*(done|failed|supplement|need\s*quality\s*check)", lowered)
+        if m:
+            label = m.group(1)
+            label = label.replace(" ", "_")
+            return label
+        if "need_quality_check" in lowered or "need quality check" in lowered:
+            return "need_quality_check"
+        if "supplement" in lowered:
+            return "supplement"
+        if "failed" in lowered or "cannot execute" in lowered or "can't proceed" in lowered:
+            return "failed"
+        if "done" in lowered or "completed" in lowered or "already finished" in lowered:
+            return "done"
+        return None
 
 # ---------------------------------------------------------------------------
 # Analyst – provides data analysis and recommendations
@@ -797,42 +853,38 @@ class NewWorker:
                 res = self.operator.generate_next_action(subtask=subtask.to_dict())  # type: ignore
                 outcome = (res.get("outcome") or "").strip()
                 action = res.get("action")
+                cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
+                command_id = self._global_state.add_command(cmd)
+
                 if outcome == WorkerDecision.GENERATE_ACTION.value and action:
-                    cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action=action, subtask_id=subtask_id)
-                    command_id = self._global_state.add_command(cmd)
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.GENERATE_ACTION.value)
                 if outcome == WorkerDecision.WORKER_DONE.value:
-                    cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
-                    command_id = self._global_state.add_command(cmd)
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
                 if outcome == WorkerDecision.SUPPLEMENT.value:
-                    cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
-                    command_id = self._global_state.add_command(cmd)
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.SUPPLEMENT.value)
                 if outcome == WorkerDecision.CANNOT_EXECUTE.value:
-                    cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
-                    command_id = self._global_state.add_command(cmd)
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
                 if outcome == WorkerDecision.STALE_PROGRESS.value:
-                    cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
-                    command_id = self._global_state.add_command(cmd)
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
-                return WorkerDecision.CANNOT_EXECUTE.value
 
             if role == "technician":
                 res = self.technician.execute_task(subtask=subtask.to_dict())  # type: ignore
                 outcome = (res.get("outcome") or "").strip()
+                action = res.get("action")
                 # record a command entry even for technician for traceability
                 cmd = create_command_data(command_id="", task_id=self._global_state.task_id, action={}, subtask_id=subtask_id)
                 command_id = self._global_state.add_command(cmd)
-                if outcome == "success":
+
+                if outcome == WorkerDecision.GENERATE_ACTION.value and action:
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.GENERATE_ACTION.value)
+                if outcome == WorkerDecision.WORKER_DONE.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
-                    return WorkerDecision.WORKER_DONE.value
-                if outcome == "STALE_PROGRESS":
+                if outcome == WorkerDecision.STALE_PROGRESS.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
-                    return WorkerDecision.STALE_PROGRESS.value
-                self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
-                return WorkerDecision.CANNOT_EXECUTE.value
+                if outcome == WorkerDecision.SUPPLEMENT.value:
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.SUPPLEMENT.value)
+                if outcome == WorkerDecision.CANNOT_EXECUTE.value:
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
 
             if role == "analyst":
                 res = self.analyst.analyze_task(subtask=subtask.to_dict(), analysis_type="general")  # type: ignore

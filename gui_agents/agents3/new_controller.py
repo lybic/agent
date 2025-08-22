@@ -128,7 +128,7 @@ class NewController:
         logger.info(f"Hardware interface initialized with backend: {backend}")
 
         # 初始化执行器
-        self.executor = NewExecutor(self.global_state, self.hwi)
+        self.executor = NewExecutor(self.global_state, self.hwi, self.env)
         logger.info("Executor initialized")
 
         # 初始化质检器

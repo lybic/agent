@@ -51,6 +51,19 @@ class GateTrigger(str, Enum):
     WORKER_SUCCESS = "worker_success"  # Worker成功
     FINAL_CHECK = "final_check"        # 最终检查
 
+class WorkerDecision(str, Enum):
+    """Worker决策"""
+    WORKER_DONE = "worker_done"           # 子任务完成
+    CANNOT_EXECUTE = "worker_fail"           # 子任务失败
+    SUPPLEMENT = "worker_supplement"  # 需要补充资料
+    STALE_PROGRESS = "worker_stale_progress"   # 需要质检
+    GENERATE_ACTION = "worker_generate_action"  # 生成action
+
+class WorkerTrigger(str, Enum):
+    """Worker触发条件"""
+    MANUAL = "manual"       # 手动触发
+
+
 
 class TaskStatus(str, Enum):
     """任务状态"""

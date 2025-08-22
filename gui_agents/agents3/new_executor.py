@@ -6,7 +6,7 @@ New Executor Implementation
 import time
 import logging
 from typing import Dict, Any, Optional
-from gui_agents.agents.hardware_interface import HardwareInterface
+from gui_agents.agents3.hardware_interface import HardwareInterface
 from .new_global_state import NewGlobalState
 from .enums import SubtaskStatus
 

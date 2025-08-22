@@ -572,22 +572,17 @@ class NewController:
                         ControllerState.SUPPLEMENT, "quality_check_supplement",
                         f"Quality check requires supplement for subtask {current_subtask_id}"
                     )
-                else:
-                    # 继续质检
-                    logger.debug(
-                        f"Waiting for quality check completion for subtask {current_subtask_id}"
+                elif decision == GateDecision.GATE_CONTINUE.value:
+                    # execute_action
+                    self.global_state.update_controller_state(
+                        ControllerState.EXECUTE_ACTION)
+                    logger.info(
+                        f"Quality check requires execute action for subtask {current_subtask_id}"
                     )
-                    # 检查是否超时
-                    if self._is_state_timeout():
-                        logger.warning(
-                            f"QUALITY_CHECK state timeout for subtask {current_subtask_id}"
-                        )
-                        self.global_state.update_controller_state(
-                            ControllerState.PLAN)
-                        self.switch_to_state(
-                            ControllerState.PLAN, "timeout",
-                            f"QUALITY_CHECK state timeout for subtask {current_subtask_id}"
-                        )
+                    self.switch_to_state(
+                        ControllerState.EXECUTE_ACTION, "quality_check_execute_action",
+                        f"Quality check requires execute action for subtask {current_subtask_id}"
+                    )
             else:
                 # 没有质检记录，继续等待
                 logger.debug(

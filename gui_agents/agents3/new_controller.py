@@ -478,7 +478,7 @@ class NewController:
                 return
 
             # 等待1秒
-            time.sleep(1)
+            time.sleep(3)
             command = self.global_state.get_current_command_for_subtask(
                 current_subtask_id)
             if command:
@@ -701,8 +701,7 @@ class NewController:
 
         # 更新controller状态
         try:
-            self.global_state.update_controller_state(new_state, trigger,
-                                                      trigger_details)
+            self.global_state.update_controller_state(new_state, trigger, trigger_details)
         except Exception as e:
             logger.warning(f"Failed to update controller state: {e}")
 
@@ -721,12 +720,26 @@ class NewController:
             if not task:
                 return None
                 
-            # 距离上次质检过去了5步 - QUALITY_CHECK
-            # 使用state_switch_count作为步数指标，但只在非质检状态下触发
-            if (self.state_switch_count >= 5 and 
-                self.current_state not in [ControllerState.QUALITY_CHECK, ControllerState.DONE]):
-                logger.info(f"5 state switches since start, switching to QUALITY_CHECK")
-                return ControllerState.QUALITY_CHECK
+            # 距离上次质检超过5分钟 - QUALITY_CHECK
+            gate_checks = self.global_state.get_gate_checks()
+            if gate_checks:
+                latest_quality_check = max(gate_checks, key=lambda x: x.created_at)
+                latest_time = datetime.fromisoformat(latest_quality_check.created_at)
+                current_time = datetime.now()
+                time_diff = current_time - latest_time
+                
+                if (time_diff.total_seconds() > 300 and  # 5分钟 = 300秒
+                    self.current_state not in [ControllerState.QUALITY_CHECK, ControllerState.DONE]):
+                    logger.info(f"5 minutes since last quality check, switching to QUALITY_CHECK")
+                    return ControllerState.QUALITY_CHECK
+            else:
+                # 如果没有质检记录且当前subtask的command数量>=5，进行首次质检
+                if task.current_subtask_id:
+                    subtask = self.global_state.get_subtask(task.current_subtask_id)
+                    if (subtask and len(subtask.command_trace_ids) >= 5 and 
+                        self.current_state not in [ControllerState.QUALITY_CHECK, ControllerState.DONE]):
+                        logger.info(f"First quality check after 5 commands for subtask {task.current_subtask_id}, switching to QUALITY_CHECK")
+                        return ControllerState.QUALITY_CHECK
             
             # 相同连续动作高于3次 - QUALITY_CHECK
             # 检查当前subtask的command_trace数量
@@ -750,6 +763,7 @@ class NewController:
             return None
 
     def _check_task_state_rules(self) -> Optional[ControllerState]:
+        return
         """检查task_state相关规则，包括终止条件"""
         try:
             task = self.global_state.get_task()
@@ -766,16 +780,16 @@ class NewController:
                 logger.info("Task marked as completed")
                 
             # manager规划次数大于10次 - rejected
-            if self.state_switch_count > 10:
+            if self.state_switch_count > 100:
                 logger.warning(f"State switch count > 10, marking task as REJECTED")
                 self.global_state.update_task_status(TaskStatus.REJECTED)
             
-            # manager重规划连续失败3次 - rejected
+            # manager重规划连续失败3次 - rejected 未判断连续
             # 检查是否有连续的状态切换到PLAN，但只在PLAN状态下检查
-            if (self.current_state == ControllerState.PLAN and 
-                self.state_switch_count >= 3):
-                logger.warning(f"Multiple switches to PLAN state, marking task as REJECTED")
-                self.global_state.update_task_status(TaskStatus.REJECTED)
+            # if (self.current_state == ControllerState.PLAN and 
+            #     self.state_switch_count >= 3):
+            #     logger.warning(f"Multiple switches to PLAN state, marking task as REJECTED")
+            #     self.global_state.update_task_status(TaskStatus.REJECTED)
             
             # current_step大于50步 - rejected/fulfilled
             if self.state_switch_count > 50:

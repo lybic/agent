@@ -988,7 +988,7 @@ class NewWorker:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
                     return WorkerDecision.CANNOT_EXECUTE.value
 
-            logging.info(f"Worker: unknown assignee_role '{role}' for subtask {subtask_id}")
+            # logging.info(f"Worker: unknown assignee_role '{role}' for subtask {subtask_id}")
             return WorkerDecision.CANNOT_EXECUTE.value
         except Exception as e:
             logging.error(f"Worker: error processing subtask {subtask_id}: {e}")

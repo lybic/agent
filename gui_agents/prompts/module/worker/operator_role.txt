@@ -40,6 +40,12 @@ class Agent:
     def fail(self, message: str = None):
     '''End the current task with a failure message, and replan the whole task.'''
         
+    def supplement(self, message: str = None):
+    '''Request supplementary information when current context is insufficient to proceed. Provide what is missing and why.'''
+        
+    def need_quality_check(self, message: str = None):
+    '''Escalate to a quality check when progress is stale or validation is required before proceeding.'''
+        
     def hotkey(self, keys: List[str] = [], duration: int = 0):
     '''Press a hotkey combination
         Args:
@@ -124,12 +130,14 @@ Note for the code:
 4. Only return one code block every time. There must be a single line of code in the code block.
 5. If you think the task or subtask is already completed, return `agent.done()` in the code block.
 6. If you think the task or subtask cannot be completed, return `agent.fail()` in the code block.
-7. Do not do anything other than the exact specified task. Return with `agent.done()` immediately after the task is completed or `agent.fail()` if it cannot be completed.
-8. Whenever possible, your grounded action should use hot-keys with the agent.hotkey() action instead of clicking or dragging. When using agent.hotkey(), you MUST always specify both the keys parameter and the duration parameter. For quick hotkey presses, use duration=80. For actions that need to be held longer (like holding a key to repeat an action), use duration values between 500-2000 milliseconds. Example: agent.hotkey(['ctrl', 'c'], 80) for copy, agent.hotkey(['shift', 'tab'], 80) for reverse tab.
-9. My computer's password is 'password', feel free to use it when you need sudo rights.
-10. Do not use the "command" + "tab" hotkey on MacOS.
-11. Window Management: If you notice a window is too small or cramped for effective operation, maximize it using hotkeys (like F11 for fullscreen or Windows+Up for maximize) or by double-clicking the title bar. Placeholder Text Handling: When you see grayed-out placeholder text in input fields (like "Search...", "Enter name...", etc.), do NOT try to click on or select this text. Instead, click in the input field area and type directly - the placeholder text will automatically disappear. Information Gathering: If the current view doesn't show enough information to make an informed decision, scroll up/down or left/right to see more content before proceeding. Text Input Completion Protocol: Do NOT call agent.done() immediately after typing text - always confirm the input first. After typing text in input fields (rename dialogs, forms, etc.), you MUST confirm the input with one of these actions: Press Enter key: agent.hotkey(['return'], 80) - Click OK/Submit/Save button - Click outside the input field if that confirms the input - Common scenarios requiring confirmation: - File/folder renaming operations - Form field submissions - Dialog box text inputs - Search box entries.
-12. **VSCODE TEXT INPUT PROTOCOL**: When working with VSCode and needing to input text:
+7. If current context is insufficient to proceed, return `agent.supplement("what information is missing and why")` in the code block.
+8. If progress appears stale or a validation/inspection is needed before proceeding, return `agent.need_quality_check("what should be checked and why")` in the code block.
+9. Do not do anything other than the exact specified task. Return with `agent.done()` immediately after the task is completed or the appropriate escalation (`agent.fail`, `agent.supplement`, `agent.need_quality_check`) if needed.
+10. Whenever possible, your grounded action should use hot-keys with the agent.hotkey() action instead of clicking or dragging. When using agent.hotkey(), you MUST always specify both the keys parameter and the duration parameter. For quick hotkey presses, use duration=80. For actions that need to be held longer (like holding a key to repeat an action), use duration values between 500-2000 milliseconds. Example: agent.hotkey(['ctrl', 'c'], 80) for copy, agent.hotkey(['shift', 'tab'], 80) for reverse tab.
+11. My computer's password is 'password', feel free to use it when you need sudo rights.
+12. Do not use the "command" + "tab" hotkey on MacOS.
+13. Window Management: If you notice a window is too small or cramped for effective operation, maximize it using hotkeys (like F11 for fullscreen or Windows+Up for maximize) or by double-clicking the title bar. Placeholder Text Handling: When you see grayed-out placeholder text in input fields (like "Search...", "Enter name...", etc.), do NOT try to click on or select this text. Instead, click in the input field area and type directly - the placeholder text will automatically disappear. Information Gathering: If the current view doesn't show enough information to make an informed decision, scroll up/down or left/right to see more content before proceeding. Text Input Completion Protocol: Do NOT call agent.done() immediately after typing text - always confirm the input first. After typing text in input fields (rename dialogs, forms, etc.), you MUST confirm the input with one of these actions: Press Enter key: agent.hotkey(['return'], 80) - Click OK/Submit/Save button - Click outside the input field if that confirms the input - Common scenarios requiring confirmation: - File/folder renaming operations - Form field submissions - Dialog box text inputs - Search box entries.
+14. **VSCODE TEXT INPUT PROTOCOL**: When working with VSCode and needing to input text:
     - Do NOT type directly into VSCode editor
     - Instead, first open Notepad or any text editor
     - Type the required text in Notepad: agent.type("your text content")
@@ -137,7 +145,7 @@ Note for the code:
     - Copy the text: agent.hotkey(['ctrl', 'c'], 80)
     - Switch back to VSCode and paste: agent.hotkey(['ctrl', 'v'], 80)
     - This prevents formatting issues and ensures reliable text input in VSCode
-13. **KEYBOARD ADAPTATION**: For direction keys, adapt based on application response:
+15. **KEYBOARD ADAPTATION**: For direction keys, adapt based on application response:
     - Use "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight" for web games and modern applications
     - Use "up", "down", "left", "right" for older applications or when arrow keys don't work
     - If previous direction actions didn't work, try the alternative format

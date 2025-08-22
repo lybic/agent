@@ -389,6 +389,22 @@ class Grounding(ACI):
         return actionDict
 
     @agent_action
+    def supplement(
+        self,
+        message: str = '',
+    ):
+        actionDict = {"type": "Supplement", "message": message}
+        return actionDict
+
+    @agent_action
+    def need_quality_check(
+        self,
+        message: str = '',
+    ):
+        actionDict = {"type": "NeedQualityCheck", "message": message}
+        return actionDict
+
+    @agent_action
     def memorize(
         self,
         information: str,

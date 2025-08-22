@@ -24,6 +24,7 @@ from gui_agents.agents3.utils.screenShot import scale_screenshot_dimensions
 from .new_global_state import NewGlobalState
 from .new_manager import NewManager
 from .new_worker import NewWorker
+from .evaluator import Evaluator
 from .new_executor import NewExecutor
 from .enums import (
     ControllerState, TaskStatus, SubtaskStatus, 
@@ -121,6 +122,10 @@ class NewController:
             self.platform, 
             self.enable_search, 
             self.env_password
+        )
+        self.evaluator = Evaluator(
+            self.global_state, 
+            self.Tools_dict, 
         )
         
         # 初始化硬件接口
@@ -426,6 +431,8 @@ class NewController:
                 return
             
             # 等待Evaluator完成质检
+            self.evaluator.quality_check()
+
             # 检查质检结果
             gate_checks = self.global_state.get_gate_checks()
             latest_gate = None

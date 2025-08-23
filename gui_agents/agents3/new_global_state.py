@@ -591,7 +591,42 @@ This file tracks supplementary information and materials needed for the task.
         artifact_id = self._generate_id("art")
         timestamp = datetime.now().isoformat()
         
-        new_artifact = f"""
+        # 检查是否是结构化的memorize数据
+        if isinstance(artifact_data, dict) and "type" in artifact_data:
+            artifact_type_display = artifact_data.get("type", artifact_type)
+            source = artifact_data.get("source", "unknown")
+            
+            if artifact_data.get("type") == "analysis_result":
+                # 处理分析结果类型的artifact
+                analysis = artifact_data.get("analysis", "")
+                recommendations = artifact_data.get("recommendations", [])
+                extracted_data = artifact_data.get("extracted_data", {})
+                
+                new_artifact = f"""
+## {artifact_type_display} - {artifact_id}
+- **Created**: {timestamp}
+- **Type**: {artifact_type_display}
+- **Source**: {source}
+- **Analysis**: {analysis}
+- **Recommendations**: {json.dumps(recommendations, indent=2, ensure_ascii=False)}
+- **Extracted Data**: {json.dumps(extracted_data, indent=2, ensure_ascii=False)}
+
+---
+"""
+            else:
+                # 处理其他类型的artifact
+                new_artifact = f"""
+## {artifact_type_display} - {artifact_id}
+- **Created**: {timestamp}
+- **Type**: {artifact_type_display}
+- **Source**: {source}
+- **Data**: {json.dumps(artifact_data, indent=2, ensure_ascii=False)}
+
+---
+"""
+        else:
+            # 处理普通artifact数据
+            new_artifact = f"""
 ## {artifact_type} - {artifact_id}
 - **Created**: {timestamp}
 - **Type**: {artifact_type}
@@ -602,6 +637,79 @@ This file tracks supplementary information and materials needed for the task.
         
         updated_content = current_content + new_artifact
         self.set_artifacts(updated_content)
+
+    def add_memorize_artifact(self, subtask_id: str, memorize_content: str) -> None:
+        """Add memorized information with structured format for analyst processing
+        
+        Args:
+            subtask_id: The subtask this memory belongs to
+            memorize_content: The content to memorize, ideally in structured format
+        """
+        current_content = self.get_artifacts()
+        
+        # Generate artifact ID and timestamp
+        artifact_id = self._generate_id("mem")
+        timestamp = datetime.now().isoformat()
+        
+        # Try to parse structured memorize content
+        question = ""
+        data = ""
+        guidance = ""
+        
+        # Parse structured content if available
+        if "QUESTION:" in memorize_content:
+            parts = memorize_content.split("QUESTION:")
+            if len(parts) > 1:
+                question_part = parts[1]
+                if "DATA:" in question_part:
+                    qd_parts = question_part.split("DATA:")
+                    question = qd_parts[0].strip()
+                    if "GUIDANCE:" in qd_parts[1]:
+                        dg_parts = qd_parts[1].split("GUIDANCE:")
+                        data = dg_parts[0].strip()
+                        guidance = dg_parts[1].strip()
+                    else:
+                        data = qd_parts[1].strip()
+                else:
+                    question = question_part.strip()
+        elif "PROBLEM:" in memorize_content:
+            parts = memorize_content.split("PROBLEM:")
+            if len(parts) > 1:
+                problem_part = parts[1]
+                if "DATA:" in problem_part:
+                    pd_parts = problem_part.split("DATA:")
+                    question = f"PROBLEM: {pd_parts[0].strip()}"
+                    if "GUIDANCE:" in pd_parts[1]:
+                        dg_parts = pd_parts[1].split("GUIDANCE:")
+                        data = dg_parts[0].strip()
+                        guidance = dg_parts[1].strip()
+                    else:
+                        data = pd_parts[1].strip()
+                else:
+                    question = f"PROBLEM: {problem_part.strip()}"
+        else:
+            # Simple data memorization
+            data = memorize_content.strip()
+        
+        # Create structured artifact
+        new_artifact = f"""
+## Memorized Information - {artifact_id}
+- **Created**: {timestamp}
+- **Type**: memorize
+- **Subtask**: {subtask_id}
+- **Question/Problem**: {question if question else "N/A"}
+- **Data**: {data if data else memorize_content}
+- **Guidance**: {guidance if guidance else "Use this information as needed"}
+- **Raw Content**: {memorize_content}
+
+---
+"""
+        
+        updated_content = current_content + new_artifact
+        self.set_artifacts(updated_content)
+        
+        # Also add to events for tracking
+        self.add_event("worker", "memorize_added", f"Added memorize artifact {artifact_id} for subtask {subtask_id}")
 
     # ========= Supplement Management =========
     def get_supplement(self) -> str:

@@ -96,20 +96,46 @@ class NewExecutor:
                 # analyst写入到globalstate的artifacts
                 logger.info(f"Analyst role detected, storing artifact for subtask {subtask_id}")
                 try:
-                    artifact_data = {
-                        "subtask_id": subtask_id,
-                        "action": command.action,
-                        "timestamp": time.time(),
-                        "type": "action_artifact"
-                    }
-                    
-                    # 添加到artifacts
-                    self.global_state.add_artifact(subtask_id, artifact_data)
-                    
-                    return self._create_execution_result(
-                        success=True,
-                        action={"type": "artifact_stored", "artifact": artifact_data}
-                    )
+                    # 检查action中是否包含memorize分析结果
+                    if isinstance(command.action, dict) and "analysis" in command.action:
+                        analysis_result = command.action.get("analysis", "")
+                        recommendations = command.action.get("recommendations", [])
+                        extracted_data = command.action.get("extracted_data", {})
+                        
+                        # 创建结构化的artifact数据
+                        artifact_data = {
+                            "subtask_id": subtask_id,
+                            "type": "analysis_result",
+                            "analysis": analysis_result,
+                            "recommendations": recommendations,
+                            "extracted_data": extracted_data,
+                            "timestamp": time.time(),
+                            "source": "analyst_memorize_analysis"
+                        }
+                        
+                        # 添加到artifacts
+                        self.global_state.add_artifact(subtask_id, artifact_data)
+                        
+                        return self._create_execution_result(
+                            success=True,
+                            action={"type": "analysis_artifact_stored", "artifact": artifact_data}
+                        )
+                    else:
+                        # 普通artifact存储
+                        artifact_data = {
+                            "subtask_id": subtask_id,
+                            "action": command.action,
+                            "timestamp": time.time(),
+                            "type": "action_artifact"
+                        }
+                        
+                        # 添加到artifacts
+                        self.global_state.add_artifact(subtask_id, artifact_data)
+                        
+                        return self._create_execution_result(
+                            success=True,
+                            action={"type": "artifact_stored", "artifact": artifact_data}
+                        )
                     
                 except Exception as e:
                     error_msg = f"Failed to store artifact: {str(e)}"
@@ -330,6 +356,32 @@ class NewExecutor:
         
         try:
             logger.info(f"Executing action for subtask {subtask_id}: {action}")
+            
+            # 检查是否是memorize动作
+            if isinstance(action, dict) and action.get("type") == "memorize":
+                information = action.get("information", "")
+                if information:
+                    # 调用add_memorize_artifact方法
+                    self.global_state.add_memorize_artifact(subtask_id, information)
+                    logger.info(f"Memorize action processed for subtask {subtask_id}: {information[:100]}...")
+                    
+                    # 记录执行成功事件
+                    self.global_state.add_event("executor", "memorize_success", 
+                        f"Memorize action executed successfully for subtask {subtask_id}")
+                    
+                    execution_success = True
+                    error_message = None
+                    execution_time = time.time() - execution_start
+                    
+                    # 记录执行结果
+                    self._record_execution_result(subtask_id, execution_success, error_message, execution_time)
+                    
+                    return self._create_execution_result(
+                        success=execution_success,
+                        error_message=error_message,
+                        execution_time=execution_time,
+                        action=action
+                    )
             
             # 记录执行开始事件
             self.global_state.add_event("executor", "action_start", 

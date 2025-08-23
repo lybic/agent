@@ -168,7 +168,24 @@ class NewWorker:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
 
             if role == "analyst":
-                res = self.analyst.analyze_task(subtask=subtask.to_dict(), analysis_type="general")  # type: ignore
+                # 获取artifacts内容，用于分析
+                artifacts_content = self._global_state.get_artifacts()
+                
+                # 检查是否有memorize相关的artifacts需要分析
+                if "memorize" in artifacts_content.lower() or "information" in artifacts_content.lower():
+                    # 如果有memorize内容，使用专门的memorize分析类型
+                    res = self.analyst.analyze_task(
+                        subtask=subtask.to_dict(), 
+                        analysis_type="memorize_analysis",
+                        guidance=artifacts_content
+                    )
+                else:
+                    # 普通分析
+                    res = self.analyst.analyze_task(
+                        subtask=subtask.to_dict(), 
+                        analysis_type="general"
+                    )
+                
                 outcome = (res.get("outcome") or "").strip()
                 analysis = res.get("analysis", "")
                 recommendations = res.get("recommendations", [])

@@ -272,6 +272,36 @@ Output format:
 }
 ```
 """
+        elif analysis_type == "memorize_analysis":
+            specific_prompt = """
+## Analysis Type: Memorize Content Analysis
+Analyze the memorized information and provide comprehensive answers based on the stored content:
+
+1. **Content Review**: Review all memorized information from previous steps
+2. **Question Analysis**: Identify what questions or problems need to be answered
+3. **Information Synthesis**: Combine and organize the memorized data
+4. **Answer Generation**: Provide comprehensive answers based on the memorized content
+5. **Validation**: Ensure answers are complete and accurate
+
+**Important**: Use ONLY the information that was previously memorized. Do not make assumptions or add external knowledge.
+
+Output format:
+```json
+{
+  "analysis": "Comprehensive analysis of memorized content and generated answers...",
+  "recommendations": [
+    "how to use this information",
+    "next steps based on answers"
+  ],
+  "extracted_data": {
+    "memorized_content": "summary of what was memorized",
+    "questions_answered": ["question1: answer1", "question2: answer2"],
+    "key_findings": ["finding1", "finding2"],
+    "completeness_check": "verification that all memorized content was used"
+  }
+}
+```
+"""
         else:  # general analysis
             specific_prompt = """
 ## Analysis Type: General Analysis

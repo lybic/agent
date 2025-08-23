@@ -187,14 +187,23 @@ class Operator:
             if isinstance(exec_code, dict):
                 action_type = str(exec_code.get("type", ""))
                 message = str(exec_code.get("message", ""))
-            if action_type == "Done":
-                outcome = "worker_done"
-            elif action_type == "Failed":
-                outcome = "worker_fail"
-            elif action_type == "Supplement":
-                outcome = "worker_supplement"
-            elif action_type == "NeedQualityCheck":
-                outcome = "worker_stale_progress"
+                if action_type == "Memorize":
+                    if "information" not in exec_code:
+                        if message:
+                            exec_code["information"] = message
+                        else:
+                            exec_code["information"] = "Information memorized"
+                    outcome = "worker_generate_action"
+                elif action_type == "Done":
+                    outcome = "worker_done"
+                elif action_type == "Failed":
+                    outcome = "worker_fail"
+                elif action_type == "Supplement":
+                    outcome = "worker_supplement"
+                elif action_type == "NeedQualityCheck":
+                    outcome = "worker_stale_progress"
+                else:
+                    outcome = "worker_generate_action"
             else:
                 outcome = "worker_generate_action"
 

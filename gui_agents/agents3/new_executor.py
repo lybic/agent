@@ -256,6 +256,12 @@ class NewExecutor:
             self.global_state.add_event("executor", "code_blocks_execution_completed", 
                 f"Code blocks execution completed in {execution_time:.2f}s")
             
+            screenshot: Image.Image = self.hwi.dispatch(
+                Screenshot())  # type: ignore
+            self.global_state.set_screenshot(
+                scale_screenshot_dimensions(screenshot, self.hwi))
+            self.global_state.increment_step_num()
+            
             return self._create_execution_result(
                 success=True,
                 execution_time=execution_time,
@@ -337,6 +343,7 @@ class NewExecutor:
                     Screenshot())  # type: ignore
                 self.global_state.set_screenshot(
                     scale_screenshot_dimensions(screenshot, self.hwi))
+                self.global_state.increment_step_num()
                 execution_success = True
                 error_message = None
                 logger.info(f"Action executed successfully for subtask {subtask_id}")

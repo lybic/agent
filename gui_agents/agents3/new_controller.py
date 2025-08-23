@@ -221,6 +221,9 @@ class NewController:
             elif task_status == TaskStatus.REJECTED.value:
                 logger.info("Task rejected, should exit loop")
                 return True
+            elif task.step_num >= self.max_steps:
+                logger.info("Task step number exceeds max_steps, should exit loop")
+                return True
                 
             return False
             

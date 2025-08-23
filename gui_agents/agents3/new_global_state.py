@@ -252,6 +252,12 @@ This file tracks supplementary information and materials needed for the task.
         task = self.get_task()
         task.current_subtask_id = subtask_id
         self.set_task(task)
+    
+    def increment_step_num(self) -> None:
+        """Increment step number"""
+        task = self.get_task()
+        task.step_num += 1
+        self.set_task(task)
 
     def advance_to_next_subtask(self) -> None:
         """

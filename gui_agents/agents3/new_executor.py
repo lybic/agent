@@ -11,6 +11,9 @@ from gui_agents.agents3.hardware_interface import HardwareInterface
 from .new_global_state import NewGlobalState
 from .enums import SubtaskStatus
 from desktop_env.desktop_env import DesktopEnv
+from PIL import Image
+from gui_agents.agents3.Action import Screenshot
+from gui_agents.agents3.utils.screenShot import scale_screenshot_dimensions
 
 # 设置日志
 logger = logging.getLogger(__name__)
@@ -329,6 +332,11 @@ class NewExecutor:
             # 执行硬件动作
             try:
                 self.hwi.dispatchDict(action)
+                time.sleep(3)
+                screenshot: Image.Image = self.hwi.dispatch(
+                    Screenshot())  # type: ignore
+                self.global_state.set_screenshot(
+                    scale_screenshot_dimensions(screenshot, self.hwi))
                 execution_success = True
                 error_message = None
                 logger.info(f"Action executed successfully for subtask {subtask_id}")

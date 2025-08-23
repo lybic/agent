@@ -254,6 +254,14 @@ def main():
     # Set platform to Windows if backend is lybic
     if args.backend == 'lybic':
         current_platform = 'Windows'
+        # Initialize hardware interface
+        backend_kwargs = {"platform": current_platform}
+        if args.lybic_sid is not None:
+            backend_kwargs["precreate_sid"] = args.lybic_sid
+            logger.info(f"Using Lybic SID from command line: {args.lybic_sid}")
+        else:
+            logger.info("Using Lybic SID from environment variable LYBIC_PRECREATE_SID")
+
     elif args.backend == 'pyautogui_vmware':
         env_password = "password"
         current_platform = os.getenv("USE_PRECREATE_VM", "Windows")
@@ -278,19 +286,12 @@ def main():
             require_a11y_tree=False
         )
         env.reset()
+        
     else:
         current_platform = platform.system()
 
     logger.info(f"Running agents3 on platform: {current_platform}")
     logger.info(f"Using backend: {args.backend}")
-
-    # Initialize hardware interface
-    backend_kwargs = {"platform": current_platform}
-    if args.lybic_sid is not None:
-        backend_kwargs["precreate_sid"] = args.lybic_sid
-        logger.info(f"Using Lybic SID from command line: {args.lybic_sid}")
-    else:
-        logger.info("Using Lybic SID from environment variable LYBIC_PRECREATE_SID")
 
     logger.info("Agents3 components initialized successfully")            
 

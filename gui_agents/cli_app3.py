@@ -286,7 +286,7 @@ def main():
             require_a11y_tree=False
         )
         env.reset()
-        
+
     else:
         current_platform = platform.system()
 
@@ -324,7 +324,7 @@ def main():
 if __name__ == "__main__":
     """
     python gui_agents/cli_app3.py --backend lybic
-    python gui_agents/cli_app3.py --backend pyautogui
+    python gui_agents/cli_app3.py --backend pyautogui --max-steps 1
     python gui_agents/cli_app3.py --backend pyautogui_vmware --max-steps 1
     python gui_agents/cli_app3.py --backend lybic --max-steps 15
     python gui_agents/cli_app3.py --backend lybic --lybic-sid SBX-01K1X6ZKAERXAN73KTJ1XXJXAF

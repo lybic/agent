@@ -73,65 +73,43 @@ class NewController:
         self.Tools_dict = {}
         self.max_steps = max_steps
 
-        # Load tools configuration from tools_config.json
-        tools_config_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "tools",
-            "new_tools_config.json")
-        with open(tools_config_path, "r") as f:
-            self.tools_config = json.load(f)
-            print(f"Loaded tools configuration from: {tools_config_path}")
-            for tool in self.tools_config["tools"]:
-                tool_name = tool["tool_name"]
-                self.Tools_dict[tool_name] = {
-                    "provider": tool["provider"],
-                    "model": tool["model_name"]
-                }
-            # print(f"Tools configuration: {self.Tools_dict}")
-
-        # Initialize agent's knowledge base path
-        self.local_kb_path = os.path.join(self.memory_root_path,
-                                          self.memory_folder_name)
-
-        # Check if knowledge base exists
-        kb_platform_path = os.path.join(self.local_kb_path, self.platform)
-        if not os.path.exists(kb_platform_path):
-            print(
-                f"Warning: Knowledge base for {self.platform} platform not found in {self.local_kb_path}"
-            )
-            os.makedirs(kb_platform_path, exist_ok=True)
-            print(f"Created directory: {kb_platform_path}")
-            # raise FileNotFoundError(f"Knowledge base path does not exist: {kb_platform_path}")
-        else:
-            print(f"Found local knowledge base path: {kb_platform_path}")
+        # Load tools configuration and setup knowledge base
+        self._load_tools_configuration()
+        self._setup_knowledge_base()
 
         self.env = env
-        # self.env = None
         self.env_password = env_password
 
-        self.manager = NewManager(self.Tools_dict, self.global_state, self.local_kb_path, self.platform, self.enable_search)
-        self.worker = NewWorker(self.Tools_dict, self.global_state, self.env, self.platform, self.enable_search, self.env_password)
-        self.evaluator = Evaluator(
-            self.global_state,
-            self.Tools_dict,
-        )
+        # 初始化manager
+        manager_params = {
+            "tools_dict": self.Tools_dict,
+            "global_state": self.global_state,
+            "local_kb_path": self.local_kb_path,
+            "platform": self.platform,
+            "enable_search": self.enable_search
+        }
+        self.manager = NewManager(**manager_params)
+
+        # 初始化executor
+        executor_params = {
+            "global_state": self.global_state,
+            "hardware_interface": self.hwi,
+            "env_controller": self.env
+        }
+        self.executor = NewExecutor(**executor_params)
 
         # 初始化硬件接口
         backend_kwargs = {"platform": platform}
         self.hwi = HardwareInterface(backend=backend, **backend_kwargs)
         logger.info(f"Hardware interface initialized with backend: {backend}")
 
-        # 初始化执行器
-        self.executor = NewExecutor(self.global_state, self.hwi, self.env)
-        logger.info("Executor initialized")
-
         # 初始化控制器状态
         self.global_state.reset_controller_state()
         logger.info("NewController initialized")
 
-        screenshot: Image.Image = self.hwi.dispatch(
-            Screenshot())  # type: ignore
-        self.global_state.set_screenshot(
-            scale_screenshot_dimensions(screenshot, self.hwi))
+        # 首次获取截图
+        screenshot: Image.Image = self.hwi.dispatch(Screenshot())  # type: ignore
+        self.global_state.set_screenshot(scale_screenshot_dimensions(screenshot, self.hwi))
 
     def execute_single_step(self, steps: int = 1) -> None:
         """单步执行若干次状态机逻辑（执行 steps 步，不进入循环）"""
@@ -371,7 +349,16 @@ class NewController:
             # 方案三worker内部处理worker_decision
             
             # 由Worker统一处理：根据角色生成action/记录decision/创建command
-            self.worker.process_subtask_and_create_command()
+
+            worker_params = {
+                "tools_dict": self.Tools_dict,
+                "global_state": self.global_state,
+                "platform": self.platform,
+                "enable_search": self.enable_search,
+                "client_password": self.env_password
+            }
+            worker = NewWorker(**worker_params)
+            worker.process_subtask_and_create_command()
 
             worker_decision = self.global_state.get_subtask_worker_decision(current_subtask_id)
 
@@ -523,8 +510,14 @@ class NewController:
                 self.switch_to_state(ControllerState.INIT, "no_current_subtask_id", "No current subtask ID in QUALITY_CHECK state")
                 return
 
+            evaluator_params = {
+                "global_state": self.global_state,
+                "tools_dict": self.Tools_dict
+            }
+            evaluator = Evaluator(**evaluator_params)
+
             # 等待Evaluator完成质检
-            self.evaluator.quality_check()
+            evaluator.quality_check()
 
             # 检查质检结果
             gate_checks = self.global_state.get_gate_checks()
@@ -786,6 +779,40 @@ class NewController:
         except Exception as e:
             logger.error(f"Error checking current situation rules: {e}")
             return None
+
+    def _load_tools_configuration(self):
+        """Load tools configuration from tools_config.json"""
+        tools_config_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "tools",
+            "new_tools_config.json")
+        with open(tools_config_path, "r") as f:
+            self.tools_config = json.load(f)
+            print(f"Loaded tools configuration from: {tools_config_path}")
+            for tool in self.tools_config["tools"]:
+                tool_name = tool["tool_name"]
+                self.Tools_dict[tool_name] = {
+                    "provider": tool["provider"],
+                    "model": tool["model_name"]
+                }
+            # print(f"Tools configuration: {self.Tools_dict}")
+
+    def _setup_knowledge_base(self):
+        """Initialize agent's knowledge base path and check if it exists"""
+        # Initialize agent's knowledge base path
+        self.local_kb_path = os.path.join(self.memory_root_path,
+                                          self.memory_folder_name)
+
+        # Check if knowledge base exists
+        kb_platform_path = os.path.join(self.local_kb_path, self.platform)
+        if not os.path.exists(kb_platform_path):
+            print(
+                f"Warning: Knowledge base for {self.platform} platform not found in {self.local_kb_path}"
+            )
+            os.makedirs(kb_platform_path, exist_ok=True)
+            print(f"Created directory: {kb_platform_path}")
+            # raise FileNotFoundError(f"Knowledge base path does not exist: {kb_platform_path}")
+        else:
+            print(f"Found local knowledge base path: {kb_platform_path}")
 
     def _check_task_state_rules(self) -> Optional[ControllerState]:
         return

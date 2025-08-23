@@ -50,18 +50,12 @@ class Technician:
         tools_dict: Dict[str, Any],
         global_state: NewGlobalState,
         platform: str = "unknown",
-        env_controller: Optional[DesktopEnv] = None,
         client_password: str = "",
         # max_execution_time: int = 300,
     ) -> None:
         self.tools_dict = tools_dict
         self.global_state = global_state
         self.platform = platform
-        # self.env_controller = env_controller.controller
-        if env_controller:
-            self.env_controller = env_controller.controller
-        else:
-            self.env_controller = None
         self.client_password = client_password
         # self.max_execution_time = max_execution_time
 
@@ -89,24 +83,6 @@ class Technician:
         - outcome: one of {"worker_done", "worker_fail", "worker_supplement", "worker_stale_progress", "worker_generate_action", "worker_fail"}
         - action: when outcome is worker_generate_action, a list of (lang, code) blocks
         """
-        if not self.env_controller:
-            msg = "No environment controller available for Technician"
-            logger.warning(msg)
-            self.global_state.add_event("technician", "no_controller", msg)
-            result = StepResult(
-                step_id=f"{subtask.get('subtask_id','unknown')}.tech-0",
-                ok=False,
-                error=msg,
-                latency_ms=0,
-                outcome=WorkerDecision.CANNOT_EXECUTE.value,
-            )
-            return {
-                "plan": "",
-                "execution_result": "",
-                "step_result": result.__dict__,
-                "outcome": WorkerDecision.CANNOT_EXECUTE.value,
-                "action": None,
-            }
 
         # Build coding prompt
         subtask_title = subtask.get("title", "")

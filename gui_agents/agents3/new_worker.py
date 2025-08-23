@@ -38,7 +38,6 @@ class NewWorker:
         self,
         tools_dict: Dict[str, Any],
         global_state: NewGlobalState,
-        env_controller: Optional[DesktopEnv] = None,
         platform: str = "unknown",
         enable_search: bool = False,
         client_password: str = "",
@@ -56,7 +55,6 @@ class NewWorker:
             tools_dict=tools_dict,
             global_state=global_state,
             platform=platform,
-            env_controller=env_controller,
             client_password=client_password,
         )
             

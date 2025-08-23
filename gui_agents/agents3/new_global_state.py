@@ -848,25 +848,47 @@ This file tracks supplementary information and materials needed for the task.
         """Update controller state"""
         safe_write_json(self.controller_state_path, controller_state)
 
-    def update_controller_state(self, state: ControllerState, trigger: str = "controller", trigger_details: str = "") -> None:
+    def get_controller_current_state(self) -> ControllerState:
+        """获取当前控制器状态"""
+        controller_state = self.get_controller_state()
+        if controller_state and controller_state.get("current_state"):
+            try:
+                return ControllerState(controller_state["current_state"])
+            except ValueError:
+                return ControllerState.INIT
+        return ControllerState.INIT
+
+    def set_controller_current_state(self, state: ControllerState):
+        """设置当前控制器状态"""
+        controller_state = self.get_controller_state()
+        if controller_state:
+            controller_state["current_state"] = state.value
+            controller_state["updated_at"] = datetime.now().isoformat()
+            self.set_controller_state(controller_state)
+
+    def update_controller_state(self, 
+                              new_state: ControllerState,
+                              trigger: str = "controller",
+                              trigger_details: str = ""):
         """Update controller current state and add to history"""
         controller_state = self.get_controller_state()
         
         # Add current state to history if it's different
         current_state = controller_state.get("current_state")
-        if current_state and current_state != state.value:
+        if current_state and current_state != new_state.value:
             if "history_state" not in controller_state:
                 controller_state["history_state"] = []
             controller_state["history_state"].append(current_state)
         
-        # Update current state, trigger info and timestamp
-        controller_state["current_state"] = state.value
+        # Update current state, trigger info, state start time and timestamp
+        controller_state["current_state"] = new_state.value
         controller_state["trigger"] = trigger
         controller_state["trigger_details"] = trigger_details
+        controller_state["state_start_time"] = time.time()
         controller_state["updated_at"] = datetime.now().isoformat()
         
         self.set_controller_state(controller_state)
-        self.add_event("controller", "state_change", f"State changed to: {state.value} (trigger: {trigger}, details: {trigger_details})")
+        self.add_event("controller", "state_change", f"State changed to: {new_state.value} (trigger: {trigger}, details: {trigger_details})")
 
     def get_controller_state_enum(self) -> ControllerState:
         """Get current controller state as enum"""
@@ -877,6 +899,11 @@ This file tracks supplementary information and materials needed for the task.
         except ValueError:
             logger.warning(f"Invalid controller state: {state_str}, defaulting to GET_ACTION")
             return ControllerState.GET_ACTION
+
+    def get_controller_state_start_time(self) -> float:
+        """Get controller state start time"""
+        controller_state = self.get_controller_state()
+        return controller_state.get("state_start_time", time.time())
 
     def get_controller_state_history(self) -> List[str]:
         """Get controller state history"""
@@ -890,6 +917,7 @@ This file tracks supplementary information and materials needed for the task.
             "trigger": "controller",
             "trigger_details": "reset",
             "history_state": [],
+            "state_start_time": time.time(),
             "updated_at": datetime.now().isoformat()
         }
         self.set_controller_state(default_controller_state)

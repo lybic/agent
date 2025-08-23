@@ -7,6 +7,7 @@ from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
+import time
 
 from .enums import (
     TaskStatus, SubtaskStatus, GateDecision, GateTrigger,
@@ -21,6 +22,7 @@ class ControllerStateData:
     trigger: str = field(default="controller")
     trigger_details: str = field(default="initialization")
     history_state: List[str] = field(default_factory=list)
+    state_start_time: float = field(default_factory=time.time)
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
@@ -30,6 +32,7 @@ class ControllerStateData:
             "trigger": self.trigger,
             "trigger_details": self.trigger_details,
             "history_state": self.history_state,
+            "state_start_time": self.state_start_time,
             "updated_at": self.updated_at
         }
 
@@ -41,6 +44,7 @@ class ControllerStateData:
             trigger=data.get("trigger", "controller"),
             trigger_details=data.get("trigger_details", "initialization"),
             history_state=data.get("history_state", []),
+            state_start_time=data.get("state_start_time", time.time()),
             updated_at=data.get("updated_at", datetime.now().isoformat())
         )
 

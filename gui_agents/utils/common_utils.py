@@ -4,6 +4,8 @@ from typing import List
 import time
 import tiktoken
 import numpy as np
+import os
+import platform
 
 from typing import Tuple, List, Union, Dict, Optional
 
@@ -268,3 +270,63 @@ def agent_log_to_string(agent_log: List[Dict]) -> str:
         log_strings.append(f"[Entry {entry_id} - {entry_type}] {content}")
 
     return "\n".join(log_strings)
+
+
+def show_task_completion_notification(task_status: str, error_message: str = ""):
+    """
+    Show a popup notification for task completion status.
+    
+    Args:
+        task_status: Task status, supports 'success', 'failed', 'completed', 'error'
+        error_message: Error message (used only when status is 'error')
+    """
+    try:
+        current_platform = platform.system()
+        
+        if task_status == "success":
+            title = "Agents3"
+            message = "Task Completed Successfully"
+            dialog_type = "info"
+        elif task_status == "failed":
+            title = "Agents3"
+            message = "Task Failed/Rejected"
+            dialog_type = "error"
+        elif task_status == "completed":
+            title = "Agents3"
+            message = "Task Execution Completed"
+            dialog_type = "info"
+        elif task_status == "error":
+            title = "Agents3 Error"
+            message = f"Task Execution Error: {error_message[:100] if error_message else 'Unknown error'}"
+            dialog_type = "error"
+        else:
+            title = "Agents3"
+            message = "Task Execution Completed"
+            dialog_type = "info"
+        
+        if current_platform == "Darwin":
+            # macOS
+            os.system(
+                f'osascript -e \'display dialog "{message}" with title "{title}" buttons "OK" default button "OK"\''
+            )
+        elif current_platform == "Linux":
+            # Linux
+            if dialog_type == "error":
+                os.system(
+                    f'zenity --error --title="{title}" --text="{message}" --width=300 --height=150'
+                )
+            else:
+                os.system(
+                    f'zenity --info --title="{title}" --text="{message}" --width=200 --height=100'
+                )
+        elif current_platform == "Windows":
+            # Windows
+            os.system(
+                f'msg %username% "{message}"'
+            )
+        else:
+            print(f"\n[{title}] {message}")
+            
+    except Exception as e:
+        print(f"\n[Agents3] Failed to show notification: {e}")
+        print(f"[Agents3] {message}")

@@ -30,6 +30,7 @@ from gui_agents.agents3.new_controller import NewController
 
 # Import analyze_display functionality
 from gui_agents.utils.analyze_display import analyze_display_json, aggregate_results, format_output_line
+from gui_agents.utils.common_utils import show_task_completion_notification
 
 current_platform = platform.system().lower()
 
@@ -197,9 +198,25 @@ def run_agent3(params: dict):
         # Set the user query in the controller
         controller.execute_main_loop()
         
+        # Check task status after execution to determine if task was successful
+        task = controller.global_state.get_task()
+        if task and task.status == "fulfilled":
+            # Task completed successfully
+            logger.info("Task completed successfully")
+            show_task_completion_notification("success")
+        elif task and task.status == "rejected":
+            # Task was rejected/failed
+            logger.info("Task was rejected/failed")
+            show_task_completion_notification("failed")
+        else:
+            # Task status unknown or incomplete
+            logger.info("Task execution completed with unknown status")
+            show_task_completion_notification("completed")
         
     except Exception as e:
         logger.error(f"Error during agents3 execution: {e}")
+        # Show error notification
+        show_task_completion_notification("error", str(e))
         raise
     
     finally:

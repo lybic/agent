@@ -85,6 +85,7 @@ class NewWorker:
                 outcome = (res.get("outcome") or "").strip()
                 action = res.get("action")
                 action_plan = res.get("action_plan", "")
+                screenshot_analysis = res.get("screenshot_analysis", "")
                 
                 # Create command with complete information
                 cmd = create_command_data(
@@ -96,14 +97,8 @@ class NewWorker:
                 )
                 command_id = self._global_state.add_command(cmd)
                 
-                pre_screenshot_analysis = ""
+                pre_screenshot_analysis = screenshot_analysis
                 pre_screenshot_id = self._global_state.get_screenshot_id()
-                # Generate screenshot analysis using analyst role
-                # analysis_res = self.analyst.analyze_task(
-                #     subtask=subtask.to_dict(), 
-                #     analysis_type="screen_content"
-                # )
-                # pre_screenshot_analysis = analysis_res.get("analysis", "")
 
                 # Update command with all fields
                 self._global_state.update_command_fields(
@@ -131,6 +126,7 @@ class NewWorker:
                 outcome = (res.get("outcome") or "").strip()
                 action = res.get("action")
                 command_plan = res.get("command_plan", "")
+                screenshot_analysis = res.get("screenshot_analysis", "")
                 
                 # Create command with complete information
                 cmd = create_command_data(
@@ -142,15 +138,9 @@ class NewWorker:
                 )
                 command_id = self._global_state.add_command(cmd)
                 
-                pre_screenshot_analysis = ""
+                pre_screenshot_analysis = screenshot_analysis
                 # Add screenshot and get ID
                 pre_screenshot_id = self._global_state.get_screenshot_id()
-                # Generate screenshot analysis using analyst role
-                # analysis_res = self.analyst.analyze_task(
-                #     subtask=subtask.to_dict(), 
-                #     analysis_type="screen_content"
-                # )
-                # pre_screenshot_analysis = analysis_res.get("analysis", "")
 
                 # Update command with all fields
                 self._global_state.update_command_fields(

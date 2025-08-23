@@ -180,6 +180,65 @@ def get_input_token_length(input_string):
     tokens = enc.encode(input_string)
     return len(tokens)
 
+def parse_screenshot_analysis(action_plan: str) -> str:
+    """Parse the Screenshot Analysis section from the LLM response.
+    
+    Args:
+        action_plan: The raw LLM response text
+        
+    Returns:
+        The screenshot analysis text, or empty string if not found
+    """
+    try:
+        # Look for Screenshot Analysis section
+        if "(Screenshot Analysis)" in action_plan:
+            # Find the start of Screenshot Analysis section
+            start_idx = action_plan.find("(Screenshot Analysis)")
+            # Find the next section marker
+            next_sections = ["(Next Action)", "(Grounded Action)", "(Previous action verification)"]
+            end_idx = len(action_plan)
+            for section in next_sections:
+                section_idx = action_plan.find(section, start_idx + 1)
+                if section_idx != -1 and section_idx < end_idx:
+                    end_idx = section_idx
+            
+            # Extract the content between markers
+            analysis_start = start_idx + len("(Screenshot Analysis)")
+            analysis_text = action_plan[analysis_start:end_idx].strip()
+            return analysis_text
+        return ""
+    except Exception as e:
+        return ""
+
+def parse_technician_screenshot_analysis(command_plan: str) -> str:
+    """Parse the Screenshot Analysis section from the technician LLM response.
+    
+    Args:
+        command_plan: The raw LLM response text
+        
+    Returns:
+        The screenshot analysis text, or empty string if not found
+    """
+    try:
+        # Look for Screenshot Analysis section
+        if "(Screenshot Analysis)" in command_plan:
+            # Find the start of Screenshot Analysis section
+            start_idx = command_plan.find("(Screenshot Analysis)")
+            # Find the next section marker
+            next_sections = ["(Next Action)"]
+            end_idx = len(command_plan)
+            for section in next_sections:
+                section_idx = command_plan.find(section, start_idx + 1)
+                if section_idx != -1 and section_idx < end_idx:
+                    end_idx = section_idx
+            
+            # Extract the content between markers
+            analysis_start = start_idx + len("(Screenshot Analysis)")
+            analysis_text = command_plan[analysis_start:end_idx].strip()
+            return analysis_text
+        return ""
+    except Exception as e:
+        return ""
 
 def sanitize_code(code):
     # This pattern captures the outermost double-quoted text

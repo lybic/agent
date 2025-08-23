@@ -173,6 +173,8 @@ class NewController:
                     self.handle_plan_state()
                 elif current_state == ControllerState.SUPPLEMENT:
                     self.handle_supplement_state()
+                elif current_state == ControllerState.FINAL_CHECK:
+                    self.handle_final_check_state()
                 elif current_state == ControllerState.DONE:
                     logger.info("Task completed (single step sequence)")
                     break
@@ -263,6 +265,8 @@ class NewController:
                     self.handle_plan_state()
                 elif current_state == ControllerState.SUPPLEMENT:
                     self.handle_supplement_state()
+                elif current_state == ControllerState.FINAL_CHECK:
+                    self.handle_final_check_state()
                 elif current_state == ControllerState.DONE:
                     logger.info("Task completed, exiting main loop")
                     break
@@ -293,29 +297,6 @@ class NewController:
         return self.global_state.get_controller_current_state()
 
 
-    # 不清楚作用，先保留
-    def _handle_subtask_completion(self) -> ControllerState:
-        """处理subtask完成后的逻辑"""
-        try:
-            task = self.global_state.get_task()
-            pending_subtasks = task.pending_subtask_ids or []
-
-            if pending_subtasks:
-                # 还有待处理的subtask，继续执行
-                next_subtask_id = pending_subtasks[0]
-                self.global_state.advance_to_next_subtask()
-                logger.info(f"Moving to next subtask: {next_subtask_id}")
-                return ControllerState.GET_ACTION
-            else:
-                # 所有subtask完成，进入终结阶段
-                logger.info("All subtasks completed")
-                # 更新任务状态为完成
-                self.global_state.update_task_status(TaskStatus.FULFILLED)
-                return ControllerState.DONE
-
-        except Exception as e:
-            logger.error(f"Error handling subtask completion: {e}")
-            return ControllerState.INIT
 
     # 解决current_subtask_id不存在的问题
     def handle_init_state(self):
@@ -575,12 +556,9 @@ class NewController:
                     # 检查任务是否完成
                     task = self.global_state.get_task()
                     if not task.pending_subtask_ids:
-                        # 所有subtask完成，更新任务状态为完成
-                        # final_check先不开发
-                        self.global_state.update_task_status(TaskStatus.FULFILLED)
-                        logger.info("All subtasks completed, task finished")
-                        # 应该路由到FINAL_CHECK
-                        self.switch_state(ControllerState.DONE, "task_completed", "All subtasks completed")
+                        # 所有subtask完成，进入最终质检阶段
+                        logger.info("All subtasks completed, entering final check")
+                        self.switch_state(ControllerState.FINAL_CHECK, "all_subtasks_completed", "All subtasks completed, entering final check")
                         return
                     
                     # 还有待处理的subtask，推进到下一个
@@ -724,6 +702,86 @@ class NewController:
                     current_subtask_id, SubtaskStatus.REJECTED,
                     "Supplement collection failed")
             self.switch_state(ControllerState.PLAN, "supplement_error", f"SUPPLEMENT state error: {str(e)}")
+
+    def handle_final_check_state(self):
+        """最终质检阶段"""
+        logger.info("Handling FINAL_CHECK state")
+
+        try:
+            # 进行最终质检
+            task = self.global_state.get_task()
+            if not task:
+                logger.error("No task found for final check")
+                self.switch_state(ControllerState.DONE, "final_check_error", "No task found")
+                return
+
+            # 检查是否还有待处理的subtask
+            if task.pending_subtask_ids and len(task.pending_subtask_ids) > 0:
+                logger.info("Still have pending subtasks, switching to GET_ACTION")
+                self.switch_state(ControllerState.GET_ACTION, "final_check_pending", "Still have pending subtasks")
+                return
+
+            # 所有subtask都完成了，进行最终质检
+            logger.info("All subtasks completed, performing final quality check")
+            
+            # 这里可以调用evaluator进行最终质检
+            evaluator_params = {
+                "global_state": self.global_state,
+                "tools_dict": self.Tools_dict
+            }
+            evaluator = Evaluator(**evaluator_params)
+
+            # 等待Evaluator完成质检
+            evaluator.quality_check()
+
+            # 检查质检结果
+            gate_checks = self.global_state.get_gate_checks()
+            latest_gate = None
+
+            for gate in gate_checks:
+                if not latest_gate or gate.created_at > latest_gate.created_at:
+                    latest_gate = gate
+
+            if latest_gate:
+                decision = latest_gate.decision
+                logger.info(
+                    f"Latest gate check decision for final check: {decision}"
+                )
+                if decision == GateDecision.GATE_DONE.value:
+                    # 如果质检通过，标记任务为完成
+                    self.global_state.update_task_status(TaskStatus.FULFILLED)
+                    logger.info("Final quality check passed, task fulfilled")
+                    # 切换到DONE状态
+                    self.switch_state(ControllerState.DONE, "final_check_passed", "Final quality check passed")
+                    return
+                elif decision == GateDecision.GATE_FAIL.value:
+                    # 最终质检失败
+                    logger.info("Final quality check failed, task rejected")
+                    
+                    # 切换到PLAN状态
+                    self.switch_state(ControllerState.PLAN, "final_check_failed", "Final quality check failed")
+                    return
+                    
+            # 其他状态，继续等待
+            logger.info(f"Final quality check still in progress")
+            # 继续等待或进入终结状态
+            if self._is_state_timeout():
+                logger.error("FINAL_CHECK state timeout, no subtasks created")
+                # 最终质检超时
+                self.switch_state(
+                    ControllerState.PLAN, "final_check_timeout",
+                    "FINAL_CHECK state timeout, no subtasks created")
+            return
+            
+        except Exception as e:
+            logger.error(f"Error in FINAL_CHECK state: {e}")
+            self.global_state.add_event(
+                "controller", 
+                "error",
+                f"FINAL_CHECK state error: {str(e)}"
+            )
+            # 最终质检失败
+            self.switch_state(ControllerState.PLAN, "final_check_error", f"Final check failed: {str(e)}")
 
     def switch_state(self, 
                      new_state: ControllerState,
@@ -876,8 +934,8 @@ class NewController:
             if self.state_switch_count > 50:
                 # 检查是否所有subtask都完成
                 if not task.pending_subtask_ids or len(task.pending_subtask_ids) == 0:
-                    logger.info(f"State switch count > 50 and all subtasks completed, marking task as FULFILLED")
-                    self.global_state.update_task_status(TaskStatus.FULFILLED)
+                    logger.info(f"State switch count > 50 and all subtasks completed, entering final check")
+                    return ControllerState.FINAL_CHECK
                 else:
                     logger.warning(f"State switch count > 50 but subtasks not completed, marking task as REJECTED")
                     self.global_state.update_task_status(TaskStatus.REJECTED)

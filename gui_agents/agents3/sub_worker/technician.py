@@ -17,6 +17,7 @@ from desktop_env.desktop_env import DesktopEnv
 from gui_agents.tools.new_tools import NewTools
 from gui_agents.agents3.new_global_state import NewGlobalState
 from gui_agents.agents3.enums import WorkerDecision
+from gui_agents.utils.common_utils import parse_technician_screenshot_analysis
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,10 @@ class Technician:
                 "action": None,
             }
 
-        # Extract and classify
+        # Parse screenshot analysis and extract/classify
+        screenshot_analysis = parse_technician_screenshot_analysis(command_plan)
+        self.global_state.add_event("technician", "screenshot_analysis_parsed", f"length={len(screenshot_analysis)}")
+        
         try:
             decision = self._infer_decision_from_text(command_plan)
             code_blocks: List[Tuple[str, str]] = []
@@ -202,6 +206,7 @@ class Technician:
             "action": code_blocks if outcome == WorkerDecision.GENERATE_ACTION.value else None,
             "step_result": result.__dict__,
             "outcome": outcome,
+            "screenshot_analysis": screenshot_analysis,
         }
 
     def _extract_code_blocks(self, text: str) -> List[Tuple[str, str]]:

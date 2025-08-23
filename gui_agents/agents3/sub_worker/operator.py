@@ -16,6 +16,7 @@ from gui_agents.utils.common_utils import (
     parse_single_code_from_string,
     sanitize_code,
     extract_first_agent_function,
+    parse_screenshot_analysis,
 )
 from gui_agents.agents3.grounding import Grounding
 from gui_agents.agents3.new_global_state import NewGlobalState
@@ -143,7 +144,10 @@ class Operator:
             f"tokens={total_tokens}, cost={cost_string}",
         )
 
-        # Parse action code
+        # Parse screenshot analysis and action code
+        screenshot_analysis = parse_screenshot_analysis(action_plan)
+        self.global_state.add_event("worker", "screenshot_analysis_parsed", f"length={len(screenshot_analysis)}")
+        
         try:
             current_width, current_height = self.global_state.get_screen_size()
             self.grounding_agent.reset_screen_size(current_width, current_height)
@@ -220,4 +224,5 @@ class Operator:
             "action": exec_code,
             "step_result": result,
             "outcome": outcome,
+            "screenshot_analysis": screenshot_analysis,
         } 

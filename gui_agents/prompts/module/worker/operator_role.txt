@@ -90,6 +90,27 @@ class Agent:
             text:str, the text to type.
         '''
         
+    def set_cell_values(self, cell_values: Dict[str, Any], app_name: str, sheet_name: str):
+    '''Set cell values in a spreadsheet. For example, setting A2 to "hello" would be done by passing {"A2": "hello"} as cell_values. The sheet must be opened before this command can be used.
+        Args:
+            cell_values: Dict[str, Any], A dictionary of cell values to set in the spreadsheet. The keys are the cell coordinates in the format "A1", "B2", etc.
+                Supported value types include: float, int, string, bool, formulas.
+            app_name: str, The name of the spreadsheet application. For example, "Some_sheet.xlsx".
+            sheet_name: str, The name of the sheet in the spreadsheet. For example, "Sheet1".
+        '''
+        
+    def switch_applications(self, app_code: str):
+    '''Switch to a different application that is already open
+        Args:
+            app_code: str, the code name of the application to switch to from the provided list of open applications
+        '''
+        
+    def open(self, app_or_filename: str):
+    '''Open any application or file with name app_or_filename. Use this action to open applications or files on the desktop, do not open manually.
+        Args:
+            app_or_filename: str, the name of the application or filename to open
+        '''
+        
     def wait(self, duration: int):
     '''Wait for a specified amount of time in milliseconds
         Args:

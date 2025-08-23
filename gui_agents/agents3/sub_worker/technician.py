@@ -50,7 +50,7 @@ class Technician:
         tools_dict: Dict[str, Any],
         global_state: NewGlobalState,
         platform: str = "unknown",
-        env_controller: DesktopEnv,
+        env_controller: Optional[DesktopEnv] = None,
         client_password: str = "",
         # max_execution_time: int = 300,
     ) -> None:

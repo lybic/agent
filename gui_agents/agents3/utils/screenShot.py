@@ -5,6 +5,7 @@ from gui_agents.agents3.Backend.PyAutoGUIBackend import PyAutoGUIBackend
 import pyautogui
 
 
+# 处理mac dpi 超分问题
 def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInterface):
     screenshot_high = screenshot.height
     screenshot_width = screenshot.width

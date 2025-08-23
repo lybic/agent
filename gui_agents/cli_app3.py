@@ -1,4 +1,5 @@
 import argparse
+from ast import arg
 import datetime
 import io
 import logging
@@ -8,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 from dotenv import load_dotenv
+
+from desktop_env.desktop_env import DesktopEnv
 
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
 if env_path.exists():
@@ -140,7 +143,7 @@ def auto_analyze_execution(timestamp_dir: str):
         logger.error(f"Error during auto-analysis: {e}")
 
 
-def run_agent3(controller: NewController, instruction: str, max_steps: int = 50):
+def run_agent3(params: dict):
     """
     Run the agents3 controller with the given instruction
     
@@ -149,15 +152,49 @@ def run_agent3(controller: NewController, instruction: str, max_steps: int = 50)
         instruction: The instruction/task to execute
         max_steps: Maximum number of steps to execute
     """
+
+    backend = params["backend"]
+    user_query = params["query"]
+    max_steps = params["max_steps"]
+    current_platform = params["current_platform"]
+    env = params["env"]
+    env_password = params["env_password"]
+
     import time
     
-    logger.info(f"Starting agents3 execution with instruction: {instruction}")
+    logger.info(f"Starting agents3 execution with instruction: {user_query}")
     
     total_start_time = time.time()
+        # Ensure necessary directory structure exists
+    timestamp_dir = os.path.join(log_dir, datetime_str)
+    cache_dir = os.path.join(timestamp_dir, "cache", "screens")
+    state_dir = os.path.join(timestamp_dir, "state")
+
+    os.makedirs(cache_dir, exist_ok=True)
+    os.makedirs(state_dir, exist_ok=True)
+
+        # Initialize agents3 components
+    global_state = NewGlobalState(
+        screenshot_dir=cache_dir,
+        state_dir=state_dir,
+        agent_log_path=os.path.join(timestamp_dir, "agent_log.json"),
+        display_info_path=os.path.join(timestamp_dir, "display.json")
+    )
+    # registry = Registry(global_state)，都
+
+    # Initialize NewController (which includes all other components)
+    controller = NewController(
+        global_state=global_state,
+        platform=current_platform,
+        backend=backend,
+        user_query=user_query,
+        max_steps=max_steps,
+        env=env,
+        env_password=env_password
+    )
     
     try:
         # Set the user query in the controller
-        controller.user_query = instruction
         controller.execute_main_loop()
         
         
@@ -197,13 +234,6 @@ def main():
         help='Lybic precreated sandbox ID (if not provided, will use LYBIC_PRECREATE_SID environment variable)')
     args = parser.parse_args()
 
-    # Ensure necessary directory structure exists
-    timestamp_dir = os.path.join(log_dir, datetime_str)
-    cache_dir = os.path.join(timestamp_dir, "cache", "screens")
-    state_dir = os.path.join(timestamp_dir, "state")
-
-    os.makedirs(cache_dir, exist_ok=True)
-    os.makedirs(state_dir, exist_ok=True)
 
     # Set platform to Windows if backend is lybic
     if args.backend == 'lybic':
@@ -221,39 +251,40 @@ def main():
         logger.info(f"Using Lybic SID from command line: {args.lybic_sid}")
     else:
         logger.info("Using Lybic SID from environment variable LYBIC_PRECREATE_SID")
-    
-    hwi = HardwareInterface(backend=args.backend, **backend_kwargs)
-
-    # Initialize agents3 components
-    global_state = NewGlobalState(
-        screenshot_dir=cache_dir,
-        state_dir=state_dir,
-        agent_log_path=os.path.join(timestamp_dir, "agent_log.json"),
-        display_info_path=os.path.join(timestamp_dir, "display.json")
-    )
-
-    # Initialize NewController (which includes all other components)
-    controller = NewController(
-        global_state=global_state,
-        platform=current_platform,
-        backend=args.backend,
-        enable_search=False,
-        user_query=""
-    )
 
     logger.info("Agents3 components initialized successfully")
+    env = None
+    env_password = ""
+    if args.backend == "pyautogui_vmware":
+        env = DesktopEnv(
+            provider_name="vmware",
+            path_to_vm="path_to_vm",
+            action_space="action_space",
+            headless=False,
+            require_a11y_tree=False,
+        )
+        env_password = "password"
 
+    params = {
+        "backend": args.backend,
+        "query": '',
+        "max_steps": args.max_steps,
+        "current_platform": current_platform,
+        "env": env,
+        "env_password": env_password
+    }
     # if query is provided, run the agent on the query
     if args.query:
         logger.info(f"Executing query: {args.query}")
-        run_agent3(controller, args.query, args.max_steps)
+        params["query"] = args.query
+        run_agent3(params)
 
     else:
         while True:
             query = input("Query: ")
-
+            params["query"] = query
             # Run the agent on your own device
-            run_agent3(controller, query, args.max_steps)
+            run_agent3(params)
 
             response = input("Would you like to provide another query? (y/n): ")
             if response.lower() != "y":

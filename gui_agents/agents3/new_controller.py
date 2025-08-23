@@ -40,26 +40,29 @@ class NewController:
 
     def __init__(
         self,
-        global_state: NewGlobalState,
+        global_state: NewGlobalState, # 应该进行注册：Registry(global_state)
         platform: str = platform.system().lower(),
-        screen_size: List[int] = [1920, 1080],
         memory_root_path: str = os.getcwd(),
         memory_folder_name: str = "kb_s2",
         kb_release_tag: str = "v0.2.2",
         enable_takeover: bool = False,
         enable_search: bool = False,
+        enable_rag: bool = False,
         backend: str = "pyautogui",
         user_query: str = "",
+        max_steps: int = 50,
+        env: Optional[DesktopEnv] = None,
+        env_password: str = "password"
     ):
 
         self.global_state = global_state
         self.platform = platform
-        self.screen_size = screen_size
-        self.memory_root_path = memory_root_path
-        self.memory_folder_name = memory_folder_name
-        self.kb_release_tag = kb_release_tag
+        self.memory_root_path = memory_root_path # kb_s2使用
+        self.memory_folder_name = memory_folder_name # kb_s2使用
+        self.kb_release_tag = kb_release_tag # kb_s2使用
         self.enable_takeover = enable_takeover
         self.enable_search = enable_search
+        self.enable_rag = enable_rag
 
         self.current_state = ControllerState.INIT
         self.state_start_time = time.time()
@@ -68,6 +71,7 @@ class NewController:
         self.max_state_switches = 100  # 最大状态切换次数
         self.user_query = user_query
         self.Tools_dict = {}
+        self.max_steps = max_steps
 
         # Load tools configuration from tools_config.json
         tools_config_path = os.path.join(
@@ -100,24 +104,12 @@ class NewController:
         else:
             print(f"Found local knowledge base path: {kb_platform_path}")
 
-        scaled_width, scaled_height = 1920, 1080
-        # self.env = DesktopEnv(
-        #     provider_name="vmware",
-        #     path_to_vm="path_to_vm",
-        #     action_space="action_space",
-        #     screen_size=(scaled_width, scaled_height),  # type: ignore
-        #     headless=False,
-        #     require_a11y_tree=False,
-        # )
-        self.env = None
-        self.env_password = "password"
+        self.env = env
+        # self.env = None
+        self.env_password = env_password
 
-        self.manager = NewManager(self.Tools_dict, self.global_state,
-                                  self.local_kb_path, self.platform,
-                                  self.enable_search)
-        self.worker = NewWorker(self.Tools_dict, self.global_state, self.env, # type:ignore
-                                self.platform, self.enable_search,
-                                self.env_password)
+        self.manager = NewManager(self.Tools_dict, self.global_state, self.local_kb_path, self.platform, self.enable_search)
+        self.worker = NewWorker(self.Tools_dict, self.global_state, self.env, self.platform, self.enable_search, self.env_password)
         self.evaluator = Evaluator(
             self.global_state,
             self.Tools_dict,
@@ -131,8 +123,6 @@ class NewController:
         # 初始化执行器
         self.executor = NewExecutor(self.global_state, self.hwi, self.env)
         logger.info("Executor initialized")
-
-        self._last_evaluated_subtask_id: Optional[str] = None
 
         # 初始化控制器状态
         self.global_state.reset_controller_state()
@@ -318,9 +308,11 @@ class NewController:
             logger.error(f"Error handling subtask completion: {e}")
             return ControllerState.INIT
 
+    # 解决current_subtask_id不存在的问题
     def handle_init_state(self):
         """立项状态处理"""
         logger.info("Handling INIT state")
+        self.global_state.set_task_objective(self.user_query)
 
         try:
             # 检查是否有待处理的subtask
@@ -341,11 +333,12 @@ class NewController:
                                      f"First subtask {first_subtask_id} ready")
             else:
                 # 没有subtask，需要创建
-                self.global_state.update_controller_state(ControllerState.PLAN)
                 logger.info("No subtasks available, switching to PLAN state")
-                self.switch_to_state(ControllerState.PLAN, "no_subtasks",
-                                     "No subtasks available, need planning")
-                self.global_state.set_task_objective(self.user_query)
+                self.switch_to_state(
+                    ControllerState.PLAN,
+                    "no_subtasks",
+                    "No subtasks available, need planning"
+                )
 
         except Exception as e:
             logger.error(f"Error in INIT state: {e}")
@@ -357,15 +350,14 @@ class NewController:
     def handle_get_action_state(self):
         """取下一步动作阶段"""
         logger.info("Handling GET_ACTION state")
-
+        current_subtask_id = self.global_state.get_task().current_subtask_id
         try:
-            current_subtask_id = self.global_state.get_task().current_subtask_id
             if not current_subtask_id:
                 logger.warning("No current subtask ID, switching to INIT")
                 self.switch_to_state(ControllerState.INIT, "subtask_not_found", f"No current subtask ID in GET_ACTION state")
                 return
 
-            # 检查subtask状态
+            # 检查subtask状态，current_subtask_id存在，subtask不存在
             subtask = self.global_state.get_subtask(current_subtask_id)
             if not subtask:
                 logger.warning(f"Subtask {current_subtask_id} not found, switching to INIT")
@@ -408,21 +400,37 @@ class NewController:
                 elif worker_decision == WorkerDecision.STALE_PROGRESS.value:
                     # 进展停滞，进入质检阶段
                     logger.info(f"Worker decision is STALE_PROGRESS, switching to QUALITY_CHECK")
+                    # 更新subtask状态为进行中
+                    self.global_state.update_subtask_status(
+                        current_subtask_id, SubtaskStatus.STALE,
+                        "Worker progress stale, waiting for quality check")
                     self.switch_to_state(ControllerState.QUALITY_CHECK, "worker_stale_progress", f"Worker progress stale for subtask {current_subtask_id}")
                     return
                 elif worker_decision == WorkerDecision.SUPPLEMENT.value:
                     # 需要补充资料
                     logger.info(f"Worker decision is SUPPLEMENT, switching to SUPPLEMENT")
+                    # 更新subtask状态为进行中
+                    self.global_state.update_subtask_status(
+                        current_subtask_id, SubtaskStatus.REJECTED,
+                        "Worker needs supplement, waiting for supplement")
                     self.switch_to_state(ControllerState.SUPPLEMENT, "worker_supplement", f"Worker needs supplement for subtask {current_subtask_id}")
                     return
                 elif worker_decision == WorkerDecision.GENERATE_ACTION.value:
                     # 生成了新动作，执行动作
                     logger.info(f"Worker decision is GENERATE_ACTION, switching to EXECUTE_ACTION")
+                    # 更新subtask状态为进行中
+                    self.global_state.update_subtask_status(
+                        current_subtask_id, SubtaskStatus.PENDING,
+                        "Worker generated action, waiting for execute")
                     self.switch_to_state(ControllerState.EXECUTE_ACTION, "worker_generate_action", f"Worker generated action for subtask {current_subtask_id}")
                     return
             else:
                 # 错误处理
                 logger.info(f"Subtask {current_subtask_id} has no worker_decision, switching to PLAN")
+                # 更新subtask状态为失败
+                self.global_state.update_subtask_status(
+                    current_subtask_id, SubtaskStatus.REJECTED,
+                    "Worker has no worker_decision, switching to PLAN")
                 self.switch_to_state(ControllerState.PLAN, "no_worker_decision", f"Subtask {current_subtask_id} has no worker_decision in GET_ACTION state")
                 return
             
@@ -432,7 +440,13 @@ class NewController:
             logger.error(f"Error in GET_ACTION state: {e}")
             self.global_state.add_event("controller", "error",
                                         f"GET_ACTION state error: {str(e)}")
-            self.switch_to_state(ControllerState.PLAN)
+            
+            # 更新subtask状态为失败
+            if current_subtask_id is not None:
+                self.global_state.update_subtask_status(
+                    current_subtask_id, SubtaskStatus.REJECTED,
+                    "Worker has no worker_decision, switching to PLAN")
+            self.switch_to_state(ControllerState.PLAN, "get_action_error", f"GET_ACTION state error: {str(e)}")
 
     def handle_execute_action_state(self):
         """执行动作阶段"""
@@ -442,7 +456,7 @@ class NewController:
             current_subtask_id = self.global_state.get_task().current_subtask_id
             if not current_subtask_id:
                 logger.warning("No current subtask ID in EXECUTE_ACTION state")
-                self.switch_to_state(ControllerState.INIT)
+                self.switch_to_state(ControllerState.INIT, "no_current_subtask_id", "No current subtask ID in EXECUTE_ACTION state")
                 return
 
             # 获取当前subtask
@@ -451,7 +465,7 @@ class NewController:
                 logger.warning(
                     f"Subtask {current_subtask_id} not found in EXECUTE_ACTION state"
                 )
-                self.switch_to_state(ControllerState.INIT)
+                self.switch_to_state(ControllerState.INIT, "subtask_not_found", f"Subtask {current_subtask_id} not found in EXECUTE_ACTION state")
                 return
 
             # 使用新的执行器执行动作
@@ -471,14 +485,14 @@ class NewController:
                 )
 
                 self.global_state.update_subtask_status(
-                    current_subtask_id, SubtaskStatus.REJECTED,
+                    current_subtask_id, SubtaskStatus.PENDING,
                     f"Action execution failed: {error_msg}")
-                self.switch_to_state(ControllerState.PLAN, "execution_error",
-                                     f"Action execution failed: {error_msg}")
+                self.switch_to_state(ControllerState.GET_ACTION, "execution_error", f"Action execution failed: {error_msg}")
                 return
 
             # 等待1秒
             time.sleep(3)
+            # 获取截图Executor处理
             command = self.global_state.get_current_command_for_subtask(
                 current_subtask_id)
             if command:
@@ -489,22 +503,24 @@ class NewController:
                 self.switch_to_state(
                     ControllerState.GET_ACTION, "command_completed",
                     f" {command.command_id} command completed")
+            else:
+                self.switch_to_state(ControllerState.GET_ACTION, "no_command", "No command found in EXECUTE_ACTION state")
+                return
 
         except Exception as e:
             logger.error(f"Error in EXECUTE_ACTION state: {e}")
             self.global_state.add_event(
                 "controller", "error", f"EXECUTE_ACTION state error: {str(e)}")
-            self.switch_to_state(ControllerState.PLAN)
+            self.switch_to_state(ControllerState.GET_ACTION, "execution_error", f"EXECUTE_ACTION state error: {str(e)}")
 
     def handle_quality_check_state(self):
         """质检门检查阶段"""
         logger.info("Handling QUALITY_CHECK state")
-
+        current_subtask_id = self.global_state.get_task().current_subtask_id
         try:
-            current_subtask_id = self.global_state.get_task().current_subtask_id
             if not current_subtask_id:
                 logger.warning("No current subtask ID in QUALITY_CHECK state")
-                self.switch_to_state(ControllerState.INIT)
+                self.switch_to_state(ControllerState.INIT, "no_current_subtask_id", "No current subtask ID in QUALITY_CHECK state")
                 return
 
             # 等待Evaluator完成质检
@@ -541,6 +557,7 @@ class NewController:
                         # final_check先不开发
                         self.global_state.update_task_status(TaskStatus.FULFILLED)
                         logger.info("All subtasks completed, task finished")
+                        # 应该路由到FINAL_CHECK
                         self.switch_to_state(ControllerState.DONE, "task_completed", "All subtasks completed")
                         return
                     
@@ -551,34 +568,39 @@ class NewController:
                         f"Quality check passed for subtask {current_subtask_id}"
                     )
                 elif decision == GateDecision.GATE_FAIL.value:
-                    # 质检失败，需要重规划
-                    self.global_state.update_controller_state(
-                        ControllerState.PLAN)
+
                     logger.info(
                         f"Quality check failed for subtask {current_subtask_id}"
                     )
+                    # 更新子任务状态为失败
+                    self.global_state.update_subtask_status(
+                        current_subtask_id, SubtaskStatus.REJECTED,
+                        "Quality check failed")
                     self.switch_to_state(
                         ControllerState.PLAN, "quality_check_failed",
                         f"Quality check failed for subtask {current_subtask_id}"
                     )
                 elif decision == GateDecision.GATE_SUPPLEMENT.value:
                     # 需要补充资料
-                    self.global_state.update_controller_state(
-                        ControllerState.SUPPLEMENT)
+                    # 更新子任务状态为失败
                     logger.info(
                         f"Quality check requires supplement for subtask {current_subtask_id}"
                     )
+                    self.global_state.update_subtask_status(
+                        current_subtask_id, SubtaskStatus.REJECTED,
+                        "Quality check requires supplement")
                     self.switch_to_state(
                         ControllerState.SUPPLEMENT, "quality_check_supplement",
                         f"Quality check requires supplement for subtask {current_subtask_id}"
                     )
                 elif decision == GateDecision.GATE_CONTINUE.value:
                     # execute_action
-                    self.global_state.update_controller_state(
-                        ControllerState.EXECUTE_ACTION)
                     logger.info(
                         f"Quality check requires execute action for subtask {current_subtask_id}"
                     )
+                    self.global_state.update_subtask_status(
+                        current_subtask_id, SubtaskStatus.PENDING,
+                        "Quality check requires execute action")
                     self.switch_to_state(
                         ControllerState.EXECUTE_ACTION, "quality_check_execute_action",
                         f"Quality check requires execute action for subtask {current_subtask_id}"
@@ -591,8 +613,9 @@ class NewController:
                     logger.warning(
                         f"QUALITY_CHECK state timeout (no gate checks) for subtask {current_subtask_id}"
                     )
-                    self.global_state.update_controller_state(
-                        ControllerState.PLAN)
+                    self.global_state.update_subtask_status(
+                        current_subtask_id, SubtaskStatus.REJECTED,
+                        "Quality check timeout")
                     self.switch_to_state(
                         ControllerState.PLAN, "timeout",
                         f"QUALITY_CHECK state timeout (no gate checks) for subtask {current_subtask_id}"
@@ -602,7 +625,11 @@ class NewController:
             logger.error(f"Error in QUALITY_CHECK state: {e}")
             self.global_state.add_event("controller", "error",
                                         f"QUALITY_CHECK state error: {str(e)}")
-            self.switch_to_state(ControllerState.PLAN)
+            if current_subtask_id is not None:
+                self.global_state.update_subtask_status(
+                    current_subtask_id, SubtaskStatus.REJECTED,
+                    "Quality check error")
+            self.switch_to_state(ControllerState.PLAN, "quality_check_error", f"QUALITY_CHECK state error: {str(e)}")
 
     def handle_plan_state(self):
         """重规划阶段"""
@@ -621,15 +648,12 @@ class NewController:
                 first_subtask_id = pending_subtask_ids[0]
                 self.global_state.advance_to_next_subtask()
                 self.global_state.update_task_status(TaskStatus.PENDING)
-                self.global_state.update_controller_state(
-                    ControllerState.GET_ACTION)
                 logger.info(f"Set current subtask: {first_subtask_id}")
                 self.switch_to_state(ControllerState.GET_ACTION,
                                      "subtask_ready",
                                      f"First subtask {first_subtask_id} ready")
             else:
                 # 没有subtask，任务可能无法完成
-                self.global_state.update_controller_state(ControllerState.PLAN)
                 logger.warning(
                     "No subtasks available, continuing to wait for planning")
                 # 继续等待或进入终结状态
@@ -645,7 +669,7 @@ class NewController:
             logger.error(f"Error in PLAN state: {e}")
             self.global_state.add_event("controller", "error",
                                         f"PLAN state error: {str(e)}")
-            self.switch_to_state(ControllerState.INIT)
+            self.switch_to_state(ControllerState.INIT, "plan_error", f"PLAN state error: {str(e)}")
 
     def handle_supplement_state(self):
         """资料补全阶段"""
@@ -657,27 +681,33 @@ class NewController:
 
             self.manager.plan_task("supplement")
 
-            # 检查supplement.md是否有更新
-            supplement_content = self.global_state.get_supplement()
 
-            # 如果资料补充完成，回到GET_ACTION
-            self.global_state.update_controller_state(
-                ControllerState.GET_ACTION)
+            # 如果资料补充完成，回到PLAN
             logger.info("Supplement state completed, returning to GET_ACTION")
-            self.switch_to_state(ControllerState.GET_ACTION,
+            self.switch_to_state(ControllerState.PLAN,
                                  "supplement_completed",
                                  "Supplement collection completed")
 
         except Exception as e:
             logger.error(f"Error in SUPPLEMENT state: {e}")
-            self.global_state.add_event("controller", "error",
-                                        f"SUPPLEMENT state error: {str(e)}")
-            self.switch_to_state(ControllerState.GET_ACTION)
+            self.global_state.add_event(
+                "controller", 
+                "error",
+                f"SUPPLEMENT state error: {str(e)}"
+            )
+            # 此处没有定义current_subtask_id，修正为获取当前subtask_id
+            current_subtask_id = self.global_state.get_task().current_subtask_id
+            if current_subtask_id is not None:
+                self.global_state.update_subtask_status(
+                    current_subtask_id, SubtaskStatus.REJECTED,
+                    "Supplement collection failed")
+            self.switch_to_state(ControllerState.PLAN, "supplement_error", f"SUPPLEMENT state error: {str(e)}")
 
     def switch_to_state(self,
-                        new_state: ControllerState,
-                        trigger: str = "controller",
-                        trigger_details: str = ""):
+        new_state: ControllerState,
+        trigger: str = "controller",
+        trigger_details: str = ""
+    ):
         """切换到新状态"""
         if new_state == self.current_state:
             logger.debug(f"Already in state {new_state}")

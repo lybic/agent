@@ -18,9 +18,9 @@ from gui_agents.agents3.new_global_state import NewGlobalState
 from gui_agents.agents3.data_models import create_command_data
 from gui_agents.agents3.enums import WorkerDecision
 
-from .new_worker.technician import Technician
-from .new_worker.analyst import Analyst
-from .new_worker.operator import Operator
+from .sub_worker.technician import Technician
+from .sub_worker.analyst import Analyst
+from .sub_worker.operator import Operator
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class NewWorker:
         self,
         tools_dict: Dict[str, Any],
         global_state: NewGlobalState,
-        env_controller: DesktopEnv,
+        env_controller: Optional[DesktopEnv] = None,
         platform: str = "unknown",
         enable_search: bool = False,
         client_password: str = "",

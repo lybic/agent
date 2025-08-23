@@ -74,6 +74,9 @@ class NewController:
         self.user_query = user_query
         self.Tools_dict = {}
         self.max_steps = max_steps
+        
+        # 初始化计数器
+        self.reset_counters()
 
         # Load tools configuration and setup knowledge base
         self._load_tools_configuration()
@@ -1008,6 +1011,7 @@ class NewController:
         logger.info("Resetting controller")
         self.state_switch_count = 0
         self.global_state.reset_controller_state()
+        self.reset_counters()  # 重置计数器
         logger.info("Controller reset completed")
 
     def reset_counters(self) -> None:

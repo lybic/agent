@@ -93,7 +93,10 @@ class NewController:
         self.manager = NewManager(**manager_params)
 
         # 初始化硬件接口
-        backend_kwargs = {"platform": platform}
+        backend_kwargs = {
+            "platform": platform, 
+            "env_controller": self.env
+        }
         self.hwi = HardwareInterface(backend=backend, **backend_kwargs)
         logger.info(f"Hardware interface initialized with backend: {backend}")
 

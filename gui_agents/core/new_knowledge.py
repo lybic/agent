@@ -48,6 +48,16 @@ class NewKnowledgeBase:
         Tools_dict: Dict,
         save_knowledge: bool = True,
     ):
+        """
+        Initialize the KnowledgeBase module
+        
+        Args:
+            embedding_engine: Embedding engine instance
+            local_kb_path: Path to local knowledge base
+            platform: Target platform (Windows/Darwin/Ubuntu)
+            Tools_dict: Dictionary containing tool configurations
+            save_knowledge: Whether to save knowledge embeddings
+        """
         self.platform = platform
 
         self.local_kb_path = local_kb_path

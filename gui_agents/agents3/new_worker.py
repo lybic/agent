@@ -38,7 +38,7 @@ class NewWorker:
         self,
         tools_dict: Dict[str, Any],
         global_state: NewGlobalState,
-        platform: str = "unknown",
+        platform: str = "Windows",
         enable_search: bool = False,
         client_password: str = "",
         screen_size: List[int] = [1920, 1080],

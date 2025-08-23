@@ -39,7 +39,7 @@ class Operator:
         self,
         tools_dict: Dict[str, Any],
         global_state: NewGlobalState,
-        platform: str = "unknown",
+        platform: str = "Windows",
         enable_search: bool = False,
         screen_size: List[int] = [1920, 1080],
     ) -> None:

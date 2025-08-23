@@ -51,29 +51,12 @@ class PyAutoGUIVMwareBackend(Backend):
     _supported = {Click, DoubleClick, Move, Scroll, Drag, TypeText, Hotkey, Wait, Done, Failed, Screenshot}
 
     # ¶ PyAutoGUI sometimes throws exceptions if mouse is moved to a corner.
-    def __init__(self, default_move_duration: float = 0.0, platform: str | None = None):
+    def __init__(self, default_move_duration: float = 0.0, platform: str | None = None, env_controller: Optional[DesktopEnv] = None):
         import pyautogui as pag  # local import to avoid hard requirement
         pag.FAILSAFE = False
         self.pag = pag
         self.default_move_duration = default_move_duration
-        self.platform = platform
-        self.use_precreate_vm = os.getenv("USE_PRECREATE_VM")
-        if self.use_precreate_vm is not None:
-            if self.use_precreate_vm == "Ubuntu":
-                path_to_vm = os.path.join("vmware_vm_data", "Ubuntu-x86", "Ubuntu.vmx")
-            elif self.use_precreate_vm == "Windows":
-                path_to_vm = os.path.join("vmware_vm_data", "Windows-x86", "Windows 10 x64.vmx")
-            else:
-                raise ValueError(f"USE_PRECREATE_VM={self.use_precreate_vm} is not supported. Please use Ubuntu or Windows.")
-
-            self.env = DesktopEnv(
-                path_to_vm=path_to_vm,
-                provider_name="vmware", 
-                os_type=self.use_precreate_vm, 
-                action_space="pyautogui",
-                require_a11y_tree=False
-            )
-            self.env.reset()
+        self.env_controller = env_controller
 
 
     # ------------------------------------------------------------------

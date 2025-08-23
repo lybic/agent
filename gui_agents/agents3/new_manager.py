@@ -63,7 +63,7 @@ class NewManager:
         tools_dict: Dict[str, Any],
         global_state: NewGlobalState,
         local_kb_path: str = "",
-        platform: str = "unknown",
+        platform: str = "Windows",
         enable_search: bool = False,
         enable_narrative: bool = False,
         max_replan_attempts: int = 3,
@@ -75,7 +75,7 @@ class NewManager:
             tools_dict: Dictionary containing tool configurations
             global_state: Global state instance
             local_kb_path: Path to local knowledge base
-            platform: Target platform (windows/mac/linux)
+            platform: Target platform (Windows/Darwin/Ubuntu)
             enable_search: Whether to enable web search
             max_replan_attempts: Maximum replanning attempts
         """

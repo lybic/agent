@@ -50,7 +50,7 @@ class Technician:
         *,
         tools_dict: Dict[str, Any],
         global_state: NewGlobalState,
-        platform: str = "unknown",
+        platform: str = "Ubuntu",
         client_password: str = "",
         # max_execution_time: int = 300,
     ) -> None:

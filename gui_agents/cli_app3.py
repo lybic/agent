@@ -24,8 +24,6 @@ from PIL import Image
 
 # Import agents3 modules
 from gui_agents.agents3.new_global_state import NewGlobalState
-from gui_agents.agents3.new_executor import NewExecutor
-from gui_agents.agents3.hardware_interface import HardwareInterface
 from gui_agents.agents3.new_controller import NewController
 
 # Import analyze_display functionality
@@ -64,8 +62,6 @@ stdout_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(debug_handler)
 logger.addHandler(stdout_handler)
-
-platform_os = platform.system()
 
 
 def auto_analyze_execution(timestamp_dir: str):
@@ -252,12 +248,38 @@ def main():
         help='Lybic precreated sandbox ID (if not provided, will use LYBIC_PRECREATE_SID environment variable)')
     args = parser.parse_args()
 
+    env = None
+    env_password = ""
 
     # Set platform to Windows if backend is lybic
     if args.backend == 'lybic':
-        current_platform = 'windows'
+        current_platform = 'Windows'
+    elif args.backend == 'pyautogui_vmware':
+        env_password = "password"
+        current_platform = os.getenv("USE_PRECREATE_VM", "Windows")
+        if current_platform == "Ubuntu":
+            cpu_arch = platform.machine().lower()
+            if cpu_arch in ['x86_64', 'amd64', 'i386', 'i686']:
+                path_to_vm = os.path.join("vmware_vm_data", "Ubuntu-x86", "Ubuntu.vmx")
+            elif cpu_arch in ['arm64', 'aarch64']:
+                path_to_vm = os.path.join("vmware_vm_data", "Ubuntu-arm", "Ubuntu.vmx")
+            else:
+                raise ValueError(f"Unsupported CPU architecture: {cpu_arch}")
+        elif current_platform == "Windows":
+            path_to_vm = os.path.join("vmware_vm_data", "Windows-x86", "Windows 10 x64.vmx")
+        else:
+            raise ValueError(f"USE_PRECREATE_VM={current_platform} is not supported. Please use Ubuntu or Windows.")
+
+        env = DesktopEnv(
+            path_to_vm=path_to_vm,
+            provider_name="vmware", 
+            os_type=current_platform, 
+            action_space="pyautogui",
+            require_a11y_tree=False
+        )
+        env.reset()
     else:
-        current_platform = platform.system().lower()
+        current_platform = platform.system()
 
     logger.info(f"Running agents3 on platform: {current_platform}")
     logger.info(f"Using backend: {args.backend}")
@@ -270,18 +292,7 @@ def main():
     else:
         logger.info("Using Lybic SID from environment variable LYBIC_PRECREATE_SID")
 
-    logger.info("Agents3 components initialized successfully")
-    env = None
-    env_password = ""
-    if args.backend == "pyautogui_vmware":
-        env = DesktopEnv(
-            provider_name="vmware",
-            path_to_vm="path_to_vm",
-            action_space="action_space",
-            headless=False,
-            require_a11y_tree=False,
-        )
-        env_password = "password"
+    logger.info("Agents3 components initialized successfully")            
 
     params = {
         "backend": args.backend,
@@ -313,6 +324,7 @@ if __name__ == "__main__":
     """
     python gui_agents/cli_app3.py --backend lybic
     python gui_agents/cli_app3.py --backend pyautogui
+    python gui_agents/cli_app3.py --backend pyautogui_vmware --max-steps 1
     python gui_agents/cli_app3.py --backend lybic --max-steps 15
     python gui_agents/cli_app3.py --backend lybic --lybic-sid SBX-01K1X6ZKAERXAN73KTJ1XXJXAF
     """

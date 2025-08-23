@@ -79,6 +79,7 @@ class Operator:
         self.grounding_agent = Grounding(
             Tools_dict=self.tools_dict,
             platform=self.platform,
+            global_state=self.global_state,
             width=self.screen_size[0],
             height=self.screen_size[1]
         )
@@ -105,7 +106,7 @@ class Operator:
             # Without screenshot, we cannot ground; signal stale
             msg = "No screenshot available for action generation"
             logger.warning(msg)
-            self.global_state.add_event("worker", "no_screenshot", msg)
+            self.global_state.log_operation("worker", "no_screenshot", {"error": msg})
             result = {
                 "step_id": f"{subtask.get('subtask_id','unknown')}.step-0",
                 "ok": False,
@@ -138,11 +139,11 @@ class Operator:
             {"str_input": generator_prompt, "img_input": screenshot_bytes},
         )
         latency_ms = int((time.time() - t0) * 1000)
-        self.global_state.add_event(
-            "worker",
-            "action_plan_generated",
-            f"tokens={total_tokens}, cost={cost_string}",
-        )
+        self.global_state.log_operation("worker", "action_plan_generated", {
+            "tokens": total_tokens,
+            "cost": cost_string,
+            "duration": latency_ms / 1000.0
+        })
 
         # Parse screenshot analysis and action code
         screenshot_analysis = parse_screenshot_analysis(action_plan)
@@ -155,11 +156,11 @@ class Operator:
 
             action_code = parse_single_code_from_string(action_plan.split("Grounded Action")[-1])
             action_code = sanitize_code(action_code)
-            self.global_state.add_event("worker", "generated_action_code", f"{action_code}")
+            self.global_state.log_operation("worker", "generated_action_code", {"action_code": action_code})
         except Exception as e:
             err = f"PARSE_ACTION_FAILED: {e}"
             logger.warning(err)
-            self.global_state.add_event("worker", "parse_action_failed", err)
+            self.global_state.log_operation("worker", "parse_action_failed", {"error": err})
             result = {
                 "step_id": f"{subtask.get('subtask_id','unknown')}.step-1",
                 "ok": False,
@@ -179,7 +180,7 @@ class Operator:
         try:
             plan_code = extract_first_agent_function(action_code)
             exec_code = eval(plan_code)  # type: ignore
-            self.global_state.add_event("worker", "generated_exec_code", f"{exec_code}")
+            self.global_state.log_operation("worker", "generated_exec_code", {"exec_code": str(exec_code)})
             ok = True
             # Determine outcome based on action type
             action_type = ""

@@ -214,8 +214,11 @@ class NewExecutor:
             execution_result = "\n".join(results)
             
             # 记录执行结果
-            self.global_state.add_event("executor", "code_execution_completed", 
-                f"Code execution completed in {execution_time:.2f}s")
+            self.global_state.log_operation("executor", "code_execution_completed", {
+                "execution_time": execution_time,
+                "script_type": script_type,
+                "result": execution_result
+            })
             
             return self._create_execution_result(
                 success=True,
@@ -384,8 +387,10 @@ class NewExecutor:
                     )
             
             # 记录执行开始事件
-            self.global_state.add_event("executor", "action_start", 
-                f"Starting action execution for subtask {subtask_id}")
+            self.global_state.log_operation("executor", "action_start", {
+                "subtask_id": subtask_id,
+                "action": action
+            })
             
             # 执行硬件动作
             try:
@@ -436,16 +441,21 @@ class NewExecutor:
         try:
             if success:
                 # 记录成功执行事件
-                self.global_state.add_event("executor", "action_success", 
-                    f"Action executed successfully for subtask {subtask_id} in {execution_time:.2f}s")
+                self.global_state.log_operation("executor", "action_success", {
+                    "subtask_id": subtask_id,
+                    "execution_time": execution_time
+                })
                 
                 # 可以选择更新subtask状态为已执行，但状态管理应该由Controller决定
                 # self.global_state.update_subtask_status(subtask_id, SubtaskStatus.FULFILLED, "Action executed successfully")
                 
             else:
                 # 记录执行失败事件
-                self.global_state.add_event("executor", "action_error", 
-                    f"Action execution failed for subtask {subtask_id}: {error_message}")
+                self.global_state.log_operation("executor", "action_error", {
+                    "subtask_id": subtask_id,
+                    "error_message": error_message,
+                    "execution_time": execution_time
+                })
                 
                 # 可以选择更新subtask状态为失败，但状态管理应该由Controller决定
                 # self.global_state.update_subtask_status(subtask_id, SubtaskStatus.REJECTED, f"Action execution failed: {error_message}")

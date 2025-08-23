@@ -27,7 +27,7 @@ from .new_worker import NewWorker
 from .evaluator import Evaluator
 from .new_executor import NewExecutor
 from .enums import (
-    ControllerState, TaskStatus, SubtaskStatus, 
+    ControllerState, TaskStatus, SubtaskStatus,
     GateDecision, GateTrigger, WorkerDecision
 )
 from gui_agents.agents3.Action import Screenshot
@@ -210,11 +210,11 @@ class NewController:
         """判断是否应该跳出主循环"""
         try:
             task = self.global_state.get_task()
-            
+
             if not task:
                 return False
             task_status = task.status
-                            
+
             if task_status == TaskStatus.FULFILLED.value:
                 logger.info("Task fulfilled, should exit loop")
                 return True
@@ -226,7 +226,7 @@ class NewController:
                 return True
                 
             return False
-            
+
         except Exception as e:
             logger.error(f"Error checking exit condition: {e}")
             return False
@@ -239,7 +239,7 @@ class NewController:
 
             # 2. 检查当前状态规则
             self._check_current_state_rules()
-            
+
         except Exception as e:
             logger.error(f"Error in rule processing: {e}")
             self.global_state.add_event("controller", "error", f"Rule processing error: {str(e)}")
@@ -357,13 +357,13 @@ class NewController:
                 logger.warning(f"Subtask {current_subtask_id} not found, switching to INIT")
                 self.switch_state(ControllerState.INIT, "subtask_not_found", f"Subtask {current_subtask_id} not found in GET_ACTION state")
                 return
-            
+
             #worker生成command
             #这块也可以拿到worker的outcome给command的worker_decision
             # 方案一拿到outcome作为worker_decision
             # 方案二设置outcome作为command的worker_decision
             # 方案三worker内部处理worker_decision
-            
+
             # 由Worker统一处理：根据角色生成action/记录decision/创建command
 
             worker_params = {
@@ -380,7 +380,7 @@ class NewController:
 
             if worker_decision:
                 logger.info(f"Subtask {current_subtask_id} has worker_decision: {worker_decision}")
-                
+
                 # 根据worker_decision切换状态
                 if worker_decision == WorkerDecision.WORKER_DONE.value:
                     # 操作成功，进入质检阶段
@@ -436,14 +436,14 @@ class NewController:
                     "Worker has no worker_decision, switching to PLAN")
                 self.switch_state(ControllerState.PLAN, "no_worker_decision", f"Subtask {current_subtask_id} has no worker_decision in GET_ACTION state")
                 return
-            
+
             # 如果没有worker_decision或worker_decision不匹配已知类型，根据subtask状态决定下一步，暂时不开发
-                
+
         except Exception as e:
             logger.error(f"Error in GET_ACTION state: {e}")
             self.global_state.add_event("controller", "error",
                                         f"GET_ACTION state error: {str(e)}")
-            
+
             # 更新subtask状态为失败
             if current_subtask_id is not None:
                 self.global_state.update_subtask_status(
@@ -530,13 +530,8 @@ class NewController:
             evaluator.quality_check()
 
             # 检查质检结果
-            gate_checks = self.global_state.get_gate_checks()
-            latest_gate = None
-
-            for gate in gate_checks:
-                if gate.subtask_id == current_subtask_id:
-                    if not latest_gate or gate.created_at > latest_gate.created_at:
-                        latest_gate = gate
+            latest_gate = self.global_state.get_latest_gate_check_for_subtask(
+                current_subtask_id)
 
             if latest_gate:
                 decision = latest_gate.decision
@@ -552,7 +547,7 @@ class NewController:
                     logger.info(
                         f"Quality check passed for subtask {current_subtask_id}"
                     )
-                    
+
                     # 检查任务是否完成
                     task = self.global_state.get_task()
                     if not task.pending_subtask_ids:
@@ -560,7 +555,7 @@ class NewController:
                         logger.info("All subtasks completed, entering final check")
                         self.switch_state(ControllerState.FINAL_CHECK, "all_subtasks_completed", "All subtasks completed, entering final check")
                         return
-                    
+
                     # 还有待处理的subtask，推进到下一个
                     self.global_state.advance_to_next_subtask()
                     self.switch_state(
@@ -691,7 +686,7 @@ class NewController:
         except Exception as e:
             logger.error(f"Error in SUPPLEMENT state: {e}")
             self.global_state.add_event(
-                "controller", 
+                "controller",
                 "error",
                 f"SUPPLEMENT state error: {str(e)}"
             )
@@ -824,7 +819,7 @@ class NewController:
             task = self.global_state.get_task()
             if not task:
                 return None
-                
+
             # 距离上次质检超过5分钟 - QUALITY_CHECK
             gate_checks = self.global_state.get_gate_checks()
             if gate_checks:
@@ -832,7 +827,7 @@ class NewController:
                 latest_time = datetime.fromisoformat(latest_quality_check.created_at)
                 current_time = datetime.now()
                 time_diff = current_time - latest_time
-                
+
                 if (time_diff.total_seconds() > 300 and  # 5分钟 = 300秒
                     self.get_current_state() not in [ControllerState.QUALITY_CHECK, ControllerState.DONE]):
                     logger.info(f"5 minutes since last quality check, switching to QUALITY_CHECK")
@@ -845,7 +840,7 @@ class NewController:
                         self.get_current_state() not in [ControllerState.QUALITY_CHECK, ControllerState.DONE]):
                         logger.info(f"First quality check after 5 commands for subtask {task.current_subtask_id}, switching to QUALITY_CHECK")
                         return ControllerState.QUALITY_CHECK
-            
+
             # 相同连续动作高于3次 - QUALITY_CHECK
             # 检查当前subtask的command_trace数量
             if task.current_subtask_id:
@@ -853,16 +848,16 @@ class NewController:
                 if subtask and len(subtask.command_trace_ids) >= 3:
                     logger.info(f"Subtask {task.current_subtask_id} has >= 3 commands, switching to QUALITY_CHECK")
                     return ControllerState.QUALITY_CHECK
-            
+
             # 如果一个subtask的执行action过长，超过15次 - REPLAN
             if task.current_subtask_id:
                 subtask = self.global_state.get_subtask(task.current_subtask_id)
                 if subtask and len(subtask.command_trace_ids) > 15:
                     logger.info(f"Subtask {task.current_subtask_id} has > 15 commands, switching to PLAN")
                     return ControllerState.PLAN
-                    
+
             return None
-            
+
         except Exception as e:
             logger.error(f"Error checking current situation rules: {e}")
             return None
@@ -908,28 +903,28 @@ class NewController:
             task = self.global_state.get_task()
             if not task:
                 return
-                
+
             # 检查状态切换次数上限
             if self.state_switch_count >= self.max_state_switches:
                 logger.warning(f"Maximum state switches ({self.max_state_switches}) reached")
                 self.global_state.update_task_status(TaskStatus.REJECTED)
-            
+
             # 检查任务状态
             if task.status == "completed":
                 logger.info("Task marked as completed")
-                
+
             # manager规划次数大于10次 - rejected
             if self.state_switch_count > 100:
                 logger.warning(f"State switch count > 10, marking task as REJECTED")
                 self.global_state.update_task_status(TaskStatus.REJECTED)
-            
+
             # manager重规划连续失败3次 - rejected 未判断连续
             # 检查是否有连续的状态切换到PLAN，但只在PLAN状态下检查
-            # if (self.current_state == ControllerState.PLAN and 
+            # if (self.current_state == ControllerState.PLAN and
             #     self.state_switch_count >= 3):
             #     logger.warning(f"Multiple switches to PLAN state, marking task as REJECTED")
             #     self.global_state.update_task_status(TaskStatus.REJECTED)
-            
+
             # current_step大于50步 - rejected/fulfilled
             if self.state_switch_count > 50:
                 # 检查是否所有subtask都完成
@@ -939,9 +934,9 @@ class NewController:
                 else:
                     logger.warning(f"State switch count > 50 but subtasks not completed, marking task as REJECTED")
                     self.global_state.update_task_status(TaskStatus.REJECTED)
-                    
+
             return
-            
+
         except Exception as e:
             logger.error(f"Error checking task state rules: {e}")
             return

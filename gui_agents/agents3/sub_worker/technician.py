@@ -69,6 +69,54 @@ class Technician:
             self.tools_dict[self.technician_agent_name]["model"],
         )
 
+    def _get_command_history_for_subtask(self, subtask_id: str) -> str:
+        """获取指定subtask的命令历史，格式化为易读的文本"""
+        try:
+            commands = self.global_state.get_commands_for_subtask(subtask_id)
+            if not commands:
+                return "无历史操作记录"
+            
+            history_lines = []
+            history_lines.append("=== 历史操作记录 ===")
+            
+            for i, cmd in enumerate(commands, 1):
+                # 格式化每个命令的信息
+                action_type = "未知操作"
+                action_desc = ""
+                
+                if isinstance(cmd.action, dict):
+                    if "type" in cmd.action:
+                        action_type = cmd.action["type"]
+                    if "message" in cmd.action:
+                        action_desc = cmd.action["message"]
+                elif isinstance(cmd.action, list):
+                    action_type = "代码生成"
+                    if cmd.action:
+                        descs = []
+                        for idx, (lang, code) in enumerate(cmd.action, 1):
+                            code_str = str(code)
+                            descs.append(f"[{idx}] 语言: {lang}, 代码长度: {len(code_str)} 代码{code_str}")
+                        action_desc = " | ".join(descs)
+                
+                # 添加命令状态信息
+                status = cmd.worker_decision
+                message = cmd.message if cmd.message else ""
+                
+                history_lines.append(f"{i}. [{action_type}] - 状态: {status}")
+                if action_desc:
+                    history_lines.append(f"   描述: {action_desc}")
+                if message:
+                    history_lines.append(f"   消息: {message}")
+                if cmd.pre_screenshot_analysis:
+                    analysis_preview = cmd.pre_screenshot_analysis[:150] + "..." if len(cmd.pre_screenshot_analysis) > 150 else cmd.pre_screenshot_analysis
+                    history_lines.append(f"   截图分析: {analysis_preview}")
+                history_lines.append("")
+            
+            return "\n".join(history_lines)
+        except Exception as e:
+            logger.warning(f"获取命令历史失败: {e}")
+            return "获取历史记录失败"
+
     def execute_task(
         self,
         *,
@@ -85,6 +133,10 @@ class Technician:
         - action: when outcome is worker_generate_action, a list of (lang, code) blocks
         """
 
+        # 获取命令历史
+        subtask_id = subtask.get("subtask_id", "")
+        command_history = self._get_command_history_for_subtask(subtask_id)
+
         # Build coding prompt
         subtask_title = subtask.get("title", "")
         subtask_desc = subtask.get("description", "")
@@ -100,7 +152,12 @@ class Technician:
         if guidance:
             task_prompt.append(f"# Guidance: {guidance}")
         task_prompt.append(f"# Platform: {self.platform}")
-        task_prompt.append("\nGenerate the appropriate bash or python code to complete this task.")
+        
+        # 添加历史操作记录到提示词中
+        task_prompt.append(f"# Previous Actions History:")
+        task_prompt.append(command_history)
+        task_prompt.append("")
+        task_prompt.append("# Based on the above history, generate the appropriate bash or python code to complete this task.")
         task_prompt.append("Wrap your code in ```bash or ```python code blocks.")
         task_prompt.append("If the task is already done, or cannot proceed, or needs info/QA, output a Decision section like 'Decision: Done' | 'Decision: Failed' | 'Decision: Supplement' | 'Decision: NeedQualityCheck'. If you provide code, that's treated as generate_action.")
         

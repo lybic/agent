@@ -84,6 +84,52 @@ class Operator:
             height=self.screen_size[1]
         )
 
+    def _get_command_history_for_subtask(self, subtask_id: str) -> str:
+        """获取指定subtask的命令历史，格式化为易读的文本"""
+        try:
+            commands = self.global_state.get_commands_for_subtask(subtask_id)
+            if not commands:
+                return "无历史操作记录"
+            
+            history_lines = []
+            history_lines.append("=== 历史操作记录 ===")
+            
+            for i, cmd in enumerate(commands, 1):
+                # 格式化每个命令的信息
+                action_type = "未知操作"
+                action_desc = ""
+                
+                if isinstance(cmd.action, dict):
+                    if "type" in cmd.action:
+                        action_type = cmd.action["type"]
+                    if "message" in cmd.action:
+                        action_desc = cmd.action["message"]
+                    elif "element_description" in cmd.action:
+                        action_desc = f"操作元素: {cmd.action['element_description']}"
+                    elif "text" in cmd.action:
+                        action_desc = f"输入文本: {cmd.action['text']}"
+                    elif "keys" in cmd.action:
+                        action_desc = f"按键: {cmd.action['keys']}"
+                
+                # 添加命令状态信息
+                status = cmd.worker_decision
+                message = cmd.message if cmd.message else ""
+                
+                history_lines.append(f"{i}. [{action_type}] - 状态: {status}")
+                if action_desc:
+                    history_lines.append(f"   描述: {action_desc}")
+                if message:
+                    history_lines.append(f"   消息: {message}")
+                if cmd.pre_screenshot_analysis:
+                    analysis_preview = cmd.pre_screenshot_analysis[:150] + "..." if len(cmd.pre_screenshot_analysis) > 150 else cmd.pre_screenshot_analysis
+                    history_lines.append(f"   截图分析: {analysis_preview}")
+                history_lines.append("")
+            
+            return "\n".join(history_lines)
+        except Exception as e:
+            logger.warning(f"获取命令历史失败: {e}")
+            return "获取历史记录失败"
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -121,6 +167,10 @@ class Operator:
                 "outcome": "STALE_PROGRESS",
             }
 
+        # 获取命令历史
+        subtask_id = subtask.get("subtask_id", "")
+        command_history = self._get_command_history_for_subtask(subtask_id)
+
         # Build concise generator prompt
         subtask_title = subtask.get("title", "")
         subtask_desc = subtask.get("description", "")
@@ -129,6 +179,13 @@ class Operator:
         message.append(f"You can use this extra information for completing the current subtask: {subtask_desc}")
         if guidance:
             message.append(f"GUIDANCE: {guidance}")
+        
+        # 添加历史操作记录到提示词中
+        message.append("")
+        message.append("=== 历史操作记录 ===")
+        message.append(command_history)
+        message.append("")
+        message.append("Based on the above history and current screenshot, decide on the next action.")
         message.append("Return exactly one action as an agent.* function in Python fenced code under (Grounded Action).")
         generator_prompt = "\n\n".join(message)
 

@@ -996,7 +996,8 @@ This file tracks supplementary information and materials needed for the task.
     def update_controller_state(self, 
                               new_state: ControllerState,
                               trigger: str = "controller",
-                              trigger_details: str = ""):
+                              trigger_details: str = "",
+                              trigger_code: str = "controller"):
         """Update controller current state and add to history"""
         controller_state = self.get_controller_state()
 
@@ -1007,15 +1008,16 @@ This file tracks supplementary information and materials needed for the task.
                 controller_state["history_state"] = []
             controller_state["history_state"].append(current_state)
         
-        # Update current state, trigger info, state start time and timestamp
+        # Update current state, trigger info, trigger_code, state start time and timestamp
         controller_state["current_state"] = new_state.value
         controller_state["trigger"] = trigger
         controller_state["trigger_details"] = trigger_details
+        controller_state["trigger_code"] = trigger_code
         controller_state["state_start_time"] = time.time()
         controller_state["updated_at"] = datetime.now().isoformat()
 
         self.set_controller_state(controller_state)
-        self.add_event("controller", "state_change", f"State changed to: {new_state.value} (trigger: {trigger}, details: {trigger_details})")
+        self.add_event("controller", "state_change", f"State changed to: {new_state.value} (trigger: {trigger}, details: {trigger_details}, trigger_code: {trigger_code})")
 
     def get_controller_state_enum(self) -> ControllerState:
         """Get current controller state as enum"""
@@ -1043,6 +1045,7 @@ This file tracks supplementary information and materials needed for the task.
             "current_state": ControllerState.INIT.value,
             "trigger": "controller",
             "trigger_details": "reset",
+            "trigger_code": "controller",
             "history_state": [],
             "state_start_time": time.time(),
             "updated_at": datetime.now().isoformat()

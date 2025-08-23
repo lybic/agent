@@ -21,6 +21,7 @@ class ControllerStateData:
     current_state: str = field(default_factory=lambda: ControllerState.GET_ACTION.value)
     trigger: str = field(default="controller")
     trigger_details: str = field(default="initialization")
+    trigger_code: str = field(default="controller")
     history_state: List[str] = field(default_factory=list)
     state_start_time: float = field(default_factory=time.time)
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -31,6 +32,7 @@ class ControllerStateData:
             "current_state": self.current_state,
             "trigger": self.trigger,
             "trigger_details": self.trigger_details,
+            "trigger_code": self.trigger_code,
             "history_state": self.history_state,
             "state_start_time": self.state_start_time,
             "updated_at": self.updated_at
@@ -43,6 +45,7 @@ class ControllerStateData:
             current_state=data.get("current_state", ControllerState.GET_ACTION.value),
             trigger=data.get("trigger", "controller"),
             trigger_details=data.get("trigger_details", "initialization"),
+            trigger_code=data.get("trigger_code", "controller"),
             history_state=data.get("history_state", []),
             state_start_time=data.get("state_start_time", time.time()),
             updated_at=data.get("updated_at", datetime.now().isoformat())

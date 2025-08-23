@@ -86,6 +86,7 @@ class NewWorker:
                 action = res.get("action")
                 action_plan = res.get("action_plan", "")
                 screenshot_analysis = res.get("screenshot_analysis", "")
+                message = res.get("message", "")
                 
                 # Create command with complete information
                 cmd = create_command_data(
@@ -100,13 +101,14 @@ class NewWorker:
                 pre_screenshot_analysis = screenshot_analysis
                 pre_screenshot_id = self._global_state.get_screenshot_id()
 
-                # Update command with all fields
+                # Update command with all fields including message
                 self._global_state.update_command_fields(
                     command_id,
                     assignee_role=subtask.assignee_role or "operator",
                     action=action or {},
                     pre_screenshot_id=pre_screenshot_id,
-                    pre_screenshot_analysis=pre_screenshot_analysis
+                    pre_screenshot_analysis=pre_screenshot_analysis,
+                    message=message
                 )
 
                 # Update worker decision based on outcome
@@ -127,6 +129,7 @@ class NewWorker:
                 action = res.get("action")
                 command_plan = res.get("command_plan", "")
                 screenshot_analysis = res.get("screenshot_analysis", "")
+                message = res.get("message", "")
                 
                 # Create command with complete information
                 cmd = create_command_data(
@@ -142,13 +145,14 @@ class NewWorker:
                 # Add screenshot and get ID
                 pre_screenshot_id = self._global_state.get_screenshot_id()
 
-                # Update command with all fields
+                # Update command with all fields including message
                 self._global_state.update_command_fields(
                     command_id,
                     assignee_role=subtask.assignee_role or "technician",
                     action=action or {},
                     pre_screenshot_id=pre_screenshot_id,
-                    pre_screenshot_analysis=pre_screenshot_analysis
+                    pre_screenshot_analysis=pre_screenshot_analysis,
+                    message=message
                 )
 
                 # Update worker decision based on outcome

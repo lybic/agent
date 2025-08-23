@@ -686,7 +686,7 @@ class NewController:
 
 
             # 如果资料补充完成，回到PLAN
-            logger.info("Supplement state completed, returning to GET_ACTION")
+            logger.info("Supplement state completed, returning to PLAN")
             self.switch_state(ControllerState.PLAN,
                                  "supplement_completed",
                                  "Supplement collection completed")

@@ -183,8 +183,10 @@ class Operator:
             ok = True
             # Determine outcome based on action type
             action_type = ""
+            message = ""
             if isinstance(exec_code, dict):
                 action_type = str(exec_code.get("type", ""))
+                message = str(exec_code.get("message", ""))
             if action_type == "Done":
                 outcome = "worker_done"
             elif action_type == "Failed":
@@ -202,6 +204,7 @@ class Operator:
             outcome = "CANNOT_EXECUTE"
             exec_code = None
             err = f"BUILD_ACTION_FAILED: {e}"
+            message = ""
             logger.warning(err)
 
         result = {
@@ -225,4 +228,5 @@ class Operator:
             "step_result": result,
             "outcome": outcome,
             "screenshot_analysis": screenshot_analysis,
+            "message": message,
         } 

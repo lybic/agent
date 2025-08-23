@@ -170,6 +170,7 @@ class CommandData:
     pre_screenshot_analysis: str = ""
     post_screenshot_id: Optional[str] = None
     worker_decision: str = field(default_factory=lambda: WorkerDecision.GENERATE_ACTION.value)
+    message: str = ""  # Worker decision message
     exec_status: str = field(default_factory=lambda: ExecStatus.EXECUTED.value)
     exec_message: str = "OK"
     exec_latency_ms: int = 0
@@ -189,6 +190,7 @@ class CommandData:
             "pre_screenshot_analysis": self.pre_screenshot_analysis,
             "post_screenshot_id": self.post_screenshot_id,
             "worker_decision": self.worker_decision,
+            "message": self.message,
             "exec_status": self.exec_status,
             "exec_message": self.exec_message,
             "exec_latency_ms": self.exec_latency_ms,
@@ -210,6 +212,7 @@ class CommandData:
             pre_screenshot_analysis=data.get("pre_screenshot_analysis", ""),
             post_screenshot_id=data.get("post_screenshot_id"),
             worker_decision=data.get("worker_decision", WorkerDecision.GENERATE_ACTION.value),
+            message=data.get("message", ""),
             exec_status=data.get("exec_status", ExecStatus.EXECUTED.value),
             exec_message=data.get("exec_message", "OK"),
             exec_latency_ms=data.get("exec_latency_ms", 0),

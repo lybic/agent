@@ -434,8 +434,19 @@ class NewManager:
             # Get supplement context
             context = self._get_supplement_context()
             
+            # Get the current command that triggered supplement to understand why
+            supplement_reason = context.get("supplement_reason")
+            
+            # Record the supplement reason in global state
+            if supplement_reason:
+                self.global_state.add_supplement_entry(
+                    entry_type="Worker Supplement Request",
+                    description=supplement_reason,
+                    status="open"
+                )
+            
             # Generate supplement prompt
-            prompt = self._generate_supplement_prompt(context)
+            prompt = self._generate_supplement_prompt(context, supplement_reason) #type: ignore
             
             # Execute supplement plan: use LLM tool if available, otherwise auto-build
             if self.supplement_agent:
@@ -554,8 +565,23 @@ class NewManager:
         
         # Get current subtask that needs supplement
         current_subtask = None
+        supplement_reason = ""
         if task.current_subtask_id:
             current_subtask = self.global_state.get_subtask(task.current_subtask_id)
+            # Get the reason for supplement collection from the current command's message field
+            if current_subtask:
+                current_command = self.global_state.get_current_command_for_subtask(current_subtask.subtask_id)
+                if current_command:
+                    # Check if the command has a message field that explains why supplement is needed
+                    if hasattr(current_command, 'message') and current_command.message:
+                        supplement_reason = current_command.message
+                    # Fallback to action type if message is not available
+                    elif hasattr(current_command, 'action') and current_command.action:
+                        action_type = current_command.action.get('type', '')
+                        if action_type == 'Supplement':
+                            supplement_reason = current_command.action.get('message', 'Worker requested supplement')
+                else:
+                    supplement_reason = ""
         
         return {
             "task_objective": task.objective or "",
@@ -563,7 +589,7 @@ class NewManager:
             "all_subtasks": subtasks,
             "existing_supplement": supplement,
             "supplement_attempts": self.supplement_attempts,
-            "failed_subtasks": self._get_failed_subtasks_info()
+            "supplement_reason": supplement_reason
         }
 
     def _generate_planning_prompt(self, scenario: PlanningScenario, context: Dict[str, Any], integrated_knowledge: str = "") -> str:
@@ -740,7 +766,7 @@ Please output the planning solution based on the above information:
         except Exception:
             return dag.nodes
 
-    def _generate_supplement_prompt(self, context: Dict[str, Any]) -> str:
+    def _generate_supplement_prompt(self, context: Dict[str, Any], supplement_reason: str = "") -> str:
         """Generate supplement collection prompt"""
         
         system_info = """
@@ -790,6 +816,7 @@ Current Subtask: {context.get('current_subtask', {})}
 Existing Supplement: {context.get('existing_supplement', '')}
 Supplement Attempts: {context.get('supplement_attempts', 0)}
 Failed Subtasks: {context.get('failed_subtasks', '')}
+Supplement Reason: {supplement_reason}
 
 Please output the supplementary material collection solution and execute it based on the above information:
 """

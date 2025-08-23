@@ -32,11 +32,13 @@ class Grounding(ACI):
         self,
         Tools_dict: Dict,
         platform: str,
+        global_state=None,
         width: int = 1920,
         height: int = 1080,
     ):
         self.platform = platform
         self.Tools_dict = Tools_dict
+        self.global_state = global_state
         self.width = width
         self.height = height
         self.coords1 = None
@@ -57,7 +59,6 @@ class Grounding(ACI):
         self.text_span_agent.register_tool(
             "text_span", self.Tools_dict["text_span"]["provider"],
             self.Tools_dict["text_span"]["model"])
-
 
     def generate_coords(self, ref_expr: str, obs: Dict) -> List[int]:
         grounding_start_time = time.time()
@@ -80,8 +81,7 @@ class Grounding(ACI):
             "- The returned point should be clickable/actionable within the target area \n"
             "CRITICAL REQUIREMENTS: "
             "- MUST return exactly ONE coordinate pair under ALL circumstances "
-            "- NO explanations, NO multiple coordinates, NO additional text \n"
-        )
+            "- NO explanations, NO multiple coordinates, NO additional text \n")
         response, total_tokens, cost_string = self.grounding_model.execute_tool(
             "grounding", {
                 "str_input": prompt,
@@ -94,14 +94,16 @@ class Grounding(ACI):
         logger.info(
             f"Grounding model execution time: {grounding_duration:.2f} seconds")
         logger.info(f"RAW GROUNDING MODEL RESPONSE: {response}")
-        # self.global_state.log_operation(module="grounding",
-        #                                 operation="grounding_model_response",
-        #                                 data={
-        #                                     "tokens": total_tokens,
-        #                                     "cost": cost_string,
-        #                                     "content": response,
-        #                                     "duration": grounding_duration
-        #                                 })
+        if self.global_state:
+            self.global_state.log_operation(
+                module="grounding",
+                operation="grounding_model_response",
+                data={
+                    "tokens": total_tokens,
+                    "cost": cost_string,
+                    "content": response,
+                    "duration": grounding_duration
+                })
         numericals = re.findall(r"\d+", response)
         assert len(numericals) >= 2
         return [int(numericals[0]), int(numericals[1])]

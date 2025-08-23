@@ -86,20 +86,20 @@ class NewManager:
         self.enable_search = enable_search
         self.enable_narrative = enable_narrative
         self.max_replan_attempts = max_replan_attempts
-        
+
         # Initialize status
         self.status = ManagerStatus.IDLE
         self.plan_scenario = PlanningScenario.REPLAN
         self.planning_history = []
         self.replan_attempts = 0
         self.supplement_attempts = 0
-        
+
         # Initialize tools
         self._initialize_tools()
-        
+
         # Initialize knowledge base
         self._initialize_knowledge_base()
-        
+
         logger.info("NewManager initialized successfully")
 
     def _initialize_tools(self):
@@ -123,7 +123,7 @@ class NewManager:
             self.tools_dict[self.dag_translator_agent_name]["provider"],
             self.tools_dict[self.dag_translator_agent_name]["model"],
         )
-        
+
         # supplement_agent
         self.supplement_agent = NewTools()
         self.supplement_agent.register_tool(
@@ -131,7 +131,7 @@ class NewManager:
             self.tools_dict[self.supplement_agent_name]["provider"],
             self.tools_dict[self.supplement_agent_name]["model"],
         )
-        
+
         # Embedding engine for Memory
         self.embedding_engine = NewTools()
         self.embedding_engine.register_tool(
@@ -139,7 +139,7 @@ class NewManager:
             self.tools_dict["embedding"]["provider"],
             self.tools_dict["embedding"]["model"],
         )
-        
+
         # Web search engine (optional)
         if self.enable_search and self.tools_dict.get("websearch"):
             self.search_engine = NewTools()
@@ -159,7 +159,7 @@ class NewManager:
             "narrative_summarization": self.tools_dict.get("narrative_summarization", {}),
             "episode_summarization": self.tools_dict.get("episode_summarization", {}),
         }
-        
+
         self.knowledge_base = NewKnowledgeBase(
             embedding_engine=self.embedding_engine,
             local_kb_path=self.local_kb_path,
@@ -180,30 +180,37 @@ class NewManager:
         try:
             scenario_enum = self._normalize_scenario(scenario)
             self.status = ManagerStatus.PLANNING
-            # self.global_state.add_event("manager", "planning_start", f"Scenario: {scenario_enum.value}")
-            
+            self.global_state.log_operation("manager", "planning_start", {
+                "scenario": scenario_enum.value,
+                "timestamp": time.time()
+            })
+
             if scenario_enum == PlanningScenario.SUPPLEMENT:
                 return self._handle_supplement_scenario()
             else:
                 return self._handle_planning_scenario(scenario_enum)
-                
+
         except Exception as e:
             logger.error(f"Planning failed: {e}")
             self.status = ManagerStatus.ERROR
-            self.global_state.add_event("manager", "planning_error", str(e))
-            
+            self.global_state.log_operation("manager", "planning_error", {
+                "error": str(e),
+                "timestamp": time.time()
+            })
+
             return PlanningResult(
                 success=False,
-                scenario=self._normalize_scenario(scenario).value if isinstance(scenario, str) else scenario.value,
+                scenario=self._normalize_scenario(scenario).value if isinstance(
+                    scenario, str) else scenario.value,
                 subtasks=[],
                 supplement="",
                 reason=f"Planning failed: {str(e)}",
-                created_at=datetime.now().isoformat()
-            )
+                created_at=datetime.now().isoformat())
         finally:
             self.status = ManagerStatus.IDLE
 
-    def _normalize_scenario(self, scenario: Union[PlanningScenario, str]) -> PlanningScenario:
+    def _normalize_scenario(
+            self, scenario: Union[PlanningScenario, str]) -> PlanningScenario:
         """Normalize string/enum scenario to PlanningScenario enum (case-insensitive)."""
         if isinstance(scenario, PlanningScenario):
             return scenario
@@ -215,7 +222,8 @@ class NewManager:
         # Default to INITIAL_PLAN if unknown
         return PlanningScenario.REPLAN
 
-    def _handle_planning_scenario(self, scenario: PlanningScenario) -> PlanningResult:
+    def _handle_planning_scenario(self,
+                                  scenario: PlanningScenario) -> PlanningResult:
         """Handle planning scenarios (INITIAL_PLAN/REPLAN)"""
         # Get planning context
         context = self._get_planning_context(scenario)
@@ -225,7 +233,7 @@ class NewManager:
         web_knowledge = None
         most_similar_task = ""
         retrieved_experience = None
-        
+
         try:
             objective = context.get("task_objective", "")
             observation = {"screenshot": context.get("screenshot")}
@@ -234,21 +242,28 @@ class NewManager:
             if self.enable_search and self.search_engine:
                 try:
                     # 1) formulate_query
+                    formulate_start = time.time()
                     search_query, f_tokens, f_cost = self.knowledge_base.formulate_query(
-                        objective, observation
-                    )
-                    # self.global_state.add_event(
-                    #     "manager", "formulate_query", f"tokens={f_tokens}, cost={f_cost}, query={search_query}"
-                    # )
+                        objective, observation)
+                    formulate_duration = time.time() - formulate_start
+                    self.global_state.log_operation(
+                        "manager", "formulate_query", {
+                            "tokens": f_tokens,
+                            "cost": f_cost,
+                            "query": search_query,
+                            "duration": formulate_duration
+                        })
                     # 2) websearch directly using search_engine
                     if search_query:
                         web_knowledge, ws_tokens, ws_cost = self.search_engine.execute_tool(
-                            "websearch", {"query": search_query}
-                        )
+                            "websearch", {"query": search_query})
                         # Not all tools return token/cost; guard format
-                        # self.global_state.add_event(
-                        #     "manager", "web_knowledge", f"query={search_query}, tokens={ws_tokens}, cost={ws_cost}"
-                        # )
+                        self.global_state.log_operation(
+                            "manager", "web_knowledge", {
+                                "query": search_query,
+                                "tokens": ws_tokens,
+                                "cost": ws_cost
+                            })
                 except Exception as e:
                     logger.warning(f"Web search retrieval failed: {e}")
                     # self.global_state.add_event("manager", "retrieve_knowledge_error", str(e))
@@ -256,19 +271,24 @@ class NewManager:
             if self.enable_narrative:
                 try:
                     most_similar_task, retrieved_experience, n_tokens, n_cost = (
-                        self.knowledge_base.retrieve_narrative_experience(objective)
-                    )
-                    # self.global_state.add_event(
-                    #     "manager", "retrieve_narrative_experience", f"tokens={n_tokens}, cost={n_cost}, task={most_similar_task}"
-                    # )
+                        self.knowledge_base.retrieve_narrative_experience(
+                            objective))
+                    self.global_state.log_operation(
+                        "manager", "retrieve_narrative_experience", {
+                            "tokens": n_tokens,
+                            "cost": n_cost,
+                            "task": most_similar_task
+                        })
                 except Exception as e:
                     logger.warning(f"Narrative retrieval failed: {e}")
                     # self.global_state.add_event("manager", "retrieve_narrative_error", str(e))
 
             # 3) Conditional knowledge fusion
             try:
-                do_fusion_web = web_knowledge is not None and str(web_knowledge).strip() != ""
-                do_fusion_narr = retrieved_experience is not None and str(retrieved_experience).strip() != ""
+                do_fusion_web = web_knowledge is not None and str(
+                    web_knowledge).strip() != ""
+                do_fusion_narr = retrieved_experience is not None and str(
+                    retrieved_experience).strip() != ""
                 if do_fusion_web or do_fusion_narr:
                     web_text = web_knowledge if do_fusion_web else None
                     similar_task = most_similar_task if do_fusion_narr else ""
@@ -276,13 +296,15 @@ class NewManager:
                     integrated_knowledge, k_tokens, k_cost = self.knowledge_base.knowledge_fusion(
                         observation=observation,
                         instruction=objective,
-                        web_knowledge=web_text, #type: ignore
+                        web_knowledge=web_text,  #type: ignore
                         similar_task=similar_task,
-                        experience=exp_text, #type: ignore
+                        experience=exp_text,  #type: ignore
                     )
-                    # self.global_state.add_event(
-                    #     "manager", "knowledge_fusion", f"tokens={k_tokens}, cost={k_cost}"
-                    # )
+                    self.global_state.log_operation("manager",
+                                                    "knowledge_fusion", {
+                                                        "tokens": k_tokens,
+                                                        "cost": k_cost
+                                                    })
             except Exception as e:
                 logger.warning(f"Knowledge fusion failed: {e}")
                 # self.global_state.add_event("manager", "knowledge_fusion_error", str(e))
@@ -292,26 +314,30 @@ class NewManager:
             # self.global_state.add_event("manager", "knowledge_pipeline_error", str(e))
 
         # Generate planning prompt (with integrated knowledge if any)
-        prompt = self._generate_planning_prompt(scenario, context, integrated_knowledge=integrated_knowledge)
+        prompt = self._generate_planning_prompt(
+            scenario, context, integrated_knowledge=integrated_knowledge)
 
         # Execute planning using the registered planner tool
         plan_result, total_tokens, cost_string = self.planner_agent.execute_tool(
-            self.planner_agent_name,
-            {"str_input": prompt, "img_input": context.get("screenshot")}
-        )
-        
+            self.planner_agent_name, {
+                "str_input": prompt,
+                "img_input": context.get("screenshot")
+            })
+
         # Log planning operation (reflect initial vs replan based on attempts)
         scenario_label = context.get("planning_scenario", scenario.value)
-        self.global_state.add_event(
-            "manager", 
-            "task_planning", 
-            f"Scenario: {scenario_label}, Plan_result: {plan_result}, Tokens: {total_tokens}, Cost: {cost_string}",
-        )
+        self.global_state.log_operation(
+            "manager", "task_planning", {
+                "scenario": scenario_label,
+                "plan_result": plan_result,
+                "tokens": total_tokens,
+                "cost": cost_string
+            })
 
         # After planning, also generate DAG and action queue
         dag_info, dag_obj = self._generate_dag(context.get("task_objective", ""), plan_result)
         action_queue: List[Node] = self._topological_sort(dag_obj)
-        
+
         # Parse planning result
         try:
             # Validate and enhance subtasks
@@ -327,7 +353,7 @@ class NewManager:
                 old_pending_ids = list(task.pending_subtask_ids or [])
                 if old_pending_ids:
                     self.global_state.delete_subtasks(old_pending_ids)
-                
+
                 # Append new subtasks and capture the first new subtask id
                 for i, subtask_dict in enumerate(enhanced_subtasks):
                     subtask_data = SubtaskData(
@@ -349,16 +375,16 @@ class NewManager:
                     new_id = self.global_state.add_subtask(subtask_data)
                     if first_new_subtask_id is None:
                         first_new_subtask_id = new_id
-                
+
                 # Switch current subtask to the first newly planned subtask
                 # if first_new_subtask_id:
-                    # self.global_state.set_current_subtask_id(first_new_subtask_id)
-                    # self.global_state.update_task_status(TaskStatus.PENDING)
-                    # self.global_state.add_event(
-                    #     "manager",
-                    #     "set_current_subtask",
-                    #     f"current_subtask_id={first_new_subtask_id}"
-                    # )
+                # self.global_state.set_current_subtask_id(first_new_subtask_id)
+                # self.global_state.update_task_status(TaskStatus.PENDING)
+                # self.global_state.add_event(
+                #     "manager",
+                #     "set_current_subtask",
+                #     f"current_subtask_id={first_new_subtask_id}"
+                # )
             else:
                 # Initial planning: append new subtasks; set current only if not set
                 for subtask_dict in enhanced_subtasks:
@@ -379,18 +405,18 @@ class NewManager:
                         updated_at=subtask_dict["updated_at"],
                     )
                     self.global_state.add_subtask(subtask_data)
-                
+
                 # If no current subtask is selected yet, set the first one
                 # task = self.global_state.get_task()
                 # if not task.current_subtask_id and enhanced_subtasks:
-                    # self.global_state.set_current_subtask_id(enhanced_subtasks[0]["subtask_id"])
-                    # self.global_state.update_task_status(TaskStatus.PENDING)
-                    # self.global_state.add_event(
-                    #     "manager",
-                    #     "set_current_subtask",
-                    #     f"current_subtask_id={enhanced_subtasks[0]['subtask_id']}"
-                    # )
-            
+                # self.global_state.set_current_subtask_id(enhanced_subtasks[0]["subtask_id"])
+                # self.global_state.update_task_status(TaskStatus.PENDING)
+                # self.global_state.add_event(
+                #     "manager",
+                #     "set_current_subtask",
+                #     f"current_subtask_id={enhanced_subtasks[0]['subtask_id']}"
+                # )
+
             # Update planning history
             self.planning_history.append({
                 "scenario": scenario_label,
@@ -401,10 +427,10 @@ class NewManager:
                 "tokens": total_tokens,
                 "cost": cost_string
             })
-            
+
             # Bump attempts after any successful planning to distinguish initial vs replan next time
             self.replan_attempts += 1
-            
+
             return PlanningResult(
                 success=True,
                 scenario=scenario_label,
@@ -413,7 +439,7 @@ class NewManager:
                 reason=f"Successfully planned {len(enhanced_subtasks)} subtasks",
                 created_at=datetime.now().isoformat()
             )
-            
+
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse planning result: {e}")
             return PlanningResult(
@@ -430,7 +456,7 @@ class NewManager:
         try:
             self.status = ManagerStatus.SUPPLEMENTING
             self.supplement_attempts += 1
-            
+
             # Get supplement context
             context = self._get_supplement_context()
             
@@ -470,13 +496,13 @@ class NewManager:
             else:
                 # No supplement tool configured; build strategy automatically
                 strategy = self._auto_build_supplement_strategy(context)
-            
+
             # Execute collection strategy
             collected_data = self._execute_supplement_strategy(strategy)
-            
+
             # Update supplement content
             self._update_supplement_content(collected_data)
-            
+
             return PlanningResult(
                 success=True,
                 scenario=PlanningScenario.SUPPLEMENT.value,
@@ -485,7 +511,7 @@ class NewManager:
                 reason="Successfully collected supplement data",
                 created_at=datetime.now().isoformat()
             )
-            
+
         except Exception as e:
             logger.error(f"Supplement collection failed: {e}")
             return PlanningResult(
@@ -533,9 +559,9 @@ class NewManager:
         task = self.global_state.get_task()
         subtasks = self.global_state.get_subtasks()
         screenshot = self.global_state.get_screenshot()
-        
+
         is_replan_now = self.replan_attempts > 0
-        
+
         context = {
             "task_objective": task.objective or "",
             "task_status": task.status or "",
@@ -549,12 +575,12 @@ class NewManager:
             "replan_attempts": self.replan_attempts,
             "planning_history": self.planning_history[-3:] if self.planning_history else []
         }
-        
+
         # Add failure information only when truly re-planning
         if is_replan_now:
             context["failed_subtasks"] = self._get_failed_subtasks_info()
             context["failure_reasons"] = self._get_failure_reasons()
-        
+
         return context
 
     def _get_supplement_context(self) -> Dict[str, Any]:
@@ -562,7 +588,7 @@ class NewManager:
         task = self.global_state.get_task()
         subtasks = self.global_state.get_subtasks()
         supplement = self.global_state.get_supplement()
-        
+
         # Get current subtask that needs supplement
         current_subtask = None
         supplement_reason = ""
@@ -594,13 +620,13 @@ class NewManager:
 
     def _generate_planning_prompt(self, scenario: PlanningScenario, context: Dict[str, Any], integrated_knowledge: str = "") -> str:
         """Generate planning prompt based on scenario and context"""
-        
+
         # Determine scenario from context to ensure auto mode works
         planning_scenario: str = context.get("planning_scenario", "initial_plan")
         history_subtasks: str = context.get("history_subtasks", "")
         pending_subtasks: str = context.get("pending_subtasks", "")
         is_replan: bool = planning_scenario == "replan"
-        
+
         # Scenario-specific planning task section
         if is_replan:
             planning_task = """
@@ -635,7 +661,7 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 - Make dependencies explicit and minimize unnecessary coupling
 - Assign appropriate worker roles to each subtask
 """
-        
+
         # Common guidance and output schema
         common_guidance = f"""
 # Decomposition Principles
@@ -653,7 +679,7 @@ History Subtasks: {history_subtasks}
 Pending Subtasks: {pending_subtasks}
 Platform: {context.get('platform', '')}
 """
-        
+
         # Replan-specific extra diagnostic information
         replan_info = ""
         if is_replan:
@@ -668,7 +694,7 @@ Failure Reasons: {context.get('failure_reasons', '')}
 - Do not include already completed subtasks
 - Keep or update dependencies to reference existing subtask IDs when applicable
 """
-        
+
         # Environment information
         env_info = f"""
 # Current Environment Information
@@ -679,7 +705,7 @@ You may refer to some retrieved knowledge if you think they are useful.{integrat
 
 Please output the planning solution based on the above information:
 """
-        
+
         planning_prompt = f"""
 {planning_task}
 {decision}
@@ -687,7 +713,7 @@ Please output the planning solution based on the above information:
 {replan_info}
 {env_info}
 """
-        
+
         return planning_prompt
 
     def _generate_dag(self, instruction: str, plan: str) -> Tuple[Dict, Dag]:
@@ -768,7 +794,7 @@ Please output the planning solution based on the above information:
 
     def _generate_supplement_prompt(self, context: Dict[str, Any], supplement_reason: str = "") -> str:
         """Generate supplement collection prompt"""
-        
+
         system_info = """
 # System Architecture
 You are the Manager (task planner) in the GUI-Agent system. The system includes:
@@ -806,7 +832,7 @@ You must output the following JSON format:
   "collected_data": "Collected information content (fill in after collection execution)"
 }
 """
-        
+
         supplement_prompt = f"""
 {system_info}
 
@@ -820,7 +846,7 @@ Supplement Reason: {supplement_reason}
 
 Please output the supplementary material collection solution and execute it based on the above information:
 """
-        
+
         return supplement_prompt
 
     def _enhance_subtasks(self, subtasks: List[Node]) -> List[Dict]:
@@ -831,7 +857,7 @@ Please output the supplementary material collection solution and execute it base
         - assignee_role -> assignee_role
         """
         enhanced_subtasks = []
-        
+
         for i, node in enumerate(subtasks):
             node_title = getattr(node, "name", None) or f"Subtask {i+1}"
             node_description = getattr(node, "info", "") or ""
@@ -857,15 +883,15 @@ Please output the supplementary material collection solution and execute it base
                 "created_at": datetime.now().isoformat(),
                 "updated_at": datetime.now().isoformat(),
             }
-            
+
             enhanced_subtasks.append(enhanced_subtask)
-        
+
         return enhanced_subtasks
 
     def _execute_supplement_strategy(self, strategy: SupplementStrategy) -> str:
         """Execute supplement collection strategy"""
         collected_data = []
-        
+
         # Execute RAG retrieval if enabled
         if strategy.collection_strategy.get("use_rag", False):
             rag_keywords = strategy.collection_strategy.get("rag_keywords", [])
@@ -877,7 +903,7 @@ Please output the supplementary material collection solution and execute it base
                         collected_data.append(f"RAG Result for '{keyword}': {retrieved_experience}")
                 except Exception as e:
                     logger.warning(f"RAG retrieval failed for keyword '{keyword}': {e}")
-        
+
         # Execute web search if enabled
         if strategy.collection_strategy.get("use_websearch", False) and self.search_engine:
             search_queries = strategy.collection_strategy.get("search_queries", [])
@@ -888,23 +914,23 @@ Please output the supplementary material collection solution and execute it base
                         collected_data.append(f"Web Search Result for '{query}': {search_result}")
                 except Exception as e:
                     logger.warning(f"Web search failed for query '{query}': {e}")
-        
+
         # Combine collected data
         combined_data = "\n\n".join(collected_data) if collected_data else "No data collected"
-        
+
         # Update strategy with collected data
         strategy.collected_data = combined_data
-        
+
         return combined_data
 
     def _update_supplement_content(self, collected_data: str):
         """Update supplement content in global state"""
         current_supplement = self.global_state.get_supplement()
-        
+
         # Add new supplement entry
         entry_id = f"supplement-{int(time.time() * 1000)}"
         timestamp = datetime.now().isoformat()
-        
+
         new_entry = f"""
 ## Supplement Entry - {entry_id}
 - **Created**: {timestamp}
@@ -914,7 +940,7 @@ Please output the supplementary material collection solution and execute it base
 
 ---
 """
-        
+
         updated_content = current_supplement + new_entry
         self.global_state.set_supplement(updated_content)
 
@@ -922,7 +948,7 @@ Please output the supplementary material collection solution and execute it base
         """Get information about failed subtasks"""
         failed_subtasks = []
         all_subtasks = self.global_state.get_subtasks()
-        
+
         for subtask in all_subtasks:
             if subtask.status == SubtaskStatus.REJECTED.value:
                 failed_subtasks.append({
@@ -932,23 +958,23 @@ Please output the supplementary material collection solution and execute it base
                     "assignee_role": subtask.assignee_role,
                     "reason": subtask.last_reason_text or "Unknown reason",
                 })
-        
+
         if not failed_subtasks:
             return "No failed subtasks"
-        
+
         return json.dumps(failed_subtasks, indent=2)
 
     def _get_failure_reasons(self) -> str:
         """Get failure reasons from subtask history"""
         failure_reasons = []
         all_subtasks = self.global_state.get_subtasks()
-        
+
         for subtask in all_subtasks:
             if subtask.status == SubtaskStatus.REJECTED.value:
                 reasons = subtask.reasons_history or []
                 if reasons:
                     failure_reasons.extend([r.get("text", "") for r in reasons])
-        
+
         return "; ".join(failure_reasons) if failure_reasons else "No specific failure reasons"
 
     def _get_history_subtasks_info(self) -> str:
@@ -956,7 +982,7 @@ Please output the supplementary material collection solution and execute it base
         history_subtasks = []
         task = self.global_state.get_task()
         all_subtasks = self.global_state.get_subtasks()
-        
+
         if task.history_subtask_ids:
             for subtask_id in task.history_subtask_ids:
                 subtask = next((s for s in all_subtasks if s.subtask_id == subtask_id), None)
@@ -970,10 +996,10 @@ Please output the supplementary material collection solution and execute it base
                         "completion_reason": subtask.last_reason_text or "Completed successfully",
                         "last_gate_decision": subtask.last_gate_decision,
                     })
-        
+
         if not history_subtasks:
             return "No completed subtasks"
-        
+
         return json.dumps(history_subtasks, indent=2)
 
     def _get_pending_subtasks_info(self) -> str:
@@ -981,7 +1007,7 @@ Please output the supplementary material collection solution and execute it base
         pending_subtasks = []
         task = self.global_state.get_task()
         all_subtasks = self.global_state.get_subtasks()
-        
+
         if task.pending_subtask_ids:
             for subtask_id in task.pending_subtask_ids:
                 subtask = next((s for s in all_subtasks if s.subtask_id == subtask_id), None)
@@ -994,10 +1020,10 @@ Please output the supplementary material collection solution and execute it base
                         "status": subtask.status,
                         "attempt_no": subtask.attempt_no,
                     })
-        
+
         if not pending_subtasks:
             return "No pending subtasks"
-        
+
         return json.dumps(pending_subtasks, indent=2)
 
     def _count_subtasks_from_info(self, subtasks_info: str) -> int:
@@ -1026,7 +1052,7 @@ Please output the supplementary material collection solution and execute it base
         self.supplement_attempts = 0
         self.planning_history = []
         self.status = ManagerStatus.IDLE
-        
+
         self.global_state.add_event("manager", "planning_reset", "Planning state reset")
 
     def can_replan(self) -> bool:
@@ -1034,4 +1060,4 @@ Please output the supplementary material collection solution and execute it base
         return self.replan_attempts < self.max_replan_attempts
 
 # Export a friendly alias to match the interface name used elsewhere
-Manager = NewManager 
+Manager = NewManager

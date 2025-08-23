@@ -24,9 +24,6 @@ from gui_agents.agents3.new_global_state import NewGlobalState
 from gui_agents.agents3.new_executor import NewExecutor
 from gui_agents.agents3.hardware_interface import HardwareInterface
 from gui_agents.agents3.new_controller import NewController
-from gui_agents.agents3.new_worker import NewWorker
-from gui_agents.agents3.new_manager import NewManager
-from gui_agents.agents3.enums import ControllerState
 
 # Import analyze_display functionality
 from gui_agents.utils.analyze_display import analyze_display_json, aggregate_results, format_output_line

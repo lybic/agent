@@ -17,7 +17,10 @@ from gui_agents.agents3.Action import (
     TypeText,
     Hotkey,
     Wait,
-    Screenshot
+    Screenshot,
+    SetCellValues,
+    SwitchApplications,
+    Open
 )
 
 from gui_agents.agents3.Backend.Backend import Backend
@@ -31,7 +34,7 @@ class PyAutoGUIBackend(Backend):
     Cons  : Requires an active, visible desktop session (won't work headless).
     """
 
-    _supported = {Click, DoubleClick, Move, Scroll, Drag, TypeText, Hotkey, Wait, Screenshot}
+    _supported = {Click, DoubleClick, Move, Scroll, Drag, TypeText, Hotkey, Wait, Screenshot, SetCellValues, SwitchApplications, Open}
 
     # ¶ PyAutoGUI sometimes throws exceptions if mouse is moved to a corner.
     def __init__(self, default_move_duration: float = 0.0, platform: str | None = None, **kwargs):
@@ -66,6 +69,12 @@ class PyAutoGUIBackend(Backend):
             return screenshot # type: ignore
         elif isinstance(action, Wait):
             time.sleep(action.duration * 1e-3)
+        elif isinstance(action, SetCellValues):
+            self._set_cell_values(action)
+        elif isinstance(action, SwitchApplications):
+            self._switch_applications(action)
+        elif isinstance(action, Open):
+            self._open(action)
         else:
             # This shouldn't happen due to supports() check, but be safe.
             raise NotImplementedError(f"Unhandled action: {action}")
@@ -184,3 +193,149 @@ class PyAutoGUIBackend(Backend):
     def _screenshot(self):
         screenshot = self.pag.screenshot()
         return screenshot
+
+    def _set_cell_values(self, act: SetCellValues) -> None:
+        """Set cell values in LibreOffice Calc (Linux only)"""
+        if self.platform.startswith("linux"):
+            # Use subprocess to execute LibreOffice automation
+            import subprocess
+            import tempfile
+            import os
+            
+            # Create a temporary Python script with the cell values
+            script_content = f"""
+import uno
+import subprocess
+
+def set_cell_values(new_cell_values, app_name, sheet_name):
+    # Clean up previous TCP connections
+    subprocess.run('echo "password" | sudo -S ss --kill --tcp state TIME-WAIT sport = :2002', 
+                  shell=True, check=True, text=True, capture_output=True)
+    
+    # Start LibreOffice with socket connection
+    subprocess.run(['soffice', '--accept=socket,host=localhost,port=2002;urp;StarOffice.Service'])
+    
+    local_context = uno.getComponentContext()
+    resolver = local_context.ServiceManager.createInstanceWithContext(
+        "com.sun.star.bridge.UnoUrlResolver", local_context
+    )
+    context = resolver.resolve("uno:socket,host=localhost,port=2002;urp;StarOffice.ComponentContext")
+    desktop = context.ServiceManager.createInstanceWithContext(
+        "com.sun.star.frame.Desktop", context
+    )
+    
+    # Find the spreadsheet and set cell values
+    for component in desktop.Components:
+        if component.supportsService("com.sun.star.sheet.SpreadsheetDocument"):
+            if component.Title == app_name:
+                sheet = component.Sheets.getByName(sheet_name)
+                for cell_ref, value in new_cell_values.items():
+                    # Convert cell reference to column/row indices
+                    col_letters = ''.join(filter(str.isalpha, cell_ref))
+                    row_number = ''.join(filter(str.isdigit, cell_ref))
+                    
+                    col = sum((ord(char.upper()) - ord('A') + 1) * (26**idx) for idx, char in enumerate(reversed(col_letters))) - 1
+                    row = int(row_number) - 1
+                    
+                    cell = sheet.getCellByPosition(col, row)
+                    if isinstance(value, (int, float)):
+                        cell.Value = value
+                    elif isinstance(value, str):
+                        if value.startswith("="):
+                            cell.Formula = value
+                        else:
+                            cell.String = value
+                    elif isinstance(value, bool):
+                        cell.Value = 1 if value else 0
+                break
+
+set_cell_values({act.cell_values}, "{act.app_name}", "{act.sheet_name}")
+"""
+            
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+                f.write(script_content)
+                temp_script = f.name
+            
+            try:
+                subprocess.run(['python3', temp_script], check=True)
+            finally:
+                os.unlink(temp_script)
+        else:
+            raise NotImplementedError(f"SetCellValues not supported on platform: {self.platform}")
+
+    def _switch_applications(self, act: SwitchApplications) -> None:
+        """Switch to a different application that is already open"""
+        if self.platform.startswith("darwin"):
+            # macOS: Command+Space to open Spotlight, then type app name
+            self.pag.hotkey("command", "space", interval=0.5)
+            time.sleep(0.5)
+            self.pag.typewrite(act.app_code)
+            time.sleep(1.0)
+            self.pag.press("enter")
+            time.sleep(1.0)
+        elif self.platform.startswith("linux"):
+            # Linux: Use wmctrl to switch windows
+            import subprocess
+            import difflib
+            
+            self.pag.press("escape")
+            time.sleep(0.5)
+            
+            try:
+                output = subprocess.check_output(['wmctrl', '-lx']).decode('utf-8').splitlines()
+                window_titles = [line.split(None, 4)[2] for line in output]
+                closest_matches = difflib.get_close_matches(act.app_code, window_titles, n=1, cutoff=0.1)
+                
+                if closest_matches:
+                    closest_match = closest_matches[0]
+                    for line in output:
+                        if closest_match in line:
+                            window_id = line.split()[0]
+                            break
+                    else:
+                        return
+                    
+                    subprocess.run(['wmctrl', '-ia', window_id])
+                    subprocess.run(['wmctrl', '-ir', window_id, '-b', 'add,maximized_vert,maximized_horz'])
+            except (subprocess.SubprocessError, IndexError):
+                # Fallback to Alt+Tab if wmctrl fails
+                self.pag.hotkey("alt", "tab")
+        elif self.platform.startswith("win"):
+            # Windows: Win+D to show desktop, then type app name
+            self.pag.hotkey("win", "d", interval=0.5)
+            time.sleep(0.5)
+            self.pag.typewrite(act.app_code)
+            time.sleep(1.0)
+            self.pag.press("enter")
+            time.sleep(1.0)
+        else:
+            raise NotImplementedError(f"SwitchApplications not supported on platform: {self.platform}")
+
+    def _open(self, act: Open) -> None:
+        """Open an application or file"""
+        if self.platform.startswith("darwin"):
+            # macOS: Command+Space to open Spotlight
+            self.pag.hotkey("command", "space", interval=0.5)
+            time.sleep(0.5)
+            self.pag.typewrite(act.app_or_filename)
+            time.sleep(1.0)
+            self.pag.press("enter")
+            time.sleep(0.5)
+        elif self.platform.startswith("linux"):
+            # Linux: Win key to open application menu
+            self.pag.press("super")
+            time.sleep(0.5)
+            self.pag.typewrite(act.app_or_filename)
+            time.sleep(1.0)
+            self.pag.press("enter")
+            time.sleep(0.5)
+        elif self.platform.startswith("win"):
+            # Windows: Win+R to open Run dialog
+            self.pag.hotkey("win", "r", interval=0.5)
+            time.sleep(0.5)
+            self.pag.typewrite(act.app_or_filename)
+            time.sleep(1.0)
+            self.pag.press("enter")
+            time.sleep(1.0)
+        else:
+            raise NotImplementedError(f"Open not supported on platform: {self.platform}")

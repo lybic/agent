@@ -18,7 +18,10 @@ from gui_agents.agents3.Action import (
     Wait,
     Done,
     Failed,
-    Screenshot
+    Screenshot,
+    SetCellValues,
+    SwitchApplications,
+    Open
 )
 
 from gui_agents.agents3.Backend.Backend import Backend
@@ -48,7 +51,7 @@ class PyAutoGUIVMwareBackend(Backend):
     Cons  : Requires an active, visible desktop session (won't work headless).
     """
 
-    _supported = {Click, DoubleClick, Move, Scroll, Drag, TypeText, Hotkey, Wait, Done, Failed, Screenshot}
+    _supported = {Click, DoubleClick, Move, Scroll, Drag, TypeText, Hotkey, Wait, Done, Failed, Screenshot, SetCellValues, SwitchApplications, Open}
 
     # ¶ PyAutoGUI sometimes throws exceptions if mouse is moved to a corner.
     def __init__(self, default_move_duration: float = 0.0, platform: str | None = None, **kwargs):
@@ -90,6 +93,12 @@ class PyAutoGUIVMwareBackend(Backend):
                 return f"DONE"
             elif isinstance(action, Failed):
                 return f"FAIL"
+            elif isinstance(action, SetCellValues):
+                return self._set_cell_values(action)
+            elif isinstance(action, SwitchApplications):
+                return self._switch_applications(action)
+            elif isinstance(action, Open):
+                return self._open(action)
             else:
                 # This shouldn't happen due to supports() check, but be safe.
                 raise NotImplementedError(f"Unhandled action: {action}")
@@ -119,6 +128,12 @@ class PyAutoGUIVMwareBackend(Backend):
                 action_pyautogui_code = f"DONE"
             elif isinstance(action, Failed):
                 action_pyautogui_code = f"FAIL"
+            elif isinstance(action, SetCellValues):
+                action_pyautogui_code = self._set_cell_values(action)
+            elif isinstance(action, SwitchApplications):
+                action_pyautogui_code = self._switch_applications(action)
+            elif isinstance(action, Open):
+                action_pyautogui_code = self._open(action)
             else:
                 # This shouldn't happen due to supports() check, but be safe.
                 raise NotImplementedError(f"Unhandled action: {action}")
@@ -232,3 +247,142 @@ class PyAutoGUIVMwareBackend(Backend):
         else:
             obs = self.env_controller._get_obs()
             return screenshot_bytes_to_pil_image(obs["screenshot"]) #type: ignore
+
+    def _set_cell_values(self, act: SetCellValues) -> str:
+        """Set cell values in LibreOffice Calc (Linux only)"""
+        if self.env_controller is None: # Assuming env_controller is self.env_controller
+            return f"# SetCellValues not supported on platform: {self.env_controller.platform}"
+        if self.env_controller.platform == "Ubuntu":
+            # Create Python script for LibreOffice automation
+            script_content = f"""
+import uno
+import subprocess
+
+def set_cell_values(new_cell_values, app_name, sheet_name):
+    # Clean up previous TCP connections
+    subprocess.run('echo "osworld-public-evaluation" | sudo -S ss --kill --tcp state TIME-WAIT sport = :2002', 
+                  shell=True, check=True, text=True, capture_output=True)
+    
+    # Start LibreOffice with socket connection
+    subprocess.run(['soffice', '--accept=socket,host=localhost,port=2002;urp;StarOffice.Service'])
+    
+    local_context = uno.getComponentContext()
+    resolver = local_context.ServiceManager.createInstanceWithContext(
+        "com.sun.star.bridge.UnoUrlResolver", local_context
+    )
+    context = resolver.resolve("uno:socket,host=localhost,port=2002;urp;StarOffice.ComponentContext")
+    desktop = context.ServiceManager.createInstanceWithContext(
+        "com.sun.star.frame.Desktop", context
+    )
+    
+    # Find the spreadsheet and set cell values
+    for component in desktop.Components:
+        if component.supportsService("com.sun.star.sheet.SpreadsheetDocument"):
+            if component.Title == app_name:
+                sheet = component.Sheets.getByName(sheet_name)
+                for cell_ref, value in new_cell_values.items():
+                    # Convert cell reference to column/row indices
+                    col_letters = ''.join(filter(str.isalpha, cell_ref))
+                    row_number = ''.join(filter(str.isdigit, cell_ref))
+                    
+                    col = sum((ord(char.upper()) - ord('A') + 1) * (26**idx) for idx, char in enumerate(reversed(col_letters))) - 1
+                    row = int(row_number) - 1
+                    
+                    cell = sheet.getCellByPosition(col, row)
+                    if isinstance(value, (int, float)):
+                        cell.Value = value
+                    elif isinstance(value, str):
+                        if value.startswith("="):
+                            cell.Formula = value
+                        else:
+                            cell.String = value
+                    elif isinstance(value, bool):
+                        cell.Value = 1 if value else 0
+                break
+
+set_cell_values({act.cell_values}, "{act.app_name}", "{act.sheet_name}")
+"""
+            return script_content
+        else:
+            return f"# SetCellValues not supported on platform: {self.env_controller.platform}"
+
+    def _switch_applications(self, act: SwitchApplications) -> str:
+        """Switch to a different application that is already open"""
+        if self.env_controller is None: # Assuming env_controller is self.env_controller
+            return f"# SwitchApplications not supported on platform: {self.env_controller.platform}"
+        if self.env_controller.platform == "Ubuntu":
+            # Linux: Use wmctrl to switch windows
+            return f"""
+import subprocess
+import difflib
+import pyautogui
+import time
+
+pyautogui.press('escape')
+time.sleep(0.5)
+
+output = subprocess.check_output(['wmctrl', '-lx'])
+output = output.decode('utf-8').splitlines()
+window_titles = [line.split(None, 4)[2] for line in output]
+closest_matches = difflib.get_close_matches('{act.app_code}', window_titles, n=1, cutoff=0.1)
+
+if closest_matches:
+    closest_match = closest_matches[0]
+    for line in output:
+        if closest_match in line:
+            window_id = line.split()[0]
+            break
+    else:
+        return
+    
+    subprocess.run(['wmctrl', '-ia', window_id])
+    subprocess.run(['wmctrl', '-ir', window_id, '-b', 'add,maximized_vert,maximized_horz'])
+"""
+        elif self.env_controller.platform == "Windows":
+            # Windows: Win+D to show desktop, then type app name
+            return f"""
+import pyautogui
+import time
+
+pyautogui.hotkey('win', 'd', interval=0.5)
+time.sleep(0.5)
+pyautogui.typewrite('{act.app_code}')
+time.sleep(1.0)
+pyautogui.press('enter')
+time.sleep(1.0)
+"""
+        else:
+            return f"# SwitchApplications not supported on platform: {self.env_controller.platform}"
+
+    def _open(self, act: Open) -> str:
+        """Open an application or file"""
+        if self.env_controller is None: # Assuming env_controller is self.env_controller
+            return f"# Open not supported on platform: {self.env_controller.platform}"
+        if self.env_controller.platform == "Ubuntu":
+            # Linux: Win key to open application menu
+            return f"""
+import pyautogui
+import time
+
+pyautogui.press('super')
+time.sleep(0.5)
+pyautogui.write('{act.app_or_filename}')
+time.sleep(1.0)
+pyautogui.hotkey('enter')
+time.sleep(0.5)
+"""
+        elif self.env_controller.platform == "Windows":
+            # Windows: Win+R to open Run dialog
+            return f"""
+import pyautogui
+import time
+
+pyautogui.hotkey('win', 'r', interval=0.5)
+time.sleep(0.5)
+pyautogui.typewrite('{act.app_or_filename}')
+time.sleep(1.0)
+pyautogui.press('enter')
+time.sleep(1.0)
+"""
+        else:
+            return f"# Open not supported on platform: {self.env_controller.platform}"

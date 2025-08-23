@@ -51,12 +51,13 @@ class PyAutoGUIVMwareBackend(Backend):
     _supported = {Click, DoubleClick, Move, Scroll, Drag, TypeText, Hotkey, Wait, Done, Failed, Screenshot}
 
     # ¶ PyAutoGUI sometimes throws exceptions if mouse is moved to a corner.
-    def __init__(self, default_move_duration: float = 0.0, platform: str | None = None, env_controller: Optional[DesktopEnv] = None):
+    def __init__(self, default_move_duration: float = 0.0, platform: str | None = None, **kwargs):
         import pyautogui as pag  # local import to avoid hard requirement
         pag.FAILSAFE = False
         self.pag = pag
         self.default_move_duration = default_move_duration
-        self.env_controller = env_controller
+        # Extract env_controller from kwargs if provided, but don't require it
+        self.env_controller = kwargs.get('env_controller', None)
 
 
     # ------------------------------------------------------------------

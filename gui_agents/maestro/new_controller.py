@@ -678,6 +678,10 @@ class NewController:
         logger.info("Handling PLAN state")
 
         try:
+            # 增加规划次数计数
+            self.global_state.increment_plan_num()
+            logger.info(f"Plan number incremented to: {self.global_state.get_plan_num()}")
+            
             # 调用Manager进行重规划
             # 等待规划完成
             self.manager.plan_task("replan")
@@ -718,6 +722,10 @@ class NewController:
         logger.info("Handling SUPPLEMENT state")
 
         try:
+            # 增加规划次数计数（补充资料也是一种规划行为）
+            self.global_state.increment_plan_num()
+            logger.info(f"Plan number incremented to: {self.global_state.get_plan_num()} (supplement)")
+            
             # 等待Manager补充资料
             # 检查补充状态
 
@@ -1044,12 +1052,11 @@ class NewController:
             print(f"Found local knowledge base path: {kb_platform_path}")
 
     def _check_task_state_rules(self) -> Optional[ControllerState]:
-        return
         """检查task_state相关规则，包括终止条件"""
         try:
             task = self.global_state.get_task()
             if not task:
-                return
+                return None
 
             # 检查状态切换次数上限
             if self.state_switch_count >= self.max_state_switches:
@@ -1062,11 +1069,13 @@ class NewController:
             if task.status == "completed":
                 logger.info("Task marked as completed")
 
-            # manager规划次数大于10次 - rejected
-            if self.state_switch_count > 100:
+            # 检查规划次数上限 - 如果规划次数超过10次，标记任务为失败
+            plan_num = self.global_state.get_plan_num()
+            if plan_num > 10:
                 logger.warning(
-                    f"State switch count > 10, marking task as REJECTED")
+                    f"Plan number ({plan_num}) exceeds limit (10), marking task as REJECTED")
                 self.global_state.update_task_status(TaskStatus.REJECTED)
+                return ControllerState.DONE
 
             # manager重规划连续失败3次 - rejected 未判断连续
             # 检查是否有连续的状态切换到PLAN，但只在PLAN状态下检查
@@ -1087,11 +1096,11 @@ class NewController:
                     )
                     self.global_state.update_task_status(TaskStatus.REJECTED)
 
-            return
+            return None
 
         except Exception as e:
             logger.error(f"Error checking task state rules: {e}")
-            return
+            return None
 
     def get_controller_info(self) -> Dict[str, Any]:
         """获取控制器信息"""
@@ -1099,6 +1108,7 @@ class NewController:
             "current_state": self.get_current_state().value,
             "state_start_time": self.global_state.get_controller_state_start_time(),
             "state_switch_count": self.state_switch_count,
+            "plan_num": self.global_state.get_plan_num(),
             "controller_state": self.global_state.get_controller_state(),
             "task_id": self.global_state.task_id,
             "executor_status": self.executor.get_execution_status()
@@ -1110,6 +1120,14 @@ class NewController:
         self.state_switch_count = 0
         self.global_state.reset_controller_state()
         self.reset_counters()  # 重置计数器
+        
+        # 重置plan_num
+        task = self.global_state.get_task()
+        if task:
+            task.plan_num = 0
+            self.global_state.set_task(task)
+            logger.info("Plan number reset to 0")
+        
         logger.info("Controller reset completed")
 
     def reset_counters(self) -> None:

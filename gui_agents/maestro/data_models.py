@@ -62,6 +62,7 @@ class TaskData:
     status: str = field(default_factory=lambda: TaskStatus.CREATED.value)
     current_subtask_id: Optional[str] = None
     step_num: int = 0
+    plan_num: int = 0  # 记录规划的次数
     history_subtask_ids: List[str] = field(default_factory=list)
     pending_subtask_ids: List[str] = field(default_factory=list)
     qa_policy: Dict[str, Any] = field(default_factory=lambda: {
@@ -79,6 +80,7 @@ class TaskData:
             "status": self.status,
             "current_subtask_id": self.current_subtask_id,
             "step_num": self.step_num,
+            "plan_num": self.plan_num,
             "history_subtask_ids": self.history_subtask_ids,
             "pending_subtask_ids": self.pending_subtask_ids,
             "qa_policy": self.qa_policy
@@ -94,6 +96,7 @@ class TaskData:
             status=data.get("status", TaskStatus.CREATED.value),
             current_subtask_id=data.get("current_subtask_id"),
             step_num=data.get("step_num", 0),
+            plan_num=data.get("plan_num", 0),
             history_subtask_ids=data.get("history_subtask_ids", []),
             pending_subtask_ids=data.get("pending_subtask_ids", []),
             qa_policy=data.get("qa_policy", {

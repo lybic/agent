@@ -24,11 +24,23 @@
 
 # Decision Protocol
 - If you will provide executable code, return exactly one code block (bash or python). This is treated as a "Grounded Action" and classified as generate_action.
-- If you will NOT provide code, output a single line decision instead, using one of the following:
-  - Decision: Done            # The subtask is already completed or requires no further action
-  - Decision: Failed          # The subtask cannot be executed as requested
-  - Decision: Supplement      # More information is needed; specify what is missing and why
-  - Decision: NeedQualityCheck # Progress is stale or validation is required before proceeding
+- If you will NOT provide code, you MUST use the structured decision format below with clear markers.
+
+# Structured Decision Format
+When making a decision, you MUST use this exact format with the markers shown:
+
+**DECISION_START**
+Decision: [DONE|FAILED|SUPPLEMENT|NEED_QUALITY_CHECK]
+Message: [Your detailed explanation here]
+**DECISION_END**
+
+**DECISION_START** and **DECISION_END** are required markers that must be included exactly as shown.
+
+# Decision Types and Message Requirements
+- DONE: Explain what was accomplished and why no further action is needed
+- FAILED: Explain what went wrong, what was attempted, and why the task cannot proceed
+- SUPPLEMENT: Specify exactly what information is missing, why it's needed, and how it would help complete the task
+- NEED_QUALITY_CHECK: Describe what should be checked, why validation is needed, and what specific aspects require inspection
 
 # Output Format
 Your response should be formatted like this:
@@ -39,6 +51,31 @@ Describe what you see on the current screen, including applications, file system
 (Next Action)
 Either:
 1) Exactly one code block with the full script to run (no extra text outside the block), OR
-2) Exactly one line with the decision in the format above (e.g., `Decision: Supplement`), followed by a concise explanation on the next line if helpful.
+2) The structured decision format with DECISION_START and DECISION_END markers
+
+# Examples
+
+## Example 1: Code Output
+```bash
+#!/bin/bash
+echo "Installing package..."
+sudo apt-get update
+sudo apt-get install -y nginx
+echo "Installation complete"
+```
+
+## Example 2: Decision Output
+DECISION_START
+Decision: DONE
+Message: The nginx service is already running and configured correctly. The configuration file shows all required settings are in place, and the service status is active. No further action is needed.
+DECISION_END
+
+## Example 3: Another Decision Output
+DECISION_START
+Decision: SUPPLEMENT
+Message: Need the target server's IP address and SSH credentials to proceed with the deployment. Without these connection details, I cannot establish a connection to perform the installation.
+DECISION_END
 
 - Do not mix decisions and code in the same response.
+- Always use the exact markers **DECISION_START** and **DECISION_END** for decisions.
+- Ensure your decision message is clear, specific, and actionable.

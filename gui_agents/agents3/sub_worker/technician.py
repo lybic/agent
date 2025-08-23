@@ -149,6 +149,7 @@ class Technician:
         try:
             decision = self._infer_decision_from_text(command_plan)
             code_blocks: List[Tuple[str, str]] = []
+            decision_message = ""
 
             # Only try to extract code blocks when no explicit decision is detected
             if decision is None:
@@ -158,32 +159,50 @@ class Technician:
                 ok = True
                 outcome = WorkerDecision.GENERATE_ACTION.value
                 err = None
+                action = code_blocks
+                message = ""
             elif decision == "done":
                 ok = True
                 outcome = WorkerDecision.WORKER_DONE.value
                 err = None
+                decision_message = self._extract_decision_message(command_plan, decision)
+                action = {"type": "Done", "message": decision_message}
+                message = decision_message
             elif decision == "failed":
                 ok = False
                 outcome = WorkerDecision.CANNOT_EXECUTE.value
                 err = None
+                decision_message = self._extract_decision_message(command_plan, decision)
+                action = {"type": "Failed", "message": decision_message}
+                message = decision_message
             elif decision == "supplement":
                 ok = False
                 outcome = WorkerDecision.SUPPLEMENT.value
                 err = None
+                decision_message = self._extract_decision_message(command_plan, decision)
+                action = {"type": "Supplement", "message": decision_message}
+                message = decision_message
             elif decision == "need_quality_check":
                 ok = True
                 outcome = WorkerDecision.STALE_PROGRESS.value
                 err = None
+                decision_message = self._extract_decision_message(command_plan, decision)
+                action = {"type": "NeedQualityCheck", "message": decision_message}
+                message = decision_message
             else:
                 # No clear signal; treat as cannot execute
                 ok = False
                 outcome = WorkerDecision.CANNOT_EXECUTE.value
                 err = "No code blocks or valid decision found"
+                action = None
+                message = ""
         except Exception as e:
             ok = False
             outcome = WorkerDecision.CANNOT_EXECUTE.value
             code_blocks = []
             err = f"CLASSIFICATION_FAILED: {e}"
+            action = None
+            message = ""
             logger.warning(err)
         
         result = StepResult(
@@ -192,6 +211,7 @@ class Technician:
             error=err,
             latency_ms=latency_ms,
             outcome=outcome,
+            action=action, # type: ignore
         )
 
         # Log execution result
@@ -203,10 +223,11 @@ class Technician:
 
         return {
             "command_plan": command_plan,
-            "action": code_blocks if outcome == WorkerDecision.GENERATE_ACTION.value else None,
+            "action": action,
             "step_result": result.__dict__,
             "outcome": outcome,
             "screenshot_analysis": screenshot_analysis,
+            "message": message,
         }
 
     def _extract_code_blocks(self, text: str) -> List[Tuple[str, str]]:
@@ -230,20 +251,47 @@ class Technician:
         """Infer high-level decision from free-form LLM text.
         Returns one of: "done", "failed", "supplement", "need_quality_check", or None.
         """
-        lowered = text.lower()
-        # Prefer explicit Decision: <label>
+        # First try to find structured decision format
+        if "DECISION_START" in text and "DECISION_END" in text:
+            # Extract content between markers
+            start_marker = "DECISION_START"
+            end_marker = "DECISION_END"
+            start_pos = text.find(start_marker) + len(start_marker)
+            end_pos = text.find(end_marker)
+            
+            if start_pos < end_pos:
+                decision_content = text[start_pos:end_pos].strip()
+                # Look for Decision: line
+                import re
+                decision_match = re.search(r"Decision:\s*(DONE|FAILED|SUPPLEMENT|NEED_QUALITY_CHECK)", decision_content, re.IGNORECASE)
+                if decision_match:
+                    decision = decision_match.group(1).lower()
+                    if decision == "need_quality_check":
+                        return "need_quality_check"
+                    return decision
+
+    def _extract_decision_message(self, text: str, decision: str) -> str:
+        """Extract the detailed message associated with a decision.
+        Returns the message explaining the decision reason and context.
+        """
         import re
-        m = re.search(r"decision\s*[:\-]\s*(done|failed|supplement|need\s*quality\s*check)", lowered)
-        if m:
-            label = m.group(1)
-            label = label.replace(" ", "_")
-            return label
-        if "need_quality_check" in lowered or "need quality check" in lowered:
-            return "need_quality_check"
-        if "supplement" in lowered:
-            return "supplement"
-        if "failed" in lowered or "cannot execute" in lowered or "can't proceed" in lowered:
-            return "failed"
-        if "done" in lowered or "completed" in lowered or "already finished" in lowered:
-            return "done"
-        return None
+        
+        # First try to extract from structured format
+        if "DECISION_START" in text and "DECISION_END" in text:
+            start_marker = "DECISION_START"
+            end_marker = "DECISION_END"
+            start_pos = text.find(start_marker) + len(start_marker)
+            end_pos = text.find(end_marker)
+            
+            if start_pos < end_pos:
+                decision_content = text[start_pos:end_pos].strip()
+                # Look for Message: line
+                message_match = re.search(r"Message:\s*(.+)", decision_content, re.IGNORECASE | re.DOTALL)
+                if message_match:
+                    message = message_match.group(1).strip()
+                    # Clean up the message (remove extra whitespace and newlines)
+                    message = re.sub(r'\s+', ' ', message)
+                    if message:
+                        return message
+
+        return f"Decision {decision} was made"

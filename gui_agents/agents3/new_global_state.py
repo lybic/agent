@@ -13,7 +13,7 @@ from PIL import Image
 
 from gui_agents.utils.common_utils import Node
 from gui_agents.utils.file_utils import (
-    locked, safe_json_dump, safe_json_load, 
+    locked, safe_json_dump, safe_json_load,
     safe_write_json, safe_read_json, safe_write_text, safe_read_text
 )
 from gui_agents.utils.id_utils import generate_uuid, generate_timestamp_id
@@ -22,14 +22,14 @@ logger = logging.getLogger(__name__)
 
 # ========= Import Enums =========
 from .enums import (
-    TaskStatus, SubtaskStatus, GateDecision, GateTrigger, 
+    TaskStatus, SubtaskStatus, GateDecision, GateTrigger,
     ControllerState, ExecStatus
 )
 
 # ========= Import Data Models =========
 from .data_models import (
     TaskData, SubtaskData, CommandData, GateCheckData, ControllerStateData,
-    create_task_data, create_subtask_data, create_command_data, 
+    create_task_data, create_subtask_data, create_command_data,
     create_gate_check_data, create_controller_state_data
 )
 
@@ -52,7 +52,7 @@ class NewGlobalState:
         self.screenshot_dir = Path(screenshot_dir)
         self.state_dir = Path(state_dir)
         self.task_id = task_id or f"task-{generate_uuid()[:8]}"
-        
+
         # State file paths
         self.task_path = self.state_dir / "task.json"
         self.subtasks_path = self.state_dir / "subtasks.json"
@@ -62,11 +62,11 @@ class NewGlobalState:
         self.supplement_path = self.state_dir / "supplement.md"
         self.events_path = self.state_dir / "events.json"
         self.controller_state_path = self.state_dir / "controller_state.json"
-        
+
         # Legacy paths for compatibility
         self.agent_log_path = Path(agent_log_path) if agent_log_path else self.state_dir / "agent_log.json"
         self.display_info_path = Path(display_info_path) if display_info_path else self.state_dir / "display.json"
-        
+
         # Ensure necessary directories and files exist
         self._initialize_directories_and_files()
 
@@ -75,7 +75,7 @@ class NewGlobalState:
         # Create directories
         self.screenshot_dir.mkdir(parents=True, exist_ok=True)
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Initialize state files with default content
         self._init_task_file()
         self._init_subtasks_file()
@@ -85,12 +85,12 @@ class NewGlobalState:
         self._init_supplement_file()
         self._init_events_file()
         self._init_controller_state_file()
-        
+
         # Initialize legacy files
         if not self.agent_log_path.exists():
             self.agent_log_path.parent.mkdir(parents=True, exist_ok=True)
             safe_write_text(self.agent_log_path, "[]")
-        
+
         if not self.display_info_path.exists():
             self.display_info_path.parent.mkdir(parents=True, exist_ok=True)
             safe_write_text(self.display_info_path, "{}")
@@ -270,19 +270,19 @@ This file tracks supplementary information and materials needed for the task.
         3. 从pending_subtask_ids中移除第一个元素（如果存在）
         """
         task = self.get_task()
-        
+
         # 1. 将当前的current_subtask_id移动到history_subtask_ids
         if task.current_subtask_id:
             if task.current_subtask_id not in task.history_subtask_ids:
                 task.history_subtask_ids.append(task.current_subtask_id)
-        
+
         # 2. 设置新的current_subtask_id为pending_subtask_ids的第一个元素
         task.current_subtask_id = task.pending_subtask_ids[0]
-        
+
         # 3. 从pending_subtask_ids中移除第一个元素（如果存在且与新ID匹配）
         if task.pending_subtask_ids and task.pending_subtask_ids[0] == task.current_subtask_id:
             task.pending_subtask_ids.pop(0)
-        
+
         self.set_task(task)
 
     def add_history_subtask(self, subtask_id: str) -> None:
@@ -331,13 +331,13 @@ This file tracks supplementary information and materials needed for the task.
         subtask_data.reasons_history = subtask_data.reasons_history or []
         subtask_data.command_trace_ids = subtask_data.command_trace_ids or []
         subtask_data.gate_check_ids = subtask_data.gate_check_ids or []
-        
+
         subtasks.append(subtask_data)
         safe_write_json(self.subtasks_path, [subtask.to_dict() for subtask in subtasks])
-        
+
         # Add to pending list
         self.add_pending_subtask(subtask_id)
-        
+
         return subtask_id
 
     def delete_subtasks(self, subtask_ids: List[str]) -> None:
@@ -355,9 +355,9 @@ This file tracks supplementary information and materials needed for the task.
         # task.history_subtask_ids = [sid for sid in task.history_subtask_ids if sid not in subtask_ids]
         # Clear current pointer if it was deleted
         # if task.current_subtask_id in subtask_ids:
-            # task.current_subtask_id = None
+        # task.current_subtask_id = None
         self.set_task(task)
-    
+
     def update_subtask_status(self, subtask_id: str, status: SubtaskStatus, reason: Optional[str] = None) -> None:
         """Update subtask status and optionally add reason"""
         subtasks = self.get_subtasks()
@@ -372,7 +372,7 @@ This file tracks supplementary information and materials needed for the task.
                     subtask.reasons_history.append(reason_entry)
                     subtask.last_reason_text = reason
                 break
-        
+
         safe_write_json(self.subtasks_path, [subtask.to_dict() for subtask in subtasks])
 
     def add_subtask_reason(self, subtask_id: str, reason: str) -> None:
@@ -387,7 +387,7 @@ This file tracks supplementary information and materials needed for the task.
                 subtask.reasons_history.append(reason_entry)
                 subtask.last_reason_text = reason
                 break
-        
+
         safe_write_json(self.subtasks_path, [subtask.to_dict() for subtask in subtasks])
 
     def add_subtask_command_trace(self, subtask_id: str, command_id: str) -> None:
@@ -398,7 +398,7 @@ This file tracks supplementary information and materials needed for the task.
                 if command_id not in subtask.command_trace_ids:
                     subtask.command_trace_ids.append(command_id)
                 break
-        
+
         safe_write_json(self.subtasks_path, [subtask.to_dict() for subtask in subtasks])
 
     def add_subtask_gate_check(self, subtask_id: str, gate_check_id: str) -> None:
@@ -409,7 +409,7 @@ This file tracks supplementary information and materials needed for the task.
                 if gate_check_id not in subtask.gate_check_ids:
                     subtask.gate_check_ids.append(gate_check_id)
                 break
-        
+
         safe_write_json(self.subtasks_path, [subtask.to_dict() for subtask in subtasks])
 
     def update_subtask_last_gate(self, subtask_id: str, gate_decision: GateDecision) -> None:
@@ -419,7 +419,7 @@ This file tracks supplementary information and materials needed for the task.
             if subtask.subtask_id == subtask_id:
                 subtask.last_gate_decision = gate_decision.value
                 break
-        
+
         safe_write_json(self.subtasks_path, [subtask.to_dict() for subtask in subtasks])
 
     # ========= Command Management =========
@@ -435,14 +435,14 @@ This file tracks supplementary information and materials needed for the task.
             subtask = self.get_subtask(subtask_id)
             if not subtask or not subtask.command_trace_ids:
                 return []
-            
+
             # Get all commands for this subtask
             commands = []
             for command_id in subtask.command_trace_ids:
                 command = self.get_command(command_id)
                 if command:
                     commands.append(command)
-            
+
             # Sort by creation time (newest first)
             commands.sort(key=lambda x: x.created_at, reverse=True)
             return commands
@@ -465,10 +465,10 @@ This file tracks supplementary information and materials needed for the task.
             subtask = self.get_subtask(subtask_id)
             if not subtask or not subtask.command_trace_ids:
                 return None
-            
+
             # Get the latest command ID from the trace
             latest_command_id = subtask.command_trace_ids[-1]
-            
+
             # Get the command data
             return self.get_command(latest_command_id)
         except Exception as e:
@@ -483,20 +483,20 @@ This file tracks supplementary information and materials needed for the task.
         """Add new command and return command ID"""
         commands = self.get_commands()
         command_id = command_data.command_id or self._generate_id("cmd")
-        
+
         command_data.command_id = command_id
         command_data.task_id = self.task_id
-        
+
         commands.append(command_data)
         safe_write_json(self.commands_path, [command.to_dict() for command in commands])
-        
+
         # Add to subtask trace
         if command_data.subtask_id:
             self.add_subtask_command_trace(command_data.subtask_id, command_id)
-        
+
         return command_id
 
-    def update_command_exec_status(self, command_id: str, exec_status: ExecStatus, 
+    def update_command_exec_status(self, command_id: str, exec_status: ExecStatus,
                                  exec_message: str = "", exec_latency_ms: int = 0) -> None:
         """Update command execution status"""
         commands = self.get_commands()
@@ -507,7 +507,7 @@ This file tracks supplementary information and materials needed for the task.
                 command.exec_latency_ms = exec_latency_ms
                 command.executed_at = datetime.now().isoformat()
                 break
-        
+
         safe_write_json(self.commands_path, [command.to_dict() for command in commands])
 
     def update_command_worker_decision(self, command_id: str, worker_decision: str) -> None:
@@ -517,7 +517,7 @@ This file tracks supplementary information and materials needed for the task.
             if command.command_id == command_id:
                 command.worker_decision = worker_decision
                 break
-        
+
         safe_write_json(self.commands_path, [command.to_dict() for command in commands])
 
     def update_command_fields(self, command_id: str, **kwargs) -> None:
@@ -530,7 +530,7 @@ This file tracks supplementary information and materials needed for the task.
                         setattr(command, field, value)
                 command.updated_at = datetime.now().isoformat()
                 break
-        
+
         safe_write_json(self.commands_path, [command.to_dict() for command in commands])
 
     def get_commands_by_worker_decision(self, worker_decision: str) -> List[CommandData]:
@@ -557,21 +557,34 @@ This file tracks supplementary information and materials needed for the task.
                 return gate_check
         return None
 
+    def get_latest_gate_check_for_subtask(
+            self, subtask_id: str) -> Optional[GateCheckData]:
+        """Get the latest gate check for a specific subtask"""
+        gate_checks = self.get_gate_checks()
+        latest_gate = None
+
+        for gate_check in gate_checks:
+            if gate_check.subtask_id == subtask_id:
+                if not latest_gate or gate_check.created_at > latest_gate.created_at:
+                    latest_gate = gate_check
+
+        return latest_gate
+
     def add_gate_check(self, gate_check_data: GateCheckData) -> str:
         """Add new gate check and return gate check ID"""
         gate_checks = self.get_gate_checks()
         gate_check_id = gate_check_data.gate_check_id or self._generate_id("gc")
-        
+
         gate_check_data.gate_check_id = gate_check_id
         gate_check_data.task_id = self.task_id
-        
+
         gate_checks.append(gate_check_data)
         safe_write_json(self.gate_checks_path, [gate_check.to_dict() for gate_check in gate_checks])
-        
+
         # Add to subtask if specified
         if gate_check_data.subtask_id:
             self.add_subtask_gate_check(gate_check_data.subtask_id, gate_check_id)
-        
+
         return gate_check_id
 
     # ========= Artifacts Management =========
@@ -586,11 +599,11 @@ This file tracks supplementary information and materials needed for the task.
     def add_artifact(self, artifact_type: str, artifact_data: Dict[str, Any]) -> None:
         """Add new artifact to artifacts.md"""
         current_content = self.get_artifacts()
-        
+
         # Add new artifact section
         artifact_id = self._generate_id("art")
         timestamp = datetime.now().isoformat()
-        
+
         new_artifact = f"""
 ## {artifact_type} - {artifact_id}
 - **Created**: {timestamp}
@@ -599,7 +612,7 @@ This file tracks supplementary information and materials needed for the task.
 
 ---
 """
-        
+
         updated_content = current_content + new_artifact
         self.set_artifacts(updated_content)
 
@@ -612,14 +625,14 @@ This file tracks supplementary information and materials needed for the task.
         """Set supplement content"""
         safe_write_text(self.supplement_path, content)
 
-    def add_supplement_entry(self, entry_type: str, description: str, 
+    def add_supplement_entry(self, entry_type: str, description: str,
                            sla: Optional[str] = None, status: str = "open") -> None:
         """Add new supplement entry"""
         current_content = self.get_supplement()
-        
+
         entry_id = self._generate_id("sup")
         timestamp = datetime.now().isoformat()
-        
+
         new_entry = f"""
 ## {entry_type} - {entry_id}
 - **Created**: {timestamp}
@@ -630,7 +643,7 @@ This file tracks supplementary information and materials needed for the task.
 
 ---
 """
-        
+
         updated_content = current_content + new_entry
         self.set_supplement(updated_content)
 
@@ -643,7 +656,7 @@ This file tracks supplementary information and materials needed for the task.
         """Add new event"""
         events = self.get_events()
         event_id = self._generate_id("evt")
-        
+
         event = {
             "event_id": event_id,
             "task_id": self.task_id,
@@ -652,10 +665,10 @@ This file tracks supplementary information and materials needed for the task.
             "details": details,
             "timestamp": datetime.now().isoformat()
         }
-        
+
         events.append(event)
         safe_write_json(self.events_path, events)
-        
+
         return event_id
 
     # ========= Role-based Access Methods =========
@@ -683,7 +696,7 @@ This file tracks supplementary information and materials needed for the task.
             "supplement": self.get_supplement()
         }
 
-    def manager_create_subtask(self, title: str, description: str, 
+    def manager_create_subtask(self, title: str, description: str,
                              assignee_role: str = "operator") -> str:
         """Manager: Create new subtask"""
         subtask_data = create_subtask_data(
@@ -703,7 +716,7 @@ This file tracks supplementary information and materials needed for the task.
         subtask = self.get_subtask(subtask_id)
         if not subtask:
             return {}
-        
+
         return {
             "subtask": subtask,
             "task": self.get_task(),
@@ -711,7 +724,7 @@ This file tracks supplementary information and materials needed for the task.
             "artifacts": self.get_artifacts()
         }
 
-    def worker_report_result(self, subtask_id: str, result: str, 
+    def worker_report_result(self, subtask_id: str, result: str,
                            reason_code: Optional[str] = None) -> None:
         """Worker: Report execution result"""
         if result == "success":
@@ -722,7 +735,7 @@ This file tracks supplementary information and materials needed for the task.
             self.update_subtask_status(subtask_id, SubtaskStatus.STALE)
         elif result == "NEED_SUPPLEMENT":
             self.update_subtask_status(subtask_id, SubtaskStatus.PENDING, "Need supplement")
-        
+
         self.add_event("worker", f"report_{result}", f"Subtask {subtask_id}: {result}")
 
     # Evaluator methods
@@ -731,7 +744,7 @@ This file tracks supplementary information and materials needed for the task.
         subtask = self.get_subtask(subtask_id)
         if not subtask:
             return {}
-        
+
         return {
             "subtask": subtask,
             "commands": [self.get_command(cmd_id) for cmd_id in subtask.command_trace_ids],
@@ -739,7 +752,7 @@ This file tracks supplementary information and materials needed for the task.
             "screenshot": self.get_screenshot()
         }
 
-    def evaluator_make_decision(self, subtask_id: str, decision: GateDecision, 
+    def evaluator_make_decision(self, subtask_id: str, decision: GateDecision,
                                notes: str, trigger: GateTrigger = GateTrigger.PERIODIC_CHECK) -> str:
         """Evaluator: Make quality gate decision"""
         gate_check_data = create_gate_check_data(
@@ -750,19 +763,19 @@ This file tracks supplementary information and materials needed for the task.
             trigger=trigger.value,
             subtask_id=subtask_id
         )
-        
+
         gate_check_id = self.add_gate_check(gate_check_data)
         self.add_event("evaluator", f"gate_{decision.value}", f"Decision: {decision.value}")
-        
+
         return gate_check_id
 
     # Hardware methods
-    def hardware_execute_command(self, subtask_id: str, action: Dict[str, Any], 
+    def hardware_execute_command(self, subtask_id: str, action: Dict[str, Any],
                                pre_screenshot: Image.Image) -> str:
         """Hardware: Execute command and record results"""
         # Save pre-screenshot
         pre_screenshot_id = self.set_screenshot(pre_screenshot)
-        
+
         # Create command entry
         command_data = CommandData(
             command_id="",  # 将由add_command生成
@@ -772,19 +785,19 @@ This file tracks supplementary information and materials needed for the task.
             pre_screenshot_id=pre_screenshot_id,
             pre_screenshot_analysis="Pre-execution screenshot captured"
         )
-        
+
         command_id = self.add_command(command_data)
         self.add_event("hardware", "execute_command", f"Executed command: {action}")
-        
+
         return command_id
 
     def hardware_complete_command(self, command_id: str, post_screenshot: Image.Image,
-                                exec_status: ExecStatus, exec_message: str = "", 
+                                exec_status: ExecStatus, exec_message: str = "",
                                 exec_latency_ms: int = 0) -> None:
         """Hardware: Complete command execution"""
         # Save post-screenshot
         post_screenshot_id = self.set_screenshot(post_screenshot)
-        
+
         # Update command with results
         commands = self.get_commands()
         for command in commands:
@@ -795,7 +808,7 @@ This file tracks supplementary information and materials needed for the task.
                 command.exec_latency_ms = exec_latency_ms
                 command.executed_at = datetime.now().isoformat()
                 break
-        
+
         safe_write_json(self.commands_path, [command.to_dict() for command in commands])
         self.add_event("hardware", "complete_command", f"Completed command: {exec_status.value}")
 
@@ -825,7 +838,7 @@ This file tracks supplementary information and materials needed for the task.
     def log_operation(self, module: str, operation: str, data: Dict[str, Any]) -> None:
         """Legacy: Log operation (redirects to new event system)"""
         self.add_event(module, operation, str(data))
-        
+
         # Also log to display_info for backward compatibility
         try:
             display_info = safe_read_json(self.display_info_path, {})
@@ -833,14 +846,14 @@ This file tracks supplementary information and materials needed for the task.
                 display_info["operations"] = {}
             if module not in display_info["operations"]:
                 display_info["operations"][module] = []
-            
+
             operation_entry = {
                 "operation": operation,
                 "timestamp": time.time(),
                 **data
             }
             display_info["operations"][module].append(operation_entry)
-            
+
             safe_write_json(self.display_info_path, display_info)
         except Exception as e:
             logger.warning(f"Failed to update display_info: {e}")
@@ -878,7 +891,7 @@ This file tracks supplementary information and materials needed for the task.
                               trigger_details: str = ""):
         """Update controller current state and add to history"""
         controller_state = self.get_controller_state()
-        
+
         # Add current state to history if it's different
         current_state = controller_state.get("current_state")
         if current_state and current_state != new_state.value:
@@ -892,7 +905,7 @@ This file tracks supplementary information and materials needed for the task.
         controller_state["trigger_details"] = trigger_details
         controller_state["state_start_time"] = time.time()
         controller_state["updated_at"] = datetime.now().isoformat()
-        
+
         self.set_controller_state(controller_state)
         self.add_event("controller", "state_change", f"State changed to: {new_state.value} (trigger: {trigger}, details: {trigger_details})")
 
@@ -927,4 +940,4 @@ This file tracks supplementary information and materials needed for the task.
             "updated_at": datetime.now().isoformat()
         }
         self.set_controller_state(default_controller_state)
-        self.add_event("controller", "state_reset", "Controller state reset to default") 
+        self.add_event("controller", "state_reset", "Controller state reset to default")

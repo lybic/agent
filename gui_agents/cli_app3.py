@@ -166,7 +166,7 @@ def run_agent3(params: dict):
     logger.info(f"Starting agents3 execution with instruction: {user_query}")
     
     total_start_time = time.time()
-        # Ensure necessary directory structure exists
+    # Ensure necessary directory structure exists
     timestamp_dir = os.path.join(log_dir, datetime_str)
     cache_dir = os.path.join(timestamp_dir, "cache", "screens")
     state_dir = os.path.join(timestamp_dir, "state")
@@ -185,13 +185,14 @@ def run_agent3(params: dict):
 
     # Initialize NewController (which includes all other components)
     controller = NewController(
-        global_state=global_state,
         platform=current_platform,
         backend=backend,
         user_query=user_query,
         max_steps=max_steps,
         env=env,
-        env_password=env_password
+        env_password=env_password,
+        log_dir=log_dir,
+        datetime_str=datetime_str
     )
     
     try:

@@ -110,4 +110,33 @@ class EventType(str, Enum):
     STATE_SWITCH = "state_switch"  # 状态切换
     STATUS_CHANGE = "status_change"  # 状态变化 
 
-
+class TriggerCode(str, Enum):
+    """触发代码枚举"""
+    # Hardware相关
+    HARDWARE_GET_ACTION = "hardware_get_action"
+    
+    # Final Check相关
+    FINAL_CHECK_GATE_DONE = "final_check_gate_done"
+    FINAL_CHECK_GATE_FAIL = "final_check_gate_fail"
+    
+    # Evaluator相关
+    EVALUATOR_GATE_DONE_FINAL_CHECK = "evaluator_gate_done_final_check"
+    EVALUATOR_GATE_FAIL_GET_ACTION = "evaluator_gate_fail_get_action"
+    EVALUATOR_GATE_SUPPLEMENT = "evaluator_gate_supplement"
+    EVALUATOR_GATE_CONTINUE = "evaluator_gate_continue"
+    
+    # Worker相关
+    WORKER_SUCCESS = "worker_success"
+    WORK_CANNOT_EXECUTE = "work_cannot_execute"
+    WORKER_STALE_PROGRESS = "worker_stale_progress"
+    WORKER_GENERATE_ACTION = "worker_generateaction"
+    WORKER_SUPPLEMENT = "worker_supplement"
+    
+    # Manager相关
+    MANAGER_GET_ACTION = "manager_get_action"
+    MANAGER_REPLAN = "manager_replan"
+    
+    # 规则检验相关
+    RULE_QUALITY_CHECK_STEPS = "rule_quality_check_steps"           # 距离上次质检过去了5步
+    RULE_QUALITY_CHECK_REPEATED_ACTIONS = "rule_quality_check_repeated_actions"  # 相同连续动作高于3次
+    RULE_REPLAN_LONG_EXECUTION = "rule_replan_long_execution"       # 一个subtask的执行action过长，超过15次

@@ -10,13 +10,13 @@ from desktop_env.desktop_env import DesktopEnv
 
 # Step 2. use this code when the zip is already unziped to vmware_vm_data/Windows0 with .vmx file exists
 # vm_path = os.path.join("vmware_vm_data", "Windows-x86", "Windows 10 x64.vmx")
-vm_path = os.path.join("vmware_vm_data", "Ubuntu0", "Ubuntu0.vmx")
+vm_path = os.path.join("vmware_vm_data", "Ubuntu-x86", "Ubuntu.vmx")
 env = DesktopEnv(path_to_vm=vm_path, provider_name="vmware", action_space="pyautogui")
 
 env.reset()
 
 obs = env._get_obs()  # Get the initial observation
-    
+
 print(f"+="*40)
 print(type(obs["screenshot"]))
 print(type(obs["instruction"]))

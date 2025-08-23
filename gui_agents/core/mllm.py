@@ -7,6 +7,7 @@ from gui_agents.core.engine import (
     LMMEngineAzureOpenAI,
     LMMEngineHuggingFace,
     LMMEngineOpenAI,
+    LMMEngineLybic,
     LMMEngineOpenRouter,
     LMMEnginevLLM,
     LMMEngineGemini,
@@ -38,7 +39,7 @@ class CostManager:
     }
     # Other engines use USD
     USD_ENGINES = {
-        LMMEngineOpenAI, LMMEngineAnthropic, LMMEngineAzureOpenAI, LMMEngineGemini,
+        LMMEngineOpenAI, LMMEngineLybic, LMMEngineAnthropic, LMMEngineAzureOpenAI, LMMEngineGemini,
         LMMEngineOpenRouter, LMMEnginevLLM, LMMEngineHuggingFace, LMMEngineGroq,
         LMMEngineMonica, LMMEngineAWSBedrock, OpenAIEmbeddingEngine, 
         GeminiEmbeddingEngine, AzureOpenAIEmbeddingEngine, JinaEmbeddingEngine
@@ -116,6 +117,8 @@ class LLMAgent:
                 engine_type = engine_params.get("engine_type")
                 if engine_type == "openai":
                     self.engine = LMMEngineOpenAI(**engine_params)
+                elif engine_type == "lybic":
+                    self.engine = LMMEngineLybic(**engine_params)
                 elif engine_type == "anthropic":
                     self.engine = LMMEngineAnthropic(**engine_params)
                 elif engine_type == "azure":
@@ -236,6 +239,7 @@ class LLMAgent:
                 LMMEngineAzureOpenAI,
                 LMMEngineHuggingFace,
                 LMMEngineOpenAI,
+                LMMEngineLybic,
                 LMMEngineOpenRouter,
                 LMMEnginevLLM,
                 LMMEngineGemini,

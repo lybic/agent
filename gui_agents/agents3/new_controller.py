@@ -490,16 +490,10 @@ class NewController:
                 self.switch_state(ControllerState.GET_ACTION, "execution_error", f"Action execution failed: {error_msg}")
                 return
 
-            # 等待1秒
-            time.sleep(3)
             # 获取截图Executor处理
             command = self.global_state.get_current_command_for_subtask(
                 current_subtask_id)
             if command:
-                screenshot: Image.Image = self.hwi.dispatch(
-                    Screenshot())  # type: ignore
-                self.global_state.set_screenshot(
-                    scale_screenshot_dimensions(screenshot, self.hwi))
                 self.switch_state(
                     ControllerState.GET_ACTION, "command_completed",
                     f" {command.command_id} command completed")

@@ -65,7 +65,7 @@ class PyAutoGUIVMwareBackend(Backend):
             raise NotImplementedError(f"{type(action).__name__} not supported by PyAutoGUIBackend")
         
         # For automation OSWorld evaluation
-        if self.use_precreate_vm is None: 
+        if self.env_controller is None: 
             if isinstance(action, Click):
                 return self._click(action)
             elif isinstance(action, DoubleClick):
@@ -122,7 +122,7 @@ class PyAutoGUIVMwareBackend(Backend):
                 # This shouldn't happen due to supports() check, but be safe.
                 raise NotImplementedError(f"Unhandled action: {action}")
 
-            self.env.step(action_pyautogui_code)
+            self.env_controller.step(action_pyautogui_code)
 
     # ----- individual helpers ------------------------------------------------
     def _click(self, act: Click) -> str:
@@ -226,8 +226,8 @@ class PyAutoGUIVMwareBackend(Backend):
         return "; ".join(code_parts)
     
     def _screenshot(self) -> str:
-        if self.use_precreate_vm is None:
+        if self.env_controller is None:
             return "screenshot = pyautogui.screenshot(); return screenshot"
         else:
-            obs = self.env._get_obs()
+            obs = self.env_controller._get_obs()
             return screenshot_bytes_to_pil_image(obs["screenshot"]) #type: ignore

@@ -476,6 +476,28 @@ def save_embeddings(embeddings_path: str, embeddings: Dict):
     except Exception as e:
         print(f"Error saving embeddings: {e}")
 
+def agent_log_to_string(agent_log: List[Dict]) -> str:
+    """
+    Converts a list of agent log entries into a single string for LLM consumption.
+
+    Args:
+        agent_log: A list of dictionaries, where each dictionary is an agent log entry.
+
+    Returns:
+        A formatted string representing the agent log.
+    """
+    if not agent_log:
+        return "No agent log entries yet."
+
+    log_strings = ["[AGENT LOG]"]
+    for entry in agent_log:
+        entry_id = entry.get("id", "N/A")
+        entry_type = entry.get("type", "N/A").capitalize()
+        content = entry.get("content", "")
+        log_strings.append(f"[Entry {entry_id} - {entry_type}] {content}")
+
+    return "\n".join(log_strings)
+
 
 def show_task_completion_notification(task_status: str, error_message: str = ""):
     """

@@ -101,17 +101,11 @@ def config() -> argparse.Namespace:
 
     current_platform = os.getenv("USE_PRECREATE_VM", "Windows")
     if current_platform == "Ubuntu":
-        cpu_arch = platform.machine().lower()
-        if cpu_arch in ['x86_64', 'amd64', 'i386', 'i686']:
-            path_to_vm = os.path.join("vmware_vm_data", "Ubuntu-x86", "Ubuntu.vmx")
-        elif cpu_arch in ['arm64', 'aarch64']:
-            path_to_vm = os.path.join("vmware_vm_data", "Ubuntu-arm", "Ubuntu.vmx")
-        else:
-            raise ValueError(f"Unsupported CPU architecture: {cpu_arch}")
+        path_to_vm = os.path.join("vmware_vm_data", "Ubuntu0", "Ubuntu0.vmx")
         test_config_base_dir = os.path.join("evaluation_examples", "examples")
         test_all_meta_path = os.path.join("evaluation_examples", "test_tiny.json")
     elif current_platform == "Windows":
-        path_to_vm = os.path.join("vmware_vm_data", "Windows-x86", "Windows 10 x64.vmx")
+        path_to_vm = os.path.join("vmware_vm_data", "Windows0", "Windows0.vmx")
         test_config_base_dir = os.path.join("evaluation_examples", "examples_windows")
         test_all_meta_path = os.path.join("evaluation_examples", "test_tiny_windows.json")
     else:

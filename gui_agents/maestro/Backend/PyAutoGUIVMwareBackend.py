@@ -3,7 +3,6 @@
 # ---------------------------------------------------------------------------
 import os
 import io
-from PIL import Image
 from typing import Optional
 from desktop_env.desktop_env import DesktopEnv
 from gui_agents.maestro.Action import (
@@ -23,26 +22,9 @@ from gui_agents.maestro.Action import (
     SwitchApplications,
     Open
 )
-
+from gui_agents.utils.common_utils import screenshot_bytes_to_pil_image
 from gui_agents.maestro.Backend.Backend import Backend
 import time
-
-def screenshot_bytes_to_pil_image(screenshot_bytes: bytes) -> Optional[Image.Image]:
-    """
-    Convert the bytes data of obs["screenshot"] to a PIL Image object, preserving the original size
-    
-    Args:
-        screenshot_bytes: The bytes data of the screenshot
-    
-    Returns:
-        PIL Image object, or None if conversion fails
-    """
-    try:
-        # Create PIL Image object directly from bytes
-        image = Image.open(io.BytesIO(screenshot_bytes))
-        return image
-    except Exception as e:
-        raise RuntimeError(f"Failed to convert screenshot bytes to PIL Image: {e}")
 
 class PyAutoGUIVMwareBackend(Backend):
     """VMware desktop backend powered by *pyautogui*.
@@ -60,7 +42,7 @@ class PyAutoGUIVMwareBackend(Backend):
         self.pag = pag
         self.default_move_duration = default_move_duration
         # Extract env_controller from kwargs if provided, but don't require it
-        self.env_controller = kwargs.get('env_controller', None)
+        self.env_controller: Optional[DesktopEnv] = kwargs.get('env_controller', None)
 
 
     # ------------------------------------------------------------------

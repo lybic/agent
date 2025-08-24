@@ -6,6 +6,8 @@ import tiktoken
 import numpy as np
 import os
 import platform
+import io
+from PIL import Image
 
 from typing import Tuple, List, Union, Dict, Optional
 
@@ -308,29 +310,6 @@ def save_embeddings(embeddings_path: str, embeddings: Dict):
         print(f"Error saving embeddings: {e}")
 
 
-def agent_log_to_string(agent_log: List[Dict]) -> str:
-    """
-    Converts a list of agent log entries into a single string for LLM consumption.
-
-    Args:
-        agent_log: A list of dictionaries, where each dictionary is an agent log entry.
-
-    Returns:
-        A formatted string representing the agent log.
-    """
-    if not agent_log:
-        return "No agent log entries yet."
-
-    log_strings = ["[AGENT LOG]"]
-    for entry in agent_log:
-        entry_id = entry.get("id", "N/A")
-        entry_type = entry.get("type", "N/A").capitalize()
-        content = entry.get("content", "")
-        log_strings.append(f"[Entry {entry_id} - {entry_type}] {content}")
-
-    return "\n".join(log_strings)
-
-
 def show_task_completion_notification(task_status: str, error_message: str = ""):
     """
     Show a popup notification for task completion status.
@@ -389,3 +368,20 @@ def show_task_completion_notification(task_status: str, error_message: str = "")
     except Exception as e:
         print(f"\n[Agents3] Failed to show notification: {e}")
         print(f"[Agents3] {message}")
+
+def screenshot_bytes_to_pil_image(screenshot_bytes: bytes) -> Optional[Image.Image]:
+    """
+    Convert the bytes data of obs["screenshot"] to a PIL Image object, preserving the original size
+    
+    Args:
+        screenshot_bytes: The bytes data of the screenshot
+    
+    Returns:
+        PIL Image object, or None if conversion fails
+    """
+    try:
+        # Create PIL Image object directly from bytes
+        image = Image.open(io.BytesIO(screenshot_bytes))
+        return image
+    except Exception as e:
+        raise RuntimeError(f"Failed to convert screenshot bytes to PIL Image: {e}")

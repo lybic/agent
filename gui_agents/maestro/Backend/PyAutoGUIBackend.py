@@ -267,7 +267,7 @@ set_cell_values({act.cell_values}, "{act.app_name}", "{act.sheet_name}")
         """Switch to a different application that is already open"""
         if self.platform.startswith("darwin"):
             # macOS: Command+Space to open Spotlight, then type app name
-            self.pag.hotkey("command", "space", interval=0.5)
+            self.pag.hotkey("command", "space", interval=0.2)
             time.sleep(0.5)
             self.pag.typewrite(act.app_code)
             time.sleep(1.0)
@@ -315,7 +315,7 @@ set_cell_values({act.cell_values}, "{act.app_name}", "{act.sheet_name}")
         """Open an application or file"""
         if self.platform.startswith("darwin"):
             # macOS: Command+Space to open Spotlight
-            self.pag.hotkey("command", "space", interval=0.5)
+            self.pag.hotkey("command", "space", interval=0.2)
             time.sleep(0.5)
             self.pag.typewrite(act.app_or_filename)
             time.sleep(1.0)

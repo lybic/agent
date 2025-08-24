@@ -104,6 +104,8 @@ class NewGlobalState:
                 "objective": "",
                 "status": TaskStatus.CREATED.value,
                 "current_subtask_id": None,
+                "step_num": 0,
+                "plan_num": 0,
                 "completed_subtasks": [],
                 "pending_subtasks": [],
                 # "qa_policy": {
@@ -258,6 +260,17 @@ This file tracks supplementary information and materials needed for the task.
         task = self.get_task()
         task.step_num += 1
         self.set_task(task)
+
+    def increment_plan_num(self) -> None:
+        """Increment plan number"""
+        task = self.get_task()
+        task.plan_num += 1
+        self.set_task(task)
+
+    def get_plan_num(self) -> int:
+        """Get current plan number"""
+        task = self.get_task()
+        return task.plan_num
 
     def advance_to_next_subtask(self) -> None:
         """

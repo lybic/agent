@@ -22,9 +22,10 @@ else:
 
 from PIL import Image
 
-# Import maestro modules
-from gui_agents.maestro.new_global_state import NewGlobalState
-from gui_agents.maestro.new_controller import NewController
+# Import agents3 modules
+# from gui_agents.agents3.new_controller import NewController
+from gui_agents.maestro.controller.main_controller import MainController
+
 
 # Import analyze_display functionality
 from gui_agents.utils.analyze_display import analyze_display_json, aggregate_results, format_output_line
@@ -170,17 +171,10 @@ def run_agent_maestro(params: dict):
     os.makedirs(cache_dir, exist_ok=True)
     os.makedirs(state_dir, exist_ok=True)
 
-    # Initialize maestro components
-    global_state = NewGlobalState(
-        screenshot_dir=cache_dir,
-        state_dir=state_dir,
-        agent_log_path=os.path.join(timestamp_dir, "agent_log.json"),
-        display_info_path=os.path.join(timestamp_dir, "display.json")
-    )
     # registry = Registry(global_state)，都
 
     # Initialize NewController (which includes all other components)
-    controller = NewController(
+    controller = MainController(
         platform=current_platform,
         backend=backend,
         user_query=user_query,

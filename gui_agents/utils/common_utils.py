@@ -552,3 +552,25 @@ def screenshot_bytes_to_pil_image(screenshot_bytes: bytes) -> Optional[Image.Ima
         return image
     except Exception as e:
         raise RuntimeError(f"Failed to convert screenshot bytes to PIL Image: {e}")
+
+def agent_log_to_string(agent_log: List[Dict]) -> str:
+    """
+    Converts a list of agent log entries into a single string for LLM consumption.
+
+    Args:
+        agent_log: A list of dictionaries, where each dictionary is an agent log entry.
+
+    Returns:
+        A formatted string representing the agent log.
+    """
+    if not agent_log:
+        return "No agent log entries yet."
+
+    log_strings = ["[AGENT LOG]"]
+    for entry in agent_log:
+        entry_id = entry.get("id", "N/A")
+        entry_type = entry.get("type", "N/A").capitalize()
+        content = entry.get("content", "")
+        log_strings.append(f"[Entry {entry_id} - {entry_type}] {content}")
+
+    return "\n".join(log_strings)

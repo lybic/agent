@@ -4,7 +4,8 @@ from typing import Dict, List, Optional
 import platform
 import os
 import json
-
+import time
+import re
 from gui_agents.agents.grounding import ACI
 from gui_agents.core.knowledge import KnowledgeBase
 from gui_agents.utils.common_utils import (
@@ -165,9 +166,6 @@ class Worker:
         guidance: Optional[str] = None,
     ) -> Dict:
         """Generate the next action based on the current state"""
-        import time
-        import re
-        from gui_agents.utils.common_utils import agent_log_to_string
 
         # Get comprehensive failure context (without error messages)
         failed_tasks = self.global_state.get_failed_subtasks()

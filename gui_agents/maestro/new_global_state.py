@@ -966,6 +966,10 @@ This file tracks supplementary information and materials needed for the task.
             if "operations" not in display_info:
                 display_info["operations"] = {}
             if module not in display_info["operations"]:
+                display_info["operations"][module] = {}
+
+            # 如果模块不存在，初始化为列表
+            if not isinstance(display_info["operations"][module], list):
                 display_info["operations"][module] = []
 
             operation_entry = {
@@ -978,6 +982,37 @@ This file tracks supplementary information and materials needed for the task.
             safe_write_json(self.display_info_path, display_info)
         except Exception as e:
             logger.warning(f"Failed to update display_info: {e}")
+
+    def log_llm_operation(self, module: str, operation: str, data: Dict[str, Any], 
+                          str_input: Optional[str] = None, img_input: Optional[bytes] = None) -> None:
+        """
+        记录大模型调用操作，包含详细的输入信息
+        
+        Args:
+            module: 模块名称
+            operation: 操作名称
+            data: 基础数据（tokens, cost, duration等）
+            str_input: 输入文本
+            img_input: 输入图像（bytes）
+        """
+        # 获取当前截图编号
+        screenshot_id = self.get_screenshot_id()
+        
+        # 构建增强的操作记录
+        enhanced_data = {
+            **data,
+            "llm_input": {
+                "text": str_input if str_input else None,
+                "screenshot_id": screenshot_id if screenshot_id else None
+            }
+        }
+        
+        # 记录到 display.json
+        self.log_operation(module, operation, enhanced_data)
+        
+        # 同时记录到事件系统
+        self.add_event(module, f"{operation}_llm_call", 
+                      f"LLM call with {len(str_input) if str_input else 0} chars text and screenshot {screenshot_id}")
 
     # ========= Controller State Management =========
     def get_controller_state(self) -> Dict[str, Any]:

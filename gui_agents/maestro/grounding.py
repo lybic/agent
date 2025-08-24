@@ -95,7 +95,7 @@ class Grounding(ACI):
             f"Grounding model execution time: {grounding_duration:.2f} seconds")
         logger.info(f"RAW GROUNDING MODEL RESPONSE: {response}")
         if self.global_state:
-            self.global_state.log_operation(
+            self.global_state.log_llm_operation(
                 module="grounding",
                 operation="grounding_model_response",
                 data={
@@ -103,7 +103,10 @@ class Grounding(ACI):
                     "cost": cost_string,
                     "content": response,
                     "duration": grounding_duration
-                })
+                },
+                str_input=prompt,
+                img_input=obs["screenshot"]
+            )
         numericals = re.findall(r"\d+", response)
         assert len(numericals) >= 2
         return [int(numericals[0]), int(numericals[1])]

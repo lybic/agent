@@ -157,14 +157,17 @@ class Evaluator:
 
         # 记录 evaluator 操作到 display.json
         evaluator_duration = time.time() - evaluator_start_time
-        self.global_state.log_operation(
+        self.global_state.log_llm_operation(
             "evaluator", f"quality_check_{scene.lower()}", {
                 "tokens": _tokens,
                 "cost": _cost,
                 "trigger_type": scene,
                 "subtask_id": subtask_id,
                 "duration": evaluator_duration
-            })
+            },
+            str_input=prompt,
+            img_input=screenshot
+        )
 
         parsed = self.parse_llm_output(content or "")
         normalized = self._normalize_decision(parsed.get("decision", ""), scene)

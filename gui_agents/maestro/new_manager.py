@@ -253,17 +253,19 @@ class NewManager:
                             "query": search_query,
                             "duration": formulate_duration
                         })
-                    # 2) websearch directly using search_engine
+                                        # 2) websearch directly using search_engine
                     if search_query:
                         web_knowledge, ws_tokens, ws_cost = self.search_engine.execute_tool(
                             "websearch", {"query": search_query})
                         # Not all tools return token/cost; guard format
-                        self.global_state.log_operation(
+                        self.global_state.log_llm_operation(
                             "manager", "web_knowledge", {
                                 "query": search_query,
                                 "tokens": ws_tokens,
                                 "cost": ws_cost
-                            })
+                            },
+                            str_input=search_query
+                        )
                 except Exception as e:
                     logger.warning(f"Web search retrieval failed: {e}")
                     # self.global_state.add_event("manager", "retrieve_knowledge_error", str(e))
@@ -273,12 +275,14 @@ class NewManager:
                     most_similar_task, retrieved_experience, n_tokens, n_cost = (
                         self.knowledge_base.retrieve_narrative_experience(
                             objective))
-                    self.global_state.log_operation(
+                    self.global_state.log_llm_operation(
                         "manager", "retrieve_narrative_experience", {
                             "tokens": n_tokens,
                             "cost": n_cost,
                             "task": most_similar_task
-                        })
+                        },
+                        str_input=objective
+                    )
                 except Exception as e:
                     logger.warning(f"Narrative retrieval failed: {e}")
                     # self.global_state.add_event("manager", "retrieve_narrative_error", str(e))
@@ -300,11 +304,12 @@ class NewManager:
                         similar_task=similar_task,
                         experience=exp_text,  #type: ignore
                     )
-                    self.global_state.log_operation("manager",
+                    self.global_state.log_llm_operation("manager",
                                                     "knowledge_fusion", {
                                                         "tokens": k_tokens,
                                                         "cost": k_cost
-                                                    })
+                                                    },
+                                                    str_input=f"Objective: {objective}, Web: {web_text}, Experience: {exp_text}")
             except Exception as e:
                 logger.warning(f"Knowledge fusion failed: {e}")
                 # self.global_state.add_event("manager", "knowledge_fusion_error", str(e))
@@ -326,13 +331,16 @@ class NewManager:
 
         # Log planning operation (reflect initial vs replan based on attempts)
         scenario_label = context.get("planning_scenario", scenario.value)
-        self.global_state.log_operation(
+        self.global_state.log_llm_operation(
             "manager", "task_planning", {
                 "scenario": scenario_label,
                 "plan_result": plan_result,
                 "tokens": total_tokens,
                 "cost": cost_string
-            })
+            },
+            str_input=prompt,
+            img_input=context.get("screenshot")
+        )
 
         # After planning, also generate DAG and action queue
         dag_info, dag_obj = self._generate_dag(context.get("task_objective", ""), plan_result)
@@ -480,11 +488,16 @@ class NewManager:
                     self.supplement_agent_name,
                     {"str_input": prompt}
                 )
-                # Log supplement operation
-                self.global_state.add_event(
+                # Log supplement operation with LLM details
+                self.global_state.log_llm_operation(
                     "manager",
                     "supplement_collection",
-                    f"Attempt: {self.supplement_attempts}, Tokens: {total_tokens}, Cost: {cost_string}"
+                    {
+                        "attempt": self.supplement_attempts,
+                        "tokens": total_tokens,
+                        "cost": cost_string
+                    },
+                    str_input=prompt
                 )
                 # Parse strategy
                 try:
@@ -735,8 +748,14 @@ Please output the planning solution based on the above information:
             dag_obj = parse_dag(dag_raw)
             retry += 1 if dag_obj is None else 0
 
-        self.global_state.add_event(
-            "manager", "generated_dag", f"dag_obj={dag_obj}, tokens={total_tokens}, cost={cost_string}, retry_count={retry-1}"
+        self.global_state.log_llm_operation(
+            "manager", "generated_dag", {
+                "dag_obj": str(dag_obj),
+                "tokens": total_tokens,
+                "cost": cost_string,
+                "retry_count": retry-1
+            },
+            str_input=dag_input
         )
 
         if dag_obj is None:

@@ -4,6 +4,7 @@ import os
 import time
 import logging
 import io
+import shutil
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 # ========= Import Enums =========
 from .enums import (
     TaskStatus, SubtaskStatus, GateDecision, GateTrigger,
-    ControllerState, ExecStatus
+    ControllerState, ExecStatus, WorkerDecision
 )
 
 # ========= Import Data Models =========
@@ -32,6 +33,9 @@ from .data_models import (
     create_task_data, create_subtask_data, create_command_data,
     create_gate_check_data, create_controller_state_data
 )
+
+# ========= Import Simple Snapshot System =========
+from .simple_snapshot import SimpleSnapshot
 
 # ========= File Lock and JSON Operations =========
 # These functions are now imported from gui_agents.utils.file_utils
@@ -64,6 +68,9 @@ class NewGlobalState:
 
         # Legacy paths for compatibility
         self.display_info_path = Path(display_info_path) if display_info_path else self.state_dir / "display.json"
+
+        # Initialize snapshot system
+        self.snapshot_system = SimpleSnapshot(str(self.state_dir.parent))
 
         # Ensure necessary directories and files exist
         self._initialize_directories_and_files()
@@ -1106,3 +1113,21 @@ This file tracks supplementary information and materials needed for the task.
         }
         self.set_controller_state(default_controller_state)
         self.add_event("controller", "state_reset", "Controller state reset to default")
+
+    # ========= Snapshot System =========
+    
+    def create_snapshot(self, description: str = "", snapshot_type: str = "manual") -> str:
+        """创建快照"""
+        return self.snapshot_system.create_snapshot(description, snapshot_type)
+    
+    def restore_snapshot(self, snapshot_id: str, target_runtime_dir: Optional[str] = None) -> bool:
+        """恢复快照"""
+        return self.snapshot_system.restore_snapshot(snapshot_id, target_runtime_dir)
+    
+    def list_snapshots(self) -> list:
+        """列出所有快照"""
+        return self.snapshot_system.list_snapshots()
+    
+    def delete_snapshot(self, snapshot_id: str) -> bool:
+        """删除快照"""
+        return self.snapshot_system.delete_snapshot(snapshot_id)

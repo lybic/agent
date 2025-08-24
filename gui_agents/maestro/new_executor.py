@@ -78,19 +78,43 @@ class NewExecutor:
                 return self._execute_action(subtask_id, command.action)
                 
             elif assignee_role == "technician":
-                # technician提取代码块
-                logger.info(f"Technician role detected, extracting code blocks for subtask {subtask_id}")
-                if isinstance(command.action, str):
+                # technician执行代码块
+                logger.info(f"Technician role detected, executing code blocks for subtask {subtask_id}")
+                
+                # Technician的action是List[Tuple[str, str]]格式的代码块列表
+                if isinstance(command.action, list) and command.action:
+                    # 验证代码块格式
+                    code_blocks = []
+                    for item in command.action:
+                        if isinstance(item, tuple) and len(item) == 2:
+                            lang, code = item
+                            if isinstance(lang, str) and isinstance(code, str):
+                                code_blocks.append((lang, code))
+                    
+                    if code_blocks:
+                        # 执行代码块
+                        logger.info(f"Executing {len(code_blocks)} code blocks for technician role")
+                        execution_result = self.execute_code_blocks(code_blocks)
+                        
+                        if execution_result["success"]:
+                            # 执行成功，返回执行结果
+                            return execution_result
+                        else:
+                            # 执行失败，返回错误信息
+                            return execution_result
+                    else:
+                        return self._create_execution_result(False, "Invalid code blocks format in action")
+                elif isinstance(command.action, str):
+                    # 如果是字符串，尝试提取代码块（兼容性处理）
                     code_blocks = self._extract_code_blocks(command.action)
                     if code_blocks:
-                        return self._create_execution_result(
-                            success=True,
-                            action={"type": "code_blocks_extracted", "code_blocks": code_blocks}
-                        )
+                        logger.info(f"Extracted and executing {len(code_blocks)} code blocks from string action")
+                        execution_result = self.execute_code_blocks(code_blocks)
+                        return execution_result
                     else:
-                        return self._create_execution_result(False, "No code blocks found in action")
+                        return self._create_execution_result(False, "No code blocks found in string action")
                 else:
-                    return self._create_execution_result(False, "Action is not a string for code extraction")
+                    return self._create_execution_result(False, "Action is not in expected format for technician role")
                     
             elif assignee_role == "analyst":
                 # analyst写入到globalstate的artifacts

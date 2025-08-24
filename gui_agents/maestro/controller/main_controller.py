@@ -23,7 +23,7 @@ from ...store.registry import Registry
 from ..new_global_state import NewGlobalState
 from ..new_manager import NewManager
 from ..new_executor import NewExecutor
-from ..enums import ControllerState, TaskStatus, SubtaskStatus
+from ..enums import ControllerState, TaskStatus, SubtaskStatus, TriggerCode, TriggerRole
 
 from .config_manager import ConfigManager
 from .rule_engine import RuleEngine
@@ -187,7 +187,7 @@ class MainController:
                 "controller", "error", f"Single step batch error: {str(e)}")
             # 错误恢复：回到INIT状态（单步序列）
             self.state_machine.switch_state(
-                ControllerState.INIT, "error_recovery_single_step", f"Error recovery from single step batch: {str(e)}")
+                ControllerState.INIT, TriggerRole.CONTROLLER, f"Error recovery from single step batch: {str(e)}", TriggerCode.ERROR_RECOVERY)
     
     def execute_main_loop(self) -> None:
         """主循环执行 - 基于状态状态机"""
@@ -228,7 +228,7 @@ class MainController:
                     "controller", "error", {"error": f"Main loop error: {str(e)}"})
                 # 错误恢复：回到INIT状态
                 self.state_machine.switch_state(
-                    ControllerState.INIT, "error_recovery", f"Error recovery from main loop: {str(e)}")
+                    ControllerState.INIT, TriggerRole.CONTROLLER, f"Error recovery from main loop: {str(e)}", TriggerCode.ERROR_RECOVERY)
                 time.sleep(1)
 
         # 记录主循环结束统计
@@ -248,39 +248,39 @@ class MainController:
     def _handle_state(self, current_state: ControllerState):
         """根据状态执行相应处理"""
         if current_state == ControllerState.INIT:
-            new_state, trigger, details = self.state_handlers.handle_init_state()
-            self.state_machine.switch_state(new_state, trigger, details)
+            new_state, trigger_role, trigger_details, trigger_code = self.state_handlers.handle_init_state()
+            self.state_machine.switch_state(new_state, trigger_role, trigger_details, trigger_code)
             
         elif current_state == ControllerState.GET_ACTION:
-            new_state, trigger, details = self.state_handlers.handle_get_action_state()
-            self.state_machine.switch_state(new_state, trigger, details)
+            new_state, trigger_role, trigger_details, trigger_code = self.state_handlers.handle_get_action_state()
+            self.state_machine.switch_state(new_state, trigger_role, trigger_details, trigger_code)
             
         elif current_state == ControllerState.EXECUTE_ACTION:
-            new_state, trigger, details = self.state_handlers.handle_execute_action_state()
-            self.state_machine.switch_state(new_state, trigger, details)
+            new_state, trigger_role, trigger_details, trigger_code = self.state_handlers.handle_execute_action_state()
+            self.state_machine.switch_state(new_state, trigger_role, trigger_details, trigger_code)
             
         elif current_state == ControllerState.QUALITY_CHECK:
-            new_state, trigger, details = self.state_handlers.handle_quality_check_state()
-            self.state_machine.switch_state(new_state, trigger, details)
+            new_state, trigger_role, trigger_details, trigger_code = self.state_handlers.handle_quality_check_state()
+            self.state_machine.switch_state(new_state, trigger_role, trigger_details, trigger_code)
             
         elif current_state == ControllerState.PLAN:
-            new_state, trigger, details = self.state_handlers.handle_plan_state()
-            self.state_machine.switch_state(new_state, trigger, details)
+            new_state, trigger_role, trigger_details, trigger_code = self.state_handlers.handle_plan_state()
+            self.state_machine.switch_state(new_state, trigger_role, trigger_details, trigger_code)
             
         elif current_state == ControllerState.SUPPLEMENT:
-            new_state, trigger, details = self.state_handlers.handle_supplement_state()
-            self.state_machine.switch_state(new_state, trigger, details)
+            new_state, trigger_role, trigger_details, trigger_code = self.state_handlers.handle_supplement_state()
+            self.state_machine.switch_state(new_state, trigger_role, trigger_details, trigger_code)
             
         elif current_state == ControllerState.FINAL_CHECK:
-            new_state, trigger, details = self.state_handlers.handle_final_check_state()
-            self.state_machine.switch_state(new_state, trigger, details)
+            new_state, trigger_role, trigger_details, trigger_code = self.state_handlers.handle_final_check_state()
+            self.state_machine.switch_state(new_state, trigger_role, trigger_details, trigger_code)
             
         elif current_state == ControllerState.DONE:
             logger.info("Task completed")
         else:
             logger.error(f"Unknown state: {current_state}")
             self.state_machine.switch_state(
-                ControllerState.INIT, "unknown_state", f"Unknown state encountered: {current_state}")
+                ControllerState.INIT, TriggerRole.CONTROLLER, f"Unknown state encountered: {current_state}", TriggerCode.UNKNOWN_STATE)
     
     def get_controller_info(self) -> Dict[str, Any]:
         """获取控制器信息"""

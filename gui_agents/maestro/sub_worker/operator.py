@@ -137,8 +137,14 @@ class Operator:
         self,
         subtask: Dict[str, Any],
         guidance: Optional[str] = None,
+        trigger_code: str = "",
     ) -> Dict[str, Any]:
         """Generate and ground the next action for the given subtask.
+
+        Args:
+            subtask: Subtask information
+            guidance: Optional guidance for the task
+            trigger_code: Current trigger code to adjust behavior
 
         Returns a dict containing:
         - plan: raw LLM output text
@@ -171,29 +177,14 @@ class Operator:
         subtask_id = subtask.get("subtask_id", "")
         command_history = self._get_command_history_for_subtask(subtask_id)
 
-        # Build concise generator prompt
-        subtask_title = subtask.get("title", "")
-        subtask_desc = subtask.get("description", "")
-        message = []
-        message.append(f"Remember only complete the subtask: {subtask_title}")
-        message.append(f"You can use this extra information for completing the current subtask: {subtask_desc}")
-        if guidance:
-            message.append(f"GUIDANCE: {guidance}")
-        
-        # 添加历史操作记录到提示词中
-        message.append("")
-        message.append("=== 历史操作记录 ===")
-        message.append(command_history)
-        message.append("")
-        message.append("Based on the above history and current screenshot, decide on the next action.")
-        message.append("Return exactly one action as an agent.* function in Python fenced code under (Grounded Action).")
-        generator_prompt = "\n\n".join(message)
+        # 根据 trigger_code 调整提示词
+        context_aware_prompt = self._build_context_aware_prompt(subtask, guidance, command_history, trigger_code)
 
         # Call action generator
         t0 = time.time()
         action_plan, total_tokens, cost_string = self.operator_agent.execute_tool(
             self.operator_agent_name,
-            {"str_input": generator_prompt, "img_input": screenshot_bytes},
+            {"str_input": context_aware_prompt, "img_input": screenshot_bytes},
         )
         latency_ms = int((time.time() - t0) * 1000)
         self.global_state.log_llm_operation("worker", "action_plan_generated", {
@@ -201,7 +192,7 @@ class Operator:
             "cost": cost_string,
             "duration": latency_ms / 1000.0
         },
-        str_input=generator_prompt,
+        str_input=context_aware_prompt,
         img_input=screenshot_bytes
         )
 
@@ -299,4 +290,133 @@ class Operator:
             "outcome": outcome,
             "screenshot_analysis": screenshot_analysis,
             "message": message,
-        } 
+        }
+
+    def _build_context_aware_prompt(
+        self, 
+        subtask: Dict[str, Any], 
+        guidance: Optional[str], 
+        command_history: str,
+        trigger_code: str
+    ) -> str:
+        """根据 trigger_code 构建上下文感知的提示词"""
+        subtask_title = subtask.get("title", "")
+        subtask_desc = subtask.get("description", "")
+        
+        message = []
+        message.append(f"Remember only complete the subtask: {subtask_title}")
+        message.append(f"You can use this extra information for completing the current subtask: {subtask_desc}")
+        if guidance:
+            message.append(f"GUIDANCE: {guidance}")
+        
+        # 根据 trigger_code 添加特定的上下文信息
+        context_info = self._get_context_info_by_trigger_code(trigger_code)
+        if context_info:
+            message.append("")
+            message.append("=== 当前上下文信息 ===")
+            message.append(context_info)
+        
+        # 添加历史操作记录到提示词中 - 这是非常重要的上下文信息
+        message.append("")
+        message.append("=== 历史操作记录 ===")
+        message.append(command_history)
+        message.append("")
+        message.append("Based on the above history and current screenshot, decide on the next action.")
+        message.append("Return exactly one action as an agent.* function in Python fenced code under (Grounded Action).")
+        
+        return "\n\n".join(message)
+
+    def _get_context_info_by_trigger_code(self, trigger_code: str) -> str:
+        """根据 trigger_code 返回相应的详细上下文信息和指导"""
+        from gui_agents.maestro.enums import TRIGGER_CODE_BY_MODULE
+        
+        # 检查是否属于 WORKER_GET_ACTION_CODES
+        worker_codes = TRIGGER_CODE_BY_MODULE.WORKER_GET_ACTION_CODES
+        
+        if trigger_code == worker_codes["subtask_ready"]:
+            return """
+# New Subtask Ready - Context Information
+- This is a new subtask that has just been assigned
+- Carefully analyze the current screen state and identify the starting point
+- Review the subtask requirements and understand what needs to be accomplished
+- Consider the most efficient approach to begin execution
+- Look for any UI elements or visual cues that indicate the next action
+- Ensure you understand the context before proceeding with any actions
+"""
+        
+        elif trigger_code == worker_codes["execution_error"]:
+            return """
+# Previous Execution Error - Context Information
+- The previous action execution encountered an error or failure
+- Analyze the current screen state to understand what went wrong
+- Look for error messages, unexpected UI states, or failed operations
+- Consider alternative approaches or methods to achieve the same goal
+- Review the error context and adapt your strategy accordingly
+- Ensure the new action addresses the specific failure point identified
+"""
+        
+        elif trigger_code == worker_codes["command_completed"]:
+            return """
+# Command Successfully Completed - Context Information
+- The previous command has been successfully executed
+- Check the current screen state to verify the expected outcome
+- Look for visual changes, new UI elements, or progress indicators
+- Assess whether the current state matches the expected result
+- Identify the next logical step based on the current progress
+- Continue with the next action in the subtask sequence
+"""
+        
+        elif trigger_code == worker_codes["no_command"]:
+            return """
+# No Executable Command Found - Context Information
+- No suitable command could be identified for the current situation
+- Re-analyze the task requirements and current screen state
+- Look for alternative approaches or different UI interaction methods
+- Consider whether the task needs to be broken down into smaller steps
+- Review the subtask description for any missed requirements
+- Generate a more appropriate action based on the current context
+"""
+        
+        elif trigger_code == worker_codes["quality_check_passed"]:
+            return """
+# Quality Check Passed - Context Information
+- The quality check for the previous action has been successfully completed
+- The action met all quality criteria and requirements
+- Continue with the next step in the subtask execution
+- Look for the next logical action based on the current progress
+- Ensure continuity in the task execution flow
+- Maintain the same level of quality for subsequent actions
+"""
+        
+        elif trigger_code == worker_codes["subtask_ready_after_plan"]:
+            return """
+# Subtask Ready After Replanning - Context Information
+- This subtask has been prepared after a replanning process
+- The previous plan may have had issues that have been addressed
+- Start fresh with the improved understanding and approach
+- Pay attention to any specific guidance provided during replanning
+- Ensure you follow the updated strategy and requirements
+- Look for any changes in the approach or methodology
+"""
+        
+        elif trigger_code == worker_codes["final_check_pending"]:
+            return """
+# Final Check Pending - Context Information
+- The system is approaching the final verification stage
+- Ensure all necessary steps for this subtask have been completed
+- Review the current state against the subtask completion criteria
+- Look for any missing elements or incomplete actions
+- Verify that the current state meets the expected final outcome
+- Prepare for the final quality assessment of the entire task
+"""
+        
+        else:
+            # 默认情况
+            return """
+# General Context Information
+- Analyze the current screen state and task requirements
+- Consider the most appropriate action based on the current context
+- Ensure your action aligns with the subtask objectives
+- Look for visual cues and UI elements that guide the next step
+- Maintain consistency with the overall task execution strategy
+""" 

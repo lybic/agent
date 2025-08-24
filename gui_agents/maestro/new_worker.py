@@ -14,9 +14,9 @@ import logging
 from typing import Any, Dict, List, Optional
 from desktop_env.desktop_env import DesktopEnv
 
-from gui_agents.agents3.new_global_state import NewGlobalState
-from gui_agents.agents3.data_models import create_command_data
-from gui_agents.agents3.enums import WorkerDecision
+from gui_agents.maestro.new_global_state import NewGlobalState
+from gui_agents.maestro.data_models import create_command_data
+from gui_agents.maestro.enums import WorkerDecision
 
 from .sub_worker.technician import Technician
 from .sub_worker.analyst import Analyst

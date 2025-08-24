@@ -15,8 +15,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from desktop_env.desktop_env import DesktopEnv
 
 from gui_agents.tools.new_tools import NewTools
-from gui_agents.agents3.new_global_state import NewGlobalState
-from gui_agents.agents3.enums import WorkerDecision
+from gui_agents.maestro.new_global_state import NewGlobalState
+from gui_agents.maestro.enums import WorkerDecision
 from gui_agents.utils.common_utils import parse_technician_screenshot_analysis
 
 logger = logging.getLogger(__name__)

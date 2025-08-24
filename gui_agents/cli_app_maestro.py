@@ -22,9 +22,9 @@ else:
 
 from PIL import Image
 
-# Import agents3 modules
-from gui_agents.agents3.new_global_state import NewGlobalState
-from gui_agents.agents3.new_controller import NewController
+# Import maestro modules
+from gui_agents.maestro.new_global_state import NewGlobalState
+from gui_agents.maestro.new_controller import NewController
 
 # Import analyze_display functionality
 from gui_agents.utils.analyze_display import analyze_display_json, aggregate_results, format_output_line
@@ -140,9 +140,9 @@ def auto_analyze_execution(timestamp_dir: str):
         logger.error(f"Error during auto-analysis: {e}")
 
 
-def run_agent3(params: dict):
+def run_agent_maestro(params: dict):
     """
-    Run the agents3 controller with the given instruction
+    Run the maestro controller with the given instruction
     
     Args:
         controller: The NewController instance to run
@@ -159,7 +159,7 @@ def run_agent3(params: dict):
 
     import time
     
-    logger.info(f"Starting agents3 execution with instruction: {user_query}")
+    logger.info(f"Starting maestro execution with instruction: {user_query}")
     
     total_start_time = time.time()
     # Ensure necessary directory structure exists
@@ -170,7 +170,7 @@ def run_agent3(params: dict):
     os.makedirs(cache_dir, exist_ok=True)
     os.makedirs(state_dir, exist_ok=True)
 
-        # Initialize agents3 components
+    # Initialize maestro components
     global_state = NewGlobalState(
         screenshot_dir=cache_dir,
         state_dir=state_dir,
@@ -211,7 +211,7 @@ def run_agent3(params: dict):
             show_task_completion_notification("completed")
         
     except Exception as e:
-        logger.error(f"Error during agents3 execution: {e}")
+        logger.error(f"Error during maestro execution: {e}")
         # Show error notification
         show_task_completion_notification("error", str(e))
         raise
@@ -227,7 +227,7 @@ def run_agent3(params: dict):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Agents3 CLI Application')
+    parser = argparse.ArgumentParser(description='Maestro CLI Application')
     parser.add_argument(
         '--backend',
         type=str,
@@ -290,10 +290,10 @@ def main():
     else:
         current_platform = platform.system()
 
-    logger.info(f"Running agents3 on platform: {current_platform}")
+    logger.info(f"Running maestro on platform: {current_platform}")
     logger.info(f"Using backend: {args.backend}")
 
-    logger.info("Agents3 components initialized successfully")            
+    logger.info("Maestro components initialized successfully")            
 
     params = {
         "backend": args.backend,
@@ -307,14 +307,14 @@ def main():
     if args.query:
         logger.info(f"Executing query: {args.query}")
         params["query"] = args.query
-        run_agent3(params)
+        run_agent_maestro(params)
 
     else:
         while True:
             query = input("Query: ")
             params["query"] = query
             # Run the agent on your own device
-            run_agent3(params)
+            run_agent_maestro(params)
 
             response = input("Would you like to provide another query? (y/n): ")
             if response.lower() != "y":
@@ -323,10 +323,10 @@ def main():
 
 if __name__ == "__main__":
     """
-    python gui_agents/cli_app3.py --backend lybic
-    python gui_agents/cli_app3.py --backend pyautogui --max-steps 1
-    python gui_agents/cli_app3.py --backend pyautogui_vmware --max-steps 1
-    python gui_agents/cli_app3.py --backend lybic --max-steps 15
-    python gui_agents/cli_app3.py --backend lybic --lybic-sid SBX-01K1X6ZKAERXAN73KTJ1XXJXAF
+    python gui_agents/cli_app_maestro.py --backend lybic
+    python gui_agents/cli_app_maestro.py --backend pyautogui --max-steps 1
+    python gui_agents/cli_app_maestro.py --backend pyautogui_vmware --max-steps 1
+    python gui_agents/cli_app_maestro.py --backend lybic --max-steps 15
+    python gui_agents/cli_app_maestro.py --backend lybic --lybic-sid SBX-01K1X6ZKAERXAN73KTJ1XXJXAF
     """
     main() 

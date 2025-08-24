@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------
 # 2) Android device backend (ADB)
 # ---------------------------------------------------------------------------
-from gui_agents.agents3.Action import (
+from gui_agents.maestro.Action import (
     Action,
     Click,
     DoubleClick,
@@ -17,7 +17,7 @@ from gui_agents.agents3.Action import (
     Open
 )
 
-from gui_agents.agents3.Backend.Backend import Backend
+from gui_agents.maestro.Backend.Backend import Backend
 import time
 import subprocess
 

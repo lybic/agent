@@ -2,8 +2,8 @@
 import platform
 from time import sleep
 import time
-from gui_agents.agents.hardware_interface import HardwareInterface
-from gui_agents.agents.Action import (
+from gui_agents.maestro.hardware_interface import HardwareInterface
+from gui_agents.maestro.Action import (
     Click, Hotkey, Screenshot, Wait, TypeText
 )
 
@@ -33,7 +33,15 @@ backend_kwargs = dict(   # Extra parameters passed to PyAutoGUIBackend
 # ]
 
 plan = [
-    {'type': 'Hotkey', 'keys': ['left'], 'duration': 80}
+    # {
+    #   "type": "Open",
+    #   "app_or_filename": "Finder"
+    # }
+    {
+      "type": "SwitchApplications",
+      "app_code": "Finder"
+    }
+    # {'type': 'Hotkey', 'keys': ['left'], 'duration': 80}
     # {
     #     "type": "Click",
     #     "x": 50,
@@ -59,7 +67,7 @@ if dry_run:
         print(a)
 else:
     print("Start executing Action sequence…")
-    time.sleep(5)
+    time.sleep(2)
     # hwi.dispatch(plan)
     res = hwi.dispatchDict(plan)
     # print(res)

@@ -43,6 +43,7 @@ class PyAutoGUIVMwareBackend(Backend):
         self.default_move_duration = default_move_duration
         # Extract env_controller from kwargs if provided, but don't require it
         self.env_controller: Optional[DesktopEnv] = kwargs.get('env_controller', None)
+        self.platform = platform
 
 
     # ------------------------------------------------------------------
@@ -233,8 +234,8 @@ class PyAutoGUIVMwareBackend(Backend):
     def _set_cell_values(self, act: SetCellValues) -> str:
         """Set cell values in LibreOffice Calc (Linux only)"""
         if self.env_controller is None: # Assuming env_controller is self.env_controller
-            return f"# SetCellValues not supported on platform: {self.env_controller.platform}" # type: ignore
-        if self.env_controller.platform == "Ubuntu":
+            return f"# SetCellValues not supported on platform: {self.platform}" # type: ignore
+        if self.platform == "Ubuntu":
             # Create Python script for LibreOffice automation
             script_content = f"""
 import uno
@@ -286,13 +287,13 @@ set_cell_values({act.cell_values}, "{act.app_name}", "{act.sheet_name}")
 """
             return script_content
         else:
-            return f"# SetCellValues not supported on platform: {self.env_controller.platform}" # type: ignore
+            return f"# SetCellValues not supported on platform: {self.platform}" # type: ignore
 
     def _switch_applications(self, act: SwitchApplications) -> str:
         """Switch to a different application that is already open"""
         if self.env_controller is None: # Assuming env_controller is self.env_controller
-            return f"# SwitchApplications not supported on platform: {self.env_controller.platform}" # type: ignore
-        if self.env_controller.platform == "Ubuntu":
+            return f"# SwitchApplications not supported on platform: {self.platform}" # type: ignore
+        if self.platform == "Ubuntu":
             # Linux: Use wmctrl to switch windows
             return f"""
 import subprocess
@@ -320,7 +321,7 @@ if closest_matches:
     subprocess.run(['wmctrl', '-ia', window_id])
     subprocess.run(['wmctrl', '-ir', window_id, '-b', 'add,maximized_vert,maximized_horz'])
 """
-        elif self.env_controller.platform == "Windows":
+        elif self.platform == "Windows":
             # Windows: Win+D to show desktop, then type app name
             return f"""
 import pyautogui
@@ -334,13 +335,13 @@ pyautogui.press('enter')
 time.sleep(1.0)
 """
         else:
-            return f"# SwitchApplications not supported on platform: {self.env_controller.platform}"
+            return f"# SwitchApplications not supported on platform: {self.platform}"
 
     def _open(self, act: Open) -> str:
         """Open an application or file"""
         if self.env_controller is None: # Assuming env_controller is self.env_controller
-            return f"# Open not supported on platform: {self.env_controller.platform}" # type: ignore
-        if self.env_controller.platform == "Ubuntu":
+            return f"# Open not supported on platform: {self.platform}" # type: ignore
+        if self.platform == "Ubuntu":
             # Linux: Win key to open application menu
             return f"""
 import pyautogui
@@ -353,7 +354,7 @@ time.sleep(1.0)
 pyautogui.hotkey('enter')
 time.sleep(0.5)
 """
-        elif self.env_controller.platform == "Windows":
+        elif self.platform == "Windows":
             # Windows: Win+R to open Run dialog
             return f"""
 import pyautogui
@@ -367,4 +368,4 @@ pyautogui.press('enter')
 time.sleep(1.0)
 """
         else:
-            return f"# Open not supported on platform: {self.env_controller.platform}"
+            return f"# Open not supported on platform: {self.platform}"

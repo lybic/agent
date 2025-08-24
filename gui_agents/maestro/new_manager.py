@@ -21,7 +21,7 @@ from .new_global_state import NewGlobalState
 from .data_models import SubtaskData  # Add import for SubtaskData
 from .enums import (
     TaskStatus, SubtaskStatus, GateDecision, GateTrigger,
-    ControllerState, ExecStatus, ManagerStatus
+    ControllerState, ExecStatus, ManagerStatus, TRIGGER_CODE_BY_MODULE
 )
 
 logger = logging.getLogger(__name__)
@@ -169,7 +169,7 @@ class NewManager:
 
     def plan_task(self, scenario: Union[PlanningScenario, str]) -> PlanningResult:
         """
-        Execute task planning based on scenario
+        Execute task planning based on scenario and current trigger_code
         
         Args:
             scenario: Planning scenario (INITIAL_PLAN|REPLAN|SUPPLEMENT or enum)
@@ -180,15 +180,20 @@ class NewManager:
         try:
             scenario_enum = self._normalize_scenario(scenario)
             self.status = ManagerStatus.PLANNING
+            
+            # 获取当前的 trigger_code 来决定具体的规划策略
+            current_trigger_code = self._get_current_trigger_code()
+            
             self.global_state.log_operation("manager", "planning_start", {
                 "scenario": scenario_enum.value,
+                "trigger_code": current_trigger_code,
                 "timestamp": time.time()
             })
 
             if scenario_enum == PlanningScenario.SUPPLEMENT:
                 return self._handle_supplement_scenario()
             else:
-                return self._handle_planning_scenario(scenario_enum)
+                return self._handle_planning_scenario(scenario_enum, current_trigger_code)
 
         except Exception as e:
             logger.error(f"Planning failed: {e}")
@@ -223,10 +228,11 @@ class NewManager:
         return PlanningScenario.REPLAN
 
     def _handle_planning_scenario(self,
-                                  scenario: PlanningScenario) -> PlanningResult:
-        """Handle planning scenarios (INITIAL_PLAN/REPLAN)"""
-        # Get planning context
-        context = self._get_planning_context(scenario)
+                                  scenario: PlanningScenario,
+                                  trigger_code: str = "controller") -> PlanningResult:
+        """Handle planning scenarios (INITIAL_PLAN/REPLAN) with specific trigger_code context"""
+        # Get planning context with trigger_code
+        context = self._get_planning_context(scenario, trigger_code)
 
         # Retrieve external knowledge (web + narrative) and optionally fuse
         integrated_knowledge = ""
@@ -318,9 +324,9 @@ class NewManager:
             logger.warning(f"Knowledge retrieval pipeline failed: {e}")
             # self.global_state.add_event("manager", "knowledge_pipeline_error", str(e))
 
-        # Generate planning prompt (with integrated knowledge if any)
+        # Generate planning prompt (with integrated knowledge if any) based on trigger_code
         prompt = self._generate_planning_prompt(
-            scenario, context, integrated_knowledge=integrated_knowledge)
+            scenario, context, integrated_knowledge=integrated_knowledge, trigger_code=trigger_code)
 
         # Execute planning using the registered planner tool
         plan_result, total_tokens, cost_string = self.planner_agent.execute_tool(
@@ -334,6 +340,7 @@ class NewManager:
         self.global_state.log_llm_operation(
             "manager", "task_planning", {
                 "scenario": scenario_label,
+                "trigger_code": trigger_code,
                 "plan_result": plan_result,
                 "tokens": total_tokens,
                 "cost": cost_string
@@ -428,6 +435,7 @@ class NewManager:
             # Update planning history
             self.planning_history.append({
                 "scenario": scenario_label,
+                "trigger_code": trigger_code,
                 "subtasks": enhanced_subtasks,
                 "dag": dag_info.get("dag", ""),
                 "action_queue_len": len(action_queue),
@@ -444,7 +452,7 @@ class NewManager:
                 scenario=scenario_label,
                 subtasks=enhanced_subtasks,
                 supplement="",
-                reason=f"Successfully planned {len(enhanced_subtasks)} subtasks",
+                reason=f"Successfully planned {len(enhanced_subtasks)} subtasks with trigger_code: {trigger_code}",
                 created_at=datetime.now().isoformat()
             )
 
@@ -567,8 +575,8 @@ class NewManager:
             collected_data="",
         )
 
-    def _get_planning_context(self, scenario: PlanningScenario) -> Dict[str, Any]:
-        """Get context information for planning"""
+    def _get_planning_context(self, scenario: PlanningScenario, trigger_code: str) -> Dict[str, Any]:
+        """Get context information for planning with trigger_code specific details"""
         task = self.global_state.get_task()
         subtasks = self.global_state.get_subtasks()
         screenshot = self.global_state.get_screenshot()
@@ -586,7 +594,8 @@ class NewManager:
             "platform": self.platform,
             "planning_scenario": "replan" if is_replan_now else "initial_plan",
             "replan_attempts": self.replan_attempts,
-            "planning_history": self.planning_history[-3:] if self.planning_history else []
+            "planning_history": self.planning_history[-3:] if self.planning_history else [],
+            "trigger_code": trigger_code
         }
 
         # Add failure information only when truly re-planning
@@ -594,7 +603,193 @@ class NewManager:
             context["failed_subtasks"] = self._get_failed_subtasks_info()
             context["failure_reasons"] = self._get_failure_reasons()
 
+        # Add trigger_code specific context information
+        context.update(self._get_trigger_code_specific_context(trigger_code))
+
         return context
+
+    def _get_trigger_code_specific_context(self, trigger_code: str) -> Dict[str, Any]:
+        """Get trigger_code specific context information"""
+        context = {}
+        
+        if trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["work_cannot_execute"]:
+            # Worker无法执行的情况
+            context["trigger_context"] = {
+                "type": "worker_cannot_execute",
+                "description": "Worker reported that the current subtask cannot be executed",
+                "focus": "Need to analyze why the subtask cannot be executed and find alternative approaches"
+            }
+            # 获取当前失败的subtask信息
+            current_subtask = self._get_current_failed_subtask()
+            if current_subtask:
+                context["current_failed_subtask"] = current_subtask
+                
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["quality_check_failed"]:
+            # 质检失败的情况
+            context["trigger_context"] = {
+                "type": "quality_check_failed",
+                "description": "Quality check failed for the current subtask",
+                "focus": "Need to understand why quality check failed and improve the approach"
+            }
+            # 获取质检失败的具体信息
+            context["quality_check_failure"] = self._get_quality_check_failure_info()
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["no_worker_decision"]:
+            # Worker没有决策的情况
+            context["trigger_context"] = {
+                "type": "no_worker_decision",
+                "description": "Worker could not make a decision for the current subtask",
+                "focus": "Need to provide clearer instructions or break down the subtask"
+            }
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["get_action_error"]:
+            # GET_ACTION状态错误的情况
+            context["trigger_context"] = {
+                "type": "get_action_error",
+                "description": "Error occurred during GET_ACTION state processing",
+                "focus": "Need to handle the error and provide alternative approaches"
+            }
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["quality_check_error"]:
+            # 质检错误的情况
+            context["trigger_context"] = {
+                "type": "quality_check_error",
+                "description": "Error occurred during quality check process",
+                "focus": "Need to handle the quality check error and continue with alternative approaches"
+            }
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["final_check_failed"]:
+            # 最终质检失败的情况
+            context["trigger_context"] = {
+                "type": "final_check_failed",
+                "description": "Final quality check failed for the entire task",
+                "focus": "Need to address the final quality issues and complete the task"
+            }
+            # 获取最终质检失败的信息
+            context["final_check_failure"] = self._get_final_check_failure_info()
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["rule_replan_long_execution"]:
+            # 长时间执行需要重规划的情况
+            context["trigger_context"] = {
+                "type": "long_execution_replan",
+                "description": "Task has been executing for too long, need to replan",
+                "focus": "Need to optimize the execution plan and reduce execution time"
+            }
+            # 获取执行时间信息
+            context["execution_time_info"] = self._get_execution_time_info()
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["no_subtasks"]:
+            # 没有subtask的情况
+            context["trigger_context"] = {
+                "type": "no_subtasks",
+                "description": "No subtasks available for execution",
+                "focus": "Need to create initial subtasks for the task"
+            }
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["init_error"]:
+            # 初始化错误的情况
+            context["trigger_context"] = {
+                "type": "init_error",
+                "description": "Error occurred during task initialization",
+                "focus": "Need to handle initialization error and start fresh"
+            }
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["supplement_completed"]:
+            # 补充资料完成的情况
+            context["trigger_context"] = {
+                "type": "supplement_completed",
+                "description": "Supplement collection completed, ready to replan",
+                "focus": "Use the collected supplement information to improve planning"
+            }
+            # 获取补充资料信息
+            context["supplement_info"] = self._get_supplement_info()
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["supplement_error"]:
+            # 补充资料错误的情况
+            context["trigger_context"] = {
+                "type": "supplement_error",
+                "description": "Error occurred during supplement collection",
+                "focus": "Handle supplement error and continue with available information"
+            }
+            
+        else:
+            # 默认情况
+            context["trigger_context"] = {
+                "type": "general_replan",
+                "description": f"General replanning triggered by: {trigger_code}",
+                "focus": "Analyze the current situation and improve the plan"
+            }
+            
+        return context
+
+    def _get_current_failed_subtask(self) -> Optional[Dict[str, Any]]:
+        """获取当前失败的subtask信息"""
+        task = self.global_state.get_task()
+        if task.current_subtask_id:
+            subtask = self.global_state.get_subtask(task.current_subtask_id)
+            if subtask and subtask.status == SubtaskStatus.REJECTED.value:
+                return {
+                    "subtask_id": subtask.subtask_id,
+                    "title": subtask.title,
+                    "description": subtask.description,
+                    "assignee_role": subtask.assignee_role,
+                    "last_reason_text": subtask.last_reason_text,
+                    "reasons_history": subtask.reasons_history
+                }
+        return None
+
+    def _get_quality_check_failure_info(self) -> Dict[str, Any]:
+        """获取质检失败的具体信息"""
+        task = self.global_state.get_task()
+        if task.current_subtask_id:
+            # 获取最新的质检记录
+            latest_gate = self.global_state.get_latest_gate_check_for_subtask(task.current_subtask_id)
+            if latest_gate:
+                return {
+                    "gate_check_id": latest_gate.gate_check_id,
+                    "decision": latest_gate.decision,
+                    "notes": latest_gate.notes,
+                    "trigger": latest_gate.trigger,
+                    "created_at": latest_gate.created_at
+                }
+        return {"error": "No quality check information available"}
+
+    def _get_final_check_failure_info(self) -> Dict[str, Any]:
+        """获取最终质检失败的信息"""
+        # 获取所有质检记录
+        gate_checks = self.global_state.get_gate_checks()
+        if gate_checks:
+            latest_gate = max(gate_checks, key=lambda x: x.created_at)
+            return {
+                "latest_gate_check": {
+                    "gate_check_id": latest_gate.gate_check_id,
+                    "decision": latest_gate.decision,
+                    "notes": latest_gate.notes,
+                    "trigger": latest_gate.trigger,
+                    "created_at": latest_gate.created_at
+                },
+                "total_gate_checks": len(gate_checks),
+                "failed_gate_checks": len([gc for gc in gate_checks if gc.decision == GateDecision.GATE_FAIL.value])
+            }
+        return {"error": "No final check information available"}
+
+    def _get_execution_time_info(self) -> Dict[str, Any]:
+        """获取执行时间信息"""
+        task = self.global_state.get_task()
+        return {
+            "step_num": task.step_num,
+            "plan_num": task.plan_num,
+            "task_created_at": task.created_at,
+            "current_time": datetime.now().isoformat()
+        }
+
+    def _get_supplement_info(self) -> Dict[str, Any]:
+        """获取补充资料信息"""
+        supplement_content = self.global_state.get_supplement()
+        return {
+            "supplement_content": supplement_content,
+            "supplement_length": len(supplement_content) if supplement_content else 0
+        }
 
     def _get_supplement_context(self) -> Dict[str, Any]:
         """Get context information for supplement collection"""
@@ -631,18 +826,21 @@ class NewManager:
             "supplement_reason": supplement_reason
         }
 
-    def _generate_planning_prompt(self, scenario: PlanningScenario, context: Dict[str, Any], integrated_knowledge: str = "") -> str:
-        """Generate planning prompt based on scenario and context"""
+    def _generate_planning_prompt(self, scenario: PlanningScenario, context: Dict[str, Any], integrated_knowledge: str = "", trigger_code: str = "controller") -> str:
+        """Generate planning prompt based on scenario, context and trigger_code"""
 
         # Determine scenario from context to ensure auto mode works
         planning_scenario: str = context.get("planning_scenario", "initial_plan")
         history_subtasks: str = context.get("history_subtasks", "")
         pending_subtasks: str = context.get("pending_subtasks", "")
         is_replan: bool = planning_scenario == "replan"
+        trigger_context = context.get("trigger_context", {})
+        # Generate trigger_code specific planning guidance
+        trigger_specific_guidance = self._generate_trigger_specific_guidance(trigger_code, trigger_context, context)
 
         # Scenario-specific planning task section
         if is_replan:
-            planning_task = """
+            planning_task = f"""
 # Current Planning Task
 You need to RE-PLAN the task based on prior attempts and failures.
 
@@ -651,6 +849,8 @@ You need to RE-PLAN the task based on prior attempts and failures.
 - Preserve valid progress; DO NOT duplicate completed subtasks
 - Adjust ordering, refine steps, or replace failing subtasks
 - Ensure dependencies remain valid and achievable
+
+{trigger_specific_guidance}
 """
             decision = """
 # Planning Decision (Re-plan)
@@ -659,7 +859,7 @@ You need to RE-PLAN the task based on prior attempts and failures.
 - Keep completed subtasks out of the list; reference them only in dependencies
 """
         else:
-            planning_task = """
+            planning_task = f"""
 # Current Planning Task
 You need to perform INITIAL PLANNING to decompose the objective into executable subtasks.
 
@@ -667,6 +867,8 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 - Cover the full path from start to completion
 - Define clear, verifiable completion criteria for each subtask
 - Keep reasonable granularity; avoid overly fine steps unless needed for reliability
+
+{trigger_specific_guidance}
 """
             decision = """
 # Planning Decision (Initial)
@@ -687,6 +889,7 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 # Task Information
 Objective: {context.get('task_objective', '')}
 Planning Scenario: {planning_scenario}
+Trigger Code: {trigger_code}
 Current Progress: {self._count_subtasks_from_info(context.get('history_subtasks', ''))} subtask completed, {self._count_subtasks_from_info(context.get('pending_subtasks', ''))} subtask pending
 History Subtasks: {history_subtasks}
 Pending Subtasks: {pending_subtasks}
@@ -728,6 +931,142 @@ Please output the planning solution based on the above information:
 """
 
         return planning_prompt
+
+    def _generate_trigger_specific_guidance(self, trigger_code: str, trigger_context: Dict[str, Any], context: Dict[str, Any]) -> str:
+        """Generate trigger_code specific planning guidance"""
+        
+        if trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["work_cannot_execute"]:
+            return """
+# Worker Cannot Execute - Specific Guidance
+- The Worker reported that the current subtask cannot be executed
+- Analyze the specific reason for failure and find alternative approaches
+- Consider breaking down the subtask into smaller, more manageable steps
+- Look for alternative methods or tools to achieve the same goal
+- Ensure the new plan addresses the specific execution barriers identified
+"""
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["quality_check_failed"]:
+            quality_info = context.get("quality_check_failure", {})
+            return f"""
+# Quality Check Failed - Specific Guidance
+- The quality check failed for the current subtask
+- Review the quality check notes: {quality_info.get('notes', 'No notes available')}
+- Identify what specific quality criteria were not met
+- Improve the approach to meet the quality standards
+- Consider adding intermediate verification steps
+- Ensure the new plan includes better quality control measures
+"""
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["no_worker_decision"]:
+            return """
+# No Worker Decision - Specific Guidance
+- Worker could not make a decision for the current subtask
+- Provide clearer, more specific instructions
+- Break down the subtask into smaller, more obvious steps
+- Add more context or examples to guide the worker
+- Consider using a different worker role that might be better suited
+- Ensure the new plan has clear decision criteria and fallback options
+"""
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["get_action_error"]:
+            return """
+# GET_ACTION Error - Specific Guidance
+- Error occurred during GET_ACTION state processing
+- Handle the error gracefully and provide alternative approaches
+- Consider simplifying the action generation process
+- Add error handling and recovery mechanisms
+- Ensure the new plan is more robust and error-resistant
+"""
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["quality_check_error"]:
+            return """
+# Quality Check Error - Specific Guidance
+- Error occurred during quality check process
+- Handle the quality check error and continue with alternative approaches
+- Consider using simpler quality criteria
+- Add fallback quality assessment methods
+- Ensure the new plan includes error handling for quality checks
+"""
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["final_check_failed"]:
+            final_info = context.get("final_check_failure", {})
+            return f"""
+# Final Check Failed - Specific Guidance
+- Final quality check failed for the entire task
+- Total gate checks: {final_info.get('total_gate_checks', 0)}
+- Failed gate checks: {final_info.get('failed_gate_checks', 0)}
+- Address the final quality issues and complete the task
+- Review all completed subtasks for completeness
+- Add missing steps or verification procedures
+- Ensure the new plan addresses the root causes of final check failure
+"""
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["rule_replan_long_execution"]:
+            exec_info = context.get("execution_time_info", {})
+            return f"""
+# Long Execution Replan - Specific Guidance
+- Task has been executing for too long, need to replan
+- Current step number: {exec_info.get('step_num', 0)}
+- Current plan number: {exec_info.get('plan_num', 0)}
+- Optimize the execution plan and reduce execution time
+- Consider parallel execution where possible
+- Simplify complex subtasks into more efficient steps
+- Add timeouts and progress monitoring
+- Ensure the new plan is more time-efficient
+"""
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["no_subtasks"]:
+            return """
+# No Subtasks - Specific Guidance
+- No subtasks available for execution
+- Create initial subtasks for the task
+- Break down the main objective into logical steps
+- Ensure all necessary steps are covered
+- Consider dependencies and execution order
+- Assign appropriate worker roles to each subtask
+"""
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["init_error"]:
+            return """
+# Init Error - Specific Guidance
+- Error occurred during task initialization
+- Handle initialization error and start fresh
+- Simplify the initial setup process
+- Add error recovery mechanisms
+- Ensure the new plan has better initialization procedures
+"""
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["supplement_completed"]:
+            supplement_info = context.get("supplement_info", {})
+            return f"""
+# Supplement Completed - Specific Guidance
+- Supplement collection completed, ready to replan
+- Supplement content length: {supplement_info.get('supplement_length', 0)} characters
+- Use the collected supplement information to improve planning
+- Incorporate the new information into the task plan
+- Update subtasks based on the additional context
+- Ensure the new plan leverages all available information
+"""
+            
+        elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["supplement_error"]:
+            return """
+# Supplement Error - Specific Guidance
+- Error occurred during supplement collection
+- Handle supplement error and continue with available information
+- Work with the information that is already available
+- Consider alternative information sources
+- Ensure the new plan can work with limited information
+"""
+            
+        else:
+            return f"""
+# General Replanning - Specific Guidance
+- General replanning triggered by: {trigger_code}
+- Analyze the current situation and improve the plan
+- Consider all available context and information
+- Address any identified issues or bottlenecks
+- Ensure the new plan is more robust and effective
+"""
 
     def _generate_dag(self, instruction: str, plan: str) -> Tuple[Dict, Dag]:
         """Generate a DAG from instruction and plan using dag_translator, with retries and fallback."""
@@ -1077,6 +1416,11 @@ Please output the supplementary material collection solution and execute it base
     def can_replan(self) -> bool:
         """Check if replanning is still allowed"""
         return self.replan_attempts < self.max_replan_attempts
+
+    def _get_current_trigger_code(self) -> str:
+        """获取当前的 trigger_code"""
+        controller_state = self.global_state.get_controller_state()
+        return controller_state.get("trigger_code", "")
 
 # Export a friendly alias to match the interface name used elsewhere
 Manager = NewManager

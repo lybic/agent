@@ -20,9 +20,9 @@ from gui_agents.agents3.Action import (
     # SwitchApp,
     Screenshot,
     Memorize,
-    SetCellValues,
-    SwitchApplications,
-    Open
+    # SetCellValues,
+    # SwitchApplications,
+    # Open
 )
 
 from gui_agents.agents3.Backend.Backend import Backend
@@ -45,8 +45,10 @@ def _px(v: int) -> Dict[str, Any]:
 
 
 class LybicBackend(Backend):
+    # _supported = {Click, DoubleClick, Move, Drag, TypeText, Scroll, Hotkey,
+    #                Wait, Screenshot, Memorize, SetCellValues, SwitchApplications, Open}
     _supported = {Click, DoubleClick, Move, Drag, TypeText, Scroll, Hotkey,
-                   Wait, Screenshot, Memorize, SetCellValues, SwitchApplications, Open}
+                   Wait, Screenshot, Memorize}
 
     # ---------- ctor ----------
     def __init__(self, 
@@ -93,9 +95,9 @@ class LybicBackend(Backend):
         elif isinstance(action, Screenshot):   return self._screenshot()   # type: ignore
         elif isinstance(action, Wait):         time.sleep(action.duration if action.duration is not None else 0.2)
         elif isinstance(action, Memorize):     log.info(f"Memorizing information: {action.information}")  # Abstract action, no hardware execution needed
-        elif isinstance(action, SetCellValues): self._set_cell_values(action)
-        elif isinstance(action, SwitchApplications): self._switch_applications(action)
-        elif isinstance(action, Open):         self._open(action)
+        # elif isinstance(action, SetCellValues): self._set_cell_values(action)
+        # elif isinstance(action, SwitchApplications): self._switch_applications(action)
+        # elif isinstance(action, Open):         self._open(action)
 
     # ---------- internal helpers ----------
     def _do(self, lybic_action: Dict[str, Any]):
@@ -242,34 +244,34 @@ class LybicBackend(Backend):
 
         return img
 
-    def _set_cell_values(self, act: SetCellValues) -> None:
-        """Set cell values in spreadsheet via Lybic cloud backend"""
-        # Convert cell values to Lybic format
-        cell_data = []
-        for cell_ref, value in act.cell_values.items():
-            cell_data.append({
-                "cell": cell_ref,
-                "value": value,
-                "app": act.app_name,
-                "sheet": act.sheet_name
-            })
+    # def _set_cell_values(self, act: SetCellValues) -> None:
+    #     """Set cell values in spreadsheet via Lybic cloud backend"""
+    #     # Convert cell values to Lybic format
+    #     cell_data = []
+    #     for cell_ref, value in act.cell_values.items():
+    #         cell_data.append({
+    #             "cell": cell_ref,
+    #             "value": value,
+    #             "app": act.app_name,
+    #             "sheet": act.sheet_name
+    #         })
         
-        self._do({
-            "type": "spreadsheet:set_cells",
-            "cells": cell_data
-        })
+    #     self._do({
+    #         "type": "spreadsheet:set_cells",
+    #         "cells": cell_data
+    #     })
 
-    def _switch_applications(self, act: SwitchApplications) -> None:
-        """Switch to a different application via Lybic cloud backend"""
-        self._do({
-            "type": "system:switch_app",
-            "app_name": act.app_code
-        })
+    # def _switch_applications(self, act: SwitchApplications) -> None:
+    #     """Switch to a different application via Lybic cloud backend"""
+    #     self._do({
+    #         "type": "system:switch_app",
+    #         "app_name": act.app_code
+    #     })
 
-    def _open(self, act: Open) -> None:
-        """Open an application or file via Lybic cloud backend"""
-        self._do({
-            "type": "system:open",
-            "target": act.app_or_filename
-        })
+    # def _open(self, act: Open) -> None:
+    #     """Open an application or file via Lybic cloud backend"""
+    #     self._do({
+    #         "type": "system:open",
+    #         "target": act.app_or_filename
+    #     })
     

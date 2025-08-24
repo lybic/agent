@@ -9,7 +9,11 @@ import sys
 import time
 from pathlib import Path
 from dotenv import load_dotenv
-
+from PIL import Image
+from gui_agents.maestro.controller.main_controller import MainController
+# Import analyze_display functionality
+from gui_agents.utils.analyze_display import analyze_display_json, aggregate_results, format_output_line
+from gui_agents.utils.common_utils import show_task_completion_notification
 from desktop_env.desktop_env import DesktopEnv
 
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
@@ -19,19 +23,6 @@ else:
     parent_env_path = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / '.env'
     if parent_env_path.exists():
         load_dotenv(dotenv_path=parent_env_path)
-
-from PIL import Image
-
-# Import agents3 modules
-# from gui_agents.agents3.new_controller import NewController
-from gui_agents.maestro.controller.main_controller import MainController
-
-
-# Import analyze_display functionality
-from gui_agents.utils.analyze_display import analyze_display_json, aggregate_results, format_output_line
-from gui_agents.utils.common_utils import show_task_completion_notification
-
-current_platform = platform.system().lower()
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -216,7 +207,6 @@ def run_agent_maestro(params: dict):
         logger.info(f"Total execution time: {total_duration:.2f} seconds")
         
         # Auto-analyze execution statistics after task completion
-        timestamp_dir = os.path.join(log_dir, datetime_str)
         auto_analyze_execution(timestamp_dir)
 
 

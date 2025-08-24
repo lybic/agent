@@ -49,7 +49,6 @@ def main():
         global_state = NewGlobalState(
             screenshot_dir=str(cache_dir),
             state_dir=str(state_dir),
-            agent_log_path=str(temp_root / "agent_log.json"),
             display_info_path=str(temp_root / "display.json"),
         )
         Registry.register(

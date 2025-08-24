@@ -141,7 +141,6 @@ class MainController:
         global_state = NewGlobalState(
             screenshot_dir=cache_dir,
             state_dir=state_dir,
-            agent_log_path=os.path.join(timestamp_dir, "agent_log.json"),
             display_info_path=os.path.join(timestamp_dir, "display.json")
         )
         Registry.register("GlobalStateStore", global_state)

@@ -46,7 +46,6 @@ class NewGlobalState:
         screenshot_dir: str,
         state_dir: str,
         task_id: Optional[str] = None,
-        agent_log_path: str = "",
         display_info_path: str = "",
     ):
         self.screenshot_dir = Path(screenshot_dir)
@@ -64,7 +63,6 @@ class NewGlobalState:
         self.controller_state_path = self.state_dir / "controller_state.json"
 
         # Legacy paths for compatibility
-        self.agent_log_path = Path(agent_log_path) if agent_log_path else self.state_dir / "agent_log.json"
         self.display_info_path = Path(display_info_path) if display_info_path else self.state_dir / "display.json"
 
         # Ensure necessary directories and files exist
@@ -87,10 +85,6 @@ class NewGlobalState:
         self._init_controller_state_file()
 
         # Initialize legacy files
-        if not self.agent_log_path.exists():
-            self.agent_log_path.parent.mkdir(parents=True, exist_ok=True)
-            safe_write_text(self.agent_log_path, "[]")
-
         if not self.display_info_path.exists():
             self.display_info_path.parent.mkdir(parents=True, exist_ok=True)
             safe_write_text(self.display_info_path, "{}")

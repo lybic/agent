@@ -1,21 +1,20 @@
-"""Automated test runner for agents3 using original osworld test configurations."""
-
 import argparse
-import datetime
 import json
+import datetime
+import io
 import logging
 import os
 import platform
 import sys
 import time
-from pathlib import Path
-from typing import Dict, List, Optional
-from dotenv import load_dotenv
 from tqdm import tqdm
-
+from pathlib import Path
+from dotenv import load_dotenv
+from gui_agents.maestro.controller.main_controller import MainController
+# Import analyze_display functionality
+from gui_agents.utils.analyze_display import analyze_display_json, format_output_line
 from desktop_env.desktop_env import DesktopEnv
 
-# Load environment variables
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
 if env_path.exists():
     load_dotenv(dotenv_path=env_path)
@@ -24,38 +23,30 @@ else:
     if parent_env_path.exists():
         load_dotenv(dotenv_path=parent_env_path)
 
-from PIL import Image
-
-# Import maestro modules
-from gui_agents.maestro.new_global_state import NewGlobalState
-from gui_agents.maestro.new_controller import NewController
-
-# Import analyze_display functionality
-from gui_agents.utils.analyze_display import analyze_display_json, aggregate_results, format_output_line
-from gui_agents.utils.common_utils import show_task_completion_notification
-
-# Set platform from environment variable, similar to cli_app_maestro.py
-current_platform = os.getenv("USE_PRECREATE_VM", "Windows")
-
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-test_datetime_str: str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+vm_datetime_str: str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 log_dir = "runtime"
-os.makedirs(os.path.join(log_dir, f"test_{test_datetime_str}"), exist_ok=True)
+vm_log_dir = os.path.join(log_dir, f"vmrun_{vm_datetime_str}")
+os.makedirs(vm_log_dir, exist_ok=True)
 
 file_handler = logging.FileHandler(
-    os.path.join(log_dir, f"test_{test_datetime_str}", "test_runner3.log"), encoding="utf-8"
+    os.path.join(vm_log_dir, "vmrun_normal.log"), encoding="utf-8"
 )
 debug_handler = logging.FileHandler(
-    os.path.join(log_dir, f"test_{test_datetime_str}", "test_runner3_debug.log"), encoding="utf-8"
+    os.path.join(vm_log_dir, "vmrun_debug.log"), encoding="utf-8"   
 )
 stdout_handler = logging.StreamHandler(sys.stdout)
+sdebug_handler = logging.FileHandler(
+    os.path.join(vm_log_dir, "vmrun_sdebug.log"), encoding="utf-8"
+)
 
 file_handler.setLevel(logging.INFO)
 debug_handler.setLevel(logging.DEBUG)
 stdout_handler.setLevel(logging.INFO)
+sdebug_handler.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter(
     fmt="\x1b[1;33m[%(asctime)s \x1b[31m%(levelname)s \x1b[32m%(module)s/%(lineno)d-%(processName)s\x1b[1;33m] \x1b[0m%(message)s"
@@ -63,41 +54,246 @@ formatter = logging.Formatter(
 file_handler.setFormatter(formatter)
 debug_handler.setFormatter(formatter)
 stdout_handler.setFormatter(formatter)
+sdebug_handler.setFormatter(formatter)
+
+stdout_handler.addFilter(logging.Filter("desktopenv"))
+sdebug_handler.addFilter(logging.Filter("desktopenv"))
 
 logger.addHandler(file_handler)
 logger.addHandler(debug_handler)
 logger.addHandler(stdout_handler)
+logger.addHandler(sdebug_handler)
 
+logger = logging.getLogger("desktopenv.experiment")
 
-def setup_example_logger(example_id: str, example_timestamp_dir: str):
-    """Set up a separate logger for each test example"""
-    example_logger = logging.getLogger(
-        f"example.{example_id}.{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+def config() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run end-to-end evaluation on the benchmark"
     )
-    example_logger.setLevel(logging.DEBUG)
-    
-    # Clear existing handlers
-    example_logger.handlers.clear()
-    
-    log_file = os.path.join(example_timestamp_dir, "example.log")
-    file_handler = logging.FileHandler(log_file, encoding="utf-8")
-    file_handler.setLevel(logging.DEBUG)
-    
-    debug_log_file = os.path.join(example_timestamp_dir, "example_debug.log")
-    debug_handler = logging.FileHandler(debug_log_file, encoding="utf-8")
-    debug_handler.setLevel(logging.DEBUG)
-    
-    formatter = logging.Formatter(
-        fmt="\x1b[1;33m[%(asctime)s \x1b[31m%(levelname)s \x1b[32m%(module)s/%(lineno)d-%(processName)s\x1b[1;33m] \x1b[0m%(message)s"
-    )
-    file_handler.setFormatter(formatter)
-    debug_handler.setFormatter(formatter)
-    
-    example_logger.addHandler(file_handler)
-    example_logger.addHandler(debug_handler)
-    
-    return example_logger
 
+    current_platform = os.getenv("USE_PRECREATE_VM", "Windows")
+    if current_platform == "Ubuntu":
+        cpu_arch = platform.machine().lower()
+        if cpu_arch in ['x86_64', 'amd64', 'i386', 'i686']:
+            path_to_vm = os.path.join("vmware_vm_data", "Ubuntu-x86", "Ubuntu.vmx")
+        elif cpu_arch in ['arm64', 'aarch64']:
+            path_to_vm = os.path.join("vmware_vm_data", "Ubuntu-arm", "Ubuntu.vmx")
+        else:
+            raise ValueError(f"Unsupported CPU architecture: {cpu_arch}")
+        test_config_base_dir = os.path.join("evaluation_examples", "examples")
+        test_all_meta_path = os.path.join("evaluation_examples", "test_tiny.json")
+    elif current_platform == "Windows":
+        path_to_vm = os.path.join("vmware_vm_data", "Windows-x86", "Windows 10 x64.vmx")
+        test_config_base_dir = os.path.join("evaluation_examples", "examples_windows")
+        test_all_meta_path = os.path.join("evaluation_examples", "test_tiny_windows.json")
+    else:
+        raise ValueError(f"USE_PRECREATE_VM={current_platform} is not supported. Please use Ubuntu or Windows.")
+    
+    # platform config
+    parser.add_argument(
+        "--current_platform", 
+        type=str, 
+        choices=["Ubuntu", "Windows"], 
+        default=current_platform,
+        help="Platform to run on (Ubuntu or Windows)"
+    )
+
+    # environment config
+    # vm_path will be set based on platform
+    parser.add_argument("--path_to_vm", type=str, default=path_to_vm)
+    parser.add_argument(
+        "--headless", action="store_true", help="Run in headless machine"
+    )
+    parser.add_argument(
+        "--action_space", type=str, default="pyautogui", help="Action type"
+    )
+    parser.add_argument(
+        "--observation_type",
+        choices=["screenshot", "a11y_tree", "screenshot_a11y_tree", "som"],
+        default="screenshot",
+        help="Observation type",
+    )
+    parser.add_argument("--max_steps", type=int, default=50)
+
+    # agent config
+    parser.add_argument(
+        "--test_config_base_dir", type=str, default=test_config_base_dir
+    )
+
+    # example config
+    parser.add_argument("--domain", type=str, default="all")
+    parser.add_argument(
+        "--test_all_meta_path", type=str, default=test_all_meta_path
+    )
+
+    # logging related
+    parser.add_argument("--result_dir", type=str, default="./results")
+
+    args = parser.parse_args()
+
+    return args
+
+
+def test(args: argparse.Namespace, test_all_meta: dict) -> None:
+    scores = []
+
+    # log args
+    logger.info("Args: %s", args)
+    cfg_args = {
+        "path_to_vm": args.path_to_vm,
+        "headless": args.headless,
+        "action_space": args.action_space,
+        "observation_type": args.observation_type,
+        "max_steps": args.max_steps,
+        "result_dir": args.result_dir,
+    }
+
+    env = DesktopEnv(
+        provider_name="vmware",
+        path_to_vm=args.path_to_vm,
+        action_space=args.action_space,
+        headless=args.headless,
+        require_a11y_tree=False,
+    )
+
+    for domain in tqdm(test_all_meta, desc="Domain"):
+        for example_id in tqdm(test_all_meta[domain], desc="Example", leave=False):
+            config_file = os.path.join(
+                args.test_config_base_dir, 
+                f"{domain}/{example_id}.json"
+            )
+            with open(config_file, "r", encoding="utf-8") as f:
+                example = json.load(f)
+
+            logger.info(f"[Domain]: {domain}")
+            logger.info(f"[Example ID]: {example_id}")
+
+            user_query = example["instruction"]
+
+            logger.info(f"[User Query]: {user_query}")
+            # wandb each example config settings
+            cfg_args["user_query"] = user_query
+            cfg_args["start_time"] = datetime.datetime.now().strftime(
+                "%Y:%m:%d-%H:%M:%S"
+            )
+
+            # Create a separate timestamp folder for each example
+            example_datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            example_result_dir = os.path.join(
+                args.result_dir,
+                args.action_space,
+                args.observation_type,
+                domain,
+                example_id,
+            )
+            os.makedirs(example_result_dir, exist_ok=True)
+            # example start running
+            try:
+                run_single_example(
+                    env,
+                    example,
+                    user_query,
+                    args,
+                    example_result_dir,
+                    scores,
+                    vm_log_dir,  # Pass the timestamp directory to run_single_example
+                    example_datetime_str
+                )
+            except Exception as e:
+                logger.error(f"Exception in {domain}/{example_id}: {e}")
+                env.controller.end_recording(
+                    os.path.join(example_result_dir, "recording.mp4")
+                )
+                with open(os.path.join(example_result_dir, "traj.jsonl"), "a") as f:
+                    f.write(
+                        json.dumps(
+                            {"Error": f"Time limit exceeded in {domain}/{example_id}"}
+                        )
+                    )
+                    f.write("\n")
+
+    env.close()
+    logger.info(f"Average score: {sum(scores) / len(scores)}")
+
+def run_single_example(
+    env: DesktopEnv, 
+    example, 
+    user_query: str, 
+    args, 
+    example_result_dir, 
+    scores, 
+    vm_log_dir: str, 
+    example_datetime_str: str
+):
+
+    # Set up a separate logger for each example
+    example_timestamp_dir = os.path.join(vm_log_dir, example_datetime_str)
+    total_start_time = time.time()
+    cache_dir = os.path.join(example_timestamp_dir, "cache", "screens")
+    state_dir = os.path.join(example_timestamp_dir, "state")
+
+    os.makedirs(cache_dir, exist_ok=True)
+    os.makedirs(state_dir, exist_ok=True)
+
+    example_logger = setup_example_logger(example, example_timestamp_dir)
+    example_logger.info(f"Starting example {example.get('id', 'unknown')}")
+    example_logger.info(f"User Query: {user_query}")
+    env.reset(task_config=example)
+
+    controller = MainController(
+        platform=args.current_platform,
+        backend="pyautogui_vmware",
+        user_query=user_query,
+        max_steps=args.max_steps,
+        env=env,
+        log_dir=vm_log_dir,
+        datetime_str=example_datetime_str
+    )
+
+    env.controller.start_recording()
+
+    try:
+        # Set the user query in the controller
+        controller.execute_main_loop()
+        
+        # Check task status after execution to determine if task was successful
+        task = controller.global_state.get_task()
+        if task and task.status == "fulfilled":
+            # Task completed successfully
+            logger.info("Task completed successfully")
+            env.step("DONE")
+        elif task and task.status == "rejected":
+            # Task was rejected/failed
+            logger.info("Task was rejected/failed")
+            env.step("FAIL")
+        else:
+            # Task status unknown or incomplete
+            logger.info("Task execution completed with unknown status")
+            env.step("DONE")
+        
+    except Exception as e:
+        logger.error(f"Error during maestro execution: {e}")
+        raise
+    
+    finally:
+        total_end_time = time.time()
+        total_duration = total_end_time - total_start_time
+        logger.info(f"Total execution time: {total_duration:.2f} seconds")
+        
+        # Auto-analyze execution statistics after task completion
+        auto_analyze_execution(example_timestamp_dir)
+    
+    result = env.evaluate()
+    logger.info("Result: %.2f", result)
+    example_logger.info("Result: %.2f", result)
+    example_logger.info(f"Example {example.get('id', 'unknown')} completed with result: {result}")
+    scores.append(result)
+    with open(
+        os.path.join(example_result_dir, "result.txt"), "w", encoding="utf-8"
+    ) as f:
+        f.write(f"{result}\n")
+    env.controller.end_recording(os.path.join(example_result_dir, "recording.mp4"))
 
 def auto_analyze_execution(timestamp_dir: str):
     """
@@ -106,6 +302,8 @@ def auto_analyze_execution(timestamp_dir: str):
     Args:
         timestamp_dir: Directory containing the execution logs and display.json
     """
+    import time
+    
     try:
         # Analyze the display.json file for this execution
         display_json_path = os.path.join(timestamp_dir, "display.json")
@@ -156,8 +354,7 @@ def auto_analyze_execution(timestamp_dir: str):
                 logger.info("=" * 80)
                 logger.info(output_line)
                 logger.info("=" * 80)
-                
-                return result
+
             else:
                 logger.warning("No valid data found in display.json for analysis")
         else:
@@ -165,81 +362,32 @@ def auto_analyze_execution(timestamp_dir: str):
             
     except Exception as e:
         logger.error(f"Error during auto-analysis: {e}")
+
+def setup_example_logger(example, example_timestamp_dir):
+    example_id = example.get('id', 'unknown')
+    example_logger = logging.getLogger(f"example.{example_id}.{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}")
+    example_logger.setLevel(logging.DEBUG)
     
-    return None
-
-
-
-
-
-def run_single_test_with_agents3(
-    controller,
-    env,
-    example: dict,
-    max_steps: int,
-    instruction: str,
-    args,
-    example_result_dir: str,
-    scores: list,
-    example_timestamp_dir: str,
-) -> float:
-    """Run a single test using agents3 architecture with osworld compatibility"""
-    from osworld_setup.lib_run_single import run_single_example
+    example_logger.handlers.clear()
     
-    try:
-        # Use the original osworld run_single_example function but with agents3 controller
-        result = run_single_example(
-            env=env,
-            controller=controller,  # Pass our agents3 controller
-            example=example,
-            max_steps=max_steps,
-            instruction=instruction,
-            args=args,
-            example_result_dir=example_result_dir,
-        )
-        
-        # Extract score from result
-        if isinstance(result, dict) and "score" in result:
-            score = result["score"]
-        elif isinstance(result, (int, float)):
-            score = float(result)
-        else:
-            score = 1.0 if result else 0.0
-            
-        scores.append(score)
-        
-        # Analyze execution statistics using agents3 analysis
-        display_json_path = os.path.join(example_timestamp_dir, "display.json")
-        analysis_result = auto_analyze_execution(display_json_path)
-        
-        # Save additional metadata with agents3 analysis
-        metadata = {
-            "instruction": instruction,
-            "max_steps": max_steps,
-            "score": score,
-            "timestamp": datetime.datetime.now().isoformat(),
-            "agents3_analysis": analysis_result
-        }
-        
-        metadata_file = os.path.join(example_result_dir, "agents3_metadata.json")
-        with open(metadata_file, "w", encoding="utf-8") as f:
-            json.dump(metadata, f, indent=2, ensure_ascii=False)
-        
-        logger.info(f"Test completed with score: {score}")
-        return score
-        
-    except Exception as e:
-        logger.error(f"Test failed with exception: {e}")
-        scores.append(0.0)
-        
-        # Save error information
-        with open(os.path.join(example_result_dir, "error.txt"), "w", encoding="utf-8") as f:
-            f.write(f"Error: {str(e)}\n")
-        
-        return 0.0
-
-
-
+    log_file = os.path.join(example_timestamp_dir, "example.log")
+    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    
+    debug_log_file = os.path.join(example_timestamp_dir, "example_debug.log")
+    debug_handler = logging.FileHandler(debug_log_file, encoding="utf-8")
+    debug_handler.setLevel(logging.DEBUG)
+    
+    formatter = logging.Formatter(
+        fmt="\x1b[1;33m[%(asctime)s \x1b[31m%(levelname)s \x1b[32m%(module)s/%(lineno)d-%(processName)s\x1b[1;33m] \x1b[0m%(message)s"
+    )
+    file_handler.setFormatter(formatter)
+    debug_handler.setFormatter(formatter)
+    
+    example_logger.addHandler(file_handler)
+    example_logger.addHandler(debug_handler)
+    
+    return example_logger
 
 
 def get_unfinished(
@@ -314,199 +462,10 @@ def get_result(action_space, observation_type, result_dir, total_file_json):
         return all_result
 
 
-def test(args: argparse.Namespace, test_all_meta: dict) -> None:
-    scores = []
-    max_steps = args.max_steps
-    scaled_width, scaled_height = args.screen_width, args.screen_height
-
-    # log args
-    logger.info("Args: %s", args)
-    cfg_args = {
-        "path_to_vm": args.path_to_vm,
-        "headless": args.headless,
-        "action_space": args.action_space,
-        "observation_type": args.observation_type,
-        "screen_width": args.screen_width,
-        "screen_height": args.screen_height,
-        "sleep_after_execution": args.sleep_after_execution,
-        "max_steps": args.max_steps,
-        "result_dir": args.result_dir,
-    }
-
-    env = DesktopEnv(
-        provider_name="vmware",
-        path_to_vm=args.path_to_vm,
-        os_type=current_platform,
-        action_space=args.action_space,
-        headless=args.headless,
-        require_a11y_tree=False,
-    )
-
-    for domain in tqdm(test_all_meta, desc="Domain"):
-        for example_id in tqdm(test_all_meta[domain], desc="Example", leave=False):
-            # Choose config directory based on platform, similar to cli_app3.py logic
-            if current_platform == "Ubuntu":
-                config_subdir = "examples"
-            else:  # Windows
-                config_subdir = "examples_windows"
-            
-            config_file = os.path.join(
-                args.test_config_base_dir, f"{config_subdir}/{domain}/{example_id}.json"
-            )
-            with open(config_file, "r", encoding="utf-8") as f:
-                example = json.load(f)
-
-            logger.info(f"[Domain]: {domain}")
-            logger.info(f"[Example ID]: {example_id}")
-
-            instruction = example["instruction"]
-
-            logger.info(f"[Instruction]: {instruction}")
-            # wandb each example config settings
-            cfg_args["instruction"] = instruction
-            cfg_args["start_time"] = datetime.datetime.now().strftime(
-                "%Y:%m:%d-%H:%M:%S"
-            )
-
-            # Create a separate timestamp folder for each example
-            example_datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            example_timestamp_dir = os.path.join(log_dir, f"test_{test_datetime_str}", example_datetime_str)
-            example_cache_dir = os.path.join(example_timestamp_dir, "cache", "screens")
-            example_state_dir = os.path.join(example_timestamp_dir, "state")
-            
-            os.makedirs(example_cache_dir, exist_ok=True)
-            os.makedirs(example_state_dir, exist_ok=True)
-
-            # Initialize agents3 components for each example
-            global_state = NewGlobalState(
-                screenshot_dir=example_cache_dir,
-                state_dir=example_state_dir,
-                agent_log_path=os.path.join(example_timestamp_dir, "agent_log.json"),
-                display_info_path=os.path.join(example_timestamp_dir, "display.json")
-            )
-            
-            # Initialize NewController with agents3 architecture
-            controller = NewController(
-                platform=current_platform,
-                backend="pyautogui_vmware",  # Use vmware backend for osworld compatibility
-                user_query=instruction,
-                max_steps=max_steps,
-                env=env,
-                env_password="password",
-                log_dir=log_dir,
-                datetime_str=test_datetime_str
-            )
-            
-            example_result_dir = os.path.join(
-                args.result_dir,
-                args.action_space,
-                args.observation_type,
-                domain,
-                example_id,
-            )
-            os.makedirs(example_result_dir, exist_ok=True)
-            
-            # example start running
-            try:
-                result_score = run_single_test_with_agents3(
-                    controller,
-                    env,
-                    example,
-                    max_steps,
-                    instruction,
-                    args,
-                    example_result_dir,
-                    scores,
-                    example_timestamp_dir,
-                )
-            except Exception as e:
-                logger.error(f"Exception in {domain}/{example_id}: {e}")
-                # env.controller.end_recording(
-                #     os.path.join(example_result_dir, "recording.mp4")
-                # )
-                with open(os.path.join(example_result_dir, "traj.jsonl"), "a") as f:
-                    f.write(
-                        json.dumps(
-                            {"Error": f"Time limit exceeded in {domain}/{example_id}"}
-                        )
-                    )
-                    f.write("\n")
-
-    env.close()
-    logger.info(f"Average score: {sum(scores) / len(scores)}")
-
-
-def config() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Run end-to-end evaluation on the benchmark using agents3"
-    )
-
-    # Platform is now determined from environment variable USE_PRECREATE_VM
-    # No need for platform argument, following cli_app3.py pattern
-
-    # environment config
-    # vm_path will be set based on platform
-    parser.add_argument("--path_to_vm", type=str, default=None)
-    parser.add_argument(
-        "--headless", action="store_true", help="Run in headless machine"
-    )
-    parser.add_argument(
-        "--action_space", type=str, default="pyautogui", help="Action type"
-    )
-    parser.add_argument(
-        "--observation_type",
-        choices=["screenshot", "a11y_tree", "screenshot_a11y_tree", "som"],
-        default="screenshot",
-        help="Observation type",
-    )
-    parser.add_argument("--screen_width", type=int, default=1920)
-    parser.add_argument("--screen_height", type=int, default=1080)
-    parser.add_argument("--sleep_after_execution", type=float, default=1.0)
-    parser.add_argument("--max_steps", type=int, default=50)
-
-    # agent config
-    parser.add_argument(
-        "--test_config_base_dir", type=str, default="evaluation_examples"
-    )
-
-    # example config
-    parser.add_argument("--domain", type=str, default="all")
-    parser.add_argument(
-        "--test_all_meta_path", type=str, default=None
-    )
-
-    # logging related
-    parser.add_argument("--result_dir", type=str, default="./results")
-
-    parser.add_argument("--kb_name", default="kb_s2", type=str)
-
-    args = parser.parse_args()
-
-    # Set platform-specific defaults if not provided, using global current_platform
-    if args.path_to_vm is None:
-        if current_platform == "Ubuntu":
-            # Use the same logic as cli_app3.py for Ubuntu platform
-            cpu_arch = platform.machine().lower()
-            if cpu_arch in ['x86_64', 'amd64', 'i386', 'i686']:
-                args.path_to_vm = os.path.join("vmware_vm_data", "Ubuntu-x86", "Ubuntu.vmx")
-            elif cpu_arch in ['arm64', 'aarch64']:
-                args.path_to_vm = os.path.join("vmware_vm_data", "Ubuntu-arm", "Ubuntu.vmx")
-            else:
-                raise ValueError(f"Unsupported CPU architecture: {cpu_arch}")
-        else:  # Windows
-            args.path_to_vm = os.path.join("vmware_vm_data", "Windows-x86", "Windows 10 x64.vmx")
-    
-    if args.test_all_meta_path is None:
-        if current_platform == "Ubuntu":
-            args.test_all_meta_path = "osworld_setup/test_tiny.json"
-        else:  # Windows
-            args.test_all_meta_path = "osworld_setup/test_tiny_windows.json"
-
-    return args
-
-
-def main():
-    """Main entry point"""
+if __name__ == "__main__":
+    """
+    python gui_agents/osworld_run_maestro.py --max_steps 3
+    """
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     args = config()
 
@@ -522,37 +481,15 @@ def main():
         args.result_dir,
         test_all_meta,
     )
-    
-    if not test_file_list or all(len(examples) == 0 for examples in test_file_list.values()):
-        logger.info("All tests are completed")
-        get_result(
-            args.action_space,
-            args.observation_type,
-            args.result_dir,
-            test_all_meta,
-        )
-        return
-    
     left_info = ""
     for domain in test_file_list:
-        left_info += f"{domain}: {len(test_file_list[domain])} "
-    logger.info(f"Left: {left_info}")
+        left_info += f"{domain}: {len(test_file_list[domain])}\n"
+    logger.info(f"Left tasks:\n{left_info}")
 
-    # Run tests using agents3 architecture
-    test(args, test_file_list)
-    
-    # Get final results after test completion
     get_result(
         args.action_space,
         args.observation_type,
         args.result_dir,
         test_all_meta,
     )
-
-
-if __name__ == "__main__":
-    """
-    Usage examples:
-    python gui_agents/osworld_run_maestro.py --max_steps 30 --test_all_meta_path evaluation_examples/test_tiny.json
-    """
-    main()
+    test(args, test_file_list)

@@ -397,7 +397,7 @@ class NewExecutor:
             logger.info(f"Executing action for subtask {subtask_id}: {action}")
             
             # 检查是否是memorize动作
-            if isinstance(action, dict) and action.get("type") == "memorize":
+            if isinstance(action, dict) and action.get("type") == "Memorize":
                 information = action.get("information", "")
                 if information:
                     # 调用add_memorize_artifact方法

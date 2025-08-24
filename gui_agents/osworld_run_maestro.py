@@ -26,15 +26,15 @@ else:
 
 from PIL import Image
 
-# Import agents3 modules
-from gui_agents.agents3.new_global_state import NewGlobalState
-from gui_agents.agents3.new_controller import NewController
+# Import maestro modules
+from gui_agents.maestro.new_global_state import NewGlobalState
+from gui_agents.maestro.new_controller import NewController
 
 # Import analyze_display functionality
 from gui_agents.utils.analyze_display import analyze_display_json, aggregate_results, format_output_line
 from gui_agents.utils.common_utils import show_task_completion_notification
 
-# Set platform from environment variable, similar to cli_app3.py
+# Set platform from environment variable, similar to cli_app_maestro.py
 current_platform = os.getenv("USE_PRECREATE_VM", "Windows")
 
 logger = logging.getLogger()
@@ -553,6 +553,6 @@ def main():
 if __name__ == "__main__":
     """
     Usage examples:
-    python gui_agents/test_runner3.py --max_steps 30 --test_all_meta_path evaluation_examples/test_tiny.json
+    python gui_agents/osworld_run_maestro.py --max_steps 30 --test_all_meta_path evaluation_examples/test_tiny.json
     """
     main()

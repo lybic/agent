@@ -167,7 +167,7 @@ class MainController:
         try:
             for step_index in range(steps):
                 # 1. 检查是否应该终止（单步序列）
-                if self.state_machine.should_exit_loop(self.max_steps):
+                if self.state_machine.should_exit_loop():
                     logger.info("Task fulfilled or rejected, terminating single step batch")
                     break
 
@@ -199,7 +199,7 @@ class MainController:
         while True:
             try:
                 # 1. 检查是否应该退出循环
-                if self.state_machine.should_exit_loop(self.max_steps):
+                if self.state_machine.should_exit_loop():
                     logger.info("Task fulfilled or rejected, breaking main loop")
                     break
 

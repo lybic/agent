@@ -80,7 +80,7 @@ class StateMachine:
                 "controller", "error",
                 {"error": f"Rule processing error: {str(e)}"})
     
-    def should_exit_loop(self, max_steps: int) -> bool:
+    def should_exit_loop(self) -> bool:
         """判断是否应该跳出主循环"""
         try:
             task = self.global_state.get_task()
@@ -94,9 +94,6 @@ class StateMachine:
                 return True
             elif task_status == "rejected":
                 logger.info("Task rejected, should exit loop")
-                return True
-            elif task.step_num >= max_steps:
-                logger.info("Task step number exceeds max_steps, should exit loop")
                 return True
                 
             return False

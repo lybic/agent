@@ -81,12 +81,12 @@ class NewExecutor:
                 # technician执行代码块
                 logger.info(f"Technician role detected, executing code blocks for subtask {subtask_id}")
                 
-                # Technician的action是List[Tuple[str, str]]格式的代码块列表
+                # Technician的action是List[List[str, str]]格式的代码块列表
                 if isinstance(command.action, list) and command.action:
                     # 验证代码块格式
                     code_blocks = []
                     for item in command.action:
-                        if isinstance(item, tuple) and len(item) == 2:
+                        if isinstance(item, list) and len(item) == 2:
                             lang, code = item
                             if isinstance(lang, str) and isinstance(code, str):
                                 code_blocks.append((lang, code))

@@ -61,8 +61,8 @@ class NewManager:
         # Initialize tools
         self._initialize_tools()
 
-        # # Initialize knowledge base
-        # self._initialize_knowledge_base()
+        # Initialize knowledge base
+        self._initialize_knowledge_base()
 
         # Initialize handlers
         self._initialize_handlers()

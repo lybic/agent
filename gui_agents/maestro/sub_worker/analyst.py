@@ -139,10 +139,16 @@ class Analyst:
             )
             latency_ms = int((time.time() - t0) * 1000)
             
-            self.global_state.add_event(
+            self.global_state.log_llm_operation(
                 "analyst",
                 "analysis_completed",
-                f"tokens={total_tokens}, cost={cost_string}",
+                {
+                    "tokens": total_tokens,
+                    "cost": cost_string,
+                    "duration": latency_ms / 1000.0,
+                    "llm_output": analysis_result
+                },
+                str_input=analysis_prompt
             )
         except Exception as e:
             err = f"ANALYSIS_FAILED: {e}"

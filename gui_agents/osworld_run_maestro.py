@@ -490,6 +490,7 @@ def get_result(action_space, observation_type, result_dir, total_file_json):
 if __name__ == "__main__":
     """
     python gui_agents/osworld_run_maestro.py --max_steps 3
+    python gui_agents/osworld_run_maestro.py --test_all_meta_path evaluation_examples/test_tiny-answer_question.json
     """
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     args = config()

@@ -160,10 +160,16 @@ class Technician:
             )
             latency_ms = int((time.time() - t0) * 1000)
             
-            self.global_state.add_event(
+            self.global_state.log_llm_operation(
                 "technician",
                 "code_generated",
-                f"tokens={total_tokens}, cost={cost_string}",
+                {
+                    "tokens": total_tokens,
+                    "cost": cost_string,
+                    "duration": latency_ms / 1000.0,
+                    "llm_output": command_plan
+                },
+                str_input=context_aware_prompt,
             )
         except Exception as e:
             err = f"CODE_GENERATION_FAILED: {e}"

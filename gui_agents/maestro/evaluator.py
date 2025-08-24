@@ -166,7 +166,7 @@ class Evaluator:
                 "duration": evaluator_duration
             },
             str_input=prompt,
-            img_input=screenshot
+            # img_input=screenshot
         )
 
         parsed = self.parse_llm_output(content or "")

@@ -1116,12 +1116,33 @@ This file tracks supplementary information and materials needed for the task.
 
     # ========= Snapshot System =========
     
-    def create_snapshot(self, description: str = "", snapshot_type: str = "manual") -> str:
-        """创建快照"""
-        return self.snapshot_system.create_snapshot(description, snapshot_type)
+    def create_snapshot(self, description: str = "", snapshot_type: str = "manual", 
+                       config_params: Optional[Dict[str, Any]] = None) -> str:
+        """
+        创建快照
+        
+        Args:
+            description: 快照描述
+            snapshot_type: 快照类型
+            config_params: 关键配置参数，包括：
+                - tools_dict: 工具配置字典
+                - platform: 平台信息
+                - enable_search: 搜索开关
+                - env_password: 环境密码
+                - enable_takeover: 接管开关
+                - enable_rag: RAG开关
+                - backend: 后端类型
+                - max_steps: 最大步数
+        """
+        return self.snapshot_system.create_snapshot(description, snapshot_type, config_params)
     
-    def restore_snapshot(self, snapshot_id: str, target_runtime_dir: Optional[str] = None) -> bool:
-        """恢复快照"""
+    def restore_snapshot(self, snapshot_id: str, target_runtime_dir: Optional[str] = None) -> Dict[str, Any]:
+        """
+        恢复快照
+        
+        Returns:
+            包含恢复信息和配置参数的字典
+        """
         return self.snapshot_system.restore_snapshot(snapshot_id, target_runtime_dir)
     
     def list_snapshots(self) -> list:

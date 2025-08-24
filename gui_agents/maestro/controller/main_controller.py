@@ -71,6 +71,10 @@ class MainController:
         self.max_steps = max_steps
         self.env = env
         self.env_password = env_password
+        self.enable_search = enable_search
+        self.enable_takeover = enable_takeover
+        self.enable_rag = enable_rag
+        self.backend = backend
         
         # 初始化配置管理器
         self.config_manager = ConfigManager(memory_root_path, memory_folder_name)
@@ -175,9 +179,22 @@ class MainController:
         """创建初始快照"""
         try:
             if self.enable_snapshots:
+                # 准备配置参数
+                config_params = {
+                    "tools_dict": self.tools_dict,
+                    "platform": self.platform,
+                    "enable_search": self.enable_search,
+                    "env_password": self.env_password,
+                    "enable_takeover": self.enable_takeover,
+                    "enable_rag": self.enable_rag,
+                    "backend": self.backend,
+                    "max_steps": self.max_steps
+                }
+                
                 snapshot_id = self.global_state.create_snapshot(
                     description=f"Initial state for task: {self.user_query}",
-                    snapshot_type="initial"
+                    snapshot_type="initial",
+                    config_params=config_params
                 )
                 logger.info(f"Initial snapshot created: {snapshot_id}")
         except Exception as e:
@@ -195,9 +212,22 @@ class MainController:
         """创建自动快照"""
         try:
             if self._should_create_auto_snapshot():
+                # 准备配置参数
+                config_params = {
+                    "tools_dict": self.tools_dict,
+                    "platform": self.platform,
+                    "enable_search": self.enable_search,
+                    "env_password": self.env_password,
+                    "enable_takeover": self.enable_takeover,
+                    "enable_rag": self.enable_rag,
+                    "backend": self.backend,
+                    "max_steps": self.max_steps
+                }
+                
                 snapshot_id = self.global_state.create_snapshot(
                     description=f"Auto snapshot at step {self.step_count}",
-                    snapshot_type="auto"
+                    snapshot_type="auto",
+                    config_params=config_params
                 )
                 self.last_snapshot_step = self.step_count
                 logger.debug(f"Auto snapshot created: {snapshot_id}")

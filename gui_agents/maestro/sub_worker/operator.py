@@ -187,13 +187,16 @@ class Operator:
             {"str_input": context_aware_prompt, "img_input": screenshot_bytes},
         )
         latency_ms = int((time.time() - t0) * 1000)
-        self.global_state.log_llm_operation("worker", "action_plan_generated", {
-            "tokens": total_tokens,
-            "cost": cost_string,
-            "duration": latency_ms / 1000.0
-        },
-        str_input=context_aware_prompt,
-        img_input=screenshot_bytes
+        self.global_state.log_llm_operation(
+            "worker", 
+            "action_plan_generated", 
+            {
+                "tokens": total_tokens,
+                "cost": cost_string,
+                "duration": latency_ms / 1000.0,
+                "llm_output": action_plan
+            },
+            str_input=context_aware_prompt,
         )
 
         # Parse screenshot analysis and action code

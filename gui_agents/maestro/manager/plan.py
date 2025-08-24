@@ -91,7 +91,7 @@ class PlanningHandler:
                 "cost": cost_string
             },
             str_input=prompt,
-            img_input=context.get("screenshot")
+            # img_input=context.get("screenshot")
         )
 
         # After planning, also generate DAG and action queue

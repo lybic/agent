@@ -20,10 +20,12 @@ class RuleEngine:
     def __init__(
         self, 
         global_state: NewGlobalState, 
+        max_steps: int = 50,
         max_state_switches: int = 100, 
         max_state_duration: int = 300
     ):
         self.global_state = global_state
+        self.max_steps = max_steps
         self.max_state_switches = max_state_switches
         self.max_state_duration = max_state_duration
         
@@ -35,11 +37,11 @@ class RuleEngine:
                 return None
 
             # 检查状态切换次数上限
-            if state_switch_count >= self.max_state_switches:
-                logger.warning(
-                    f"Maximum state switches ({self.max_state_switches}) reached"
-                )
-                self.global_state.update_task_status(TaskStatus.REJECTED)
+            # if state_switch_count >= self.max_state_switches:
+            #     logger.warning(
+            #         f"Maximum state switches ({self.max_state_switches}) reached"
+            #     )
+            #     self.global_state.update_task_status(TaskStatus.REJECTED)
 
             # 检查任务状态
             if task.status == "completed":
@@ -53,15 +55,15 @@ class RuleEngine:
                 self.global_state.update_task_status(TaskStatus.REJECTED)
                 return ControllerState.DONE
 
-            # current_step大于50步 - rejected/fulfilled
-            if state_switch_count > 50:
+            # current_step大于max_steps步 - rejected/fulfilled
+            if task.step_num >= self.max_steps:
                 # 检查是否所有subtask都完成
                 if not task.pending_subtask_ids or len(task.pending_subtask_ids) == 0:
-                    logger.info(f"State switch count > 50 and all subtasks completed, entering final check")
+                    logger.info(f"Step number ({task.step_num}) >= max_steps ({self.max_steps}) and all subtasks completed, entering final check")
                     return ControllerState.FINAL_CHECK
                 else:
                     logger.warning(
-                        f"State switch count > 50 but subtasks not completed, marking task as REJECTED"
+                        f"Step number ({task.step_num}) >= max_steps ({self.max_steps}) but subtasks not completed, marking task as REJECTED"
                     )
                     self.global_state.update_task_status(TaskStatus.REJECTED)
 

@@ -96,16 +96,31 @@ class MainController:
         logger.info("Executor initialized")
         
         # 初始化规则引擎
-        self.rule_engine = RuleEngine(self.global_state)
+        rule_engine_params: Dict[str, Any] = dict(
+            global_state=self.global_state,
+            max_steps=self.max_steps
+        )
+        self.rule_engine = RuleEngine(**rule_engine_params)
         
         # 初始化状态处理器
-        self.state_handlers = StateHandlers(
-            self.global_state, self.manager, self.executor,
-            self.tools_dict, self.platform, enable_search, self.env_password
+        state_handlers_params: Dict[str, Any] = dict(
+            global_state=self.global_state,
+            manager=self.manager,
+            executor=self.executor,
+            tools_dict=self.tools_dict,
+            platform=self.platform,
+            enable_search=enable_search,
+            env_password=self.env_password
         )
+        self.state_handlers = StateHandlers(**state_handlers_params)
         
         # 初始化状态机
-        self.state_machine = StateMachine(self.global_state, self.rule_engine, self.state_handlers)
+        state_machine_params: Dict[str, Any] = dict(
+            global_state=self.global_state,
+            rule_engine=self.rule_engine,
+            state_handlers=self.state_handlers
+        )
+        self.state_machine = StateMachine(**state_machine_params)
         
         # 初始化计数器
         self.reset_counters()

@@ -18,8 +18,15 @@ logger = logging.getLogger(__name__)
 class StateHandlers:
     """状态处理器，负责处理各种状态的具体逻辑"""
     
-    def __init__(self, global_state, manager: NewManager, executor, tools_dict: dict, 
-                 platform: str, enable_search: bool, env_password: str):
+    def __init__(self, 
+            global_state: NewGlobalState, 
+            manager: NewManager, 
+            executor, 
+            tools_dict: dict, 
+            platform: str, 
+            enable_search: bool, 
+            env_password: str
+        ):
         self.global_state: NewGlobalState = global_state
         self.manager = manager
         self.executor = executor

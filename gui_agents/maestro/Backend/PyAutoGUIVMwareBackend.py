@@ -138,7 +138,7 @@ class PyAutoGUIVMwareBackend(Backend):
         for k in hold_keys:
             code_parts.append(f"pyautogui.keyDown('{k}')")
             code_parts.append(f"time.sleep(0.05)")
-        code_parts.append(f"pyautogui.click(x={act.x}, y={act.y}, clicks=1, button='{button_str}', duration={self.default_move_duration}, interval=0.5)")
+        code_parts.append(f"pyautogui.click(x={act.x}, y={act.y}, clicks=1, button='{button_str}', duration={self.default_move_duration}, interval=0.1)")
         for k in hold_keys:
             code_parts.append(f"pyautogui.keyUp('{k}')")
         return "; ".join(code_parts)
@@ -159,7 +159,7 @@ class PyAutoGUIVMwareBackend(Backend):
         for k in hold_keys:
             code_parts.append(f"pyautogui.keyDown('{k}')")
             code_parts.append(f"time.sleep(0.05)")
-        code_parts.append(f"pyautogui.click(x={act.x}, y={act.y}, clicks=2, button='{button_str}', duration={self.default_move_duration}, interval=0.5)")
+        code_parts.append(f"pyautogui.click(x={act.x}, y={act.y}, clicks=2, button='{button_str}', duration={self.default_move_duration}, interval=0.1)")
         for k in hold_keys:
             code_parts.append(f"pyautogui.keyUp('{k}')")
         return "; ".join(code_parts)
@@ -327,7 +327,7 @@ if closest_matches:
 import pyautogui
 import time
 
-pyautogui.hotkey('win', 'd', interval=0.5)
+pyautogui.hotkey('win', 'd', interval=0.1)
 time.sleep(0.5)
 pyautogui.typewrite('{act.app_code}')
 time.sleep(1.0)
@@ -360,7 +360,7 @@ time.sleep(0.5)
 import pyautogui
 import time
 
-pyautogui.hotkey('win', 'r', interval=0.5)
+pyautogui.hotkey('win', 'r', interval=0.1)
 time.sleep(0.5)
 pyautogui.typewrite('{act.app_or_filename}')
 time.sleep(1.0)

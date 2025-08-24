@@ -99,7 +99,7 @@ class PyAutoGUIBackend(Backend):
             clicks=1,
             button=button_str, # type: ignore
             duration=self.default_move_duration,
-            interval=0.5,
+            interval=0.1,
         )
         for k in act.holdKey or []:
             self.pag.keyUp(k)
@@ -122,7 +122,7 @@ class PyAutoGUIBackend(Backend):
             clicks=2,
             button=button_str,
             duration=self.default_move_duration,
-            interval=0.5,
+            interval=0.1,
         )
         for k in act.holdKey or []:
             self.pag.keyUp(k)
@@ -302,7 +302,7 @@ set_cell_values({act.cell_values}, "{act.app_name}", "{act.sheet_name}")
                 self.pag.hotkey("alt", "tab")
         elif self.platform.startswith("win"):
             # Windows: Win+D to show desktop, then type app name
-            self.pag.hotkey("win", "d", interval=0.5)
+            self.pag.hotkey("win", "d", interval=0.1)
             time.sleep(0.5)
             self.pag.typewrite(act.app_code)
             time.sleep(1.0)
@@ -331,7 +331,7 @@ set_cell_values({act.cell_values}, "{act.app_name}", "{act.sheet_name}")
             time.sleep(0.5)
         elif self.platform.startswith("win"):
             # Windows: Win+R to open Run dialog
-            self.pag.hotkey("win", "r", interval=0.5)
+            self.pag.hotkey("win", "r", interval=0.1)
             time.sleep(0.5)
             self.pag.typewrite(act.app_or_filename)
             time.sleep(1.0)

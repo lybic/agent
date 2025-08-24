@@ -33,7 +33,8 @@
     {
       "tool_name": "supplement_role",
       "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615"
+      "model_name": "doubao-seed-1-6-250615",
+      "enable_search": true
     },
     {
       "tool_name": "dag_translator",

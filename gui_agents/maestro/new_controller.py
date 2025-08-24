@@ -13,13 +13,14 @@ from typing import Dict, Any, Optional, List
 from enum import Enum
 import platform
 
-from gui_agents.agents3.data_models import SubtaskData, TaskData
-from desktop_env.desktop_env import DesktopEnv
-from gui_agents.agents3.hardware_interface import HardwareInterface
-from PIL import Image
-
-from gui_agents.agents3.utils.screenShot import scale_screenshot_dimensions
+from gui_agents.maestro.data_models import SubtaskData, TaskData
+from gui_agents.maestro.hardware_interface import HardwareInterface
+from gui_agents.maestro.utils.screenShot import scale_screenshot_dimensions
+from gui_agents.maestro.Action import Screenshot
 from gui_agents.store.registry import Registry
+
+from desktop_env.desktop_env import DesktopEnv
+from PIL import Image
 
 from .new_global_state import NewGlobalState
 from .new_manager import NewManager
@@ -30,7 +31,7 @@ from .enums import (
     ControllerState, TaskStatus, SubtaskStatus,
     GateDecision, GateTrigger, WorkerDecision, TriggerCode
 )
-from gui_agents.agents3.Action import Screenshot
+
 
 # 设置日志
 logger = logging.getLogger(__name__)

@@ -7,13 +7,13 @@ import time
 import logging
 import re
 from typing import Dict, Any, Optional, List, Tuple
-from gui_agents.agents3.hardware_interface import HardwareInterface
+from gui_agents.maestro.hardware_interface import HardwareInterface
 from .new_global_state import NewGlobalState
 from .enums import SubtaskStatus
 from desktop_env.desktop_env import DesktopEnv
 from PIL import Image
-from gui_agents.agents3.Action import Screenshot
-from gui_agents.agents3.utils.screenShot import scale_screenshot_dimensions
+from gui_agents.maestro.Action import Screenshot
+from gui_agents.maestro.utils.screenShot import scale_screenshot_dimensions
 
 # 设置日志
 logger = logging.getLogger(__name__)

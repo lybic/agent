@@ -18,8 +18,8 @@ from gui_agents.utils.common_utils import (
     extract_first_agent_function,
     parse_screenshot_analysis,
 )
-from gui_agents.agents3.grounding import Grounding
-from gui_agents.agents3.new_global_state import NewGlobalState
+from gui_agents.maestro.grounding import Grounding
+from gui_agents.maestro.new_global_state import NewGlobalState
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ import io
 from PIL import Image
 from typing import Optional
 from desktop_env.desktop_env import DesktopEnv
-from gui_agents.agents3.Action import (
+from gui_agents.maestro.Action import (
     Action,
     Click,
     DoubleClick,
@@ -24,7 +24,7 @@ from gui_agents.agents3.Action import (
     Open
 )
 
-from gui_agents.agents3.Backend.Backend import Backend
+from gui_agents.maestro.Backend.Backend import Backend
 import time
 
 def screenshot_bytes_to_pil_image(screenshot_bytes: bytes) -> Optional[Image.Image]:
@@ -251,7 +251,7 @@ class PyAutoGUIVMwareBackend(Backend):
     def _set_cell_values(self, act: SetCellValues) -> str:
         """Set cell values in LibreOffice Calc (Linux only)"""
         if self.env_controller is None: # Assuming env_controller is self.env_controller
-            return f"# SetCellValues not supported on platform: {self.env_controller.platform}"
+            return f"# SetCellValues not supported on platform: {self.env_controller.platform}" # type: ignore
         if self.env_controller.platform == "Ubuntu":
             # Create Python script for LibreOffice automation
             script_content = f"""
@@ -304,12 +304,12 @@ set_cell_values({act.cell_values}, "{act.app_name}", "{act.sheet_name}")
 """
             return script_content
         else:
-            return f"# SetCellValues not supported on platform: {self.env_controller.platform}"
+            return f"# SetCellValues not supported on platform: {self.env_controller.platform}" # type: ignore
 
     def _switch_applications(self, act: SwitchApplications) -> str:
         """Switch to a different application that is already open"""
         if self.env_controller is None: # Assuming env_controller is self.env_controller
-            return f"# SwitchApplications not supported on platform: {self.env_controller.platform}"
+            return f"# SwitchApplications not supported on platform: {self.env_controller.platform}" # type: ignore
         if self.env_controller.platform == "Ubuntu":
             # Linux: Use wmctrl to switch windows
             return f"""
@@ -357,7 +357,7 @@ time.sleep(1.0)
     def _open(self, act: Open) -> str:
         """Open an application or file"""
         if self.env_controller is None: # Assuming env_controller is self.env_controller
-            return f"# Open not supported on platform: {self.env_controller.platform}"
+            return f"# Open not supported on platform: {self.env_controller.platform}" # type: ignore
         if self.env_controller.platform == "Ubuntu":
             # Linux: Win key to open application menu
             return f"""

@@ -14,6 +14,7 @@ from gui_agents.maestro.controller.main_controller import MainController
 # Import analyze_display functionality
 from gui_agents.utils.analyze_display import analyze_display_json, format_output_line
 from desktop_env.desktop_env import DesktopEnv
+from gui_agents.utils.common_utils import ImageDataFilter, SafeLoggingFilter
 
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
 if env_path.exists():
@@ -47,6 +48,33 @@ file_handler.setLevel(logging.INFO)
 debug_handler.setLevel(logging.DEBUG)
 stdout_handler.setLevel(logging.INFO)
 sdebug_handler.setLevel(logging.DEBUG)
+
+# Add SafeLoggingFilter to prevent format errors from third-party libraries (like OpenAI)
+safe_filter = SafeLoggingFilter()
+debug_handler.addFilter(safe_filter)
+sdebug_handler.addFilter(safe_filter)
+file_handler.addFilter(safe_filter)
+stdout_handler.addFilter(safe_filter)
+
+# Also apply SafeLoggingFilter to OpenAI library loggers
+try:
+    import openai
+    openai_logger = logging.getLogger('openai')
+    openai_logger.addFilter(safe_filter)
+    httpx_logger = logging.getLogger('httpx')
+    httpx_logger.addFilter(safe_filter)
+except ImportError:
+    pass
+
+if os.getenv('KEEP_IMAGE_LOGS', 'false').lower() != 'true':
+    image_filter = ImageDataFilter()
+    debug_handler.addFilter(image_filter)
+    sdebug_handler.addFilter(image_filter)
+    logger.info("Image data filtering enabled - image data in debug logs will be filtered")
+else:
+    logger.info("Image data filtering disabled - debug logs will contain complete image data")
+
+logger.info("Safe logging filter enabled - prevents format errors from third-party libraries (OpenAI, HTTPX)")
 
 formatter = logging.Formatter(
     fmt="\x1b[1;33m[%(asctime)s \x1b[31m%(levelname)s \x1b[32m%(module)s/%(lineno)d-%(processName)s\x1b[1;33m] \x1b[0m%(message)s"

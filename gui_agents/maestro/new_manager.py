@@ -14,7 +14,7 @@ from enum import Enum
 from gui_agents.utils.common_utils import Node, Dag, parse_dag
 from gui_agents.utils.id_utils import generate_uuid
 from gui_agents.tools.new_tools import NewTools
-from gui_agents.core.new_knowledge import NewKnowledgeBase
+# from gui_agents.core.new_knowledge import NewKnowledgeBase
 from gui_agents.prompts import module
 
 from .new_global_state import NewGlobalState
@@ -97,8 +97,8 @@ class NewManager:
         # Initialize tools
         self._initialize_tools()
 
-        # Initialize knowledge base
-        self._initialize_knowledge_base()
+        # # Initialize knowledge base
+        # self._initialize_knowledge_base()
 
         logger.info("NewManager initialized successfully")
 

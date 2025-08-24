@@ -540,6 +540,18 @@ This file tracks supplementary information and materials needed for the task.
 
         safe_write_json(self.commands_path, [command.to_dict() for command in commands])
 
+    def update_command_post_screenshot(self, command_id: str, post_screenshot_id: str) -> None:
+        """Update command post_screenshot_id after hardware execution"""
+        commands = self.get_commands()
+        for command in commands:
+            if command.command_id == command_id:
+                command.post_screenshot_id = post_screenshot_id
+                command.updated_at = datetime.now().isoformat()
+                logger.debug(f"Updated post_screenshot_id for command {command_id}: {post_screenshot_id}")
+                break
+
+        safe_write_json(self.commands_path, [command.to_dict() for command in commands])
+
     def get_commands_by_worker_decision(self, worker_decision: str) -> List[CommandData]:
         """Get all commands with specific worker decision"""
         commands = self.get_commands()

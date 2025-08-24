@@ -7,7 +7,7 @@ import logging
 from typing import Optional
 
 from gui_agents.maestro.new_global_state import NewGlobalState
-from ..enums import ControllerState, TaskStatus, SubtaskStatus, WorkerDecision, GateDecision
+from ..enums import ControllerState, TaskStatus, SubtaskStatus, WorkerDecision, GateDecision, TriggerRole, TriggerCode
 from ..new_manager import NewManager
 from ..new_worker import NewWorker
 from ..evaluator import Evaluator
@@ -35,7 +35,7 @@ class StateHandlers:
         self.enable_search = enable_search
         self.env_password = env_password
     
-    def handle_init_state(self) -> tuple[ControllerState, str, str]:
+    def handle_init_state(self) -> tuple[ControllerState, TriggerRole, str, TriggerCode]:
         """立项状态处理"""
         logger.info("Handling INIT state")
         self.global_state.set_task_objective(self.global_state.get_task().objective)
@@ -52,18 +52,18 @@ class StateHandlers:
                 # 更新任务状态为进行中
                 self.global_state.update_task_status(TaskStatus.PENDING)
                 logger.info(f"Set current subtask: {first_subtask_id}")
-                return (ControllerState.GET_ACTION, "subtask_ready", f"First subtask {first_subtask_id} ready")
+                return (ControllerState.GET_ACTION, TriggerRole.CONTROLLER, f"First subtask {first_subtask_id} ready", TriggerCode.SUBTASK_READY)
             else:
                 # 没有subtask，需要创建
                 logger.info("No subtasks available, switching to PLAN state")
-                return (ControllerState.PLAN, "no_subtasks", "No subtasks available, need planning")
+                return (ControllerState.PLAN, TriggerRole.CONTROLLER, "No subtasks available, need planning", TriggerCode.NO_SUBTASKS)
 
         except Exception as e:
             logger.error(f"Error in INIT state: {e}")
             self.global_state.add_event("controller", "error", f"INIT state error: {str(e)}")
-            return (ControllerState.PLAN, "init_error", f"INIT state error: {str(e)}")
+            return (ControllerState.PLAN, TriggerRole.CONTROLLER, f"INIT state error: {str(e)}", TriggerCode.INIT_ERROR)
     
-    def handle_get_action_state(self) -> tuple[ControllerState, str, str]:
+    def handle_get_action_state(self) -> tuple[ControllerState, TriggerRole, str, TriggerCode]:
         """取下一步动作阶段"""
         logger.info("Handling GET_ACTION state")
         current_subtask_id = self.global_state.get_task().current_subtask_id
@@ -71,13 +71,13 @@ class StateHandlers:
         try:
             if not current_subtask_id:
                 logger.warning("No current subtask ID, switching to INIT")
-                return (ControllerState.INIT, "subtask_not_found", "No current subtask ID in GET_ACTION state")
+                return (ControllerState.INIT, TriggerRole.WORKER_GET_ACTION, "No current subtask ID in GET_ACTION state", TriggerCode.NO_CURRENT_SUBTASK_ID)
 
             # 检查subtask状态
             subtask = self.global_state.get_subtask(current_subtask_id)
             if not subtask:
                 logger.warning(f"Subtask {current_subtask_id} not found, switching to INIT")
-                return (ControllerState.INIT, "subtask_not_found", f"Subtask {current_subtask_id} not found in GET_ACTION state")
+                return (ControllerState.INIT, TriggerRole.WORKER_GET_ACTION, f"Subtask {current_subtask_id} not found in GET_ACTION state", TriggerCode.SUBTASK_NOT_FOUND)
 
             # 由Worker统一处理：根据角色生成action/记录decision/创建command
             worker_params = {
@@ -102,7 +102,7 @@ class StateHandlers:
                     self.global_state.update_subtask_status(
                         current_subtask_id, SubtaskStatus.PENDING,
                         "Worker completed action, waiting for quality check")
-                    return (ControllerState.QUALITY_CHECK, "worker_success", f"Worker decision success for subtask {current_subtask_id}")
+                    return (ControllerState.QUALITY_CHECK, TriggerRole.WORKER_GET_ACTION, f"Worker decision success for subtask {current_subtask_id}", TriggerCode.WORKER_SUCCESS)
                     
                 elif worker_decision == WorkerDecision.CANNOT_EXECUTE.value:
                     # 无法执行，需要重规划
@@ -110,7 +110,7 @@ class StateHandlers:
                     self.global_state.update_subtask_status(
                         current_subtask_id, SubtaskStatus.REJECTED,
                         "Worker cannot execute this subtask")
-                    return (ControllerState.PLAN, "worker_cannot_execute", f"Worker cannot execute subtask {current_subtask_id}")
+                    return (ControllerState.PLAN, TriggerRole.WORKER_GET_ACTION, f"Worker cannot execute subtask {current_subtask_id}", TriggerCode.WORK_CANNOT_EXECUTE)
                     
                 elif worker_decision == WorkerDecision.STALE_PROGRESS.value:
                     # 进展停滞，进入质检阶段
@@ -118,7 +118,7 @@ class StateHandlers:
                     self.global_state.update_subtask_status(
                         current_subtask_id, SubtaskStatus.STALE,
                         "Worker progress stale, waiting for quality check")
-                    return (ControllerState.QUALITY_CHECK, "worker_stale_progress", f"Worker progress stale for subtask {current_subtask_id}")
+                    return (ControllerState.QUALITY_CHECK, TriggerRole.WORKER_GET_ACTION, f"Worker progress stale for subtask {current_subtask_id}", TriggerCode.WORKER_STALE_PROGRESS)
                     
                 elif worker_decision == WorkerDecision.SUPPLEMENT.value:
                     # 需要补充资料
@@ -126,7 +126,7 @@ class StateHandlers:
                     self.global_state.update_subtask_status(
                         current_subtask_id, SubtaskStatus.REJECTED,
                         "Worker needs supplement, waiting for supplement")
-                    return (ControllerState.SUPPLEMENT, "worker_supplement", f"Worker needs supplement for subtask {current_subtask_id}")
+                    return (ControllerState.SUPPLEMENT, TriggerRole.WORKER_GET_ACTION, f"Worker needs supplement for subtask {current_subtask_id}", TriggerCode.WORKER_SUPPLEMENT)
                     
                 elif worker_decision == WorkerDecision.GENERATE_ACTION.value:
                     # 生成了新动作，执行动作
@@ -134,21 +134,21 @@ class StateHandlers:
                     self.global_state.update_subtask_status(
                         current_subtask_id, SubtaskStatus.PENDING,
                         "Worker generated action, waiting for execute")
-                    return (ControllerState.EXECUTE_ACTION, "worker_generate_action", f"Worker generated action for subtask {current_subtask_id}")
+                    return (ControllerState.EXECUTE_ACTION, TriggerRole.WORKER_GET_ACTION, f"Worker generated action for subtask {current_subtask_id}", TriggerCode.WORKER_GENERATE_ACTION)
                 else:
                     # 未知的worker_decision，默认切换到PLAN
                     logger.warning(f"Unknown worker_decision: {worker_decision}, switching to PLAN")
                     self.global_state.update_subtask_status(
                         current_subtask_id, SubtaskStatus.REJECTED,
                         f"Unknown worker_decision: {worker_decision}")
-                    return (ControllerState.PLAN, "unknown_worker_decision", f"Unknown worker_decision: {worker_decision}")
+                    return (ControllerState.PLAN, TriggerRole.WORKER_GET_ACTION, f"Unknown worker_decision: {worker_decision}", TriggerCode.NO_WORKER_DECISION)
             else:
                 # 错误处理
                 logger.info(f"Subtask {current_subtask_id} has no worker_decision, switching to PLAN")
                 self.global_state.update_subtask_status(
                     current_subtask_id, SubtaskStatus.REJECTED,
                     "Worker has no worker_decision, switching to PLAN")
-                return (ControllerState.PLAN, "no_worker_decision", f"Subtask {current_subtask_id} has no worker_decision in GET_ACTION state")
+                return (ControllerState.PLAN, TriggerRole.WORKER_GET_ACTION, f"Subtask {current_subtask_id} has no worker_decision in GET_ACTION state", TriggerCode.NO_WORKER_DECISION)
 
         except Exception as e:
             logger.error(f"Error in GET_ACTION state: {e}")
@@ -160,9 +160,9 @@ class StateHandlers:
                 self.global_state.update_subtask_status(
                     current_subtask_id, SubtaskStatus.REJECTED,
                     "Worker has no worker_decision, switching to PLAN")
-            return (ControllerState.PLAN, "get_action_error", f"GET_ACTION state error: {str(e)}")
+            return (ControllerState.PLAN, TriggerRole.WORKER_GET_ACTION, f"GET_ACTION state error: {str(e)}", TriggerCode.GET_ACTION_ERROR)
     
-    def handle_execute_action_state(self) -> tuple[ControllerState, str, str]:
+    def handle_execute_action_state(self) -> tuple[ControllerState, TriggerRole, str, TriggerCode]:
         """执行动作阶段"""
         logger.info("Handling EXECUTE_ACTION state")
 
@@ -170,13 +170,13 @@ class StateHandlers:
             current_subtask_id = self.global_state.get_task().current_subtask_id
             if not current_subtask_id:
                 logger.warning("No current subtask ID in EXECUTE_ACTION state")
-                return (ControllerState.INIT, "no_current_subtask_id", "No current subtask ID in EXECUTE_ACTION state")
+                return (ControllerState.INIT, TriggerRole.EXECUTOR_EXECUTE_ACTION, "No current subtask ID in EXECUTE_ACTION state", TriggerCode.NO_CURRENT_SUBTASK_ID)
 
             # 获取当前subtask
             subtask = self.global_state.get_subtask(current_subtask_id)
             if not subtask:
                 logger.warning(f"Subtask {current_subtask_id} not found in EXECUTE_ACTION state")
-                return (ControllerState.INIT, "subtask_not_found", f"Subtask {current_subtask_id} not found in EXECUTE_ACTION state")
+                return (ControllerState.INIT, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"Subtask {current_subtask_id} not found in EXECUTE_ACTION state", TriggerCode.SUBTASK_NOT_FOUND)
 
             # 使用新的执行器执行动作
             execution_result = self.executor.execute_current_action(current_subtask_id)
@@ -190,21 +190,21 @@ class StateHandlers:
                 self.global_state.update_subtask_status(
                     current_subtask_id, SubtaskStatus.PENDING,
                     f"Action execution failed: {error_msg}")
-                return (ControllerState.GET_ACTION, "execution_error", f"Action execution failed: {error_msg}")
+                return (ControllerState.GET_ACTION, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"Action execution failed: {error_msg}", TriggerCode.EXECUTION_ERROR)
 
             # 获取截图Executor处理
             command = self.global_state.get_current_command_for_subtask(current_subtask_id)
             if command:
-                return (ControllerState.GET_ACTION, "command_completed", f"{command.command_id} command completed")
+                return (ControllerState.GET_ACTION, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"{command.command_id} command completed", TriggerCode.COMMAND_COMPLETED)
             else:
-                return (ControllerState.GET_ACTION, "no_command", "No command found in EXECUTE_ACTION state")
+                return (ControllerState.GET_ACTION, TriggerRole.EXECUTOR_EXECUTE_ACTION, "No command found in EXECUTE_ACTION state", TriggerCode.NO_COMMAND)
 
         except Exception as e:
             logger.error(f"Error in EXECUTE_ACTION state: {e}")
             self.global_state.add_event("controller", "error", f"EXECUTE_ACTION state error: {str(e)}")
-            return (ControllerState.GET_ACTION, "execution_error", f"EXECUTE_ACTION state error: {str(e)}")
+            return (ControllerState.GET_ACTION, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"EXECUTE_ACTION state error: {str(e)}", TriggerCode.EXECUTION_ERROR)
     
-    def handle_quality_check_state(self) -> tuple[ControllerState, str, str]:
+    def handle_quality_check_state(self) -> tuple[ControllerState, TriggerRole, str, TriggerCode]:
         """质检门检查阶段"""
         logger.info("Handling QUALITY_CHECK state")
         current_subtask_id = self.global_state.get_task().current_subtask_id
@@ -212,7 +212,7 @@ class StateHandlers:
         try:
             if not current_subtask_id:
                 logger.warning("No current subtask ID in QUALITY_CHECK state")
-                return (ControllerState.INIT, "no_current_subtask_id", "No current subtask ID in QUALITY_CHECK state")
+                return (ControllerState.INIT, TriggerRole.EVALUATOR_QUALITY_CHECK, "No current subtask ID in QUALITY_CHECK state", TriggerCode.NO_CURRENT_SUBTASK_ID)
 
             evaluator_params = {
                 "global_state": self.global_state,
@@ -242,11 +242,11 @@ class StateHandlers:
                     if not task.pending_subtask_ids:
                         # 所有subtask完成，进入最终质检阶段
                         logger.info("All subtasks completed, entering final check")
-                        return (ControllerState.FINAL_CHECK, "all_subtasks_completed", "All subtasks completed, entering final check")
+                        return (ControllerState.FINAL_CHECK, TriggerRole.EVALUATOR_QUALITY_CHECK, "All subtasks completed, entering final check", TriggerCode.ALL_SUBTASKS_COMPLETED)
 
                     # 还有待处理的subtask，推进到下一个
                     self.global_state.advance_to_next_subtask()
-                    return (ControllerState.GET_ACTION, "quality_check_passed", f"Quality check passed for subtask {current_subtask_id}")
+                    return (ControllerState.GET_ACTION, TriggerRole.EVALUATOR_QUALITY_CHECK, f"Quality check passed for subtask {current_subtask_id}", TriggerCode.QUALITY_CHECK_PASSED)
                     
                 elif decision == GateDecision.GATE_FAIL.value:
                     logger.info(f"Quality check failed for subtask {current_subtask_id}")
@@ -254,7 +254,7 @@ class StateHandlers:
                     self.global_state.update_subtask_status(
                         current_subtask_id, SubtaskStatus.REJECTED,
                         "Quality check failed")
-                    return (ControllerState.PLAN, "quality_check_failed", f"Quality check failed for subtask {current_subtask_id}")
+                    return (ControllerState.PLAN, TriggerRole.EVALUATOR_QUALITY_CHECK, f"Quality check failed for subtask {current_subtask_id}", TriggerCode.QUALITY_CHECK_FAILED)
                     
                 elif decision == GateDecision.GATE_SUPPLEMENT.value:
                     # 需要补充资料
@@ -262,7 +262,7 @@ class StateHandlers:
                     self.global_state.update_subtask_status(
                         current_subtask_id, SubtaskStatus.REJECTED,
                         "Quality check requires supplement")
-                    return (ControllerState.SUPPLEMENT, "quality_check_supplement", f"Quality check requires supplement for subtask {current_subtask_id}")
+                    return (ControllerState.SUPPLEMENT, TriggerRole.EVALUATOR_QUALITY_CHECK, f"Quality check requires supplement for subtask {current_subtask_id}", TriggerCode.QUALITY_CHECK_SUPPLEMENT)
                     
                 elif decision == GateDecision.GATE_CONTINUE.value:
                     # execute_action
@@ -270,18 +270,18 @@ class StateHandlers:
                     self.global_state.update_subtask_status(
                         current_subtask_id, SubtaskStatus.PENDING,
                         "Quality check requires execute action")
-                    return (ControllerState.EXECUTE_ACTION, "quality_check_execute_action", f"Quality check requires execute action for subtask {current_subtask_id}")
+                    return (ControllerState.EXECUTE_ACTION, TriggerRole.EVALUATOR_QUALITY_CHECK, f"Quality check requires execute action for subtask {current_subtask_id}", TriggerCode.QUALITY_CHECK_EXECUTE_ACTION)
                 else:
                     # 未知的gate decision，默认切换到PLAN
                     logger.warning(f"Unknown gate decision: {decision}, switching to PLAN")
                     self.global_state.update_subtask_status(
                         current_subtask_id, SubtaskStatus.REJECTED,
                         f"Unknown gate decision: {decision}")
-                    return (ControllerState.PLAN, "unknown_gate_decision", f"Unknown gate decision: {decision}")
+                    return (ControllerState.PLAN, TriggerRole.EVALUATOR_QUALITY_CHECK, f"Unknown gate decision: {decision}", TriggerCode.QUALITY_CHECK_ERROR)
             else:
-                # 没有质检记录，继续等待
+                # 没有质检记录，错误
                 logger.debug(f"No gate checks found for subtask {current_subtask_id}")
-                return (ControllerState.QUALITY_CHECK, "waiting", "Waiting for quality check results")
+                return (ControllerState.PLAN, TriggerRole.EVALUATOR_QUALITY_CHECK, "Quality check error", TriggerCode.QUALITY_CHECK_ERROR)
 
         except Exception as e:
             logger.error(f"Error in QUALITY_CHECK state: {e}")
@@ -290,9 +290,9 @@ class StateHandlers:
                 self.global_state.update_subtask_status(
                     current_subtask_id, SubtaskStatus.REJECTED,
                     "Quality check error")
-            return (ControllerState.PLAN, "quality_check_error", f"QUALITY_CHECK state error: {str(e)}")
+            return (ControllerState.PLAN, TriggerRole.EVALUATOR_QUALITY_CHECK, f"QUALITY_CHECK state error: {str(e)}", TriggerCode.QUALITY_CHECK_ERROR)
     
-    def handle_plan_state(self) -> tuple[ControllerState, str, str]:
+    def handle_plan_state(self) -> tuple[ControllerState, TriggerRole, str, TriggerCode]:
         """重规划阶段"""
         logger.info("Handling PLAN state")
 
@@ -314,18 +314,18 @@ class StateHandlers:
                 self.global_state.advance_to_next_subtask()
                 self.global_state.update_task_status(TaskStatus.PENDING)
                 logger.info(f"Set current subtask: {first_subtask_id}")
-                return (ControllerState.GET_ACTION, "subtask_ready", f"First subtask {first_subtask_id} ready")
+                return (ControllerState.GET_ACTION, TriggerRole.MANAGER_REPLAN, f"First subtask {first_subtask_id} ready", TriggerCode.SUBTASK_READY_AFTER_PLAN)
             else:
                 # 没有subtask，任务可能无法完成
                 logger.warning("No subtasks available, continuing to wait for planning")
-                return (ControllerState.PLAN, "waiting", "Waiting for planning to complete")
+                return (ControllerState.INIT, TriggerRole.MANAGER_REPLAN, "Plan error, no subtasks available", TriggerCode.PLAN_ERROR)
 
         except Exception as e:
             logger.error(f"Error in PLAN state: {e}")
             self.global_state.add_event("controller", "error", f"PLAN state error: {str(e)}")
-            return (ControllerState.INIT, "plan_error", f"PLAN state error: {str(e)}")
+            return (ControllerState.INIT, TriggerRole.MANAGER_REPLAN, f"PLAN state error: {str(e)}", TriggerCode.PLAN_ERROR)
     
-    def handle_supplement_state(self) -> tuple[ControllerState, str, str]:
+    def handle_supplement_state(self) -> tuple[ControllerState, TriggerRole, str, TriggerCode]:
         """资料补全阶段"""
         logger.info("Handling SUPPLEMENT state")
 
@@ -339,7 +339,7 @@ class StateHandlers:
 
             # 如果资料补充完成，回到PLAN
             logger.info("Supplement state completed, returning to PLAN")
-            return (ControllerState.PLAN, "supplement_completed", "Supplement collection completed")
+            return (ControllerState.PLAN, TriggerRole.MANAGER_SUPPLEMENT, "Supplement collection completed", TriggerCode.SUPPLEMENT_COMPLETED)
 
         except Exception as e:
             logger.error(f"Error in SUPPLEMENT state: {e}")
@@ -350,9 +350,9 @@ class StateHandlers:
                 self.global_state.update_subtask_status(
                     current_subtask_id, SubtaskStatus.REJECTED,
                     "Supplement collection failed")
-            return (ControllerState.PLAN, "supplement_error", f"SUPPLEMENT state error: {str(e)}")
+            return (ControllerState.PLAN, TriggerRole.MANAGER_SUPPLEMENT, f"SUPPLEMENT state error: {str(e)}", TriggerCode.SUPPLEMENT_ERROR)
     
-    def handle_final_check_state(self) -> tuple[ControllerState, str, str]:
+    def handle_final_check_state(self) -> tuple[ControllerState, TriggerRole, str, TriggerCode]:
         """最终质检阶段"""
         logger.info("Handling FINAL_CHECK state")
 
@@ -361,12 +361,12 @@ class StateHandlers:
             task = self.global_state.get_task()
             if not task:
                 logger.error("No task found for final check")
-                return (ControllerState.DONE, "final_check_error", "No task found")
+                return (ControllerState.DONE, TriggerRole.EVALUATOR_FINAL_CHECK, "No task found", TriggerCode.FINAL_CHECK_ERROR)
 
             # 检查是否还有待处理的subtask
             if task.pending_subtask_ids and len(task.pending_subtask_ids) > 0:
                 logger.info("Still have pending subtasks, switching to GET_ACTION")
-                return (ControllerState.GET_ACTION, "final_check_pending", "Still have pending subtasks")
+                return (ControllerState.GET_ACTION, TriggerRole.EVALUATOR_FINAL_CHECK, "Still have pending subtasks", TriggerCode.FINAL_CHECK_PENDING)
 
             # 所有subtask都完成了，进行最终质检
             logger.info("All subtasks completed, performing final quality check")
@@ -397,19 +397,19 @@ class StateHandlers:
                     self.global_state.update_task_status(TaskStatus.FULFILLED)
                     logger.info("Final quality check passed, task fulfilled")
                     # 切换到DONE状态
-                    return (ControllerState.DONE, "final_check_passed", "Final quality check passed")
+                    return (ControllerState.DONE, TriggerRole.EVALUATOR_FINAL_CHECK, "Final quality check passed", TriggerCode.FINAL_CHECK_PASSED)
                 elif decision == GateDecision.GATE_FAIL.value:
                     # 最终质检失败
                     logger.info("Final quality check failed, task rejected")
                     # 切换到PLAN状态
-                    return (ControllerState.PLAN, "final_check_failed", "Final quality check failed")
+                    return (ControllerState.PLAN, TriggerRole.EVALUATOR_FINAL_CHECK, "Final quality check failed", TriggerCode.FINAL_CHECK_FAILED)
                     
             # 其他状态，继续等待
-            logger.info(f"Final quality check still in progress")
-            return (ControllerState.FINAL_CHECK, "waiting", "Final quality check in progress")
+            logger.info(f"Final quality check failed.")
+            return (ControllerState.PLAN, TriggerRole.EVALUATOR_FINAL_CHECK, "Final quality check failed", TriggerCode.FINAL_CHECK_FAILED)
             
         except Exception as e:
             logger.error(f"Error in FINAL_CHECK state: {e}")
             self.global_state.add_event("controller", "error", f"FINAL_CHECK state error: {str(e)}")
             # 最终质检失败
-            return (ControllerState.PLAN, "final_check_error", f"Final check failed: {str(e)}") 
+            return (ControllerState.PLAN, TriggerRole.EVALUATOR_FINAL_CHECK, f"Final check failed: {str(e)}", TriggerCode.FINAL_CHECK_FAILED) 

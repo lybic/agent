@@ -228,7 +228,37 @@
 
 ---
 
-### 9. DeepSeek
+### 9. Lybic AI
+
+**Provider:**
+
+- `lybic`
+
+**Supported Models:**
+
+- `gpt-5`
+- `gpt-4.1`
+- `gpt-4.1-mini`
+- `gpt-4.1-nano`
+- `gpt-4.5-preview`
+- `gpt-4o`
+- `gpt-4o-realtime-preview`
+- `gpt-4o-mini`
+- `o1`
+- `o1-pro`
+- `o1-mini`
+- `o3`
+- `o3-pro`
+- `o3-mini`
+- `o4-mini`
+
+**Note:** Lybic AI provides OpenAI-compatible API endpoints with the same model names and pricing structure.
+
+📚 **Reference Link:** <https://aigw.lybicai.com/>
+
+---
+
+### 10. DeepSeek
 
 **Provider:**
 
@@ -243,7 +273,7 @@
 
 ---
 
-### 10. Alibaba Cloud Qwen
+### 11. Alibaba Cloud Qwen
 
 **Supported Models:**
 
@@ -262,7 +292,7 @@
 
 ---
 
-### 11. ByteDance Doubao
+### 12. ByteDance Doubao
 
 **Supported Models:**
 
@@ -282,12 +312,10 @@
 
 ---
 
-### 12. Zhipu GLM
+### 13. Zhipu GLM
 
 **Supported Models:**
 
-- `GLM-4.5`
-- `GLM-4.5V`
 - `GLM-4-Plus`
 - `GLM-4-Air-250414`
 - `GLM-4-AirX` (Grounding)
@@ -302,7 +330,7 @@
 
 ---
 
-### 13. SiliconFlow
+### 14. SiliconFlow
 
 **Supported Models:**
 
@@ -317,7 +345,7 @@
 
 ## 🔤 Dedicated Embedding Providers
 
-### 14. Jina AI
+### 15. Jina AI
 
 **Embedding Models:**
 
@@ -330,7 +358,7 @@
 
 ## 🔍 AI Search Engines
 
-### 15. Bocha AI
+### 16. Bocha AI
 
 **Service Type:** AI Research & Search
 
@@ -338,7 +366,7 @@
 
 ---
 
-### 16. Exa
+### 17. Exa
 
 **Service Type:** AI Research & Search
 

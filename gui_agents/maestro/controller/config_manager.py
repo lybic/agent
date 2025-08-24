@@ -36,13 +36,14 @@ class ConfigManager:
                 self.tools_config = json.load(f)
                 logger.info(f"Loaded tools configuration from: {tools_config_path}")
                 
-                # 构建工具字典
+                # 构建工具字典，保留所有配置字段
                 for tool in self.tools_config["tools"]:
                     tool_name = tool["tool_name"]
-                    self.tools_dict[tool_name] = {
-                        "provider": tool["provider"],
-                        "model": tool["model_name"]
-                    }
+                    # 复制所有配置字段，不仅仅是 provider 和 model
+                    self.tools_dict[tool_name] = tool.copy()
+                    # 确保 model 字段存在（从 model_name 映射）
+                    if "model_name" in tool:
+                        self.tools_dict[tool_name]["model"] = tool["model_name"]
                     
                 logger.debug(f"Tools configuration loaded: {len(self.tools_dict)} tools")
                 return self.tools_dict

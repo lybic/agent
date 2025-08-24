@@ -7,7 +7,7 @@ import time
 import os
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import platform
 
 from gui_agents.maestro.Action import Screenshot
@@ -51,8 +51,17 @@ class MainController:
         env: Optional[DesktopEnv] = None,
         env_password: str = "password",
         log_dir: str = "logs",
-        datetime_str: str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        datetime_str: str = datetime.now().strftime("%Y%m%d_%H%M%S"),
+        enable_snapshots: bool = True,
+        snapshot_interval: int = 10,  # 每N步自动创建快照
+        create_checkpoint_snapshots: bool = True  # 是否在关键状态创建检查点快照
     ):
+        # 快照配置
+        self.enable_snapshots = enable_snapshots
+        self.snapshot_interval = snapshot_interval
+        self.create_checkpoint_snapshots = create_checkpoint_snapshots
+        self.last_snapshot_step = 0
+        
         # 初始化全局状态
         self.global_state = self._registry_global_state(log_dir, datetime_str)
         
@@ -62,6 +71,10 @@ class MainController:
         self.max_steps = max_steps
         self.env = env
         self.env_password = env_password
+        self.enable_search = enable_search
+        self.enable_takeover = enable_takeover
+        self.enable_rag = enable_rag
+        self.backend = backend
         
         # 初始化配置管理器
         self.config_manager = ConfigManager(memory_root_path, memory_folder_name)
@@ -127,7 +140,11 @@ class MainController:
         
         # 初始化任务，生成第一次截图
         self._handle_task_init()
-    
+        
+        # 创建初始快照
+        if self.enable_snapshots:
+            self._create_initial_snapshot()
+
     def _registry_global_state(self, log_dir: str, datetime_str: str):
         """注册全局状态"""
         # Ensure necessary directory structure exists
@@ -158,6 +175,113 @@ class MainController:
         screenshot: Image.Image = self.hwi.dispatch(Screenshot())  # type: ignore
         self.global_state.set_screenshot(scale_screenshot_dimensions(screenshot, self.hwi))
     
+    def _create_initial_snapshot(self):
+        """创建初始快照"""
+        try:
+            if self.enable_snapshots:
+                # 准备配置参数
+                config_params = {
+                    "tools_dict": self.tools_dict,
+                    "platform": self.platform,
+                    "enable_search": self.enable_search,
+                    "env_password": self.env_password,
+                    "enable_takeover": self.enable_takeover,
+                    "enable_rag": self.enable_rag,
+                    "backend": self.backend,
+                    "max_steps": self.max_steps
+                }
+                
+                snapshot_id = self.global_state.create_snapshot(
+                    description=f"Initial state for task: {self.user_query}",
+                    snapshot_type="initial",
+                    config_params=config_params
+                )
+                logger.info(f"Initial snapshot created: {snapshot_id}")
+        except Exception as e:
+            logger.warning(f"Failed to create initial snapshot: {e}")
+
+    def _should_create_auto_snapshot(self) -> bool:
+        """判断是否应该创建自动快照"""
+        if not self.enable_snapshots:
+            return False
+        
+        current_step = self.step_count
+        return (current_step - self.last_snapshot_step) >= self.snapshot_interval
+
+    def _create_auto_snapshot(self):
+        """创建自动快照"""
+        try:
+            if self._should_create_auto_snapshot():
+                # 准备配置参数
+                config_params = {
+                    "tools_dict": self.tools_dict,
+                    "platform": self.platform,
+                    "enable_search": self.enable_search,
+                    "env_password": self.env_password,
+                    "enable_takeover": self.enable_takeover,
+                    "enable_rag": self.enable_rag,
+                    "backend": self.backend,
+                    "max_steps": self.max_steps
+                }
+                
+                snapshot_id = self.global_state.create_snapshot(
+                    description=f"Auto snapshot at step {self.step_count}",
+                    snapshot_type="auto",
+                    config_params=config_params
+                )
+                self.last_snapshot_step = self.step_count
+                logger.debug(f"Auto snapshot created: {snapshot_id}")
+        except Exception as e:
+            logger.warning(f"Failed to create auto snapshot: {e}")
+
+    def _create_checkpoint_snapshot(self, checkpoint_name: str = ""):
+        """创建检查点快照"""
+        try:
+            if self.enable_snapshots and self.create_checkpoint_snapshots:
+                if not checkpoint_name:
+                    checkpoint_name = f"checkpoint_step_{self.step_count}"
+                
+                snapshot_id = self.global_state.create_snapshot(
+                    description=f"Checkpoint: {checkpoint_name}",
+                    snapshot_type="checkpoint"
+                )
+                logger.info(f"Checkpoint snapshot created: {snapshot_id}")
+                return snapshot_id
+        except Exception as e:
+            logger.warning(f"Failed to create checkpoint snapshot: {e}")
+        return None
+
+    def _create_error_snapshot(self, error_message: str, error_type: str = "unknown"):
+        """创建错误快照"""
+        try:
+            if self.enable_snapshots:
+                snapshot_id = self.global_state.create_snapshot(
+                    description=f"Error: {error_message}",
+                    snapshot_type=f"error_{error_type}"
+                )
+                logger.info(f"Error snapshot created: {snapshot_id}")
+                return snapshot_id
+        except Exception as e:
+            logger.warning(f"Failed to create error snapshot: {e}")
+        return None
+
+    def _handle_snapshot_creation(self, current_state: ControllerState):
+        """处理快照创建逻辑"""
+        if not self.enable_snapshots:
+            return
+        
+        try:
+            # 检查是否应该创建自动快照
+            self._create_auto_snapshot()
+            
+            # 在关键状态创建检查点快照
+            if self.create_checkpoint_snapshots:
+                if current_state in [ControllerState.PLAN, ControllerState.QUALITY_CHECK, ControllerState.FINAL_CHECK]:
+                    self._create_checkpoint_snapshot(f"checkpoint_{current_state.value.lower()}")
+                    
+        except Exception as e:
+            logger.warning(f"Error in snapshot creation: {e}")
+    
     def execute_single_step(self, steps: int = 1) -> None:
         """单步执行若干次状态机逻辑（执行 steps 步，不进入循环）"""
         if steps is None or steps <= 0:
@@ -174,14 +298,20 @@ class MainController:
                 current_state = self.state_machine.get_current_state()
                 logger.info(f"Current state (single step {step_index + 1}/{steps}): {current_state}")
 
-                # 3. 根据状态执行相应处理（一次一步）
+                # 3. 处理快照创建
+                self._handle_snapshot_creation(current_state)
+
+                # 4. 根据状态执行相应处理（一次一步）
                 self._handle_state(current_state)
 
-                # 4. 每步结束后，处理规则并更新状态
+                # 5. 每步结束后，处理规则并更新状态
                 self.state_machine.process_rules_and_update_states()
 
         except Exception as e:
             logger.error(f"Error in single step batch: {e}")
+            # 创建错误快照
+            self._create_error_snapshot(str(e), "single_step_batch")
+            
             self.global_state.add_event(
                 "controller", "error", f"Single step batch error: {str(e)}")
             # 错误恢复：回到INIT状态（单步序列）
@@ -205,24 +335,30 @@ class MainController:
                 # 2. 获取当前状态
                 current_state = self.state_machine.get_current_state()
 
-                # 3. 根据状态执行相应处理
+                # 3. 处理快照创建
+                self._handle_snapshot_creation(current_state)
+
+                # 4. 根据状态执行相应处理
                 self._handle_state(current_state)
                 
                 # 如果是执行动作状态，增加步数计数
                 if current_state == ControllerState.EXECUTE_ACTION:
                     self.increment_step_count()
 
-                # 4. 每次循环结束后，处理规则并更新状态
+                # 5. 每次循环结束后，处理规则并更新状态
                 self.state_machine.process_rules_and_update_states()
 
-                # 5. 增加轮次计数
+                # 6. 增加轮次计数
                 self.increment_turn_count()
 
-                # 6. 状态间短暂等待
+                # 7. 状态间短暂等待
                 time.sleep(0.1)
 
             except Exception as e:
                 logger.error(f"Error in main loop: {e}")
+                # 创建错误快照
+                self._create_error_snapshot(str(e), "main_loop")
+                
                 self.global_state.log_operation(
                     "controller", "error", {"error": f"Main loop error: {str(e)}"})
                 # 错误恢复：回到INIT状态
@@ -240,6 +376,11 @@ class MainController:
                 "turn_count": counters["turn_count"],
                 "final_state": self.state_machine.get_current_state().value
             })
+        
+        # 创建完成快照
+        if self.enable_snapshots:
+            self._create_checkpoint_snapshot("task_completed")
+        
         logger.info(
             f"Main loop completed in {main_loop_duration:.2f}s with {counters['step_count']} steps and {counters['turn_count']} turns"
         )
@@ -290,7 +431,14 @@ class MainController:
             "plan_num": self.global_state.get_plan_num(),
             "controller_state": self.global_state.get_controller_state(),
             "task_id": self.global_state.task_id,
-            "executor_status": self.executor.get_execution_status()
+            "executor_status": self.executor.get_execution_status(),
+            "snapshot_info": {
+                "enabled": self.enable_snapshots,
+                "interval": self.snapshot_interval,
+                "last_snapshot_step": self.last_snapshot_step,
+                "checkpoint_snapshots": self.create_checkpoint_snapshots,
+                "note": "Use create_manual_snapshot() to create snapshots"
+            }
         }
 
     def reset_controller(self):
@@ -299,6 +447,9 @@ class MainController:
         self.state_machine.reset_state_switch_count()
         self.global_state.reset_controller_state()
         self.reset_counters()  # 重置计数器
+        
+        # 重置快照相关状态
+        self.last_snapshot_step = 0
         
         # 重置plan_num
         task = self.global_state.get_task()
@@ -328,3 +479,24 @@ class MainController:
     def get_counters(self) -> Dict[str, int]:
         """获取当前计数器状态"""
         return {"step_count": self.step_count, "turn_count": self.turn_count} 
+
+    # ========= Snapshot Management Methods =========
+    def create_manual_snapshot(self, description: str = "") -> Optional[str]:
+        """手动创建快照"""
+        try:
+            if not self.enable_snapshots:
+                logger.warning("Snapshots are disabled")
+                return None
+            
+            if not description:
+                description = f"Manual snapshot at step {self.step_count}"
+            
+            snapshot_id = self.global_state.create_snapshot(description, "manual")
+            logger.info(f"Manual snapshot created: {snapshot_id}")
+            return snapshot_id
+            
+        except Exception as e:
+            logger.error(f"Failed to create manual snapshot: {e}")
+            return None
+
+ 

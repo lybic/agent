@@ -122,8 +122,14 @@ class Technician:
         *,
         subtask: Dict[str, Any],
         guidance: Optional[str] = None,
+        trigger_code: str = "",
     ) -> Dict[str, Any]:
         """Execute a system-level task using terminal commands.
+
+        Args:
+            subtask: Subtask information
+            guidance: Optional guidance for the task
+            trigger_code: Current trigger code to adjust behavior
 
         Returns a dict containing:
         - plan: generated code/script
@@ -137,31 +143,10 @@ class Technician:
         subtask_id = subtask.get("subtask_id", "")
         command_history = self._get_command_history_for_subtask(subtask_id)
 
-        # Build coding prompt
-        subtask_title = subtask.get("title", "")
-        subtask_desc = subtask.get("description", "")
-        
-        system_message = []
-        system_message.append(f"# Your linux username is \"user\"")
-        system_message.append(f"# Your client password is: {self.client_password}")
-        system_message.append(f"# Platform: {self.platform}")
-        
-        task_prompt = []
-        task_prompt.append(f"# Task: {subtask_title}")
-        task_prompt.append(f"# Description: {subtask_desc}")
-        if guidance:
-            task_prompt.append(f"# Guidance: {guidance}")
-        task_prompt.append(f"# Platform: {self.platform}")
-        
-        # 添加历史操作记录到提示词中
-        task_prompt.append(f"# Previous Actions History:")
-        task_prompt.append(command_history)
-        task_prompt.append("")
-        task_prompt.append("# Based on the above history, generate the appropriate bash or python code to complete this task.")
-        task_prompt.append("Wrap your code in ```bash or ```python code blocks.")
-        task_prompt.append("If the task is already done, or cannot proceed, or needs info/QA, output a Decision section like 'Decision: Done' | 'Decision: Failed' | 'Decision: Supplement' | 'Decision: NeedQualityCheck'. If you provide code, that's treated as generate_action.")
-        
-        full_prompt = "\n".join(system_message) + "\n" + "\n".join(task_prompt)
+        # 根据 trigger_code 构建上下文感知的提示词
+        context_aware_prompt = self._build_context_aware_prompt(
+            subtask, guidance, command_history, trigger_code
+        )
 
         # Get screenshot for context
         screenshot_bytes = self.global_state.get_screenshot()
@@ -171,7 +156,7 @@ class Technician:
         try:
             command_plan, total_tokens, cost_string = self.technician_agent.execute_tool(
                 self.technician_agent_name,
-                {"str_input": full_prompt, "img_input": screenshot_bytes},
+                {"str_input": context_aware_prompt, "img_input": screenshot_bytes},
             )
             latency_ms = int((time.time() - t0) * 1000)
             
@@ -352,3 +337,140 @@ class Technician:
                         return message
 
         return f"Decision {decision} was made"
+
+    def _build_context_aware_prompt(
+        self, 
+        subtask: Dict[str, Any], 
+        guidance: Optional[str], 
+        command_history: str,
+        trigger_code: str
+    ) -> str:
+        """根据 trigger_code 构建上下文感知的提示词"""
+        subtask_title = subtask.get("title", "")
+        subtask_desc = subtask.get("description", "")
+        
+        system_message = []
+        system_message.append(f"# Your linux username is \"user\"")
+        system_message.append(f"# Your client password is: {self.client_password}")
+        system_message.append(f"# Platform: {self.platform}")
+        
+        task_prompt = []
+        task_prompt.append(f"# Task: {subtask_title}")
+        task_prompt.append(f"# Description: {subtask_desc}")
+        if guidance:
+            task_prompt.append(f"# Guidance: {guidance}")
+        task_prompt.append(f"# Platform: {self.platform}")
+        
+        # 根据 trigger_code 添加特定的上下文信息
+        context_info = self._get_context_info_by_trigger_code(trigger_code)
+        if context_info:
+            task_prompt.append("")
+            task_prompt.append(f"# Context: {context_info}")
+        
+        # 添加历史操作记录到提示词中 - 这是非常重要的上下文信息
+        task_prompt.append(f"# Previous Actions History:")
+        task_prompt.append(command_history)
+        task_prompt.append("")
+        task_prompt.append("# Based on the above history, generate the appropriate bash or python code to complete this task.")
+        task_prompt.append("Wrap your code in ```bash or ```python code blocks.")
+        task_prompt.append("If the task is already done, or cannot proceed, or needs info/QA, output a Decision section like 'Decision: Done' | 'Decision: Failed' | 'Decision: Supplement' | 'Decision: NeedQualityCheck'. If you provide code, that's treated as generate_action.")
+        
+        return "\n".join(system_message) + "\n" + "\n".join(task_prompt)
+
+    def _get_context_info_by_trigger_code(self, trigger_code: str) -> str:
+        """根据 trigger_code 返回相应的详细上下文信息和指导"""
+        from gui_agents.maestro.enums import TRIGGER_CODE_BY_MODULE
+        
+        # 检查是否属于 WORKER_GET_ACTION_CODES
+        worker_codes = TRIGGER_CODE_BY_MODULE.WORKER_GET_ACTION_CODES
+        
+        if trigger_code == worker_codes["subtask_ready"]:
+            return """
+# New System Task Ready - Context Information
+- This is a new system-level task that has just been assigned
+- Carefully analyze the task requirements and understand the system-level operations needed
+- Consider the most appropriate scripting approach (bash, python, or other tools)
+- Review the current system state and identify any prerequisites or dependencies
+- Ensure you have the necessary permissions and access for the required operations
+- Plan the execution sequence to minimize system impact and maximize efficiency
+"""
+        
+        elif trigger_code == worker_codes["execution_error"]:
+            return """
+# Previous System Execution Error - Context Information
+- The previous system command or script execution encountered an error or failure
+- Analyze the error messages, exit codes, or system state to understand what went wrong
+- Check for permission issues, missing dependencies, or system resource constraints
+- Consider alternative approaches, different tools, or modified execution strategies
+- Review the system logs or error output for specific failure details
+- Ensure the new approach addresses the root cause of the previous failure
+"""
+        
+        elif trigger_code == worker_codes["command_completed"]:
+            return """
+# System Command Successfully Completed - Context Information
+- The previous system command has been successfully executed
+- Verify the expected system changes, file modifications, or process states
+- Check for any output, logs, or system responses that indicate success
+- Assess whether the current system state matches the expected outcome
+- Identify the next logical system operation based on the current progress
+- Continue with the next step in the system task sequence
+"""
+        
+        elif trigger_code == worker_codes["no_command"]:
+            return """
+# No Executable System Command Found - Context Information
+- No suitable system command or script could be identified for the current situation
+- Re-analyze the system task requirements and current system state
+- Look for alternative tools, different approaches, or modified execution methods
+- Consider whether the system task needs to be broken down into smaller operations
+- Review the task description for any missed system requirements or constraints
+- Generate a more appropriate system command or script based on the current context
+"""
+        
+        elif trigger_code == worker_codes["quality_check_passed"]:
+            return """
+# System Quality Check Passed - Context Information
+- The quality check for the previous system operation has been successfully completed
+- The system operation met all quality criteria and requirements
+- Continue with the next step in the system task execution
+- Look for the next logical system operation based on the current progress
+- Ensure continuity in the system task execution flow
+- Maintain the same level of quality and safety for subsequent system operations
+"""
+        
+        elif trigger_code == worker_codes["subtask_ready_after_plan"]:
+            return """
+# System Task Ready After Replanning - Context Information
+- This system task has been prepared after a replanning process
+- The previous plan may have had issues that have been addressed
+- Start fresh with the improved understanding and approach for system operations
+- Pay attention to any specific guidance provided during replanning
+- Ensure you follow the updated strategy and system requirements
+- Look for any changes in the system approach or methodology
+- Consider any new system constraints or requirements identified during replanning
+"""
+        
+        elif trigger_code == worker_codes["final_check_pending"]:
+            return """
+# Final System Check Pending - Context Information
+- The system is approaching the final verification stage
+- Ensure all necessary system operations for this task have been completed
+- Review the current system state against the task completion criteria
+- Look for any missing system changes, incomplete operations, or pending processes
+- Verify that the current system state meets the expected final outcome
+- Prepare for the final quality assessment of the entire system task
+- Ensure all system resources are properly managed and cleaned up
+"""
+        
+        else:
+            # 默认情况
+            return """
+# General System Context Information
+- Analyze the current system state and task requirements
+- Consider the most appropriate system command or script based on the current context
+- Ensure your system operation aligns with the task objectives and safety requirements
+- Look for system indicators, logs, or state information that guide the next step
+- Maintain consistency with the overall system task execution strategy
+- Consider system security, resource usage, and potential impact of your operations
+"""

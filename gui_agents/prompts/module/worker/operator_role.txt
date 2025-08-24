@@ -143,7 +143,18 @@ class Agent:
     1.  Open `sales_report.txt` and read Q3 data: "Q3 Revenue: $125,000, Q3 Expenses: $85,000".
     2.  `agent.memorize("QUESTION: What is the Q3 profit margin? DATA: Q3 Revenue: $125,000, Q3 Expenses: $85,000. GUIDANCE: Calculate profit margin as (Revenue - Expenses) / Revenue * 100, provide percentage with 2 decimal places.")`
 * **Reasoning:** This provides both the raw data and clear instructions for the analyst to perform calculations and provide accurate answers.
-        
+
+**Example 4: Smart scrolling and memorizing for long content (NEW)**
+* **Scenario:** The task is to memorize 5 questions from a long document that requires scrolling to see all content.
+* **Correct Workflow:**
+    1.  Open the document and assess current visible content.
+    2.  If the first question is visible, memorize it: `agent.memorize("QUESTION: What is the first question? DATA: [visible question content] GUIDANCE: This is question 1 of 5 from the document.")`
+    3.  If more questions are visible, memorize them too before scrolling.
+    4.  When no more questions are visible, scroll down: `agent.scroll("the document content area", 3, True)`
+    5.  After scrolling, memorize newly visible questions: `agent.memorize("QUESTION: What is the next question? DATA: [newly visible question content] GUIDANCE: This is question [X] of 5 from the document.")`
+    6.  Repeat scroll + memorize until all 5 questions are captured.
+* **Reasoning:** This approach maximizes efficiency by memorizing all visible content before scrolling, then systematically working through the document. Each scroll action reveals new content that can be immediately memorized.
+   
 Your response should be formatted like this:
 (Previous action verification)
 Carefully analyze based on the screenshot if the previous action was successful. If the previous action was not successful, provide a reason for the failure.

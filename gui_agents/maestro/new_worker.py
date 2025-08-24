@@ -78,10 +78,17 @@ class NewWorker:
             logging.warning(f"Worker: subtask {subtask_id} not found")
             return None
 
+        # 获取当前的 trigger_code 来调整处理逻辑
+        current_trigger_code = self._get_current_trigger_code()
+        logger.info(f"Worker processing subtask {subtask_id} with trigger_code: {current_trigger_code}")
+
         role = (subtask.assignee_role or "operator").lower()
         try:
             if role == "operator":
-                res = self.operator.generate_next_action(subtask=subtask.to_dict())  # type: ignore
+                res = self.operator.generate_next_action(
+                    subtask=subtask.to_dict(),  # type: ignore
+                    trigger_code=current_trigger_code
+                )
                 outcome = (res.get("outcome") or "").strip()
                 action = res.get("action")
                 action_plan = res.get("action_plan", "")
@@ -124,7 +131,10 @@ class NewWorker:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
 
             if role == "technician":
-                res = self.technician.execute_task(subtask=subtask.to_dict())  # type: ignore
+                res = self.technician.execute_task(
+                    subtask=subtask.to_dict(),  # type: ignore
+                    trigger_code=current_trigger_code
+                )
                 outcome = (res.get("outcome") or "").strip()
                 action = res.get("action")
                 command_plan = res.get("command_plan", "")
@@ -231,6 +241,15 @@ class NewWorker:
         except Exception as e:
             logging.error(f"Worker: error processing subtask {subtask_id}: {e}")
             return WorkerDecision.CANNOT_EXECUTE.value
+
+    def _get_current_trigger_code(self) -> str:
+        """获取当前的 trigger_code"""
+        try:
+            controller_state = self._global_state.get_controller_state()
+            return controller_state.get("trigger_code", "")
+        except Exception as e:
+            logger.warning(f"Failed to get current trigger_code: {e}")
+            return ""
 
 
 # Export friendly alias

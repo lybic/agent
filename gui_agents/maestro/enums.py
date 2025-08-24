@@ -113,28 +113,29 @@ class EventType(str, Enum):
 class TriggerCode(str, Enum):
     """触发代码枚举"""
     # Hardware相关
-    HARDWARE_GET_ACTION = "hardware_get_action"
+    HARDWARE_GET_ACTION = "hardware_get_action" # executor -> worker: get_action
     
     # Final Check相关
-    FINAL_CHECK_GATE_DONE = "final_check_gate_done"
-    FINAL_CHECK_GATE_FAIL = "final_check_gate_fail"
+    FINAL_CHECK_GATE_DONE = "final_check_gate_done" # evaluator: final_check -> END: fulfilled
+    FINAL_CHECK_GATE_FAIL = "final_check_gate_fail" # evaluator: final_check -> manager: replan
     
     # Evaluator相关
-    EVALUATOR_GATE_DONE_FINAL_CHECK = "evaluator_gate_done_final_check"
-    EVALUATOR_GATE_FAIL_GET_ACTION = "evaluator_gate_fail_get_action"
-    EVALUATOR_GATE_SUPPLEMENT = "evaluator_gate_supplement"
-    EVALUATOR_GATE_CONTINUE = "evaluator_gate_continue"
+    EVALUATOR_GATE_DONE_FINAL_CHECK = "evaluator_gate_done_final_check" # evaluator: quality_check -> evaluator: final_check
+    EVALUATOR_GATE_DONE_GET_ACTION = "evaluator_gate_done_get_action" # evaluator: quality_check -> worker: get_action
+    EVALUATOR_GATE_FAIL_GET_ACTION = "evaluator_gate_fail_get_action" # evaluator: quality_check -> manager: replan
+    EVALUATOR_GATE_SUPPLEMENT = "evaluator_gate_supplement" # evaluator: quality_check -> manager: supplement
+    EVALUATOR_GATE_CONTINUE = "evaluator_gate_continue" # evaluator: quality_check -> executor
     
     # Worker相关
-    WORKER_SUCCESS = "worker_success"
-    WORK_CANNOT_EXECUTE = "work_cannot_execute"
-    WORKER_STALE_PROGRESS = "worker_stale_progress"
-    WORKER_GENERATE_ACTION = "worker_generateaction"
-    WORKER_SUPPLEMENT = "worker_supplement"
+    WORKER_SUCCESS = "worker_success" # worker: get_action -> evaluator: quality_check
+    WORK_CANNOT_EXECUTE = "work_cannot_execute" # worker: get_action -> manager: replan
+    WORKER_STALE_PROGRESS = "worker_stale_progress" # worker: get_action -> evaluator: quality_check
+    WORKER_GENERATE_ACTION = "worker_generate_action" # worker: get_action -> executor
+    WORKER_SUPPLEMENT = "worker_supplement" # worker: get_action -> manager: supplement
     
     # Manager相关
-    MANAGER_GET_ACTION = "manager_get_action"
-    MANAGER_REPLAN = "manager_replan"
+    MANAGER_GET_ACTION = "manager_get_action" # manager: replan -> worker: get_action
+    MANAGER_REPLAN = "manager_replan" # manager: supplement -> manager: replan
     
     # 规则检验相关
     RULE_QUALITY_CHECK_STEPS = "rule_quality_check_steps"           # 距离上次质检过去了5步

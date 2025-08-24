@@ -125,18 +125,18 @@ class TriggerCode(str, Enum):
     """触发代码枚举"""
     
     # 规则检验相关
-    RULE_QUALITY_CHECK_STEPS = "rule_quality_check_steps"           # 距离上次质检过去了5步
-    RULE_QUALITY_CHECK_REPEATED_ACTIONS = "rule_quality_check_repeated_actions"  # 相同连续动作高于3次
-    RULE_REPLAN_LONG_EXECUTION = "rule_replan_long_execution"       # 一个subtask的执行action过长，超过15次
+    RULE_QUALITY_CHECK_STEPS = "rule_quality_check_steps" # controller -> evaluator: quality_check
+    RULE_QUALITY_CHECK_REPEATED_ACTIONS = "rule_quality_check_repeated_actions"  # controller -> evaluator: quality_check
+    RULE_REPLAN_LONG_EXECUTION = "rule_replan_long_execution"       # controller -> manager: replan
     
     # 任务状态规则相关
-    RULE_MAX_STATE_SWITCHES_REACHED = "rule_max_state_switches_reached"  # 达到最大状态切换次数
-    RULE_PLAN_NUMBER_EXCEEDED = "rule_plan_number_exceeded"              # 规划次数超过限制
-    RULE_STATE_SWITCH_COUNT_EXCEEDED = "rule_state_switch_count_exceeded"  # 状态切换次数超过50步
-    RULE_TASK_COMPLETED = "rule_task_completed"                          # 任务已完成
+    RULE_MAX_STATE_SWITCHES_REACHED = "rule_max_state_switches_reached"  # controller -> controller: done
+    RULE_PLAN_NUMBER_EXCEEDED = "rule_plan_number_exceeded"              # controller -> controller: done
+    RULE_STATE_SWITCH_COUNT_EXCEEDED = "rule_state_switch_count_exceeded"  # controller -> controller: done
+    RULE_TASK_COMPLETED = "rule_task_completed"                          # controller -> controller: done
     
     # 状态处理相关 - INIT状态
-    SUBTASK_READY = "subtask_ready" # INIT -> GET_ACTION
+    SUBTASK_READY = "subtask_ready" # INIT -> worker: get_action
     NO_SUBTASKS = "no_subtasks" # INIT -> manager: replan
     INIT_ERROR = "init_error" # INIT -> manager: replan
     
@@ -165,7 +165,7 @@ class TriggerCode(str, Enum):
     QUALITY_CHECK_ERROR = "quality_check_error" # evaluator: quality_check -> manager: replan
 
     # 状态处理相关 - PLAN状态
-    SUBTASK_READY_AFTER_PLAN = "subtask_ready_after_plan" # manager: replan -> GET_ACTION
+    SUBTASK_READY_AFTER_PLAN = "subtask_ready_after_plan" # manager: replan -> worker: get_action
     PLAN_ERROR = "plan_error" # manager: replan -> INIT
 
     # 状态处理相关 - SUPPLEMENT状态
@@ -173,12 +173,114 @@ class TriggerCode(str, Enum):
     SUPPLEMENT_ERROR = "supplement_error" # manager: supplement -> manager: replan
  
     # 状态处理相关 - FINAL_CHECK状态
-    FINAL_CHECK_ERROR = "final_check_error" # evaluator: final_check -> END: Done
+    FINAL_CHECK_ERROR = "final_check_error" # evaluator: final_check -> controller: done
     FINAL_CHECK_PENDING = "final_check_pending" # evaluator: final_check -> worker: get_action
-    FINAL_CHECK_PASSED = "final_check_passed" # evaluator: final_check -> END: Done
+    FINAL_CHECK_PASSED = "final_check_passed" # evaluator: final_check -> controller: done
     FINAL_CHECK_FAILED = "final_check_failed" # evaluator: final_check -> manager: replan
 
     # 错误恢复相关
     UNKNOWN_STATE = "unknown_state" # unknown -> INIT
     ERROR_RECOVERY = "error_recovery" # unknown -> INIT
     
+# 按模块分类的触发代码字典
+TRIGGER_CODE_BY_MODULE = {
+    "manager_replan": [
+        # 任务状态规则相关
+        "rule_replan_long_execution",       # controller -> manager: replan
+        
+        # 状态处理相关 - INIT状态
+        "no_subtasks", # INIT -> manager: replan
+        "init_error", # INIT -> manager: replan
+        
+        # 状态处理相关 - GET_ACTION状态
+        "work_cannot_execute", # worker: get_action -> manager: replan
+        "no_worker_decision", # worker: get_action -> manager: replan
+        "get_action_error", # worker: get_action -> manager: replan
+        
+        # 状态处理相关 - QUALITY_CHECK状态
+        "quality_check_failed", # evaluator: quality_check -> manager: replan
+        "quality_check_error", # evaluator: quality_check -> manager: replan
+        
+        # 状态处理相关 - SUPPLEMENT状态
+        "supplement_completed", # manager: supplement -> manager: replan
+        "supplement_error", # manager: supplement -> manager: replan
+        
+        # 状态处理相关 - FINAL_CHECK状态
+        "final_check_failed", # evaluator: final_check -> manager: replan
+    ],
+    
+    "manager_supplement": [
+        # 状态处理相关 - GET_ACTION状态
+        "worker_supplement", # worker: get_action -> manager: supplement
+        
+        # 状态处理相关 - QUALITY_CHECK状态
+        "quality_check_supplement", # evaluator: quality_check -> manager: supplement
+    ],
+    
+    "worker_get_action": [
+        # 状态处理相关 - INIT状态
+        "subtask_ready", # INIT -> worker: get_action
+        
+        # 状态处理相关 - EXECUTE_ACTION状态
+        "execution_error", # executor: execute_action -> worker: get_action
+        "command_completed", # executor: execute_action -> worker: get_action
+        "no_command", # executor: execute_action -> worker: get_action
+        
+        # 状态处理相关 - QUALITY_CHECK状态
+        "quality_check_passed", # evaluator: quality_check -> worker: get_action
+        
+        # 状态处理相关 - PLAN状态
+        "subtask_ready_after_plan", # manager: replan -> worker: get_action
+        
+        # 状态处理相关 - FINAL_CHECK状态
+        "final_check_pending", # evaluator: final_check -> worker: get_action
+    ],
+    
+    "evaluator_quality_check": [
+        # 任务状态规则相关
+        "rule_quality_check_steps", # controller -> evaluator: quality_check
+        "rule_quality_check_repeated_actions",  # controller -> evaluator: quality_check
+        
+        # 状态处理相关 - GET_ACTION状态
+        "worker_success", # worker: get_action -> evaluator: quality_check
+        "worker_stale_progress", # worker: get_action -> evaluator: quality_check
+    ],
+    
+    "evaluator_final_check": [
+        # 状态处理相关 - QUALITY_CHECK状态
+        "all_subtasks_completed", # evaluator: quality_check -> evaluator: final_check
+    ],
+    
+    "executor_execute_action": [
+        # 状态处理相关 - GET_ACTION状态
+        "worker_generate_action", # worker: get_action -> executor: execute_action
+        
+        # 状态处理相关 - QUALITY_CHECK状态
+        "quality_check_execute_action", # evaluator: quality_check -> executor: execute_action
+    ],
+    
+    "INIT": [
+        # 状态处理相关 - GET_ACTION状态
+        "no_current_subtask_id", # worker: get_action | executor: execute_action | evaluator: quality_check -> INIT
+        "subtask_not_found", # worker: get_action | executor: execute_action -> INIT
+        
+        # 状态处理相关 - PLAN状态
+        "plan_error", # manager: replan -> INIT
+        
+        # 错误恢复相关
+        "unknown_state", # unknown -> INIT
+        "error_recovery", # unknown -> INIT
+    ],
+    
+    "DONE": [
+        # 任务状态规则相关
+        "rule_max_state_switches_reached",  # controller -> controller: done
+        "rule_plan_number_exceeded",              # controller -> controller: done
+        "rule_state_switch_count_exceeded",  # controller -> controller: done
+        "rule_task_completed",                          # controller -> controller: done
+        
+        # 状态处理相关 - FINAL_CHECK状态
+        "final_check_error", # evaluator: final_check -> END: Done
+        "final_check_passed", # evaluator: final_check -> END: Done
+    ]
+} 

@@ -94,7 +94,7 @@ class NewExecutor:
                     if code_blocks:
                         # 执行代码块
                         logger.info(f"Executing {len(code_blocks)} code blocks for technician role")
-                        execution_result = self.execute_code_blocks(code_blocks)
+                        execution_result = self.execute_code_blocks(code_blocks, subtask_id)
                         
                         if execution_result["success"]:
                             # 执行成功，返回执行结果
@@ -109,7 +109,7 @@ class NewExecutor:
                     code_blocks = self._extract_code_blocks(command.action)
                     if code_blocks:
                         logger.info(f"Extracted and executing {len(code_blocks)} code blocks from string action")
-                        execution_result = self.execute_code_blocks(code_blocks)
+                        execution_result = self.execute_code_blocks(code_blocks, subtask_id)
                         return execution_result
                     else:
                         return self._create_execution_result(False, "No code blocks found in string action")
@@ -256,12 +256,13 @@ class NewExecutor:
             logger.error(error_msg)
             return self._create_execution_result(False, error_msg, execution_time)
 
-    def execute_code_blocks(self, code_blocks: List[Tuple[str, str]]) -> Dict[str, Any]:
+    def execute_code_blocks(self, code_blocks: List[Tuple[str, str]], subtask_id: str) -> Dict[str, Any]:
         """
         执行代码块列表
         
         Args:
             code_blocks: 代码块列表，每个元素为 (语言, 代码) 的元组
+            subtask_id: 子任务ID，用于更新命令的 post_screenshot_id
             
         Returns:
             执行结果字典
@@ -313,6 +314,17 @@ class NewExecutor:
                 Screenshot())  # type: ignore
             self.global_state.set_screenshot(
                 scale_screenshot_dimensions(screenshot, self.hwi))
+            
+            # 获取新截图的ID并更新命令的 post_screenshot_id
+            new_screenshot_id = self.global_state.get_screenshot_id()
+            if new_screenshot_id:
+                # 获取当前命令并更新 post_screenshot_id
+                current_command = self.global_state.get_current_command_for_subtask(subtask_id)
+                if current_command:
+                    self.global_state.update_command_post_screenshot(
+                        current_command.command_id, new_screenshot_id)
+                    logger.info(f"Updated post_screenshot_id for command {current_command.command_id}: {new_screenshot_id}")
+            
             self.global_state.increment_step_num()
             
             return self._create_execution_result(
@@ -422,6 +434,17 @@ class NewExecutor:
                 time.sleep(3)
                 screenshot: Image.Image = self.hwi.dispatch(
                     Screenshot())  # type: ignore
+                
+                # 获取新截图的ID并更新命令的 post_screenshot_id
+                new_screenshot_id = self.global_state.get_screenshot_id()
+                if new_screenshot_id:
+                    # 获取当前命令并更新 post_screenshot_id
+                    current_command = self.global_state.get_current_command_for_subtask(subtask_id)
+                    if current_command:
+                        self.global_state.update_command_post_screenshot(
+                            current_command.command_id, new_screenshot_id)
+                        logger.info(f"Updated post_screenshot_id for command {current_command.command_id}: {new_screenshot_id}")
+                
                 self.global_state.set_screenshot(
                     scale_screenshot_dimensions(screenshot, self.hwi))
                 self.global_state.increment_step_num()

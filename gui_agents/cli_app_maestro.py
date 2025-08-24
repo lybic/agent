@@ -15,6 +15,7 @@ from gui_agents.maestro.controller.main_controller import MainController
 from gui_agents.utils.analyze_display import analyze_display_json, aggregate_results, format_output_line
 from gui_agents.utils.common_utils import show_task_completion_notification
 from desktop_env.desktop_env import DesktopEnv
+from gui_agents.utils.common_utils import ImageDataFilter, SafeLoggingFilter
 
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
 if env_path.exists():
@@ -43,6 +44,29 @@ stdout_handler = logging.StreamHandler(sys.stdout)
 file_handler.setLevel(logging.INFO)
 debug_handler.setLevel(logging.DEBUG)
 stdout_handler.setLevel(logging.INFO)
+
+# Add SafeLoggingFilter to prevent format errors from third-party libraries (like OpenAI)
+safe_filter = SafeLoggingFilter()
+debug_handler.addFilter(safe_filter)
+
+# Also apply SafeLoggingFilter to OpenAI library loggers
+try:
+    import openai
+    openai_logger = logging.getLogger('openai')
+    openai_logger.addFilter(safe_filter)
+    httpx_logger = logging.getLogger('httpx')
+    httpx_logger.addFilter(safe_filter)
+    logger.info("SafeLoggingFilter applied to third-party libraries (OpenAI, HTTPX)")
+except ImportError:
+    logger.info("SafeLoggingFilter applied to main handlers only (OpenAI not available)")
+    pass
+
+if os.getenv('KEEP_IMAGE_LOGS', 'false').lower() != 'true':
+    image_filter = ImageDataFilter()
+    debug_handler.addFilter(image_filter)
+    logger.info("Image data filtering enabled - image data in debug logs will be filtered")
+else:
+    logger.info("Image data filtering disabled - debug logs will contain complete image data")
 
 formatter = logging.Formatter(
     fmt="\x1b[1;33m[%(asctime)s \x1b[31m%(levelname)s \x1b[32m%(module)s/%(lineno)d-%(processName)s\x1b[1;33m] \x1b[0m%(message)s"
@@ -313,4 +337,4 @@ if __name__ == "__main__":
     python gui_agents/cli_app_maestro.py --backend lybic --max-steps 15
     python gui_agents/cli_app_maestro.py --backend lybic --lybic-sid SBX-01K1X6ZKAERXAN73KTJ1XXJXAF
     """
-    main() 
+    main()

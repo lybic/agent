@@ -1,8 +1,9 @@
 """
 Analyst Module for GUI-Agent Architecture (agents3)
-- Provides data analysis and recommendations
-- Analyzes screen content and extracts information
+- Provides data analysis and recommendations based on artifacts content
+- Analyzes stored information and extracts insights
 - Supports decision-making with analytical insights
+- Handles non-GUI interaction subtasks
 """
 
 from __future__ import annotations
@@ -32,13 +33,14 @@ class StepResult:
 
 
 class Analyst:
-    """Analyst role: analyze screen content and provide analytical support.
+    """Analyst role: analyze artifacts content and provide analytical support.
 
     Responsibilities:
-    - Analyze current screen state and content
-    - Provide recommendations and insights
-    - Extract and process information from UI elements
+    - Analyze artifacts content and stored information
+    - Provide recommendations and insights based on data
+    - Extract and process information from stored content
     - Support decision-making with data analysis
+    - Handle non-GUI interaction subtasks
 
     Tools_dict requirements:
     - analyst_agent: {"provider": str, "model": str} - LLM for analysis
@@ -71,12 +73,12 @@ class Analyst:
         guidance: Optional[str] = None,
         analysis_type: str = "general",
     ) -> Dict[str, Any]:
-        """Analyze the current state and provide recommendations.
+        """Analyze the current state and provide recommendations based on artifacts content.
 
         Args:
             subtask: Current subtask information
             guidance: Optional guidance from manager
-            analysis_type: Type of analysis ("general", "screen_content", "data_extraction", "recommendation")
+            analysis_type: Type of analysis (kept for compatibility, not used in new design)
 
         Returns a dict containing:
         - analysis: detailed analysis result
@@ -85,11 +87,28 @@ class Analyst:
         - step_result: StepResult as dict
         - outcome: one of {"analysis_complete", "CANNOT_EXECUTE", "STALE_PROGRESS"}
         """
-        screenshot_bytes = self.global_state.get_screenshot()
-        if not screenshot_bytes:
-            msg = "No screenshot available for analysis"
+        # Get all required context information
+        task = self.global_state.get_task()
+        artifacts_content = self.global_state.get_artifacts()
+        history_subtasks = self.global_state.get_subtasks()  # All subtasks including completed ones
+        supplement_content = self.global_state.get_supplement()
+        
+        # Get current subtask commands
+        subtask_id = subtask.get('subtask_id')
+        subtask_commands = []
+        if subtask_id:
+            subtask_obj = self.global_state.get_subtask(subtask_id)
+            if subtask_obj and hasattr(subtask_obj, 'command_trace_ids'):
+                for cmd_id in subtask_obj.command_trace_ids:
+                    cmd = self.global_state.get_command(cmd_id)
+                    if cmd:
+                        subtask_commands.append(cmd.to_dict() if hasattr(cmd, 'to_dict') else cmd)
+
+        # Check if we have sufficient information to analyze
+        if not artifacts_content and not history_subtasks and not supplement_content:
+            msg = "No content available for analysis (artifacts, history, or supplement)"
             logger.warning(msg)
-            self.global_state.add_event("analyst", "no_screenshot", msg)
+            self.global_state.add_event("analyst", "no_content", msg)
             result = StepResult(
                 step_id=f"{subtask.get('subtask_id','unknown')}.analyst-0",
                 ok=False,
@@ -105,22 +124,25 @@ class Analyst:
                 "outcome": "STALE_PROGRESS",
             }
 
-        # Build analysis prompt based on type
-        analysis_prompt = self._build_analysis_prompt(subtask, guidance, analysis_type)
+        # Build analysis prompt with all context information
+        analysis_prompt = self._build_analysis_prompt(
+            subtask, task, artifacts_content, history_subtasks, 
+            supplement_content, subtask_commands, guidance
+        )
 
         # Call analyst agent
         t0 = time.time()
         try:
             analysis_result, total_tokens, cost_string = self.analyst_agent.execute_tool(
                 self.analyst_agent_name,
-                {"str_input": analysis_prompt, "img_input": screenshot_bytes},
+                {"str_input": analysis_prompt},
             )
             latency_ms = int((time.time() - t0) * 1000)
             
             self.global_state.add_event(
                 "analyst",
                 "analysis_completed",
-                f"type={analysis_type}, tokens={total_tokens}, cost={cost_string}",
+                f"tokens={total_tokens}, cost={cost_string}",
             )
         except Exception as e:
             err = f"ANALYSIS_FAILED: {e}"
@@ -143,7 +165,7 @@ class Analyst:
 
         # Parse analysis result
         try:
-            parsed_result = self._parse_analysis_result(analysis_result, analysis_type)
+            parsed_result = self._parse_analysis_result(analysis_result)
             ok = True
             outcome = "analysis_complete"
             err = None
@@ -170,164 +192,108 @@ class Analyst:
         self.global_state.add_event(
             "analyst",
             "analysis_ready" if ok else "analysis_failed",
-            f"outcome={outcome}, type={analysis_type}",
+            f"outcome={outcome}",
         )
 
         return {
             "analysis": parsed_result["analysis"],
             "recommendations": parsed_result["recommendations"],
             "extracted_data": parsed_result["extracted_data"],
+            "summary": parsed_result["summary"],
             "step_result": result.__dict__,
             "outcome": outcome,
         }
 
-    def _build_analysis_prompt(self, subtask: Dict[str, Any], guidance: Optional[str], analysis_type: str) -> str:
-        """Build analysis prompt based on type and context."""
-        subtask_title = subtask.get("title", "")
-        subtask_desc = subtask.get("description", "")
+    def _build_analysis_prompt(
+        self, 
+        subtask: Dict[str, Any], 
+        task: Any,
+        artifacts_content: str,
+        history_subtasks: List[Any],
+        supplement_content: str,
+        subtask_commands: List[Dict[str, Any]],
+        guidance: Optional[str]
+    ) -> str:
+        """Build comprehensive analysis prompt with all context information."""
         
-        base_prompt = f"""# Analysis Task
-You are an expert analyst helping with GUI automation tasks.
+        # Format task information
+        task_info = f"任务ID: {task.task_id}\n任务目标: {task.objective}" if task else "任务信息不可用"
+        
+        # Format subtask information
+        subtask_info = f"子任务: {subtask.get('title', '')}\n子任务描述: {subtask.get('description', '')}"
+        
+        # Format history subtasks
+        history_info = "历史子任务信息:\n"
+        if history_subtasks:
+            for i, hist_subtask in enumerate(history_subtasks[-5:], 1):  # Show last 5
+                if hasattr(hist_subtask, 'to_dict'):
+                    hist_data = hist_subtask.to_dict()
+                else:
+                    hist_data = hist_subtask
+                history_info += f"{i}. {hist_data.get('title', 'Unknown')}: {hist_data.get('status', 'Unknown')}\n"
+        else:
+            history_info += "无历史子任务信息\n"
+        
+        # Format subtask commands
+        commands_info = "当前子任务命令信息:\n"
+        if subtask_commands:
+            for i, cmd in enumerate(subtask_commands[-3:], 1):  # Show last 3 commands
+                commands_info += f"{i}. {cmd.get('action', {}).get('type', 'Unknown action')}: {cmd.get('exec_status', 'Unknown')}\n"
+        else:
+            commands_info += "无命令执行信息\n"
+        
+        # Format artifacts content
+        artifacts_info = f"当前 Artifacts 内容:\n{artifacts_content[:2000]}{'...' if len(artifacts_content) > 2000 else ''}"
+        
+        # Format supplement content
+        supplement_info = f"补充信息:\n{supplement_content[:1000]}{'...' if len(supplement_content) > 1000 else ''}" if supplement_content else "无补充信息"
+        
+        # Build the complete prompt
+        prompt = f"""# 分析任务
+你是一个专业的数据分析师，负责分析任务相关的信息。
 
-## Current Context
-- Subtask: {subtask_title}
-- Description: {subtask_desc}
-- Platform: {self.platform}
-"""
-        
+## 任务上下文
+{task_info}
+
+## 子任务信息
+{subtask_info}
+
+## 历史子任务信息
+{history_info}
+
+## 当前子任务命令信息
+{commands_info}
+
+## 当前 Artifacts 内容
+{artifacts_info}
+
+## 补充信息
+{supplement_info}"""
+
         if guidance:
-            base_prompt += f"- Guidance: {guidance}\n"
+            prompt += f"\n## 指导说明\n{guidance}"
 
-        if analysis_type == "screen_content":
-            specific_prompt = """
-## Analysis Type: Screen Content Analysis
-Analyze the current screen and provide:
-1. **Screen Overview**: What type of application/interface is shown
-2. **Key Elements**: Important UI elements, buttons, forms, data visible
-3. **Current State**: What state the application appears to be in
-4. **Navigation Options**: Available actions or next steps
-5. **Data Extraction**: Any important data or information visible
+        prompt += """
 
-Output format:
-```json
+## 分析要求
+请根据以上信息，分析并完成子任务要求。你需要：
+1. 理解子任务的具体需求
+2. 分析相关的历史信息、命令执行情况和当前状态
+3. 提供准确的分析结果和建议
+4. 确保输出内容对任务完成有价值
+
+## 输出格式
+请按照以下JSON格式输出：
 {
-  "analysis": "Detailed screen analysis...",
-  "recommendations": ["recommendation1", "recommendation2"],
-  "extracted_data": {
-    "key1": "value1",
-    "key2": "value2"
-  }
-}
-```
-"""
-        elif analysis_type == "data_extraction":
-            specific_prompt = """
-## Analysis Type: Data Extraction
-Extract and structure data from the current screen:
-1. **Text Content**: All readable text and labels
-2. **Form Fields**: Input fields, dropdowns, checkboxes
-3. **Tables/Lists**: Structured data in tables or lists
-4. **Status Information**: Progress, notifications, alerts
-5. **Numerical Data**: Numbers, percentages, counts
+    "analysis": "详细的分析结果描述",
+    "recommendations": ["具体建议1", "具体建议2"],
+    "extracted_data": {"key": "value"},
+    "summary": "简要总结"
+}"""
 
-Output format:
-```json
-{
-  "analysis": "Data extraction summary...",
-  "recommendations": ["how to use this data"],
-  "extracted_data": {
-    "text_content": ["text1", "text2"],
-    "form_fields": {"field1": "value1"},
-    "tables": [{"col1": "val1", "col2": "val2"}],
-    "status": "current status",
-    "numbers": {"metric1": 123}
-  }
-}
-```
-"""
-        elif analysis_type == "recommendation":
-            specific_prompt = """
-## Analysis Type: Recommendation
-Provide strategic recommendations for completing the subtask:
-1. **Current Assessment**: Evaluate current progress
-2. **Next Steps**: Recommended actions to take
-3. **Potential Issues**: Risks or problems to watch for
-4. **Alternative Approaches**: Other ways to achieve the goal
-5. **Success Criteria**: How to know when subtask is complete
+        return prompt
 
-Output format:
-```json
-{
-  "analysis": "Strategic assessment...",
-  "recommendations": [
-    "immediate next action",
-    "alternative approach",
-    "risk mitigation"
-  ],
-  "extracted_data": {
-    "progress_assessment": "current progress",
-    "success_criteria": ["criteria1", "criteria2"],
-    "risks": ["risk1", "risk2"]
-  }
-}
-```
-"""
-        elif analysis_type == "memorize_analysis":
-            specific_prompt = """
-## Analysis Type: Memorize Content Analysis
-Analyze the memorized information and provide comprehensive answers based on the stored content:
-
-1. **Content Review**: Review all memorized information from previous steps
-2. **Question Analysis**: Identify what questions or problems need to be answered
-3. **Information Synthesis**: Combine and organize the memorized data
-4. **Answer Generation**: Provide comprehensive answers based on the memorized content
-5. **Validation**: Ensure answers are complete and accurate
-
-**Important**: Use ONLY the information that was previously memorized. Do not make assumptions or add external knowledge.
-
-Output format:
-```json
-{
-  "analysis": "Comprehensive analysis of memorized content and generated answers...",
-  "recommendations": [
-    "how to use this information",
-    "next steps based on answers"
-  ],
-  "extracted_data": {
-    "memorized_content": "summary of what was memorized",
-    "questions_answered": ["question1: answer1", "question2: answer2"],
-    "key_findings": ["finding1", "finding2"],
-    "completeness_check": "verification that all memorized content was used"
-  }
-}
-```
-"""
-        else:  # general analysis
-            specific_prompt = """
-## Analysis Type: General Analysis
-Provide comprehensive analysis of the current situation:
-1. **Situation Assessment**: What's currently happening
-2. **Progress Evaluation**: How well the subtask is progressing
-3. **Actionable Insights**: What should be done next
-4. **Data Summary**: Key information from the screen
-
-Output format:
-```json
-{
-  "analysis": "Comprehensive analysis...",
-  "recommendations": ["actionable recommendation"],
-  "extracted_data": {
-    "situation": "current situation",
-    "progress": "progress status",
-    "key_info": "important information"
-  }
-}
-```
-"""
-
-        return base_prompt + specific_prompt
-
-    def _parse_analysis_result(self, result: str, analysis_type: str) -> Dict[str, Any]:
+    def _parse_analysis_result(self, result: str) -> Dict[str, Any]:
         """Parse the analysis result from LLM response."""
         # Try to extract JSON from the response
         json_match = re.search(r'```json\s*(\{.*?\})\s*```', result, re.DOTALL)
@@ -337,7 +303,8 @@ Output format:
                 return {
                     "analysis": parsed.get("analysis", ""),
                     "recommendations": parsed.get("recommendations", []),
-                    "extracted_data": parsed.get("extracted_data", {})
+                    "extracted_data": parsed.get("extracted_data", {}),
+                    "summary": parsed.get("summary", "")
                 }
             except json.JSONDecodeError:
                 pass
@@ -348,7 +315,8 @@ Output format:
             return {
                 "analysis": parsed.get("analysis", ""),
                 "recommendations": parsed.get("recommendations", []),
-                "extracted_data": parsed.get("extracted_data", {})
+                "extracted_data": parsed.get("extracted_data", {}),
+                "summary": parsed.get("summary", "")
             }
         except json.JSONDecodeError:
             pass
@@ -357,5 +325,6 @@ Output format:
         return {
             "analysis": result,
             "recommendations": [],
-            "extracted_data": {}
+            "extracted_data": {},
+            "summary": ""
         } 

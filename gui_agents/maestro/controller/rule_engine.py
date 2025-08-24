@@ -124,7 +124,7 @@ class RuleEngine:
             #         )
             #         return (ControllerState.QUALITY_CHECK, TriggerCode.RULE_QUALITY_CHECK_REPEATED_ACTIONS)
 
-            # 如果一个subtask的执行action过长，超过15次 - REPLAN
+            # 如果一个subtask的执行action过长，超过10次 - REPLAN
             if task.current_subtask_id:
                 subtask = self.global_state.get_subtask(task.current_subtask_id)
                 if subtask and len(subtask.command_trace_ids) > 10:

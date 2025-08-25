@@ -29,7 +29,7 @@ else:
 from gui_agents.maestro.new_manager import NewManager, PlanningScenario, PlanningResult
 from gui_agents.maestro.new_global_state import NewGlobalState
 from gui_agents.maestro.enums import TaskStatus, SubtaskStatus, ManagerStatus
-from gui_agents.maestro.new_controller import NewController
+from gui_agents.maestro.controller.main_controller import MainController
 from gui_agents.store.registry import Registry
 
 
@@ -55,7 +55,7 @@ def main():
         "GlobalStateStore", global_state)
 
         # Initialize NewController
-        controller = NewController(
+        controller = MainController(
             platform=platform.system().lower(),
             memory_root_path=os.getcwd(),
             backend="pyautogui",

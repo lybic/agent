@@ -23,6 +23,7 @@ class ConfigManager:
         self.memory_folder_name = memory_folder_name
         self.tools_config = {}
         self.tools_dict = {}
+        self.flow_config: Dict[str, Any] = {}
         
     def load_tools_configuration(self) -> Dict[str, Any]:
         """从配置文件加载工具配置"""
@@ -79,4 +80,40 @@ class ConfigManager:
     
     def get_tools_config(self) -> Dict[str, Any]:
         """获取工具配置"""
-        return self.tools_config 
+        return self.tools_config
+    
+    # ===== 新增：流程配置集中管理 =====
+    def load_flow_configuration(self) -> Dict[str, Any]:
+        """加载流程配置（目前以内置默认为主，可后续扩展为文件/环境变量）。"""
+        try:
+            # 统一的默认阈值配置
+            self.flow_config = {
+                # 任务与状态
+                "max_steps": 50,
+                "max_state_switches": 100,
+                "max_state_duration_secs": 300,
+                # 质检相关
+                "quality_check_interval_secs": 300,  # 距离上次质检的时间间隔
+                "first_quality_check_min_commands": 5,  # 首次质检触发指令数
+                # 连续相同行为与重规划
+                "repeated_action_min_consecutive": 3,
+                "replan_long_execution_threshold": 20,
+                # 规划次数上限
+                "plan_number_limit": 10,
+                # 快照与主循环
+                "enable_snapshots": True,
+                "snapshot_interval_steps": 10,
+                "create_checkpoint_snapshots": True,
+                "main_loop_sleep_secs": 0.1,
+            }
+        except Exception as e:
+            logger.error(f"Failed to load flow configuration: {e}")
+            # 兜底：至少提供一个空字典
+            self.flow_config = {}
+        return self.flow_config
+    
+    def get_flow_config(self) -> Dict[str, Any]:
+        """获取流程配置（如未加载则按默认加载）。"""
+        if not self.flow_config:
+            return self.load_flow_configuration()
+        return self.flow_config 

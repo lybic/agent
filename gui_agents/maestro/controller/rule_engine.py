@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 from gui_agents.maestro.new_global_state import NewGlobalState
-from ..enums import ControllerState, TaskStatus, TriggerCode
+from ..enums import ControllerState, SubtaskStatus, TaskStatus, TriggerCode
 from ..data_models import CommandData
 from ..Action import Action
 
@@ -99,6 +99,7 @@ class RuleEngine:
         Returns:
             bool: 如果发现连续相同的 Action 则返回 True，否则返回 False
         """
+        return False
         try:
             if min_consecutive is None:
                 min_consecutive = self.repeated_action_min_consecutive
@@ -189,19 +190,28 @@ class RuleEngine:
             if not task:
                 return None
 
-            # 距离上次质检过去了配置的时间 - QUALITY_CHECK
+            # 质检触发逻辑：距离上次质检时间，已经生成了5个command，且这5个command的创建时间都大于上次质检时间
             gate_checks = self.global_state.get_gate_checks()
             if gate_checks:
+                # 获取最近一次质检的时间
                 latest_quality_check = max(gate_checks, key=lambda x: x.created_at)
-                latest_time = datetime.fromisoformat(
-                    latest_quality_check.created_at)
-                current_time = datetime.now()
-                time_diff = current_time - latest_time
-
-                if (time_diff.total_seconds() > self.quality_check_interval_secs and  # 配置时间间隔
-                    self.global_state.get_controller_current_state() not in [ControllerState.QUALITY_CHECK, ControllerState.DONE]):
-                    logger.info(f"{self.quality_check_interval_secs} seconds since last quality check, switching to QUALITY_CHECK")
-                    return (ControllerState.QUALITY_CHECK, TriggerCode.RULE_QUALITY_CHECK_STEPS)
+                latest_quality_check_time = datetime.fromisoformat(latest_quality_check.created_at)
+                
+                # 检查是否有足够的command进行质检
+                all_commands = self.global_state.get_commands()
+                if len(all_commands) >= self.first_quality_check_min_commands:
+                    # 获取前5个command
+                    recent_commands = all_commands[:self.first_quality_check_min_commands]
+                    
+                    # 只检查第5个command是否在质检后创建
+                    # 如果第5个在质检后，说明前4个也都在质检后（因为时间递增）
+                    check_command = recent_commands[self.first_quality_check_min_commands - 1]
+                    check_cmd_time = datetime.fromisoformat(check_command.created_at)
+                    
+                    if (check_cmd_time > latest_quality_check_time and 
+                        self.global_state.get_controller_current_state() not in [ControllerState.QUALITY_CHECK, ControllerState.DONE]):
+                        logger.info(f"Quality check triggered: 5th command created after last quality check at {latest_quality_check_time}, switching to QUALITY_CHECK")
+                        return (ControllerState.QUALITY_CHECK, TriggerCode.RULE_QUALITY_CHECK_STEPS)
             else:
                 # 如果没有质检记录且当前subtask的command数量达到阈值，进行首次质检
                 if task.current_subtask_id:
@@ -230,6 +240,7 @@ class RuleEngine:
                     logger.info(
                         f"Subtask {task.current_subtask_id} has > {self.replan_long_execution_threshold} commands, switching to PLAN"
                     )
+                    self.global_state.update_subtask_status(task.current_subtask_id, SubtaskStatus.REJECTED, "replan long execution, too many commands, current_subtask_id: " + task.current_subtask_id)
                     return (ControllerState.PLAN, TriggerCode.RULE_REPLAN_LONG_EXECUTION)
 
             return None

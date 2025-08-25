@@ -12,7 +12,7 @@ from gui_agents.maestro.manager.utils import (
     get_quality_check_failure_info, get_final_check_failure_info,
     get_execution_time_info, get_supplement_info, count_subtasks_from_info
 )
-from lybicguiagents.gui_agents.maestro.new_global_state import NewGlobalState
+from gui_agents.maestro.new_global_state import NewGlobalState
 from gui_agents.maestro.enums import SubtaskStatus
 
 logger = logging.getLogger(__name__)

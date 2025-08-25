@@ -198,17 +198,22 @@ class RuleEngine:
                 latest_quality_check_time = datetime.fromisoformat(latest_quality_check.created_at)
                 
                 # 检查是否有足够的command进行质检
-                all_commands = list(reversed(self.global_state.get_commands()))
-                if len(all_commands) >= self.first_quality_check_min_commands:
-                    
-                    # 获取倒数第5个命令，判断其创建时间是否晚于上次质检时间
-                    check_command = all_commands[-self.first_quality_check_min_commands]
-                    check_cmd_time = datetime.fromisoformat(check_command.created_at)
-                    
-                    if (check_cmd_time > latest_quality_check_time and 
-                        self.global_state.get_controller_current_state() not in [ControllerState.QUALITY_CHECK, ControllerState.DONE]):
-                        logger.info(f"Quality check triggered: 5th command created after last quality check at {latest_quality_check_time}, switching to QUALITY_CHECK")
-                        return (ControllerState.QUALITY_CHECK, TriggerCode.RULE_QUALITY_CHECK_STEPS)
+                all_commands = self.global_state.get_commands()
+                
+                # 计算距离上次质检后新产生的命令数量
+                new_commands_count = 0
+                for command in reversed(all_commands):  # 从最新的命令开始检查
+                    cmd_time = datetime.fromisoformat(command.created_at)
+                    if cmd_time > latest_quality_check_time:
+                        new_commands_count += 1
+                    else:
+                        break  # 遇到早于质检时间的命令就停止
+                
+                # 如果新产生的命令数量达到阈值，触发质检
+                if (new_commands_count >= self.first_quality_check_min_commands and 
+                    self.global_state.get_controller_current_state() not in [ControllerState.QUALITY_CHECK, ControllerState.DONE]):
+                    logger.info(f"Quality check triggered: {new_commands_count} new commands after last quality check at {latest_quality_check_time}, switching to QUALITY_CHECK")
+                    return (ControllerState.QUALITY_CHECK, TriggerCode.RULE_QUALITY_CHECK_STEPS)
             else:
                 # 如果没有质检记录且当前subtask的command数量达到阈值，进行首次质检
                 if task.current_subtask_id:

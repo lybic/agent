@@ -87,7 +87,7 @@ class Operator:
     def _get_command_history_for_subtask(self, subtask_id: str) -> str:
         """获取指定subtask的命令历史，格式化为易读的文本"""
         try:
-            commands = self.global_state.get_commands_for_subtask(subtask_id)
+            commands = list(reversed(self.global_state.get_commands_for_subtask(subtask_id)))
             if not commands:
                 return "无历史操作记录"
             
@@ -114,15 +114,21 @@ class Operator:
                 # 添加命令状态信息
                 status = cmd.worker_decision
                 message = cmd.message if cmd.message else ""
+                exec_status = getattr(cmd, "exec_status", "")
+                exec_message = getattr(cmd, "exec_message", "")
                 
                 history_lines.append(f"{i}. [{action_type}] - 状态: {status}")
                 if action_desc:
                     history_lines.append(f"   描述: {action_desc}")
                 if message:
                     history_lines.append(f"   消息: {message}")
-                if cmd.pre_screenshot_analysis:
-                    analysis_preview = cmd.pre_screenshot_analysis[:150] + "..." if len(cmd.pre_screenshot_analysis) > 150 else cmd.pre_screenshot_analysis
-                    history_lines.append(f"   截图分析: {analysis_preview}")
+                if exec_status:
+                    history_lines.append(f"   执行状态: {exec_status}")
+                if exec_message:
+                    history_lines.append(f"   执行消息: {exec_message}")
+                # if cmd.pre_screenshot_analysis:
+                #     analysis_preview = cmd.pre_screenshot_analysis[:150] + "..." if len(cmd.pre_screenshot_analysis) > 150 else cmd.pre_screenshot_analysis
+                #     history_lines.append(f"   执行前截图分析: {analysis_preview}")
                 history_lines.append("")
             
             return "\n".join(history_lines)
@@ -177,8 +183,27 @@ class Operator:
         subtask_id = subtask.get("subtask_id", "")
         command_history = self._get_command_history_for_subtask(subtask_id)
 
+        # 读取 artifacts 与 supplement 作为上下文
+        artifacts_content = ""
+        supplement_content = ""
+        try:
+            artifacts_content = self.global_state.get_artifacts() or ""
+        except Exception as e:
+            logger.warning(f"获取 artifacts 失败: {e}")
+        try:
+            supplement_content = self.global_state.get_supplement() or ""
+        except Exception as e:
+            logger.warning(f"获取 supplement 失败: {e}")
+
         # 根据 trigger_code 调整提示词
-        context_aware_prompt = self._build_context_aware_prompt(subtask, guidance, command_history, trigger_code)
+        context_aware_prompt = self._build_context_aware_prompt(
+            subtask,
+            guidance,
+            command_history,
+            trigger_code,
+            artifacts_content,
+            supplement_content,
+        )
 
         # Call action generator
         t0 = time.time()
@@ -300,11 +325,20 @@ class Operator:
         subtask: Dict[str, Any], 
         guidance: Optional[str], 
         command_history: str,
-        trigger_code: str
+        trigger_code: str,
+        artifacts_content: str,
+        supplement_content: str
     ) -> str:
-        """根据 trigger_code 构建上下文感知的提示词"""
+        """根据 trigger_code 构建上下文感知的提示词，并注入 artifacts 与 supplement 信息"""
         subtask_title = subtask.get("title", "")
         subtask_desc = subtask.get("description", "")
+        
+        def _truncate(text: str, limit: int = 3000) -> str:
+            if not text:
+                return ""
+            if len(text) <= limit:
+                return text
+            return text[:limit] + "\n... (内容过长，已截断)"
         
         message = []
         message.append(f"Remember only complete the subtask: {subtask_title}")
@@ -319,12 +353,28 @@ class Operator:
             message.append("=== 当前上下文信息 ===")
             message.append(context_info)
         
+        # 注入可用的 artifacts 内容
+        message.append("")
+        message.append("=== 可用的 Artifacts 内容（来自记忆/上一步的记录） ===")
+        if artifacts_content and artifacts_content.strip():
+            message.append(_truncate(artifacts_content))
+        else:
+            message.append("无可用的 artifacts 内容")
+        
+        # 注入 supplement 补充材料
+        message.append("")
+        message.append("=== 补充材料 Supplement（可能来自检索/外部工具） ===")
+        if supplement_content and supplement_content.strip():
+            message.append(_truncate(supplement_content))
+        else:
+            message.append("无补充材料")
+        
         # 添加历史操作记录到提示词中 - 这是非常重要的上下文信息
         message.append("")
         message.append("=== 历史操作记录 ===")
         message.append(command_history)
         message.append("")
-        message.append("Based on the above history and current screenshot, decide on the next action.")
+        message.append("Based on the above history, current screenshot, artifacts and supplement, decide on the next action.")
         message.append("Return exactly one action as an agent.* function in Python fenced code under (Grounded Action).")
         
         return "\n\n".join(message)

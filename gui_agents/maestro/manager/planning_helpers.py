@@ -12,6 +12,8 @@ from gui_agents.maestro.manager.utils import (
     get_quality_check_failure_info, get_final_check_failure_info,
     get_execution_time_info, get_supplement_info, count_subtasks_from_info
 )
+from lybicguiagents.gui_agents.maestro.new_global_state import NewGlobalState
+from gui_agents.maestro.enums import SubtaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,8 @@ def get_planning_context(global_state, platform: str, replan_attempts: int,
     if is_replan_now:
         context["failed_subtasks"] = get_failed_subtasks_info(global_state)
         context["failure_reasons"] = get_failure_reasons(global_state)
+        # Add recent subtasks operation history (last two)
+        context["recent_subtasks_history"] = get_recent_subtasks_operation_history(global_state, limit=2)
 
     # Add trigger_code specific context information
     context.update(get_trigger_code_specific_context(global_state, trigger_code))
@@ -240,11 +244,15 @@ Platform: {context.get('platform', '')}
     # Replan-specific extra diagnostic information
     replan_info = ""
     if is_replan:
+        recent_ops = context.get("recent_subtasks_history", "")
         replan_info = f"""
 # Re-planning Information
 Re-planning Attempts: {context.get('replan_attempts', 0)}
 Failed Subtasks: {context.get('failed_subtasks', '')}
 Failure Reasons: {context.get('failure_reasons', '')}
+
+# Recent Subtasks Operation History (latest 2)
+{recent_ops if recent_ops else 'N/A'}
 
 # Re-plan Output Constraints
 - Only include new subtasks in the JSON list
@@ -422,3 +430,91 @@ def get_pending_subtasks_info(global_state) -> str:
     """Get information about pending subtasks"""
     from gui_agents.maestro.manager.utils import get_pending_subtasks_info as _get_pending_subtasks_info
     return _get_pending_subtasks_info(global_state) 
+
+def get_recent_subtasks_operation_history(global_state: NewGlobalState, limit: int = 2) -> str:
+    """获取最近完成的子任务（最多limit个）的操作历史，格式化为可读文本。
+    规则：
+    - 优先使用 Task.history_subtask_ids 从后向前取最近（非 READY）子任务
+    - 若数量不足，补充使用所有子任务中状态非 READY 的，按 updated_at 倒序补齐（去重）
+    - 每个子任务下列出该子任务的命令（按时间倒序），包含类型、状态、消息与执行摘要
+    """
+    try:
+        task = global_state.get_task()
+        all_subtasks = global_state.get_subtasks()
+        id_to_subtask = {s.subtask_id: s for s in all_subtasks}
+
+        # 仅选择状态非 READY 的子任务
+        def _is_non_ready(subtask):
+            try:
+                return getattr(subtask, 'status', '') != SubtaskStatus.READY.value
+            except Exception:
+                return True
+
+        recent_ids = list(reversed(task.history_subtask_ids)) if getattr(task, 'history_subtask_ids', None) else []
+        recent_subtasks = []
+        for sid in recent_ids:
+            st = id_to_subtask.get(sid)
+            if st and _is_non_ready(st):
+                recent_subtasks.append(st)
+                if len(recent_subtasks) >= limit:
+                    break
+        if len(recent_subtasks) < limit:
+            # 从所有子任务中筛选非 READY，按 updated_at 倒序补齐
+            remaining = [s for s in all_subtasks if s.subtask_id not in {st.subtask_id for st in recent_subtasks} and _is_non_ready(s)]
+            remaining.sort(key=lambda x: getattr(x, 'updated_at', ''), reverse=True)
+            for s in remaining:
+                recent_subtasks.append(s)
+                if len(recent_subtasks) >= limit:
+                    break
+
+        lines = []
+        if not recent_subtasks:
+            return "无历史操作记录"
+
+        for idx, subtask in enumerate(reversed(recent_subtasks), 1):
+            lines.append(f"=== 子任务 {idx} ===")
+            lines.append(f"ID: {subtask.subtask_id}")
+            title = getattr(subtask, 'title', '') or ''
+            if title:
+                lines.append(f"标题: {title}")
+            # 命令历史
+            commands = list(global_state.get_commands_for_subtask(subtask.subtask_id))
+            if not commands:
+                lines.append("无操作命令记录")
+                lines.append("")
+                continue
+            for i, cmd in enumerate(commands, 1):
+                action_type = "未知操作"
+                action_desc = ""
+                try:
+                    if isinstance(cmd.action, dict):
+                        if "type" in cmd.action:
+                            action_type = cmd.action["type"]
+                        if "message" in cmd.action:
+                            action_desc = cmd.action["message"]
+                        elif "element_description" in cmd.action:
+                            action_desc = f"操作元素: {cmd.action['element_description']}"
+                        elif "text" in cmd.action:
+                            action_desc = f"输入文本: {cmd.action['text']}"
+                        elif "keys" in cmd.action:
+                            action_desc = f"按键: {cmd.action['keys']}"
+                except Exception:
+                    pass
+                status = getattr(cmd, 'worker_decision', '')
+                message = getattr(cmd, 'message', '') or ''
+                exec_status = getattr(cmd, 'exec_status', '')
+                exec_message = getattr(cmd, 'exec_message', '')
+
+                lines.append(f"{i}. [{action_type}] - 状态: {status}")
+                if action_desc:
+                    lines.append(f"   描述: {action_desc}")
+                if message:
+                    lines.append(f"   消息: {message}")
+                if exec_status:
+                    lines.append(f"   执行状态: {exec_status}")
+                if exec_message:
+                    lines.append(f"   执行消息: {exec_message}")
+            lines.append("")
+        return "\n".join(lines)
+    except Exception:
+        return ""

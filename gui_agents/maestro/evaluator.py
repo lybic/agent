@@ -291,6 +291,102 @@ class Evaluator:
     def _get_supplement_text(self) -> str:
         return self.global_state.get_supplement()
 
+    def _get_command_history_for_subtask(self, subtask_id: Optional[str]) -> str:
+        """参考 operator/technician，获取指定 subtask 的历史操作记录。"""
+        try:
+            if not subtask_id:
+                return "无历史操作记录"
+            commands = list(reversed(self.global_state.get_commands_for_subtask(subtask_id)))
+            if not commands:
+                return "无历史操作记录"
+            history_lines: List[str] = []
+            history_lines.append("=== 历史操作记录 ===")
+            for i, cmd in enumerate(commands, 1):
+                action_type = "未知操作"
+                action_desc = ""
+                action = getattr(cmd, "action", None)
+                if isinstance(action, dict):
+                    if "type" in action:
+                        action_type = str(action.get("type", ""))
+                    if "message" in action:
+                        action_desc = str(action.get("message", ""))
+                    elif "element_description" in action:
+                        action_desc = f"操作元素: {action['element_description']}"
+                    elif "text" in action:
+                        action_desc = f"输入文本: {action['text']}"
+                    elif "keys" in action:
+                        action_desc = f"按键: {action['keys']}"
+                elif isinstance(action, list):
+                    action_type = "代码生成"
+                    if action:
+                        # 简化展示，避免超长
+                        first_lang, first_code = action[0]
+                        action_desc = f"[1] 语言: {first_lang}, 代码长度: {len(str(first_code))}"
+                status = getattr(cmd, "worker_decision", "")
+                message = getattr(cmd, "message", "") or ""
+                exec_status = getattr(cmd, "exec_status", "")
+                exec_message = getattr(cmd, "exec_message", "")
+                history_lines.append(f"{i}. [{action_type}] - 状态: {status}")
+                if action_desc:
+                    history_lines.append(f"   描述: {action_desc}")
+                if message:
+                    history_lines.append(f"   消息: {message}")
+                if exec_status:
+                    history_lines.append(f"   执行状态: {exec_status}")
+                if exec_message:
+                    history_lines.append(f"   执行消息: {exec_message}")
+                history_lines.append("")
+            return "\n".join(history_lines)
+        except Exception as e:
+            return f"获取历史记录失败: {e}"
+
+    def _get_last_operation_brief(self, subtask_id: Optional[str]) -> str:
+        """获取最近一次操作的简要信息。"""
+        try:
+            if not subtask_id:
+                return "(no last operation)"
+            cmd = self.global_state.get_current_command_for_subtask(subtask_id)
+            if not cmd:
+                return "(no last operation)"
+            action_type = "未知操作"
+            action_desc = ""
+            action = getattr(cmd, "action", None)
+            if isinstance(action, dict):
+                if "type" in action:
+                    action_type = str(action.get("type", ""))
+                if "message" in action:
+                    action_desc = str(action.get("message", ""))
+                elif "element_description" in action:
+                    action_desc = f"操作元素: {action['element_description']}"
+                elif "text" in action:
+                    action_desc = f"输入文本: {action['text']}"
+                elif "keys" in action:
+                    action_desc = f"按键: {action['keys']}"
+            elif isinstance(action, list):
+                action_type = "代码生成"
+                if action:
+                    first_lang, first_code = action[0]
+                    action_desc = f"[1] 语言: {first_lang}, 代码长度: {len(str(first_code))}"
+            status = getattr(cmd, "worker_decision", "")
+            message = getattr(cmd, "message", "") or ""
+            exec_status = getattr(cmd, "exec_status", "")
+            exec_message = getattr(cmd, "exec_message", "")
+            lines = [
+                f"类型: {action_type}",
+                f"状态: {status}",
+            ]
+            if action_desc:
+                lines.append(f"描述: {action_desc}")
+            if message:
+                lines.append(f"消息: {message}")
+            if exec_status:
+                lines.append(f"执行状态: {exec_status}")
+            if exec_message:
+                lines.append(f"执行消息: {exec_message}")
+            return "\n".join(lines)
+        except Exception as e:
+            return f"(last operation unavailable: {e})"
+
     def _collect_scene_inputs(self, scene: str) -> dict:
         """Collect and slice inputs for a specific scene.
 
@@ -326,6 +422,9 @@ class Evaluator:
         else:
             commands = []
 
+        history_text = self._get_command_history_for_subtask(subtask_id)
+        last_operation_text = self._get_last_operation_brief(subtask_id)
+
         return {
             "task_brief": self._format_task_brief(),
             "subtask_brief": self._format_subtask_brief(subtask),
@@ -333,6 +432,8 @@ class Evaluator:
             "artifacts": self._get_artifacts_text(),
             "supplement": self._get_supplement_text(),
             "worker_report": self._get_worker_report(subtask),
+            "history_text": history_text,
+            "last_operation_text": last_operation_text,
         }
 
     def build_prompt(self, scene: str) -> str:
@@ -348,6 +449,10 @@ class Evaluator:
              if scene == "WORKER_STALE" else ""),
             f"Artifacts:\n{inputs['artifacts']}\n",
             f"Supplement:\n{inputs['supplement']}\n",
+            "\n=== 历史操作记录（当前子任务） ===\n",
+            f"{inputs['history_text']}\n",
+            "\n=== 最近一次操作概览 ===\n",
+            f"{inputs['last_operation_text']}\n",
         ]
         return "\n".join(parts)
 

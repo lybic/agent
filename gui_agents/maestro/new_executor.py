@@ -124,7 +124,6 @@ class NewExecutor:
                     if isinstance(command.action, dict) and "analysis" in command.action:
                         analysis_result = command.action.get("analysis", "")
                         recommendations = command.action.get("recommendations", [])
-                        extracted_data = command.action.get("extracted_data", {})
                         
                         # 创建结构化的artifact数据
                         artifact_data = {
@@ -132,7 +131,6 @@ class NewExecutor:
                             "type": "analysis_result",
                             "analysis": analysis_result,
                             "recommendations": recommendations,
-                            "extracted_data": extracted_data,
                             "timestamp": time.time(),
                             "source": "analyst_memorize_analysis"
                         }
@@ -233,7 +231,7 @@ class NewExecutor:
             if output_dict is not None:
                 exec_status = ExecStatus.EXECUTED if status == "success" else ExecStatus.ERROR
             self.global_state.update_command_exec_status(
-                self.global_state.get_current_command_for_subtask(subtask_id).command_id,
+                self.global_state.get_current_command_for_subtask(subtask_id).command_id, # type: ignore
                 exec_status,
                 execution_result,
             )
@@ -342,6 +340,17 @@ class NewExecutor:
                     
                     # 记录执行结果
                     self._record_execution_result(subtask_id, execution_success, error_message, execution_time)
+
+                    # 同步更新当前命令的执行状态与信息
+                    current_command = self.global_state.get_current_command_for_subtask(subtask_id)
+                    if current_command:
+                        msg_preview = information.replace("\n", " ").strip()[:200]
+                        exec_msg = f"Memorize stored ({len(information)} chars): {msg_preview}{'...' if len(information) > 200 else ''}"
+                        self.global_state.update_command_exec_status(
+                            current_command.command_id,
+                            ExecStatus.EXECUTED,
+                            exec_message=exec_msg,
+                        )
                     
                     return self._create_execution_result(
                         success=execution_success,

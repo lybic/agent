@@ -56,13 +56,13 @@ class Agent:
     def memorize(self, information: str):
     '''Memorize a piece of information for later use. The information stored should be clear, accurate, helpful, descriptive, and summary-like. This is not only for storing concrete data like file paths or URLs, but also for remembering the answer to an abstract question or the solution to a non-hardware problem solved in a previous step. This memorized information can then be used to inform future actions or to provide a final answer.
     
-    IMPORTANT: When memorizing information for analysis tasks, include both the data AND guidance for how an analyst should use this information to answer questions. Format your memorize calls like this:
+    IMPORTANT: When memorizing information for analysis tasks, include both the content AND guidance for how an analyst should use this information to answer questions. Format your memorize calls like this:
     
     For simple data: agent.memorize("The Client ID is 8A7B-C9D0")
     
-    For analysis tasks: agent.memorize("QUESTION: What is the total revenue for Q3? DATA: Q3 revenue was $125,000. GUIDANCE: Use this revenue figure to calculate the quarterly performance and compare it with Q2 results.")
+    For analysis tasks: agent.memorize("NOTE: Q3 revenue was $125,000. GUIDANCE: Use this revenue figure to calculate the quarterly performance and compare it with Q2 results.")
     
-    For complex problems: agent.memorize("PROBLEM: Calculate the average response time. DATA: Response times: 2.1s, 1.8s, 2.3s, 1.9s. GUIDANCE: Calculate the arithmetic mean of these response times and provide the result with 2 decimal places.")
+    For complex problems: agent.memorize("NOTE: Response times: 2.1s, 1.8s, 2.3s, 1.9s. GUIDANCE: Calculate the arithmetic mean of these response times and provide the result with 2 decimal places.")
     
         Args:
             information:str, the information to be memorized. For analysis tasks, include both data and guidance for the analyst.
@@ -131,9 +131,9 @@ class Agent:
 * **Scenario:** Read a question from a file, find the answer, and write both to a results file.
 * **Correct Workflow:**
     1.  Open `question.txt`. The content is "What is the current time in London?".
-    2.  `agent.memorize("Question: What is the current time in London?")`
+    2.  `agent.memorize("NOTE: What is the current time in London?")`
     3.  Perform actions to find the answer. Let's say the answer is "10:00 AM".
-    4.  `agent.memorize("Answer: 10:00 AM")`
+    4.  `agent.memorize("NOTE: 10:00 AM")`
     5.  Open `results.txt` and type the combined, memorized information.
 * **Reasoning:** This ensures all parts of the task are tracked and the final output is complete and accurate.
 
@@ -141,17 +141,17 @@ class Agent:
 * **Scenario:** The task is to analyze quarterly sales data and provide insights.
 * **Correct Workflow:**
     1.  Open `sales_report.txt` and read Q3 data: "Q3 Revenue: $125,000, Q3 Expenses: $85,000".
-    2.  `agent.memorize("QUESTION: What is the Q3 profit margin? DATA: Q3 Revenue: $125,000, Q3 Expenses: $85,000. GUIDANCE: Calculate profit margin as (Revenue - Expenses) / Revenue * 100, provide percentage with 2 decimal places.")`
+    2.  `agent.memorize("NOTE: Q3 Revenue: $125,000, Q3 Expenses: $85,000. GUIDANCE: Calculate profit margin as (Revenue - Expenses) / Revenue * 100, provide percentage with 2 decimal places.")`
 * **Reasoning:** This provides both the raw data and clear instructions for the analyst to perform calculations and provide accurate answers.
 
 **Example 4: Smart scrolling and memorizing for long content (NEW)**
 * **Scenario:** The task is to memorize 5 questions from a long document that requires scrolling to see all content.
 * **Correct Workflow:**
     1.  Open the document and assess current visible content.
-    2.  If the first question is visible, memorize it: `agent.memorize("QUESTION: What is the first question? DATA: [visible question content] GUIDANCE: This is question 1 of 5 from the document.")`
+    2.  If the first question is visible, memorize it: `agent.memorize("NOTE: [visible question content] GUIDANCE: This is question 1 of 5 from the document.")`
     3.  If more questions are visible, memorize them too before scrolling.
     4.  When no more questions are visible, scroll down: `agent.scroll("the document content area", 3, True)`
-    5.  After scrolling, memorize newly visible questions: `agent.memorize("QUESTION: What is the next question? DATA: [newly visible question content] GUIDANCE: This is question [X] of 5 from the document.")`
+    5.  After scrolling, memorize newly visible questions: `agent.memorize("NOTE: [newly visible question content] GUIDANCE: This is question [X] of 5 from the document.")`
     6.  Repeat scroll + memorize until all 5 questions are captured.
 * **Reasoning:** This approach maximizes efficiency by memorizing all visible content before scrolling, then systematically working through the document. Each scroll action reveals new content that can be immediately memorized.
    

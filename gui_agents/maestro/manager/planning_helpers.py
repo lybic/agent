@@ -478,7 +478,7 @@ def get_recent_subtasks_operation_history(global_state: NewGlobalState, limit: i
         if not recent_subtasks:
             return "无历史操作记录"
 
-        for idx, subtask in enumerate(reversed(recent_subtasks), 1):
+        for idx, subtask in enumerate(recent_subtasks, 1):
             lines.append(f"=== 子任务 {idx} ===")
             lines.append(f"ID: {subtask.subtask_id}")
             title = getattr(subtask, 'title', '') or ''

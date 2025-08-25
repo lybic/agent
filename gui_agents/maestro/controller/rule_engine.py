@@ -198,7 +198,7 @@ class RuleEngine:
                 latest_quality_check_time = datetime.fromisoformat(latest_quality_check.created_at)
                 
                 # 检查是否有足够的command进行质检
-                all_commands = self.global_state.get_commands()
+                all_commands = list(reversed(self.global_state.get_commands()))
                 if len(all_commands) >= self.first_quality_check_min_commands:
                     
                     # 获取倒数第5个命令，判断其创建时间是否晚于上次质检时间

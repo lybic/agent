@@ -6,17 +6,25 @@ from gui_agents.maestro.hardware_interface import HardwareInterface
 from gui_agents.maestro.Action import (
     Click, Hotkey, Screenshot, Wait, TypeText
 )
+import os
+from desktop_env.desktop_env import DesktopEnv
 
+current_platform = "Ubuntu"
 
-
-current_platform = platform.system().lower()
+if current_platform == "Ubuntu":
+    path_to_vm = os.path.join("vmware_vm_data", "Ubuntu0", "Ubuntu0.vmx")
+    test_config_base_dir = os.path.join("evaluation_examples", "examples")
+    test_all_meta_path = os.path.join("evaluation_examples", "test_tiny.json")
+elif current_platform == "Windows":
+    path_to_vm = os.path.join("vmware_vm_data", "Windows0", "Windows0.vmx")
+    test_config_base_dir = os.path.join("evaluation_examples", "examples_windows")
+    test_all_meta_path = os.path.join("evaluation_examples", "test_tiny_windows.json")
+else:
+    raise ValueError(f"USE_PRECREATE_VM={current_platform} is not supported. Please use Ubuntu or Windows.")
 
 # -------------------------------------------------------------
 dry_run = False          # ← True when only print, not execute
-backend_kwargs = dict(   # Extra parameters passed to PyAutoGUIBackend
-    platform=current_platform,    # "darwin" / "linux" / "win32", automatically detect can be removed
-    default_move_duration=0.05,
-)
+
 
 # # 1. Build action sequence
 # plan = [
@@ -35,12 +43,25 @@ backend_kwargs = dict(   # Extra parameters passed to PyAutoGUIBackend
 plan = [
     # {
     #   "type": "Open",
-    #   "app_or_filename": "Finder"
+    #   "app_or_filename": "VS Code"
     # }
+
+    # {
+    #   "type": "SwitchApplications",
+    #   "app_code": "VS Code"
+    # }
+
     {
-      "type": "SwitchApplications",
-      "app_code": "Finder"
+      "type": "SetCellValues",
+      "cell_values": [
+        {
+          "A1": "test1"
+        }
+      ],
+      "app_name": "Sheet1.xlsx",
+      "sheet_name": "Sheet1"
     }
+
     # {'type': 'Hotkey', 'keys': ['left'], 'duration': 80}
     # {
     #     "type": "Click",
@@ -58,7 +79,23 @@ plan = [
 
 # 2. Create hardware interface
 # hwi = HardwareInterface(backend="lybic", **backend_kwargs)
-hwi = HardwareInterface(backend="pyautogui", **backend_kwargs)
+
+env = DesktopEnv(
+    provider_name="vmware",
+    path_to_vm=path_to_vm,
+    action_space="pyautogui",
+    require_a11y_tree=False,
+)
+env.reset()
+
+backend_kwargs = dict(   # Extra parameters passed to PyAutoGUIBackend
+    env_controller=env,
+)
+hwi = HardwareInterface(
+    backend="pyautogui_vmware", 
+    platform = "Ubuntu",
+    **backend_kwargs
+)
 
 # 3. Execute
 if dry_run:

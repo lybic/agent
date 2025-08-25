@@ -43,7 +43,7 @@ dry_run = False          # ← True when only print, not execute
 plan = [
     # {
     #   "type": "Open",
-    #   "app_or_filename": "VS Code"
+    #   "app_or_filename": "libreoffice --calc"
     # }
 
     # {
@@ -51,15 +51,22 @@ plan = [
     #   "app_code": "VS Code"
     # }
 
+    # {
+    #   "type": "SetCellValues",
+    #   "cell_values": {
+    #     "C3": "test1"
+    #   },
+    #   "app_name": "Sheet1.xlsx",
+    #   "sheet_name": "Sheet1"
+    # }
+
     {
       "type": "SetCellValues",
-      "cell_values": [
-        {
-          "A1": "test1"
-        }
-      ],
+      "cell_values": {
+        "E9": "test2"
+      },
       "app_name": "Sheet1.xlsx",
-      "sheet_name": "Sheet1"
+      "sheet_name": "Sheet2"
     }
 
     # {'type': 'Hotkey', 'keys': ['left'], 'duration': 80}
@@ -86,7 +93,7 @@ env = DesktopEnv(
     action_space="pyautogui",
     require_a11y_tree=False,
 )
-env.reset()
+# env.reset()
 
 backend_kwargs = dict(   # Extra parameters passed to PyAutoGUIBackend
     env_controller=env,
@@ -107,6 +114,6 @@ else:
     time.sleep(2)
     # hwi.dispatch(plan)
     res = hwi.dispatchDict(plan)
-    # print(res)
+    print(res)
 
     print("Execution completed")

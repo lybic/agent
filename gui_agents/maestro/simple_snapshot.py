@@ -48,7 +48,7 @@ class SimpleSnapshot:
         if self.state_dir.exists():
             state_backup = snapshot_dir / "state"
             shutil.copytree(self.state_dir, state_backup)
-            print(f"✅ 已复制state文件夹到: {state_backup}")
+            # print(f"✅ 已复制state文件夹到: {state_backup}")
         
         # 2. 获取当前截图ID列表
         screenshot_ids = []
@@ -72,11 +72,11 @@ class SimpleSnapshot:
         with open(metadata_file, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
         
-        print(f"🎯 快照创建成功: {snapshot_id}")
-        print(f"   描述: {description}")
-        print(f"   截图数量: {len(screenshot_ids)}")
-        if config_params:
-            print(f"   配置参数: {list(config_params.keys())}")
+        # print(f"🎯 快照创建成功: {snapshot_id}")
+        # print(f"   描述: {description}")
+        # print(f"   截图数量: {len(screenshot_ids)}")
+        # if config_params:
+        #     print(f"   配置参数: {list(config_params.keys())}")
         
         return snapshot_id
     

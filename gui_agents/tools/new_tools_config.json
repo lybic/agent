@@ -27,6 +27,7 @@
     },
     {
       "tool_name": "planner_role",
+<<<<<<< HEAD
       "provider": "openrouter",
       "model_name": "openai/gpt-5"
     },
@@ -34,10 +35,20 @@
       "tool_name": "supplement_role",
       "provider": "openrouter",
       "model_name": "openai/gpt-5",
+=======
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
+    },
+    {
+      "tool_name": "supplement_role",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615",
+>>>>>>> 76f92ac (fix(rule_engine): QUALITY_CHECK)
       "enable_search": true
     },
     {
       "tool_name": "dag_translator",
+<<<<<<< HEAD
       "provider": "openrouter",
       "model_name": "openai/gpt-5"
     },
@@ -45,22 +56,41 @@
       "tool_name": "operator_role",
       "provider": "openrouter",
       "model_name": "openai/gpt-5",
+=======
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
+    },
+    {
+      "tool_name": "operator_role",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615",
+>>>>>>> 76f92ac (fix(rule_engine): QUALITY_CHECK)
       "enable_search": false,
       "search_provider": "bocha",
       "search_model": ""
     },
     {
       "tool_name": "technician_role",
+<<<<<<< HEAD
       "provider": "openrouter",
       "model_name": "openai/gpt-5",
+=======
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615",
+>>>>>>> 76f92ac (fix(rule_engine): QUALITY_CHECK)
       "enable_search": false,
       "search_provider": "bocha",
       "search_model": ""
     },
     {
       "tool_name": "analyst_role",
+<<<<<<< HEAD
       "provider": "openrouter",
       "model_name": "openai/gpt-5",
+=======
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615",
+>>>>>>> 76f92ac (fix(rule_engine): QUALITY_CHECK)
       "enable_search": false,
       "search_provider": "bocha",
       "search_model": ""
@@ -82,6 +112,7 @@
     },
     {
       "tool_name": "worker_success_role",
+<<<<<<< HEAD
       "provider": "openrouter",
       "model_name": "openai/gpt-5"
     },
@@ -99,6 +130,25 @@
       "tool_name": "final_check_role",
       "provider": "openrouter",
       "model_name": "openai/gpt-5"
+=======
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
+    },
+    {
+      "tool_name": "worker_stale_role",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
+    },
+    {
+      "tool_name": "periodic_role",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
+    },
+    {
+      "tool_name": "final_check_role",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
+>>>>>>> 76f92ac (fix(rule_engine): QUALITY_CHECK)
     }
   ]
 } 

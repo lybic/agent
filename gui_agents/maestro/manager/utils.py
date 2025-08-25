@@ -70,18 +70,27 @@ def generate_dag(dag_translator_agent, global_state, instruction: str, plan: str
         dag_raw, total_tokens, cost_string = dag_translator_agent.execute_tool(
             "dag_translator", {"str_input": dag_input}
         )
+        global_state.log_llm_operation(
+            "manager", "generated_dag", {
+                "dag_raw": dag_raw,
+                "tokens": total_tokens,
+                "cost": cost_string,
+                "retry_count": retry
+            },
+            str_input=dag_input
+        )
         dag_obj = parse_dag(dag_raw)
         retry += 1 if dag_obj is None else 0
-
-    global_state.log_llm_operation(
-        "manager", "generated_dag", {
-            "dag_obj": str(dag_obj),
-            "tokens": total_tokens,
-            "cost": cost_string,
-            "retry_count": retry-1
-        },
-        str_input=dag_input
-    )
+    
+    # global_state.log_llm_operation(
+    #     "manager", "generated_dag", {
+    #         "dag_obj": str(dag_obj),
+    #         "tokens": total_tokens,
+    #         "cost": cost_string,
+    #         "retry_count": retry-1
+    #     },
+    #     str_input=dag_input
+    # )
 
     if dag_obj is None:
         # Fallback to simple DAG

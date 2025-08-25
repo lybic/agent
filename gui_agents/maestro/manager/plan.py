@@ -95,8 +95,7 @@ class PlanningHandler:
         )
 
         # After planning, also generate DAG and action queue
-        dag_info, dag_obj = generate_dag(self.dag_translator_agent, self.global_state, 
-                                       context.get("task_objective", ""), plan_result)
+        dag_info, dag_obj = generate_dag(self.dag_translator_agent, self.global_state, context.get("task_objective", ""), plan_result)
         action_queue: List[Node] = topological_sort(dag_obj)
 
         # Parse planning result

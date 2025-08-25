@@ -347,7 +347,7 @@ time.sleep(1.0)
 import pyautogui
 import time
 
-pyautogui.press('super')
+pyautogui.press('win')
 time.sleep(0.5)
 pyautogui.write('{act.app_or_filename}')
 time.sleep(1.0)

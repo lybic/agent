@@ -179,16 +179,32 @@ def test(args: argparse.Namespace, test_all_meta: dict) -> None:
     )
 
     for domain in tqdm(test_all_meta, desc="Domain"):
+        domain_sanitized = str(domain).strip()
         for example_id in tqdm(test_all_meta[domain], desc="Example", leave=False):
+            example_id_sanitized = str(example_id).strip()
             config_file = os.path.join(
-                args.test_config_base_dir, 
-                f"{domain}/{example_id}.json"
+                args.test_config_base_dir,
+                domain_sanitized,
+                f"{example_id_sanitized}.json"
             )
+
+            if not os.path.exists(config_file):
+                try:
+                    candidate_dir = os.path.join(args.test_config_base_dir, domain_sanitized)
+                    existing_files = []
+                    if os.path.isdir(candidate_dir):
+                        existing_files = os.listdir(candidate_dir)
+                    logger.error(f"Config file not found: {config_file}")
+                    logger.error(f"Existing files in {candidate_dir}: {existing_files}")
+                except Exception as e:
+                    logger.error(f"Error while listing directory for debug: {e}")
+                raise FileNotFoundError(config_file)
+
             with open(config_file, "r", encoding="utf-8") as f:
                 example = json.load(f)
 
-            logger.info(f"[Domain]: {domain}")
-            logger.info(f"[Example ID]: {example_id}")
+            logger.info(f"[Domain]: {domain_sanitized}")
+            logger.info(f"[Example ID]: {example_id_sanitized}")
 
             user_query = example["instruction"]
 
@@ -494,6 +510,18 @@ if __name__ == "__main__":
     """
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     args = config()
+
+    # 规范为绝对路径，避免相对路径依赖当前工作目录
+    try:
+        repo_root = Path(__file__).resolve().parents[1]
+        if not os.path.isabs(args.test_config_base_dir):
+            args.test_config_base_dir = str((repo_root / args.test_config_base_dir).resolve())
+        if not os.path.isabs(args.test_all_meta_path):
+            args.test_all_meta_path = str((repo_root / args.test_all_meta_path).resolve())
+        if not os.path.isabs(args.path_to_vm):
+            args.path_to_vm = str((repo_root / args.path_to_vm).resolve())
+    except Exception:
+        pass
 
     with open(args.test_all_meta_path, "r", encoding="utf-8") as f:
         test_all_meta = json.load(f)

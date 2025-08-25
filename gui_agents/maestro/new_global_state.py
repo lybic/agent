@@ -621,22 +621,18 @@ class NewGlobalState:
         # 检查是否是结构化的memorize数据
         if isinstance(artifact_data, dict) and "type" in artifact_data:
             artifact_type_display = artifact_data.get("type", artifact_type)
-            source = artifact_data.get("source", "unknown")
             
             if artifact_data.get("type") == "analysis_result":
                 # 处理分析结果类型的artifact
                 analysis = artifact_data.get("analysis", "")
                 recommendations = artifact_data.get("recommendations", [])
-                extracted_data = artifact_data.get("extracted_data", {})
                 
                 new_artifact = f"""
 ## {artifact_type_display} - {artifact_id}
 - **Created**: {timestamp}
 - **Type**: {artifact_type_display}
-- **Source**: {source}
 - **Analysis**: {analysis}
 - **Recommendations**: {json.dumps(recommendations, indent=2, ensure_ascii=False)}
-- **Extracted Data**: {json.dumps(extracted_data, indent=2, ensure_ascii=False)}
 
 ---
 """
@@ -646,7 +642,6 @@ class NewGlobalState:
 ## {artifact_type_display} - {artifact_id}
 - **Created**: {timestamp}
 - **Type**: {artifact_type_display}
-- **Source**: {source}
 - **Data**: {json.dumps(artifact_data, indent=2, ensure_ascii=False)}
 
 ---

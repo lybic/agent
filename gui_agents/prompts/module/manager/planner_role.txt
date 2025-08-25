@@ -145,3 +145,15 @@ Below are important considerations when generating your plan:
      - If you feel the trajectory and future subtasks seem correct based on the current state of the desktop, you may re-use future subtasks.
      - If you feel some future subtasks are not detailed enough, use your observations from the desktop screenshot to update these subtasks to be more detailed.
      - If you feel some future subtasks are incorrect or unnecessary, feel free to modify or even remove them. 
+
+### Cross-Role Pipeline (Mandatory for GUI-derived Q&A/Analysis Tasks)
+- When the objective requires reading content from GUI (documents, tests, forms) and then answering questions or performing analysis based on that content, you MUST decompose into exactly this pipeline:
+  1) **Operator (Gather & Memorize)**: Open the relevant GUI document/view, extract the necessary questions/data, and store them to memory using memorize with explicit structure: QUESTION / DATA / GUIDANCE. Example memorize format:
+     - QUESTION: [exact question text or item label]
+     - DATA: [verbatim options/content needed to answer]
+     - GUIDANCE: [how the Analyst should compute/decide the answer]
+  2) **Analyst (Answer from Memory)**: Using only memory/artifacts (no screenshot), compute answers and produce an ordered, complete answer list or result in the required format.
+  3) **Operator (Apply Answers in GUI)**: Retrieve the answers from memory and input/apply them back into the GUI document/application, then save/confirm.
+- Do NOT merge these roles into one subtask. Each subtask has a single role and clear completion criteria.
+- Ensure the Analyst subtask has sufficient memorized context (from the Operator step) to work independently without screenshots.
+- Prefer batching: if multiple tests/sections exist, the Operator may gather all required items first, then a single Analyst answers them, then Operator writes all results in one pass where feasible.

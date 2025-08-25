@@ -230,6 +230,13 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 3. Assign appropriate Worker type for each subtask
 4. Consider execution risks and exceptional cases
 
+# Mandatory Cross-Role Split for GUI-derived Q&A/Analysis
+- If the objective requires reading content from GUI and then answering questions/doing analysis:
+  1) Operator must gather the content via GUI and store it with memorize using QUESTION / DATA / GUIDANCE fields.
+  2) Analyst must answer using only memory/artifacts (no screenshot), producing the final answers/list.
+  3) Operator must write/apply the answers back into GUI and save/confirm.
+- Do not merge these roles in one subtask. Keep one clear role per subtask.
+- Prefer batching: gather all items first, then answer once, then write once.
 
 # Task Information
 Objective: {context.get('task_objective', '')}

@@ -37,26 +37,6 @@ class GateCheck:
     notes: str
     created_at: str
 
-
-# ========= Prompt Templates (loaded via prompts registry) =========
-def _get_scene_template(scene: str) -> str:
-    if scene == "WORKER_SUCCESS":
-        return get_prompt("evaluator/worker_success_role", "")
-    if scene == "WORKER_STALE":
-        return get_prompt("evaluator/worker_stale_role", "")
-    if scene == "FINAL_CHECK":
-        return get_prompt("evaluator/final_check_role", "")
-    # PERIODIC_CHECK
-    return get_prompt("evaluator/periodic_role", "")
-
-
-def _build_system_prompt(scene: str) -> str:
-    """Compose system prompt = system_architecture + evaluator scene template."""
-    arch = get_prompt("system_architecture", "")
-    scene_tmpl = _get_scene_template(scene)
-    return f"{arch}\n\n{scene_tmpl}".strip()
-
-
 class Evaluator:
     """Quality Evaluator implementation.
 
@@ -72,42 +52,22 @@ class Evaluator:
 
         Args:
             global_state: Shared global state store
-            tools_dict: Tool configuration dict, e.g. {"evaluator": {"provider": ..., "model": ...}}
+            tools_dict: Tool configuration dict, expects entries for
+                        worker_success_role | worker_stale_role | periodic_role | final_check_role
         """
         self.global_state = global_state
-        # Initialize evaluator tool via Tools using provided tools_dict or fallback to tools_config.json
+        # Initialize evaluator tools using the new registration style
         self.tools_dict = tools_dict or {}
-        provider = None
-        model_name = None
-        if self.tools_dict.get("evaluator"):
-            provider = self.tools_dict["evaluator"].get("provider")
-            model_name = self.tools_dict["evaluator"].get("model")
-        if not provider or not model_name:
-            import json
-            tools_config_path = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)), "tools",
-                "tools_config.json")
-            with open(tools_config_path, "r") as f:
-                tools_config = json.load(f)
-            for tool in tools_config.get("tools", []):
-                if tool.get("tool_name") == "evaluator":
-                    provider = tool.get("provider")
-                    model_name = tool.get("model_name")
-                    break
-        if not provider or not model_name:
-            raise ValueError(
-                "Missing evaluator tool configuration (provider/model)")
 
         # Use the new tool system: register four evaluator role tools by scene
         self.evaluator_agent = NewTools()
         for tool_name in ("worker_success_role", "worker_stale_role",
                           "periodic_role", "final_check_role"):
-            try:
-                self.evaluator_agent.register_tool(tool_name, provider,
-                                                   model_name)
-            except Exception:
-                # Be tolerant: ignore duplicate registrations or other non-critical errors
-                pass
+            cfg = self.tools_dict.get(tool_name)
+            if not cfg or not cfg.get("provider") or not cfg.get("model"):
+                raise ValueError(
+                    f"Missing evaluator tool configuration for '{tool_name}' (provider/model)")
+            self.evaluator_agent.register_tool(tool_name, cfg["provider"], cfg["model"])
 
     # ========= Public API =========
     def quality_check(self) -> GateCheck:
@@ -127,23 +87,10 @@ class Evaluator:
 
         # Infer trigger type from global state
         trigger_type = self._infer_trigger_type()
-
-        # Use LLM to make decision via Tools
-        scene = trigger_type
-        tool_name = self._scene_to_tool_name(scene)
+        tool_name = self._scene_to_tool_name(trigger_type)
         # Build prompts
-        system_prompt = _build_system_prompt(scene)
-        prompt = self.build_prompt(scene)
+        prompt = self.build_prompt(trigger_type)
         screenshot = globalstate.get_screenshot()
-
-        # Inject system prompt dynamically per scene
-        try:
-            tool_obj = self.evaluator_agent.tools.get(tool_name)
-            if tool_obj and hasattr(tool_obj, "llm_agent"):
-                tool_obj.llm_agent.reset()
-                tool_obj.llm_agent.add_system_prompt(system_prompt)
-        except Exception:
-            pass
 
         # 开始计时
         import time
@@ -158,10 +105,11 @@ class Evaluator:
         # 记录 evaluator 操作到 display.json
         evaluator_duration = time.time() - evaluator_start_time
         self.global_state.log_llm_operation(
-            "evaluator", f"quality_check_{scene.lower()}", {
+            "evaluator", f"quality_check_{trigger_type.lower()}", {
                 "tokens": _tokens,
                 "cost": _cost,
-                "trigger_type": scene,
+                "evaluator_result": content,
+                "trigger_type": trigger_type,
                 "subtask_id": subtask_id,
                 "duration": evaluator_duration
             },
@@ -170,7 +118,7 @@ class Evaluator:
         )
 
         parsed = self.parse_llm_output(content or "")
-        normalized = self._normalize_decision(parsed.get("decision", ""), scene)
+        normalized = self._normalize_decision(parsed.get("decision", ""), trigger_type)
         if normalized is None:
             raise ValueError(
                 f"Invalid decision from LLM: {parsed.get('decision', '')}")
@@ -180,9 +128,8 @@ class Evaluator:
             "WORKER_SUCCESS": GateTrigger.WORKER_SUCCESS,
             "WORKER_STALE": GateTrigger.WORKER_STALE,
             "PERIODIC_CHECK": GateTrigger.PERIODIC_CHECK,
-            # FINAL_CHECK reuses periodic_check trigger category
-            "FINAL_CHECK": GateTrigger.PERIODIC_CHECK,
-        }[scene]
+            "FINAL_CHECK": GateTrigger.FINAL_CHECK,
+        }[trigger_type]
 
         # Persist to global state in system format
         from .data_models import create_gate_check_data
@@ -242,32 +189,6 @@ class Evaluator:
         }
         return mapping.get(scene, "periodic_role")
 
-    # ========= Prompt building helpers =========
-    def _format_commands(self, commands) -> str:
-        """Format command records into a compact text block."""
-        lines = []
-        for cmd in commands:
-            if not cmd:
-                continue
-            cmd_id = getattr(cmd, "command_id",
-                             "") if not isinstance(cmd, dict) else cmd.get(
-                                 "command_id", "")
-            status = getattr(cmd, "exec_status",
-                             "") if not isinstance(cmd, dict) else cmd.get(
-                                 "exec_status", "")
-            msg = getattr(cmd, "exec_message",
-                          "") if not isinstance(cmd, dict) else cmd.get(
-                              "exec_message", "")
-            pre = getattr(cmd, "pre_screenshot_id",
-                          "") if not isinstance(cmd, dict) else cmd.get(
-                              "pre_screenshot_id", "")
-            post = getattr(cmd, "post_screenshot_id",
-                           "") if not isinstance(cmd, dict) else cmd.get(
-                               "post_screenshot_id", "")
-            lines.append(
-                f"- [{cmd_id}] status={status} pre={pre} post={post} msg={msg}")
-        return "\n".join(lines)
-
     def _format_subtask_brief(self, subtask) -> str:
         if not subtask:
             return "(no subtask)"
@@ -279,11 +200,11 @@ class Evaluator:
             title = getattr(subtask, "title", "")
             desc = getattr(subtask, "description", "")
             status = getattr(subtask, "status", "")
-        return f"title={title}\nstatus={status}\ndescription={desc}"
+        return f"title:\n{title}\nstatus:\n{status}\ndescription:\n{desc}"
 
     def _format_task_brief(self) -> str:
         task = self.global_state.get_task()
-        return f"task_id={task.task_id}\nobjective={task.objective}"
+        return f"{task.objective}"
 
     def _get_artifacts_text(self) -> str:
         return self.global_state.get_artifacts()
@@ -401,34 +322,12 @@ class Evaluator:
         subtask = self.global_state.get_subtask(
             subtask_id) if subtask_id else None
 
-        # gather commands
-        all_commands = self.global_state.get_commands()
-
-        if scene in ("WORKER_SUCCESS", "WORKER_STALE",
-                     "PERIODIC_CHECK") and subtask_id:
-            subtask_cmd_ids = set(
-                (subtask.command_trace_ids if subtask else []))
-            sub_commands = [
-                c for c in all_commands
-                if c and (getattr(c, "command_id", None) in subtask_cmd_ids or
-                          (isinstance(c, dict) and
-                           c.get("command_id") in subtask_cmd_ids))
-            ]
-            if scene == "PERIODIC_CHECK":
-                sub_commands = sub_commands[-5:]
-            commands = sub_commands
-        elif scene == "FINAL_CHECK":
-            commands = all_commands
-        else:
-            commands = []
-
         history_text = self._get_command_history_for_subtask(subtask_id)
         last_operation_text = self._get_last_operation_brief(subtask_id)
 
         return {
             "task_brief": self._format_task_brief(),
             "subtask_brief": self._format_subtask_brief(subtask),
-            "commands_text": self._format_commands(commands),
             "artifacts": self._get_artifacts_text(),
             "supplement": self._get_supplement_text(),
             "worker_report": self._get_worker_report(subtask),
@@ -440,19 +339,21 @@ class Evaluator:
         """Build user prompt string containing only runtime inputs."""
         inputs = self._collect_scene_inputs(scene)
 
+        trigger_guidance = self._get_context_info_by_trigger(scene)
+
         parts = [
             "# GlobalState Information\n",
-            f"Task:\n{inputs['task_brief']}\n",
+            f"Task objective:\n{inputs['task_brief']}\n",
             f"Subtask:\n{inputs['subtask_brief']}\n",
-            f"Commands:\n{inputs['commands_text']}\n",
-            (f"Worker Report:\n{inputs['worker_report']}\n"
-             if scene == "WORKER_STALE" else ""),
+            (f"Worker Report:\n{inputs['worker_report']}\n" if scene == "WORKER_STALE" else ""),
             f"Artifacts:\n{inputs['artifacts']}\n",
             f"Supplement:\n{inputs['supplement']}\n",
             "\n=== 历史操作记录（当前子任务） ===\n",
             f"{inputs['history_text']}\n",
-            "\n=== 最近一次操作概览 ===\n",
+            "\n=== 最近一次操作 ===\n",
             f"{inputs['last_operation_text']}\n",
+            "\n=== Trigger Context Guidance ===\n",
+            f"{trigger_guidance}\n",
         ]
         return "\n".join(parts)
 
@@ -573,3 +474,44 @@ class Evaluator:
             elif ln.lower().startswith("incomplete items:"):
                 result["incomplete_items"] = ln.split(":", 1)[1].strip()
         return result
+
+    def _get_context_info_by_trigger(self, scene: str) -> str:
+        """Return detailed guidance text per evaluator trigger scene.
+        Mirrors the system architecture trigger guidance philosophy.
+        """
+        if scene == "WORKER_SUCCESS":
+            return (
+                "# Worker Success - Verification Guidance\n"
+                "- Worker claims the current subtask is completed; rigorously verify completeness\n"
+                "- Cross-check each subtask requirement with clear evidence of completion\n"
+                "- Verify there is explicit success feedback for key steps\n"
+                "- If evidence is insufficient or inconsistent, choose gate_fail and explain why\n"
+            )
+        if scene == "WORKER_STALE":
+            return (
+                "# Worker Stale - Diagnosis Guidance\n"
+                "- Diagnose causes of stagnation: element not found, error dialogs, loops, missing credentials, etc.\n"
+                "- Assess completed progress versus remaining path and decide feasibility of continuation\n"
+                "- If information is missing, specify the required supplement materials and their purpose\n"
+                "- If continuation is feasible, provide breakthrough suggestions; otherwise recommend replanning\n"
+            )
+        if scene == "PERIODIC_CHECK":
+            return (
+                "# Periodic Check - Health Monitoring Guidance\n"
+                "- Identify the current execution stage and whether it matches expectations\n"
+                "- Detect repetitive ineffective operations or obvious deviation from the target\n"
+                "- Prefer early intervention when early risks are detected\n"
+                "- Allowed decisions: gate_continue / gate_done / gate_fail / gate_supplement\n"
+            )
+        if scene == "FINAL_CHECK":
+            return (
+                "# Final Check - Completion Verification Guidance\n"
+                "- Verify DoD/acceptance criteria item by item and cross-subtask consistency\n"
+                "- Check whether the final UI/result aligns with the user objective\n"
+                "- If core functionality is missing or evidence is insufficient, choose gate_fail and list the major missing items\n"
+            )
+        return (
+            "# General Check - Guidance\n"
+            "- Analyze the current context and history to make a robust judgment\n"
+            "- Stay conservative when uncertain and provide clear reasons\n"
+        )

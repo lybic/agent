@@ -80,6 +80,13 @@ class MainController:
         self.config_manager = ConfigManager(memory_root_path, memory_folder_name)
         self.tools_dict = self.config_manager.load_tools_configuration()
         self.local_kb_path = self.config_manager.setup_knowledge_base(platform)
+        # 新增：加载流程配置并覆盖默认参数
+        self.flow_config = self.config_manager.get_flow_config()
+        self.max_steps = self.flow_config.get("max_steps", self.max_steps)
+        self.enable_snapshots = self.flow_config.get("enable_snapshots", self.enable_snapshots)
+        self.snapshot_interval = self.flow_config.get("snapshot_interval_steps", self.snapshot_interval)
+        self.create_checkpoint_snapshots = self.flow_config.get("create_checkpoint_snapshots", self.create_checkpoint_snapshots)
+        self.main_loop_sleep_secs = self.flow_config.get("main_loop_sleep_secs", 0.1)
         
         # 初始化manager
         manager_params = {
@@ -111,7 +118,10 @@ class MainController:
         # 初始化规则引擎
         rule_engine_params: Dict[str, Any] = dict(
             global_state=self.global_state,
-            max_steps=self.max_steps
+            max_steps=self.max_steps,
+            max_state_switches=self.flow_config.get("max_state_switches", 100),
+            max_state_duration=self.flow_config.get("max_state_duration_secs", 300),
+            flow_config=self.flow_config,
         )
         self.rule_engine = RuleEngine(**rule_engine_params)
         
@@ -352,7 +362,7 @@ class MainController:
                 self.increment_turn_count()
 
                 # 7. 状态间短暂等待
-                time.sleep(0.1)
+                time.sleep(self.main_loop_sleep_secs)
 
             except Exception as e:
                 logger.error(f"Error in main loop: {e}")

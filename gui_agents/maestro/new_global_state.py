@@ -135,25 +135,13 @@ class NewGlobalState:
     def _init_artifacts_file(self):
         """Initialize artifacts.md with header"""
         if not self.artifacts_path.exists():
-            default_content = f"""# Task Artifacts - {self.task_id}
-
-## Overview
-This file contains reusable artifacts for the current task.
-
-## Artifacts
-"""
+            default_content = ""
             safe_write_text(self.artifacts_path, default_content)
 
     def _init_supplement_file(self):
         """Initialize supplement.md with header"""
         if not self.supplement_path.exists():
-            default_content = f"""# Task Supplement - {self.task_id}
-
-## Overview
-This file tracks supplementary information and materials needed for the task.
-
-## Supplements
-"""
+            default_content = ""
             safe_write_text(self.supplement_path, default_content)
 
     def _init_events_file(self):

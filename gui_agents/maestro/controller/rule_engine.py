@@ -200,12 +200,9 @@ class RuleEngine:
                 # 检查是否有足够的command进行质检
                 all_commands = self.global_state.get_commands()
                 if len(all_commands) >= self.first_quality_check_min_commands:
-                    # 获取前5个command
-                    recent_commands = all_commands[:self.first_quality_check_min_commands]
                     
-                    # 只检查第5个command是否在质检后创建
-                    # 如果第5个在质检后，说明前4个也都在质检后（因为时间递增）
-                    check_command = recent_commands[self.first_quality_check_min_commands - 1]
+                    # 获取倒数第5个命令，判断其创建时间是否晚于上次质检时间
+                    check_command = all_commands[-self.first_quality_check_min_commands]
                     check_cmd_time = datetime.fromisoformat(check_command.created_at)
                     
                     if (check_cmd_time > latest_quality_check_time and 

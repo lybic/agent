@@ -274,30 +274,133 @@ set_cell_values({act.cell_values}, "{act.app_name}", "{act.sheet_name}")
             self.pag.press("enter")
             time.sleep(1.0)
         elif self.platform.startswith("linux"):
-            # Linux: Use wmctrl to switch windows
+            # Linux: Use wmctrl to switch windows with improved matching
             import subprocess
             import difflib
             
-            self.pag.press("escape")
-            time.sleep(0.5)
+            def _normalize(s):
+                return "".join(ch.lower() for ch in s if ch.isalnum())
+
+            def _parse_app_code(app_code):
+                if ":" in app_code:
+                    cls, ttl = app_code.split(":", 1)
+                    return cls.strip(), ttl.strip()
+                return app_code.strip(), None
+
+            # Extended app mapping with common variations
+            APP_CLASS_MAP = {
+                "chrome": ["google-chrome.Google-chrome", "chromium.Chromium"],
+                "chromium": ["chromium.Chromium"],
+                "code": ["code.Code"],
+                "vscode": ["code.Code"],
+                "visual": ["code.Code"],
+                "studio": ["code.Code"],
+                "impress": ["libreoffice.libreoffice-impress"],
+                "calc": ["libreoffice.libreoffice-calc"],
+                "libreoffice": ["libreoffice.libreoffice-calc", "libreoffice.libreoffice-impress"],
+                "office": ["libreoffice.libreoffice-calc", "libreoffice.libreoffice-impress"],
+                "terminal": ["gnome-terminal-server.Gnome-terminal"],
+                "gnome-terminal": ["gnome-terminal-server.Gnome-terminal"],
+                "nautilus": ["org.gnome.Nautilus.Org.gnome.Nautilus"],
+                "files": ["org.gnome.Nautilus.Org.gnome.Nautilus"],
+                "filemanager": ["org.gnome.Nautilus.Org.gnome.Nautilus"],
+                "software": ["org.gnome.Software.Org.gnome.Software"],
+                "firefox": ["firefox.Firefox"],
+                "browser": ["firefox.Firefox", "google-chrome.Google-chrome", "chromium.Chromium"],
+            }
+
+            def _match_by_class(entries, cls_key):
+                cls_key_n = _normalize(cls_key)
+                # 1) Alias exact match
+                if cls_key_n in APP_CLASS_MAP:
+                    targets = {_normalize(x) for x in APP_CLASS_MAP[cls_key_n]}
+                    exact_alias = [e for e in entries if _normalize(e[1]) in targets]
+                    if exact_alias:
+                        return exact_alias
+                # 2) Exact match
+                exact = [e for e in entries if _normalize(e[1]) == cls_key_n]
+                if exact:
+                    return exact
+                # 3) Prefix/contains
+                pref = [e for e in entries if _normalize(e[1]).startswith(cls_key_n)]
+                if pref:
+                    return pref
+                sub = [e for e in entries if cls_key_n in _normalize(e[1])]
+                if sub:
+                    return sub
+                # 4) Fuzzy fallback (higher threshold)
+                wm_classes = [e[1] for e in entries]
+                matches = difflib.get_close_matches(cls_key, wm_classes, n=3, cutoff=0.6)
+                if matches:
+                    chosen = matches[0]
+                    return [e for e in entries if e[1] == chosen]
+                return []
+
+            def _match_by_title(candidates, title_key):
+                ttl_n = _normalize(title_key)
+                # Exact
+                exact = [e for e in candidates if _normalize(e[2]) == ttl_n]
+                if exact:
+                    return exact[0]
+                # Contains
+                sub = [e for e in candidates if ttl_n in _normalize(e[2])]
+                if sub:
+                    return sub[0]
+                # Fuzzy
+                titles = [e[2] for e in candidates]
+                matches = difflib.get_close_matches(title_key, titles, n=1, cutoff=0.6)
+                if matches:
+                    chosen = matches[0]
+                    for e in candidates:
+                        if e[2] == chosen:
+                            return e
+                return None
             
             try:
-                output = subprocess.check_output(['wmctrl', '-lx']).decode('utf-8').splitlines()
-                window_titles = [line.split(None, 4)[2] for line in output]
-                closest_matches = difflib.get_close_matches(act.app_code, window_titles, n=1, cutoff=0.1)
+                self.pag.press("escape")
+                time.sleep(0.5)
                 
-                if closest_matches:
-                    closest_match = closest_matches[0]
-                    for line in output:
-                        if closest_match in line:
-                            window_id = line.split()[0]
-                            break
-                    else:
-                        return
-                    
-                    subprocess.run(['wmctrl', '-ia', window_id])
-                    subprocess.run(['wmctrl', '-ir', window_id, '-b', 'add,maximized_vert,maximized_horz'])
-            except (subprocess.SubprocessError, IndexError):
+                output = subprocess.check_output(['wmctrl', '-lx']).decode('utf-8').splitlines()
+                
+                # Parse entries: (window_id, wm_class, title, raw_line)
+                entries = []
+                for raw in output:
+                    if not raw or not raw.strip():
+                        continue
+                    parts = raw.split(None, 4)
+                    if len(parts) < 3:
+                        continue
+                    window_id = parts[0]
+                    wm_class = parts[2]
+                    title = parts[4] if len(parts) >= 5 else ""
+                    entries.append((window_id, wm_class, title, raw))
+
+                if not entries:
+                    return  # No valid entries found
+
+                # Match by class first, then by title if multiple candidates
+                cls_key, title_key = _parse_app_code(act.app_code)
+                candidates = _match_by_class(entries, cls_key)
+                
+                if not candidates:
+                    return  # No class match found
+                
+                chosen_entry = None
+                if len(candidates) == 1 or not title_key:
+                    chosen_entry = candidates[0]
+                else:
+                    chosen_entry = _match_by_title(candidates, title_key)
+                    if chosen_entry is None:
+                        # Fallback to first candidate
+                        chosen_entry = candidates[0]
+                
+                window_id, wm_class, title, raw = chosen_entry
+                
+                # Activate and maximize
+                subprocess.run(['wmctrl', '-ia', window_id])
+                subprocess.run(['wmctrl', '-ir', window_id, '-b', 'add,maximized_vert,maximized_horz'])
+                
+            except (subprocess.SubprocessError, IndexError, Exception):
                 # Fallback to Alt+Tab if wmctrl fails
                 self.pag.hotkey("alt", "tab")
         elif self.platform.startswith("win"):

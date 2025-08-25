@@ -52,6 +52,9 @@ Your response should be formatted like this:
 
 (Screenshot Analysis)
 Describe what you see on the current screen, including applications, file system state, terminal output, etc.
+- Enumerate main visible items on screen in a list: currently open windows/apps (with app names), active/focused window, desktop icons (files/folders with names and extensions), visible file lists in any file manager (folder path and filenames), browser tabs/titles if any, dialogs/modals, buttons, input fields, menus, scrollbars, status bars.
+- Note counts where useful (e.g., “Desktop shows 6 icons: Report.docx, data.csv, images/, README.md, ...”), and highlight any potentially relevant targets for the subtask.
+- If the view is cramped or truncated, mention that scrolling/maximizing is likely needed; if information appears incomplete, specify exactly what is missing.
 
 (Next Action)
 Either:

@@ -679,44 +679,23 @@ class NewGlobalState:
         timestamp = datetime.now().isoformat()
         
         # Try to parse structured memorize content
-        question = ""
-        data = ""
+        note = ""
         guidance = ""
         
         # Parse structured content if available
-        if "QUESTION:" in memorize_content:
-            parts = memorize_content.split("QUESTION:")
+        if "NOTE:" in memorize_content:
+            parts = memorize_content.split("NOTE:")
             if len(parts) > 1:
-                question_part = parts[1]
-                if "DATA:" in question_part:
-                    qd_parts = question_part.split("DATA:")
-                    question = qd_parts[0].strip()
-                    if "GUIDANCE:" in qd_parts[1]:
-                        dg_parts = qd_parts[1].split("GUIDANCE:")
-                        data = dg_parts[0].strip()
-                        guidance = dg_parts[1].strip()
-                    else:
-                        data = qd_parts[1].strip()
+                note_part = parts[1]
+                if "GUIDANCE:" in note_part:
+                    ng_parts = note_part.split("GUIDANCE:")
+                    note = ng_parts[0].strip()
+                    guidance = ng_parts[1].strip()
                 else:
-                    question = question_part.strip()
-        elif "PROBLEM:" in memorize_content:
-            parts = memorize_content.split("PROBLEM:")
-            if len(parts) > 1:
-                problem_part = parts[1]
-                if "DATA:" in problem_part:
-                    pd_parts = problem_part.split("DATA:")
-                    question = f"PROBLEM: {pd_parts[0].strip()}"
-                    if "GUIDANCE:" in pd_parts[1]:
-                        dg_parts = pd_parts[1].split("GUIDANCE:")
-                        data = dg_parts[0].strip()
-                        guidance = dg_parts[1].strip()
-                    else:
-                        data = pd_parts[1].strip()
-                else:
-                    question = f"PROBLEM: {problem_part.strip()}"
+                    note = note_part.strip()
         else:
             # Simple data memorization
-            data = memorize_content.strip()
+            note = memorize_content.strip()
         
         # Create structured artifact
         new_artifact = f"""
@@ -724,10 +703,8 @@ class NewGlobalState:
 - **Created**: {timestamp}
 - **Type**: memorize
 - **Subtask**: {subtask_id}
-- **Question/Problem**: {question if question else "N/A"}
-- **Data**: {data if data else memorize_content}
+- **Note**: {note if note else memorize_content}
 - **Guidance**: {guidance if guidance else "Use this information as needed"}
-- **Raw Content**: {memorize_content}
 
 ---
 """

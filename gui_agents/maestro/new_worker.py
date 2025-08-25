@@ -137,7 +137,7 @@ class NewWorker:
                 )
                 outcome = (res.get("outcome") or "").strip()
                 action = res.get("action")
-                command_plan = res.get("command_plan", "")
+                # command_plan = res.get("command_plan", "")
                 screenshot_analysis = res.get("screenshot_analysis", "")
                 message = res.get("message", "")
                 
@@ -199,13 +199,12 @@ class NewWorker:
                 outcome = (res.get("outcome") or "").strip()
                 analysis = res.get("analysis", "")
                 recommendations = res.get("recommendations", [])
-                extracted_data = res.get("extracted_data", {})
                 
                 # Create command with complete information
                 cmd = create_command_data(
                     command_id="", 
                     task_id=self._global_state.task_id, 
-                    action={"analysis": analysis, "recommendations": recommendations, "extracted_data": extracted_data}, 
+                    action={"analysis": analysis, "recommendations": recommendations}, 
                     subtask_id=subtask_id,
                     assignee_role=subtask.assignee_role or "analyst"
                 )
@@ -221,14 +220,14 @@ class NewWorker:
                 self._global_state.update_command_fields(
                     command_id,
                     assignee_role=subtask.assignee_role or "analyst",
-                    action={"analysis": analysis, "recommendations": recommendations, "extracted_data": extracted_data},
+                    action={"analysis": analysis, "recommendations": recommendations},
                     pre_screenshot_id=pre_screenshot_id,
                     pre_screenshot_analysis=pre_screenshot_analysis
                 )
                 
                 if outcome == "analysis_complete":
-                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
-                    return WorkerDecision.STALE_PROGRESS.value
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
+                    return WorkerDecision.WORKER_DONE.value
                 elif outcome == "STALE_PROGRESS":
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
                     return WorkerDecision.STALE_PROGRESS.value

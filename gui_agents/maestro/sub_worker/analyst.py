@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 
 from gui_agents.tools.new_tools import NewTools
 from gui_agents.maestro.new_global_state import NewGlobalState
+from gui_agents.maestro.enums import SubtaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,6 @@ class Analyst:
         Returns a dict containing:
         - analysis: detailed analysis result
         - recommendations: list of recommendations
-        - extracted_data: any extracted information
         - step_result: StepResult as dict
         - outcome: one of {"analysis_complete", "CANNOT_EXECUTE", "STALE_PROGRESS"}
         """
@@ -92,7 +92,18 @@ class Analyst:
         artifacts_content = self.global_state.get_artifacts()
         history_subtasks = self.global_state.get_subtasks()  # All subtasks including completed ones
         supplement_content = self.global_state.get_supplement()
-        
+
+        # Only keep top 2 subtasks whose status is NOT READY, ordered by updated_at desc
+        try:
+            non_ready_subtasks = [
+                s for s in history_subtasks
+                if getattr(s, 'status', '') != SubtaskStatus.READY.value
+            ]
+            non_ready_subtasks.sort(key=lambda x: getattr(x, 'updated_at', ''), reverse=True)
+            history_subtasks = non_ready_subtasks[:2]
+        except Exception as e:
+            logger.warning(f"Filter non-ready subtasks failed: {e}")
+
         # Get current subtask commands
         subtask_id = subtask.get('subtask_id')
         subtask_commands = []
@@ -119,7 +130,6 @@ class Analyst:
             return {
                 "analysis": "",
                 "recommendations": [],
-                "extracted_data": {},
                 "step_result": result.__dict__,
                 "outcome": "STALE_PROGRESS",
             }
@@ -164,7 +174,6 @@ class Analyst:
             return {
                 "analysis": "",
                 "recommendations": [],
-                "extracted_data": {},
                 "step_result": result.__dict__,
                 "outcome": "CANNOT_EXECUTE",
             }
@@ -181,7 +190,6 @@ class Analyst:
             parsed_result = {
                 "analysis": f"Failed to parse analysis: {str(e)}",
                 "recommendations": [],
-                "extracted_data": {}
             }
             err = f"PARSE_ANALYSIS_FAILED: {e}"
             logger.warning(err)
@@ -204,7 +212,6 @@ class Analyst:
         return {
             "analysis": parsed_result["analysis"],
             "recommendations": parsed_result["recommendations"],
-            "extracted_data": parsed_result["extracted_data"],
             "summary": parsed_result["summary"],
             "step_result": result.__dict__,
             "outcome": outcome,
@@ -223,114 +230,241 @@ class Analyst:
         """Build comprehensive analysis prompt with all context information."""
         
         # Format task information
-        task_info = f"任务ID: {task.task_id}\n任务目标: {task.objective}" if task else "任务信息不可用"
+        task_info = []
+        if task:
+            task_info.extend([
+                f"**Task ID**: {task.task_id}",
+                f"**Task Objective**: {task.objective}",
+            ])
+        else:
+            task_info.append("**Task Information**: Not available")
         
         # Format subtask information
-        subtask_info = f"子任务: {subtask.get('title', '')}\n子任务描述: {subtask.get('description', '')}"
+        subtask_info = [
+            f"**Subtask Title**: {subtask.get('title', 'Not specified')}",
+            f"**Subtask Description**: {subtask.get('description', 'Not specified')}",
+            f"**Assignee Role**: {subtask.get('assignee_role', 'analyst')}",
+        ]
         
-        # Format history subtasks
-        history_info = "历史子任务信息:\n"
+        # Format guidance information
+        guidance_info = []
+        if guidance:
+            guidance_info.extend([
+                "# Specific Guidance",
+                f"**Instructions**: {guidance}",
+                ""
+            ])
+        
+        # Format artifacts content with analysis
+        artifacts_section = []
+        if artifacts_content and artifacts_content.strip():
+            artifacts_section.extend([
+                "# Available Artifacts Content",
+                f"**Content Length**: {len(artifacts_content)} characters",
+                f"**Content**:",
+                "```",
+                artifacts_content,
+                "```",
+                ""
+            ])
+        else:
+            artifacts_section.extend([
+                "# Available Artifacts Content",
+                "**Status**: No artifacts content available",
+                ""
+            ])
+        
+        # Format supplement content
+        supplement_section = []
+        if supplement_content and supplement_content.strip():
+            supplement_section.extend([
+                "# Supplement Information",
+                f"**Content Length**: {len(supplement_content)} characters",
+                f"**Content**:",
+                "```",
+                supplement_content,
+                "```",
+                ""
+            ])
+        else:
+            supplement_section.extend([
+                "# Supplement Information",
+                "**Status**: No supplement content available",
+                ""
+            ])
+        
+        # Format historical context
+        history_section = []
         if history_subtasks:
-            for i, hist_subtask in enumerate(history_subtasks[-5:], 1):  # Show last 5
+            history_section.extend([
+                "# Historical Subtasks Context",
+                f"**Total Subtasks**: {len(history_subtasks)}",
+                "**Recent Subtask Summary**:"
+            ])
+            
+            # Show last 5 subtasks with status
+            recent_subtasks = history_subtasks[-5:] if len(history_subtasks) > 5 else history_subtasks
+            for i, hist_subtask in enumerate(recent_subtasks, 1):
                 if hasattr(hist_subtask, 'to_dict'):
                     hist_data = hist_subtask.to_dict()
                 else:
                     hist_data = hist_subtask
-                history_info += f"{i}. {hist_data.get('title', 'Unknown')}: {hist_data.get('status', 'Unknown')}\n"
+                
+                title = hist_data.get('title', 'Unknown Task')
+                status = hist_data.get('status', 'Unknown')
+                role = hist_data.get('assignee_role', 'Unknown')
+                history_section.append(f"{i}. **{title}** (Role: {role}) - Status: {status}")
+            
+            history_section.append("")
         else:
-            history_info += "无历史子任务信息\n"
+            history_section.extend([
+                "# Historical Subtasks Context",
+                "**Status**: No historical subtask information available",
+                ""
+            ])
         
-        # Format subtask commands
-        commands_info = "当前子任务命令信息:\n"
+        # Format command execution context
+        commands_section = []
         if subtask_commands:
-            for i, cmd in enumerate(subtask_commands[-3:], 1):  # Show last 3 commands
-                commands_info += f"{i}. {cmd.get('action', {}).get('type', 'Unknown action')}: {cmd.get('exec_status', 'Unknown')}\n"
+            commands_section.extend([
+                "# Current Subtask Command History",
+                f"**Total Commands**: {len(subtask_commands)}",
+                "**Recent Command Summary**:"
+            ])
+            
+            # Show last 3 commands
+            recent_commands = subtask_commands[-3:] if len(subtask_commands) > 3 else subtask_commands
+            for i, cmd in enumerate(recent_commands, 1):
+                action_type = "Unknown"
+                if isinstance(cmd.get('action'), dict):
+                    action_type = cmd.get('action', {}).get('type', 'Unknown')
+                
+                exec_status = cmd.get('exec_status', 'Unknown')
+                worker_decision = cmd.get('worker_decision', 'Unknown')
+                commands_section.append(f"{i}. **{action_type}** - Execution: {exec_status}, Decision: {worker_decision}")
+            
+            commands_section.append("")
         else:
-            commands_info += "无命令执行信息\n"
+            commands_section.extend([
+                "# Current Subtask Command History",
+                "**Status**: No command execution history available",
+                ""
+            ])
         
-        # Format artifacts content
-        artifacts_info = f"当前 Artifacts 内容:\n{artifacts_content[:2000]}{'...' if len(artifacts_content) > 2000 else ''}"
+        # Build analysis requirements
+        requirements_section = [
+            "# Analysis Requirements",
+            "As the Analyst role, you must:",
+            "",
+            "1. **Comprehensive Review**: Analyze all available information sources",
+            "2. **Context Integration**: Connect information across artifacts, history, and current state", 
+            "3. **Accurate Extraction**: Extract precise, verifiable data and insights",
+            "4. **Actionable Recommendations**: Provide specific, implementable suggestions",
+            "5. **Clear Communication**: Present findings in structured, understandable format",
+            "",
+            "## Special Considerations:",
+            "- Focus on information that helps complete the current subtask",
+            "- If this is a 'memorize' analysis, prioritize information retention and recall",
+            "- For question-answering, provide comprehensive answers with evidence",
+            "- When data is insufficient, clearly state limitations",
+            "- Base all conclusions on available evidence, not assumptions",
+            ""
+        ]
         
-        # Format supplement content
-        supplement_info = f"补充信息:\n{supplement_content[:1000]}{'...' if len(supplement_content) > 1000 else ''}" if supplement_content else "无补充信息"
+        # Output format specification
+        output_section = [
+            "# Required Output Format",
+            "Provide your analysis in valid JSON format with these exact fields:",
+            "",
+            "```json",
+            "{",
+            '    "analysis": "Detailed analysis description explaining your findings and methodology",',
+            '    "recommendations": ["Specific actionable recommendation 1", "Specific actionable recommendation 2"],',
+            '    "summary": "Brief summary of key findings and conclusions"',
+            "}",
+            "```",
+            "",
+            "## Field Requirements:",
+            "- **analysis**: Comprehensive explanation of findings (required)",
+            "- **recommendations**: List of specific, actionable suggestions (required, can be empty list)",
+            "- **summary**: Concise overview of key points (required)",
+            ""
+        ]
         
-        # Build the complete prompt
-        prompt = f"""# 分析任务
-你是一个专业的数据分析师，负责分析任务相关的信息。
-
-## 任务上下文
-{task_info}
-
-## 子任务信息
-{subtask_info}
-
-## 历史子任务信息
-{history_info}
-
-## 当前子任务命令信息
-{commands_info}
-
-## 当前 Artifacts 内容
-{artifacts_info}
-
-## 补充信息
-{supplement_info}"""
-
-        if guidance:
-            prompt += f"\n## 指导说明\n{guidance}"
-
-        prompt += """
-
-## 分析要求
-请根据以上信息，分析并完成子任务要求。你需要：
-1. 理解子任务的具体需求
-2. 分析相关的历史信息、命令执行情况和当前状态
-3. 提供准确的分析结果和建议
-4. 确保输出内容对任务完成有价值
-
-## 输出格式
-请按照以下JSON格式输出：
-{
-    "analysis": "详细的分析结果描述",
-    "recommendations": ["具体建议1", "具体建议2"],
-    "extracted_data": {"key": "value"},
-    "summary": "简要总结"
-}"""
-
-        return prompt
+        # Combine all sections
+        prompt_sections = [
+            "# Analysis Task",
+            "You are a professional data analyst responsible for analyzing task-related information.",
+            "",
+            "## Task Context",
+            *task_info,
+            "",
+            "## Current Subtask Information", 
+            *subtask_info,
+            ""
+        ]
+        
+        if guidance_info:
+            prompt_sections.extend(guidance_info)
+        
+        prompt_sections.extend(artifacts_section)
+        prompt_sections.extend(supplement_section) 
+        prompt_sections.extend(history_section)
+        prompt_sections.extend(commands_section)
+        prompt_sections.extend(requirements_section)
+        prompt_sections.extend(output_section)
+        
+        return "\n".join(prompt_sections)
 
     def _parse_analysis_result(self, result: str) -> Dict[str, Any]:
-        """Parse the analysis result from LLM response."""
-        # Try to extract JSON from the response
-        json_match = re.search(r'```json\s*(\{.*?\})\s*```', result, re.DOTALL)
-        if json_match:
-            try:
-                parsed = json.loads(json_match.group(1))
-                return {
-                    "analysis": parsed.get("analysis", ""),
-                    "recommendations": parsed.get("recommendations", []),
-                    "extracted_data": parsed.get("extracted_data", {}),
-                    "summary": parsed.get("summary", "")
-                }
-            except json.JSONDecodeError:
-                pass
+        """Parse the analysis result from LLM response with improved error handling."""
         
-        # Fallback: try to parse the entire result as JSON
+        # Try to extract JSON from markdown code blocks first
+        json_patterns = [
+            r'```json\s*(\{.*?\})\s*```',  # Standard JSON code block
+            r'```\s*(\{.*?\})\s*```',      # Code block without json label
+            r'(\{[^{}]*"analysis"[^{}]*\})',  # JSON with analysis field
+        ]
+        
+        for pattern in json_patterns:
+            json_match = re.search(pattern, result, re.DOTALL)
+            if json_match:
+                try:
+                    parsed = json.loads(json_match.group(1))
+                    return self._validate_and_format_result(parsed)
+                except json.JSONDecodeError:
+                    continue
+        
+        # Try to parse the entire result as JSON
         try:
-            parsed = json.loads(result)
-            return {
-                "analysis": parsed.get("analysis", ""),
-                "recommendations": parsed.get("recommendations", []),
-                "extracted_data": parsed.get("extracted_data", {}),
-                "summary": parsed.get("summary", "")
-            }
+            parsed = json.loads(result.strip())
+            return self._validate_and_format_result(parsed)
         except json.JSONDecodeError:
             pass
         
-        # Final fallback: treat as plain text analysis
+        # Final fallback: extract information using regex patterns
+        analysis_match = re.search(r'"analysis":\s*"([^"]*)"', result, re.DOTALL)
+        recommendations_match = re.search(r'"recommendations":\s*\[(.*?)\]', result, re.DOTALL)
+        summary_match = re.search(r'"summary":\s*"([^"]*)"', result, re.DOTALL)
+        
+        analysis = analysis_match.group(1) if analysis_match else result
+        recommendations = []
+        if recommendations_match:
+            rec_text = recommendations_match.group(1)
+            recommendations = re.findall(r'"([^"]*)"', rec_text)
+        
+        summary = summary_match.group(1) if summary_match else "Analysis completed"
+        
         return {
-            "analysis": result,
-            "recommendations": [],
-            "extracted_data": {},
-            "summary": ""
-        } 
+            "analysis": analysis,
+            "recommendations": recommendations,
+            "summary": summary
+        }
+
+    def _validate_and_format_result(self, parsed: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate and format the parsed result to ensure required fields."""
+        return {
+            "analysis": str(parsed.get("analysis", "")).strip() or "No analysis provided",
+            "recommendations": list(parsed.get("recommendations", [])),
+            "summary": str(parsed.get("summary", "")).strip() or "Analysis completed"
+        }

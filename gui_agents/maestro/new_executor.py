@@ -9,7 +9,7 @@ import re
 from typing import Dict, Any, Optional, List, Tuple
 from gui_agents.maestro.hardware_interface import HardwareInterface
 from .new_global_state import NewGlobalState
-from .enums import SubtaskStatus
+from .enums import ExecStatus, SubtaskStatus
 from desktop_env.desktop_env import DesktopEnv
 from PIL import Image
 from gui_agents.maestro.Action import Screenshot
@@ -176,85 +176,6 @@ class NewExecutor:
             logger.error(error_msg)
             return self._create_execution_result(False, error_msg)
 
-    def execute_code_script(self, script_content: str, script_type: str = "auto") -> Dict[str, Any]:
-        """
-        执行代码脚本（bash或python）
-        
-        Args:
-            script_content: 脚本内容
-            script_type: 脚本类型 ("bash", "python", "auto")
-            
-        Returns:
-            执行结果字典
-        """
-        if not self.env_controller:
-            error_msg = "No environment controller available for code execution"
-            logger.warning(error_msg)
-            return self._create_execution_result(False, error_msg)
-        
-        execution_start = time.time()
-        
-        try:
-            # 自动检测脚本类型
-            if script_type == "auto":
-                script_type = self._detect_script_type(script_content)
-            
-            # 提取代码块
-            code_blocks = self._extract_code_blocks(script_content)
-            if not code_blocks:
-                error_msg = "No code blocks found in script content"
-                logger.warning(error_msg)
-                return self._create_execution_result(False, error_msg)
-            
-            results = []
-            for lang, code in code_blocks:
-                try:
-                    if lang in ["bash", "shell", "sh"]:
-                        output_dict = self.env_controller.run_bash_script(code)
-                        status = (output_dict or {}).get("status")
-                        if status == "success":
-                            results.append(f"[BASH] Success: {(output_dict or {}).get('output', '')}")
-                        else:
-                            out = (output_dict or {}).get('output', '')
-                            err = (output_dict or {}).get('error', '')
-                            msg = out if out else err
-                            results.append(f"[BASH] Error: {msg}")
-                    elif lang in ["python", "py"]:
-                        output_dict = self.env_controller.run_python_script(code)
-                        status = (output_dict or {}).get("status")
-                        if status == "error":
-                            out = (output_dict or {}).get('output', '')
-                            err = (output_dict or {}).get('error', '')
-                            msg = out if out else err
-                            results.append(f"[PYTHON] Error: {msg}")
-                        else:
-                            results.append(f"[PYTHON] Success: {(output_dict or {}).get('message', '')}")
-                    else:
-                        results.append(f"[{lang.upper()}] Unsupported language")
-                except Exception as e:
-                    results.append(f"[{lang.upper()}] Execution error: {str(e)}")
-            
-            execution_time = time.time() - execution_start
-            execution_result = "\n".join(results)
-            
-            # 记录执行结果
-            self.global_state.log_operation("executor", "code_execution_completed", {
-                "execution_time": execution_time,
-                "script_type": script_type,
-                "result": execution_result
-            })
-            
-            return self._create_execution_result(
-                success=True,
-                execution_time=execution_time,
-                action={"type": "code_execution", "script_type": script_type, "result": execution_result}
-            )
-            
-        except Exception as e:
-            execution_time = time.time() - execution_start
-            error_msg = f"Code execution failed: {str(e)}"
-            logger.error(error_msg)
-            return self._create_execution_result(False, error_msg, execution_time)
 
     def execute_code_blocks(self, code_blocks: List[Tuple[str, str]], subtask_id: str) -> Dict[str, Any]:
         """
@@ -309,6 +230,13 @@ class NewExecutor:
             # 记录执行结果
             self.global_state.add_event("executor", "code_blocks_execution_completed", 
                 f"Code blocks execution completed in {execution_time:.2f}s")
+            if output_dict is not None:
+                exec_status = ExecStatus.EXECUTED if status == "success" else ExecStatus.ERROR
+            self.global_state.update_command_exec_status(
+                self.global_state.get_current_command_for_subtask(subtask_id).command_id,
+                exec_status,
+                execution_result,
+            )
             
             screenshot: Image.Image = self.hwi.dispatch(
                 Screenshot())  # type: ignore

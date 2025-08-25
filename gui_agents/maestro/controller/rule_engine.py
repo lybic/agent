@@ -192,8 +192,7 @@ class RuleEngine:
             # 距离上次质检过去了配置的时间 - QUALITY_CHECK
             gate_checks = self.global_state.get_gate_checks()
             if gate_checks:
-                latest_quality_check = max(gate_checks,
-                                           key=lambda x: x.created_at)
+                latest_quality_check = max(gate_checks, key=lambda x: x.created_at)
                 latest_time = datetime.fromisoformat(
                     latest_quality_check.created_at)
                 current_time = datetime.now()

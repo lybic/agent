@@ -113,9 +113,8 @@ class Technician:
                     history_lines.append(f"   执行状态: {exec_status}")
                 if exec_message:
                     history_lines.append(f"   执行消息: {exec_message}")
-                # if cmd.pre_screenshot_analysis:
-                #     analysis_preview = cmd.pre_screenshot_analysis[:150] + "..." if len(cmd.pre_screenshot_analysis) > 150 else cmd.pre_screenshot_analysis
-                #     history_lines.append(f"   截图分析: {analysis_preview}")
+                if cmd.pre_screenshot_analysis:
+                    history_lines.append(f"   执行前截图分析: {cmd.pre_screenshot_analysis}")
                 history_lines.append("")
             
             return "\n".join(history_lines)

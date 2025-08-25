@@ -97,7 +97,7 @@ class ConfigManager:
                 "first_quality_check_min_commands": 5,  # 首次质检触发指令数
                 # 连续相同行为与重规划
                 "repeated_action_min_consecutive": 3,
-                "replan_long_execution_threshold": 20,
+                "replan_long_execution_threshold": 25,
                 # 规划次数上限
                 "plan_number_limit": 10,
                 # 快照与主循环

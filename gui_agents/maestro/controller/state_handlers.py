@@ -11,6 +11,7 @@ from ..enums import ControllerState, TaskStatus, SubtaskStatus, WorkerDecision, 
 from ..new_manager import NewManager
 from ..new_worker import NewWorker
 from ..evaluator import Evaluator
+from ..new_executor import NewExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class StateHandlers:
     def __init__(self, 
             global_state: NewGlobalState, 
             manager: NewManager, 
-            executor, 
+            executor: NewExecutor, 
             tools_dict: dict, 
             platform: str, 
             enable_search: bool, 

@@ -136,7 +136,7 @@ class NewExecutor:
                         }
                         
                         # 添加到artifacts
-                        self.global_state.add_artifact(subtask_id, artifact_data)
+                        self.global_state.add_artifact("analysis_result", artifact_data)
                         
                         return self._create_execution_result(
                             success=True,
@@ -152,7 +152,7 @@ class NewExecutor:
                         }
                         
                         # 添加到artifacts
-                        self.global_state.add_artifact(subtask_id, artifact_data)
+                        self.global_state.add_artifact("action_artifact", artifact_data)
                         
                         return self._create_execution_result(
                             success=True,

@@ -10,6 +10,7 @@ from typing import Optional
 from gui_agents.maestro.snapshot_restorer import (
     restore_maincontroller_from_globalstate,
 )
+from gui_agents.maestro.debug_system.logging_setup import setup_file_logging
 
 logger = logging.getLogger(__name__)
 
@@ -31,24 +32,24 @@ def run_main_controller_from_snapshot(
     Returns:
         The restored MainController if successful; otherwise None.
     """
-    controller = restore_maincontroller_from_globalstate(
+    result = restore_maincontroller_from_globalstate(
         runtime_dir=runtime_dir,
         snapshot_id=snapshot_id,
         target_dir=target_dir,
     )
 
-    if controller is None:
+    if result is None:
         logger.error("Failed to restore MainController from snapshot")
         return None
 
-    logger.info("MainController restored from snapshot successfully")
+    controller, target_path, config_params = result
+
+    # 将文件日志写到 target_path
+    setup_file_logging(target_path)
+
+    logger.info(f"MainController restored from snapshot successfully. Logs at: {target_path}")
 
     controller.execute_main_loop()
-
-    # if auto_run:
-    #     logger.info("Starting main loop execution…")
-    #     controller.execute_main_loop()
-    #     logger.info("Main loop execution finished")
 
     return controller
 
@@ -63,13 +64,22 @@ def _parse_args() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
+    import logging
+    from gui_agents.maestro.debug_system.logging_setup import setup_debug_logging, setup_file_logging
+
+    # 简单控制台日志
+    setup_debug_logging(logging.INFO)
+
+    # 写入到 target_path 日志文件（按默认测试目标目录示例）
+    # 若使用 CLI 参数，可在解析后调用 setup_file_logging(args.target or target_path)
+
     # args = _parse_args()
 
     target_dir=None
     runtime_dir = "runtime/20250826_141730"
     snapshot_id = "snapshot_20250826_141736"
 
-    run_main_controller_from_snapshot(
+    controller = run_main_controller_from_snapshot(
         runtime_dir=runtime_dir,
         snapshot_id=snapshot_id,
         target_dir=target_dir,

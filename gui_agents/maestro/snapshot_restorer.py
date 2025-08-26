@@ -6,7 +6,7 @@
 import os
 import sys
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent.parent.parent
@@ -139,9 +139,9 @@ def restore_snapshot_and_create_globalstate(runtime_dir: str, snapshot_id: Optio
         return None, target_path, {}
 
 
-def restore_maincontroller_from_globalstate(runtime_dir: str, snapshot_id: Optional[str] = None, target_dir: Optional[str] = None) -> Optional[MainController]:
+def restore_maincontroller_from_globalstate(runtime_dir: str, snapshot_id: Optional[str] = None, target_dir: Optional[str] = None) -> Optional[Tuple[MainController, str, Dict[str, Any]]]:
     """
-    恢复快照 -> 构建GlobalState -> 构建MainController（跳过初始化），并返回控制器
+    恢复快照 -> 构建GlobalState -> 构建MainController（跳过初始化），并返回控制器、恢复目录与配置
     """
     global_state, target_path, config_params = restore_snapshot_and_create_globalstate(runtime_dir, snapshot_id, target_dir)
     if global_state is None:
@@ -180,7 +180,7 @@ def restore_maincontroller_from_globalstate(runtime_dir: str, snapshot_id: Optio
         max_steps=max_steps_value,
         env=env,
         env_password=env_password_value,
-        log_dir=str(Path(target_path).parent),
+        log_dir=str(Path(target_path)),
         datetime_str=Path(target_path).name,
         enable_snapshots=True,
         global_state=global_state,
@@ -188,7 +188,7 @@ def restore_maincontroller_from_globalstate(runtime_dir: str, snapshot_id: Optio
     )
 
     print("✅ MainController 从快照恢复完成，可直接执行主循环")
-    return controller
+    return controller, target_path, config_params
 
 
 
@@ -210,8 +210,9 @@ def main():
         return
     
     if args.run:
-        controller = restore_maincontroller_from_globalstate(args.runtime_dir, args.snapshot, args.target)
-        if controller is not None:
+        result = restore_maincontroller_from_globalstate(args.runtime_dir, args.snapshot, args.target)
+        if result is not None:
+            controller, target_path, _ = result
             controller.execute_main_loop()
         return
     

@@ -251,9 +251,22 @@ class MainController:
                 if not checkpoint_name:
                     checkpoint_name = f"checkpoint_step_{self.step_count}"
                 
+                # 准备配置参数
+                config_params = {
+                    "tools_dict": self.tools_dict,
+                    "platform": self.platform,
+                    "enable_search": self.enable_search,
+                    "env_password": self.env_password,
+                    "enable_takeover": self.enable_takeover,
+                    "enable_rag": self.enable_rag,
+                    "backend": self.backend,
+                    "max_steps": self.max_steps
+                }
+                
                 snapshot_id = self.global_state.create_snapshot(
                     description=f"Checkpoint: {checkpoint_name}",
-                    snapshot_type="checkpoint"
+                    snapshot_type="checkpoint",
+                    config_params=config_params
                 )
                 logger.info(f"Checkpoint snapshot created: {snapshot_id}")
                 return snapshot_id
@@ -265,9 +278,22 @@ class MainController:
         """创建错误快照"""
         try:
             if self.enable_snapshots:
+                # 准备配置参数
+                config_params = {
+                    "tools_dict": self.tools_dict,
+                    "platform": self.platform,
+                    "enable_search": self.enable_search,
+                    "env_password": self.env_password,
+                    "enable_takeover": self.enable_takeover,
+                    "enable_rag": self.enable_rag,
+                    "backend": self.backend,
+                    "max_steps": self.max_steps
+                }
+                
                 snapshot_id = self.global_state.create_snapshot(
                     description=f"Error: {error_message}",
-                    snapshot_type=f"error_{error_type}"
+                    snapshot_type=f"error_{error_type}",
+                    config_params=config_params
                 )
                 logger.info(f"Error snapshot created: {snapshot_id}")
                 return snapshot_id
@@ -286,7 +312,7 @@ class MainController:
             
             # 在关键状态创建检查点快照
             if self.create_checkpoint_snapshots:
-                if current_state in [ControllerState.PLAN, ControllerState.QUALITY_CHECK, ControllerState.FINAL_CHECK]:
+                if current_state in [ControllerState.PLAN, ControllerState.QUALITY_CHECK, ControllerState.FINAL_CHECK, ControllerState.GET_ACTION]:
                     self._create_checkpoint_snapshot(f"checkpoint_{current_state.value.lower()}")
                     
         except Exception as e:
@@ -501,7 +527,19 @@ class MainController:
             if not description:
                 description = f"Manual snapshot at step {self.step_count}"
             
-            snapshot_id = self.global_state.create_snapshot(description, "manual")
+            # 准备配置参数
+            config_params = {
+                "tools_dict": self.tools_dict,
+                "platform": self.platform,
+                "enable_search": self.enable_search,
+                "env_password": self.env_password,
+                "enable_takeover": self.enable_takeover,
+                "enable_rag": self.enable_rag,
+                "backend": self.backend,
+                "max_steps": self.max_steps
+            }
+            
+            snapshot_id = self.global_state.create_snapshot(description, "manual", config_params)
             logger.info(f"Manual snapshot created: {snapshot_id}")
             return snapshot_id
             

@@ -52,9 +52,9 @@ def main():
     args = parse_arguments()
     
     # 写死运行时路径和快照名称
-    runtime_path = "runtime/20250826_010445"
+    runtime_path = "runtime/20250826_141730"
     snapshots_path = f"{runtime_path}/snapshots"
-    target_snapshot = "snapshot_20250826_012939"
+    target_snapshot = "snapshot_20250826_141736"
     
     print("=== 运行时任务调试器 ===")
     print(f"目标运行时: {runtime_path}")

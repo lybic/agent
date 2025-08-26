@@ -226,8 +226,11 @@ class NewWorker:
                 )
                 
                 if outcome == "analysis_complete":
-                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
-                    return WorkerDecision.WORKER_DONE.value
+                    # self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
+                    # return WorkerDecision.WORKER_DONE.value
+                    logger.info(f"Analyst generated action, switching to EXECUTE_ACTION")
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.GENERATE_ACTION.value)
+                    return WorkerDecision.GENERATE_ACTION.value
                 elif outcome == "STALE_PROGRESS":
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
                     return WorkerDecision.STALE_PROGRESS.value

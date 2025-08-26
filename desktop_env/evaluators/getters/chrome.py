@@ -4,8 +4,9 @@ import os
 import platform
 import sqlite3
 import time
+import traceback
 from urllib.parse import unquote
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from urllib.parse import urlparse, parse_qs
 
 import lxml.etree
@@ -35,6 +36,76 @@ WARNING:
 2. The functions are not tested on Windows and Mac, but they should work.
 """
 
+def _resolve_cdp_ws_url(host: str, port: int) -> Optional[str]:
+    """
+    Resolve Chrome DevTools WebSocket URL from CDP endpoints
+    
+    Args:
+        host: VM IP address
+        port: Chrome DevTools port
+        
+    Returns:
+        WebSocket URL if found, None otherwise
+    """
+    endpoints = [
+        f"http://{host}:{port}/json/version",
+        f"http://{host}:{port}/json",
+        f"http://{host}:{port}/json/list",
+    ]
+    
+    for ep in endpoints:
+        try:
+            resp = requests.get(ep, timeout=2)
+            if resp.status_code != 200:
+                logger.debug(f"CDP probe {ep} -> HTTP {resp.status_code}")
+                continue
+            data = resp.json()
+            
+            # json/version returns an object, json/json_list returns a list
+            if isinstance(data, dict) and data.get("webSocketDebuggerUrl"):
+                return data["webSocketDebuggerUrl"].replace("http://", "ws://")
+            if isinstance(data, list) and len(data) > 0:
+                # Prefer browser target if present; otherwise first available
+                for item in data:
+                    if item.get("type") == "browser" and item.get("webSocketDebuggerUrl"):
+                        return item["webSocketDebuggerUrl"].replace("http://", "ws://")
+                first = data[0]
+                if first.get("webSocketDebuggerUrl"):
+                    return first["webSocketDebuggerUrl"].replace("http://", "ws://")
+        except Exception as e:
+            logger.debug(f"CDP probe error at {ep}: {e}")
+    return None
+
+def _connect_to_chrome_cdp(host: str, port: int, playwright_instance):
+    """
+    Connect to Chrome DevTools using CDP, with fallback from WS to HTTP
+    
+    Args:
+        host: VM IP address
+        port: Chrome DevTools port
+        playwright_instance: Playwright instance
+        
+    Returns:
+        Connected browser instance
+        
+    Raises:
+        Exception: If connection fails after all attempts
+    """
+    remote_debugging_url = f"http://{host}:{port}"
+    
+    # Try to resolve WebSocket URL first
+    ws_url = _resolve_cdp_ws_url(host, port)
+    
+    if ws_url:
+        logger.info(f"Connecting to Chrome DevTools via WS: {ws_url}")
+        try:
+            return playwright_instance.chromium.connect_over_cdp(ws_url)
+        except Exception as e:
+            logger.warning(f"WS connection failed, falling back to HTTP: {e}")
+    
+    # Fallback to HTTP CDP URL
+    logger.warning(f"WS endpoint not resolved, fallback to HTTP CDP URL: {remote_debugging_url}")
+    return playwright_instance.chromium.connect_over_cdp(remote_debugging_url)
 
 def get_info_from_website(env, config: Dict[Any, Any]) -> Any:
     """ Get information from a website. Especially useful when the information may be updated through time.
@@ -70,7 +141,7 @@ def get_info_from_website(env, config: Dict[Any, Any]) -> Any:
         with sync_playwright() as p:
             # connect to remote Chrome instance
             try:
-                browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                browser = _connect_to_chrome_cdp(host, port, p)
                 logger.info(f"[INFO_FROM_WEBSITE] Successfully connected to existing Chrome instance")
             except Exception as e:
                 logger.warning(f"[INFO_FROM_WEBSITE] Failed to connect to existing Chrome instance: {e}")
@@ -92,7 +163,7 @@ def get_info_from_website(env, config: Dict[Any, Any]) -> Any:
                 #requests.post("http://" + host + ":" + server_port + "/setup" + "/launch", headers=headers, data=payload)
                 requests.post(backend_url + "/setup" + "/launch", headers=headers, data=payload)
                 time.sleep(5)
-                browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                browser = _connect_to_chrome_cdp(host, port, p)
                 logger.info(f"[INFO_FROM_WEBSITE] Successfully connected to new Chrome instance")
 
             page = browser.contexts[0].new_page()
@@ -554,7 +625,7 @@ def get_page_info(env, config: Dict[str, str]):
             with sync_playwright() as p:
                 # connect to remote Chrome instance
                 try:
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    browser = _connect_to_chrome_cdp(host, port, p)
                     logger.info(f"[PAGE_INFO] Successfully connected to existing Chrome instance")
                 except Exception as e:
                     logger.warning(f"[PAGE_INFO] Failed to connect to existing Chrome instance: {e}")
@@ -575,7 +646,7 @@ def get_page_info(env, config: Dict[str, str]):
                     headers = {"Content-Type": "application/json"}
                     requests.post("http://" + host + ":" + server_port + "/setup" + "/launch", headers=headers, data=payload)
                     time.sleep(5)
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    browser = _connect_to_chrome_cdp(host, port, p)
                     logger.info(f"[PAGE_INFO] Successfully connected to new Chrome instance")
 
                 page = browser.new_page()
@@ -638,7 +709,7 @@ def get_open_tabs_info(env, config: Dict[str, str]):
             with sync_playwright() as p:
                 # connect to remote Chrome instance
                 try:
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    browser = _connect_to_chrome_cdp(host, port, p)
                     logger.info(f"[OPEN_TABS_INFO] Successfully connected to existing Chrome instance")
                 except Exception as e:
                     logger.warning(f"[OPEN_TABS_INFO] Failed to connect to existing Chrome instance: {e}")
@@ -660,7 +731,7 @@ def get_open_tabs_info(env, config: Dict[str, str]):
                     requests.post(f"http://{host}:{server_port}/setup/launch", headers=headers, data=payload)
                     time.sleep(5)
                     try:
-                        browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                        browser = _connect_to_chrome_cdp(host, port, p)
                         logger.info(f"[OPEN_TABS_INFO] Successfully connected to new Chrome instance")
                     except Exception as e:
                         logger.error(f"[OPEN_TABS_INFO] Failed to connect to new Chrome instance: {e}")
@@ -812,7 +883,7 @@ def get_active_tab_info(env, config: Dict[str, str]):
             with sync_playwright() as p:
                 # connect to remote Chrome instance, since it is supposed to be the active one, we won't start a new one if failed
                 try:
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    browser = _connect_to_chrome_cdp(host, port, p)
                     logger.info(f"[ACTIVE_TAB_INFO] Successfully connected to Chrome instance")
                 except Exception as e:
                     logger.error(f"[ACTIVE_TAB_INFO] Failed to connect to Chrome instance: {e}")
@@ -895,7 +966,7 @@ def get_pdf_from_url(env, config: Dict[str, str]) -> str:
             
             with sync_playwright() as p:
                 try:
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    browser = _connect_to_chrome_cdp(host, port, p)
                     logger.info(f"[PDF_FROM_URL] Successfully connected to existing Chrome instance")
                 except Exception as e:
                     logger.warning(f"[PDF_FROM_URL] Failed to connect to existing Chrome instance: {e}")
@@ -918,7 +989,7 @@ def get_pdf_from_url(env, config: Dict[str, str]) -> str:
                     headers = {"Content-Type": "application/json"}
                     requests.post("http://" + host + ":" + server_port + "/setup" + "/launch", headers=headers, data=payload)
                     time.sleep(5)
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    browser = _connect_to_chrome_cdp(host, port, p)
                     logger.info(f"[PDF_FROM_URL] Successfully connected to new Chrome instance")
 
                 page = browser.new_page()
@@ -1000,7 +1071,7 @@ def get_chrome_saved_address(env, config: Dict[str, str]):
             with sync_playwright() as p:
                 # connect to remote Chrome instance
                 try:
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    browser = _connect_to_chrome_cdp(host, port, p)
                     logger.info(f"[CHROME_SAVED_ADDRESS] Successfully connected to existing Chrome instance")
                 except Exception as e:
                     logger.warning(f"[CHROME_SAVED_ADDRESS] Failed to connect to existing Chrome instance: {e}")
@@ -1021,7 +1092,7 @@ def get_chrome_saved_address(env, config: Dict[str, str]):
                     headers = {"Content-Type": "application/json"}
                     requests.post("http://" + host + ":" + server_port + "/setup" + "/launch", headers=headers, data=payload)
                     time.sleep(5)
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    browser = _connect_to_chrome_cdp(host, port, p)
                     logger.info(f"[CHROME_SAVED_ADDRESS] Successfully connected to new Chrome instance")
 
                 page = browser.new_page()
@@ -1113,7 +1184,7 @@ def get_number_of_search_results(env, config: Dict[str, str]):
             
             with sync_playwright() as p:
                 try:
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    browser = _connect_to_chrome_cdp(host, port, p)
                     logger.info(f"[SEARCH_RESULTS] Successfully connected to existing Chrome instance")
                 except Exception as e:
                     logger.warning(f"[SEARCH_RESULTS] Failed to connect to existing Chrome instance: {e}")
@@ -1134,7 +1205,7 @@ def get_number_of_search_results(env, config: Dict[str, str]):
                     headers = {"Content-Type": "application/json"}
                     requests.post("http://" + host + ":" + server_port + "/setup" + "/launch", headers=headers, data=payload)
                     time.sleep(5)
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    browser = _connect_to_chrome_cdp(host, port, p)
                     logger.info(f"[SEARCH_RESULTS] Successfully connected to new Chrome instance")
                     
                 page = browser.new_page()
@@ -1498,7 +1569,7 @@ def get_active_tab_html_parse(env, config: Dict[str, Any]):
     with sync_playwright() as p:
         # connect to remote Chrome instance
         try:
-            browser = p.chromium.connect_over_cdp(remote_debugging_url)
+            browser = _connect_to_chrome_cdp(host, port, p)
         except Exception as e:
             # If the connection fails, start a new browser instance
             platform.machine()
@@ -1517,7 +1588,7 @@ def get_active_tab_html_parse(env, config: Dict[str, Any]):
             headers = {"Content-Type": "application/json"}
             requests.post("http://" + host + ":" + str(server_port) + "/setup" + "/launch", headers=headers, data=payload)
             time.sleep(5)
-            browser = p.chromium.connect_over_cdp(remote_debugging_url)
+            browser = _connect_to_chrome_cdp(host, port, p)
         target_page = None
         for context in browser.contexts:
             for page in context.pages:
@@ -1951,7 +2022,7 @@ def get_gotoRecreationPage_and_get_html_content(env, config: Dict[str, Any]):
             with sync_playwright() as p:
                 # Connect to remote Chrome instance
                 try:
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    browser = _connect_to_chrome_cdp(host, port, p)
                     logger.info(f"[RECREATION_PAGE] Successfully connected to existing Chrome instance")
                 except Exception as e:
                     logger.warning(f"[RECREATION_PAGE] Failed to connect to existing Chrome instance: {e}")
@@ -1978,7 +2049,7 @@ def get_gotoRecreationPage_and_get_html_content(env, config: Dict[str, Any]):
                     headers = {"Content-Type": "application/json"}
                     requests.post(backend_url + "/setup/launch", headers=headers, data=payload)
                     time.sleep(8)  # Give more time for browser to start
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    browser = _connect_to_chrome_cdp(host, port, p)
                     logger.info(f"[RECREATION_PAGE] Successfully connected to new Chrome instance")
 
                 page = browser.new_page()

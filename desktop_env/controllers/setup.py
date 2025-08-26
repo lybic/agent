@@ -584,19 +584,55 @@ class SetupController:
         remote_debugging_url = f"http://{host}:{port}"
         logger.info("Connect to Chrome @: %s", remote_debugging_url)
         logger.debug("PLAYWRIGHT ENV: %s", repr(os.environ))
+
+        def _resolve_cdp_ws_url() -> Optional[str]:
+            endpoints = [
+                f"http://{host}:{port}/json/version",
+                f"http://{host}:{port}/json",
+                f"http://{host}:{port}/json/list",
+            ]
+            for ep in endpoints:
+                try:
+                    resp = requests.get(ep, timeout=2)
+                    if resp.status_code != 200:
+                        logger.debug(f"CDP probe {ep} -> HTTP {resp.status_code}")
+                        continue
+                    data = resp.json()
+                    # json/version returns an object, json/json_list returns a list
+                    if isinstance(data, dict) and data.get("webSocketDebuggerUrl"):
+                        return data["webSocketDebuggerUrl"].replace("http://", "ws://")
+                    if isinstance(data, list) and len(data) > 0:
+                        # Prefer browser target if present; otherwise first available
+                        for item in data:
+                            if item.get("type") == "browser" and item.get("webSocketDebuggerUrl"):
+                                return item["webSocketDebuggerUrl"].replace("http://", "ws://")
+                        first = data[0]
+                        if first.get("webSocketDebuggerUrl"):
+                            return first["webSocketDebuggerUrl"].replace("http://", "ws://")
+                except Exception as e:
+                    logger.debug(f"CDP probe error at {ep}: {e}")
+            return None
+
         for attempt in range(15):
             if attempt > 0:
                 time.sleep(5)
 
             browser = None
+            ws_url = _resolve_cdp_ws_url()
             with sync_playwright() as p:
                 try:
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
-                    # break
+                    if ws_url:
+                        logger.info(f"Connecting to Chrome DevTools via WS: {ws_url}")
+                        browser = p.chromium.connect_over_cdp(ws_url)
+                    else:
+                        logger.warning("WS endpoint not resolved, fallback to HTTP CDP URL: %s", remote_debugging_url)
+                        browser = p.chromium.connect_over_cdp(remote_debugging_url)
                 except Exception as e:
                     if attempt < 14:
-                        logger.error(f"Attempt {attempt + 1}: Failed to connect, retrying. Error: {e}")
-                        # time.sleep(10)
+                        logger.error(
+                            f"Attempt {attempt + 1}: Failed to connect to CDP. Error: {e}\n"
+                            f"Hint: Ensure Chrome launched with --remote-debugging-port and socat forwarding {port}->1337 is healthy."
+                        )
                         continue
                     else:
                         logger.error(f"Failed to connect after multiple attempts: {e}")
@@ -633,15 +669,51 @@ class SetupController:
         port = self.chromium_port  # fixme: this port is hard-coded, need to be changed from config file
 
         remote_debugging_url = f"http://{host}:{port}"
+
+        def _resolve_cdp_ws_url() -> Optional[str]:
+            endpoints = [
+                f"http://{host}:{port}/json/version",
+                f"http://{host}:{port}/json",
+                f"http://{host}:{port}/json/list",
+            ]
+            for ep in endpoints:
+                try:
+                    resp = requests.get(ep, timeout=2)
+                    if resp.status_code != 200:
+                        logger.debug(f"CDP probe {ep} -> HTTP {resp.status_code}")
+                        continue
+                    data = resp.json()
+                    if isinstance(data, dict) and data.get("webSocketDebuggerUrl"):
+                        return data["webSocketDebuggerUrl"].replace("http://", "ws://")
+                    if isinstance(data, list) and len(data) > 0:
+                        for item in data:
+                            if item.get("type") == "browser" and item.get("webSocketDebuggerUrl"):
+                                return item["webSocketDebuggerUrl"].replace("http://", "ws://")
+                        first = data[0]
+                        if first.get("webSocketDebuggerUrl"):
+                            return first["webSocketDebuggerUrl"].replace("http://", "ws://")
+                except Exception as e:
+                    logger.debug(f"CDP probe error at {ep}: {e}")
+            return None
+
         with sync_playwright() as p:
             browser = None
             for attempt in range(15):
                 try:
-                    browser = p.chromium.connect_over_cdp(remote_debugging_url)
+                    ws_url = _resolve_cdp_ws_url()
+                    if ws_url:
+                        logger.info(f"Connecting to Chrome DevTools via WS: {ws_url}")
+                        browser = p.chromium.connect_over_cdp(ws_url)
+                    else:
+                        logger.warning("WS endpoint not resolved, fallback to HTTP CDP URL: %s", remote_debugging_url)
+                        browser = p.chromium.connect_over_cdp(remote_debugging_url)
                     break
                 except Exception as e:
                     if attempt < 14:
-                        logger.error(f"Attempt {attempt + 1}: Failed to connect, retrying. Error: {e}")
+                        logger.error(
+                            f"Attempt {attempt + 1}: Failed to connect to CDP. Error: {e}\n"
+                            f"Hint: Ensure Chrome launched with --remote-debugging-port and socat forwarding {port}->1337 is healthy."
+                        )
                         time.sleep(5)
                     else:
                         logger.error(f"Failed to connect after multiple attempts: {e}")

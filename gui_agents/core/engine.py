@@ -176,7 +176,7 @@ class LMMEngineOpenAI(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -210,13 +210,13 @@ class LMMEngineLybic(LMMEngine):
     @backoff.on_exception(
         backoff.expo, (APIConnectionError, APIError, RateLimitError), max_time=60
     )
-    def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
+    def generate(self, messages, temperature=1, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
-            temperature=temperature,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
+            # temperature=temperature,
             **kwargs,
         )
         
@@ -260,7 +260,7 @@ class LMMEngineQwen(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **extra_body,
             **kwargs,
@@ -300,7 +300,7 @@ class LMMEngineDoubao(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             extra_body={
                 "thinking": {
@@ -402,7 +402,7 @@ class LMMEngineGemini(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             # reasoning_effort="low",
             extra_body={
@@ -458,7 +458,7 @@ class LMMEngineOpenRouter(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -517,7 +517,7 @@ class LMMEngineAzureOpenAI(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -560,7 +560,7 @@ class LMMEnginevLLM(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             top_p=top_p,
             extra_body={"repetition_penalty": repetition_penalty},
@@ -596,7 +596,7 @@ class LMMEngineHuggingFace(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model="tgi",
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -635,7 +635,7 @@ class LMMEngineDeepSeek(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -712,7 +712,7 @@ class LMMEngineGroq(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -750,7 +750,7 @@ class LMMEngineSiliconflow(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -788,7 +788,7 @@ class LMMEngineMonica(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 8192,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -885,7 +885,7 @@ class LMMEngineAWSBedrock(LMMEngine):
 
         # Prepare the body for Bedrock
         body = {
-            "max_tokens": max_new_tokens if max_new_tokens else 8192,
+            "max_completion_tokens": max_new_tokens if max_new_tokens else 8192,
             "messages": user_messages,
             "anthropic_version": "bedrock-2023-05-31"
         }

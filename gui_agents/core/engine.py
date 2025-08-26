@@ -1,6 +1,11 @@
 import os
 import json
+import logging
 import backoff
+
+# 获取主 logger 和专门的 doubao API logger
+logger = logging.getLogger()
+doubao_logger = logging.getLogger("doubao_api")
 import requests
 from typing import List, Dict, Any, Optional, Union
 import numpy as np
@@ -297,6 +302,12 @@ class LMMEngineDoubao(LMMEngine):
     )
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
+        
+        # 同时记录到专门的 doubao API 日志文件
+        doubao_logger.info(f"Doubao API Call - Model: {self.model}, Temperature: {temperature}, Max Tokens: {max_new_tokens}")
+        doubao_logger.info(f"Doubao API Input - Messages count: {len(messages)}")
+        doubao_logger.info(f"Doubao API Input - messages: {messages}")
+        
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
@@ -314,6 +325,12 @@ class LMMEngineDoubao(LMMEngine):
         
         content = response.choices[0].message.content
         total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        
+        # 同时记录到专门的 doubao API 日志文件
+        doubao_logger.info(f"Doubao API Response - Content length: {len(content) if content else 0}, Tokens: {total_tokens}, Cost: {cost}")
+
+        doubao_logger.info(f"Doubao API Response - Content: {content}")
         
         return content, total_tokens, cost
 
@@ -1164,6 +1181,10 @@ class DoubaoEmbeddingEngine(LMMEngine):
         ),
     )
     def get_embeddings(self, text: str) -> Tuple[np.ndarray, List[int], float]:
+        # Log embedding request
+        logger.info(f"Doubao Embedding API Call - Model: {self.model}, Text length: {len(text)}")
+        doubao_logger.info(f"Doubao Embedding API Call - Model: {self.model}, Text length: {len(text)}")
+        
         response = self.client.embeddings.create(
             model=self.model,
             input=text,
@@ -1172,6 +1193,10 @@ class DoubaoEmbeddingEngine(LMMEngine):
         
         embeddings = np.array([data.embedding for data in response.data])
         total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        # Log embedding response
+        logger.info(f"Doubao Embedding API Response - Embedding dimension: {embeddings.shape}, Tokens: {total_tokens}, Cost: {cost}")
+        doubao_logger.info(f"Doubao Embedding API Response - Embedding dimension: {embeddings.shape}, Tokens: {total_tokens}, Cost: {cost}")
         
         return embeddings, total_tokens, cost
 

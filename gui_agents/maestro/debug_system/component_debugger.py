@@ -3,6 +3,10 @@
 """
 
 from typing import Dict, Any, Optional
+
+from pyautogui import screenshot
+
+from gui_agents.maestro.debug_system.snapshot_debugger import SnapshotDebugger
 from ..controller.state_handlers import NewWorker, Evaluator
 from ..controller.main_controller import NewManager
 
@@ -11,7 +15,7 @@ class ComponentDebugger:
     """组件调试器 - 支持调试各种核心组件"""
     
     def __init__(self, snapshot_debugger):
-        self.snapshot_debugger = snapshot_debugger
+        self.snapshot_debugger: SnapshotDebugger = snapshot_debugger
         self.current_worker = None
         self.current_evaluator = None
         self.current_manager = None
@@ -53,6 +57,8 @@ class ComponentDebugger:
             return None
             
         try:
+            screenshot = self.snapshot_debugger.global_state.get_screenshot()
+            print(f"screenshot: {screenshot.__sizeof__()}")
             manager_params = self.snapshot_debugger.get_manager_params()
             self.current_manager = NewManager(**manager_params)
             self.current_manager.plan_task("replan")

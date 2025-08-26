@@ -169,7 +169,7 @@ class NewManager:
             scenario_enum = self._normalize_scenario(scenario)
             self.status = ManagerStatus.PLANNING
             
-            # 获取当前的 trigger_code 来决定具体的规划策略
+            # Get current trigger_code to determine specific planning strategy
             current_trigger_code = self._get_current_trigger_code()
             
             self.global_state.log_operation("manager", "planning_start", {
@@ -248,7 +248,7 @@ class NewManager:
         return self.planning_handler.replan_attempts < self.max_replan_attempts
 
     def _get_current_trigger_code(self) -> str:
-        """获取当前的 trigger_code"""
+        """Get current trigger_code"""
         controller_state = self.global_state.get_controller_state()
         return controller_state.get("trigger_code", "")
 

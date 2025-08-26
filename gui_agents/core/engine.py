@@ -3,7 +3,6 @@ import json
 import logging
 import backoff
 
-# 获取主 logger 和专门的 doubao API logger
 logger = logging.getLogger()
 doubao_logger = logging.getLogger("doubao_api")
 import requests
@@ -303,7 +302,6 @@ class LMMEngineDoubao(LMMEngine):
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
         
-        # 同时记录到专门的 doubao API 日志文件
         doubao_logger.info(f"Doubao API Call - Model: {self.model}, Temperature: {temperature}, Max Tokens: {max_new_tokens}")
         doubao_logger.info(f"Doubao API Input - Messages count: {len(messages)}")
         doubao_logger.info(f"Doubao API Input - messages: {messages}")
@@ -326,8 +324,6 @@ class LMMEngineDoubao(LMMEngine):
         content = response.choices[0].message.content
         total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
         
-        
-        # 同时记录到专门的 doubao API 日志文件
         doubao_logger.info(f"Doubao API Response - Content length: {len(content) if content else 0}, Tokens: {total_tokens}, Cost: {cost}")
 
         doubao_logger.info(f"Doubao API Response - Content: {content}")
@@ -1095,7 +1091,7 @@ class DashScopeEmbeddingEngine(LMMEngine):
         dimensions: int = 1024,
         **kwargs
     ):
-        """Init a DashScope (阿里云百炼) Embedding engine
+        """Init a DashScope Embedding engine
 
         Args:
             embedding_model (str, optional): Model name. Defaults to "text-embedding-v4".
@@ -1149,7 +1145,7 @@ class DoubaoEmbeddingEngine(LMMEngine):
         api_key=None,
         **kwargs
     ):
-        """Init a Doubao (字节跳动豆包) Embedding engine
+        """Init a Doubao Embedding engine
 
         Args:
             embedding_model (str, optional): Model name. Defaults to "doubao-embedding-256".

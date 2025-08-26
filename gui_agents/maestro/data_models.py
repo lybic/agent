@@ -1,6 +1,6 @@
 """
-Data Models for Agent System
-定义系统中核心数据结构的数据模型
+Data Models for Maestro Agent System
+Defines core data structure models in the system
 """
 
 from typing import List, Optional, Dict, Any, Union
@@ -17,7 +17,7 @@ from .enums import (
 # ========= Controller State Data Model =========
 @dataclass
 class ControllerStateData:
-    """控制器状态数据结构"""
+    """Controller state data structure"""
     current_state: str = field(default_factory=lambda: ControllerState.GET_ACTION.value)
     trigger: str = field(default="controller")
     trigger_details: str = field(default="initialization")
@@ -27,7 +27,7 @@ class ControllerStateData:
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典格式"""
+        """Convert to dictionary format"""
         return {
             "current_state": self.current_state,
             "trigger": self.trigger,
@@ -40,7 +40,7 @@ class ControllerStateData:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ControllerStateData':
-        """从字典创建实例"""
+        """Create instance from dictionary"""
         return cls(
             current_state=data.get("current_state", ControllerState.GET_ACTION.value),
             trigger=data.get("trigger", "controller"),
@@ -55,14 +55,14 @@ class ControllerStateData:
 # ========= Task Data Model =========
 @dataclass
 class TaskData:
-    """任务数据结构"""
+    """Task data structure"""
     task_id: str
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     objective: str = ""
     status: str = field(default_factory=lambda: TaskStatus.CREATED.value)
     current_subtask_id: Optional[str] = None
     step_num: int = 0
-    plan_num: int = 0  # 记录规划的次数
+    plan_num: int = 0  # Record the number of planning attempts
     history_subtask_ids: List[str] = field(default_factory=list)
     pending_subtask_ids: List[str] = field(default_factory=list)
     qa_policy: Dict[str, Any] = field(default_factory=lambda: {
@@ -72,7 +72,7 @@ class TaskData:
     })
 
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典格式"""
+        """Convert to dictionary format"""
         return {
             "task_id": self.task_id,
             "created_at": self.created_at,
@@ -88,7 +88,7 @@ class TaskData:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'TaskData':
-        """从字典创建实例"""
+        """Create instance from dictionary"""
         return cls(
             task_id=data["task_id"],
             created_at=data.get("created_at", datetime.now().isoformat()),
@@ -110,7 +110,7 @@ class TaskData:
 # ========= Subtask Data Model =========
 @dataclass
 class SubtaskData:
-    """子任务数据结构"""
+    """Subtask data structure"""
     subtask_id: str
     task_id: str
     title: str = ""
@@ -127,7 +127,7 @@ class SubtaskData:
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典格式"""
+        """Convert to dictionary format"""
         return {
             "subtask_id": self.subtask_id,
             "task_id": self.task_id,
@@ -147,7 +147,7 @@ class SubtaskData:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'SubtaskData':
-        """从字典创建实例"""
+        """Create instance from dictionary"""
         return cls(
             subtask_id=data["subtask_id"],
             task_id=data["task_id"],
@@ -169,7 +169,7 @@ class SubtaskData:
 # ========= Command Data Model =========
 @dataclass
 class CommandData:
-    """命令数据结构"""
+    """Command data structure"""
     command_id: str
     task_id: str
     subtask_id: Optional[str] = None
@@ -188,7 +188,7 @@ class CommandData:
     executed_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典格式"""
+        """Convert to dictionary format"""
         return {
             "command_id": self.command_id,
             "task_id": self.task_id,
@@ -210,7 +210,7 @@ class CommandData:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'CommandData':
-        """从字典创建实例"""
+        """Create instance from dictionary"""
         return cls(
             command_id=data["command_id"],
             task_id=data["task_id"],
@@ -234,7 +234,7 @@ class CommandData:
 # ========= Gate Check Data Model =========
 @dataclass
 class GateCheckData:
-    """质检门数据结构"""
+    """Gate check data structure"""
     gate_check_id: str
     task_id: str
     subtask_id: Optional[str] = None
@@ -244,7 +244,7 @@ class GateCheckData:
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典格式"""
+        """Convert to dictionary format"""
         return {
             "gate_check_id": self.gate_check_id,
             "task_id": self.task_id,
@@ -257,7 +257,7 @@ class GateCheckData:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'GateCheckData':
-        """从字典创建实例"""
+        """Create instance from dictionary"""
         return cls(
             gate_check_id=data["gate_check_id"],
             task_id=data["task_id"],
@@ -271,7 +271,7 @@ class GateCheckData:
 
 # ========= Factory Functions =========
 def create_task_data(task_id: str, objective: str = "") -> TaskData:
-    """创建新的任务数据"""
+    """Create new task data"""
     return TaskData(
         task_id=task_id,
         objective=objective,
@@ -281,7 +281,7 @@ def create_task_data(task_id: str, objective: str = "") -> TaskData:
 
 def create_subtask_data(subtask_id: str, task_id: str, title: str, description: str, 
                        assignee_role: str = "operator") -> SubtaskData:
-    """创建新的子任务数据"""
+    """Create new subtask data"""
     return SubtaskData(
         subtask_id=subtask_id,
         task_id=task_id,
@@ -294,7 +294,7 @@ def create_subtask_data(subtask_id: str, task_id: str, title: str, description: 
 
 def create_command_data(command_id: str, task_id: str, action: Dict[str, Any], 
                        subtask_id: Optional[str] = None, assignee_role: str = "") -> CommandData:
-    """创建新的命令数据"""
+    """Create new command data"""
     return CommandData(
         command_id=command_id,
         task_id=task_id,
@@ -308,7 +308,7 @@ def create_command_data(command_id: str, task_id: str, action: Dict[str, Any],
 def create_gate_check_data(gate_check_id: str, task_id: str, decision: str, 
                           subtask_id: Optional[str] = None, notes: str = "",
                           trigger: str = GateTrigger.PERIODIC_CHECK.value) -> GateCheckData:
-    """创建新的质检门数据"""
+    """Create new gate check data"""
     return GateCheckData(
         gate_check_id=gate_check_id,
         task_id=task_id,
@@ -322,9 +322,9 @@ def create_gate_check_data(gate_check_id: str, task_id: str, decision: str,
 def create_controller_state_data(state: ControllerState = ControllerState.GET_ACTION,
                                trigger: str = "controller", 
                                trigger_details: str = "initialization") -> ControllerStateData:
-    """创建新的控制器状态数据"""
+    """Create new controller state data"""
     return ControllerStateData(
         current_state=state.value,
         trigger=trigger,
         trigger_details=trigger_details
-    ) 
+    )

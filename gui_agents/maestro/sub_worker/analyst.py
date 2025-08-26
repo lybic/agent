@@ -1,5 +1,5 @@
 """
-Analyst Module for GUI-Agent Architecture (agents3)
+Analyst Module for GUI-Agent Architecture (Maestro)
 - Provides data analysis and recommendations based on artifacts content
 - Analyzes stored information and extracts insights
 - Supports decision-making with analytical insights

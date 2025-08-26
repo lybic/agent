@@ -1,5 +1,5 @@
 """
-组件调试器 - 支持调试Worker、Evaluator、Manager等核心组件
+Component Debugger - Support debugging core components like Worker, Evaluator, Manager, etc.
 """
 
 from typing import Dict, Any, Optional
@@ -11,7 +11,7 @@ from ..controller.main_controller import NewManager
 
 
 class ComponentDebugger:
-    """组件调试器 - 支持调试各种核心组件"""
+    """Component Debugger - Support debugging various core components"""
     
     def __init__(self, snapshot_debugger):
         self.snapshot_debugger: SnapshotDebugger = snapshot_debugger
@@ -20,7 +20,7 @@ class ComponentDebugger:
         self.current_manager = None
         
     def debug_worker(self, snapshot_id: str) -> Optional[NewWorker]:
-        """调试Worker组件"""
+        """Debug Worker component"""
         if not self.snapshot_debugger.load_snapshot(snapshot_id):
             return None
             
@@ -28,30 +28,30 @@ class ComponentDebugger:
             worker_params = self.snapshot_debugger.get_worker_params()
             self.current_worker = NewWorker(**worker_params)
             self.current_worker.process_subtask_and_create_command()
-            print(f"Worker组件已创建，准备调试快照: {snapshot_id}")
+            print(f"Worker component created, ready to debug snapshot: {snapshot_id}")
             return self.current_worker
             
         except Exception as e:
-            print(f"创建Worker组件失败: {e}")
+            print(f"Failed to create Worker component: {e}")
             return None
     
     def debug_evaluator(self, snapshot_id: str) -> Optional[Evaluator]:
-        """调试Evaluator组件"""
+        """Debug Evaluator component"""
         if not self.snapshot_debugger.load_snapshot(snapshot_id):
             return None
             
         try:
             evaluator_params = self.snapshot_debugger.get_evaluator_params()
             self.current_evaluator = Evaluator(**evaluator_params)
-            print(f"Evaluator组件已创建，准备调试快照: {snapshot_id}")
+            print(f"Evaluator component created, ready to debug snapshot: {snapshot_id}")
             return self.current_evaluator
             
         except Exception as e:
-            print(f"创建Evaluator组件失败: {e}")
+            print(f"Failed to create Evaluator component: {e}")
             return None
     
     def debug_manager(self, snapshot_id: str) -> Optional[NewManager]:
-        """调试Manager组件"""
+        """Debug Manager component"""
         if not self.snapshot_debugger.load_snapshot(snapshot_id):
             return None
             
@@ -61,42 +61,42 @@ class ComponentDebugger:
             manager_params = self.snapshot_debugger.get_manager_params()
             self.current_manager = NewManager(**manager_params)
             self.current_manager.plan_task("replan")
-            print(f"Manager组件已创建，准备调试快照: {snapshot_id}")
+            print(f"Manager component created, ready to debug snapshot: {snapshot_id}")
             return self.current_manager
             
         except Exception as e:
-            print(f"创建Manager组件失败: {e}")
+            print(f"Failed to create Manager component: {e}")
             return None
     
     def step_worker(self) -> bool:
-        """单步执行Worker"""
+        """Step execute Worker"""
         if not self.current_worker:
-            print("请先创建Worker组件")
+            print("Please create Worker component first")
             return False
             
         try:
-            print("执行Worker单步调试...")
+            print("Executing Worker step debugging...")
             self.current_worker.process_subtask_and_create_command()
-            print("Worker单步执行完成")
+            print("Worker step execution completed")
             return True
             
         except Exception as e:
-            print(f"Worker执行失败: {e}")
+            print(f"Worker execution failed: {e}")
             return False
     
     def get_worker_state(self) -> Dict[str, Any]:
-        """获取Worker当前状态"""
+        """Get current Worker state"""
         if not self.current_worker:
             return {}
             
-        # 这里可以根据Worker的实际结构来获取状态信息
+        # Here you can get state information based on the actual structure of Worker
         return {
             "worker_created": True,
             "global_state": self.snapshot_debugger.global_state.get_current_state_summary()
         }
     
     def get_evaluator_state(self) -> Dict[str, Any]:
-        """获取Evaluator当前状态"""
+        """Get current Evaluator state"""
         if not self.current_evaluator:
             return {}
             
@@ -106,7 +106,7 @@ class ComponentDebugger:
         }
     
     def get_manager_state(self) -> Dict[str, Any]:
-        """获取Manager当前状态"""
+        """Get current Manager state"""
         if not self.current_manager:
             return {}
             
@@ -116,8 +116,8 @@ class ComponentDebugger:
         }
     
     def reset_debug_session(self):
-        """重置调试会话"""
+        """Reset debug session"""
         self.current_worker = None
         self.current_evaluator = None
         self.current_manager = None
-        print("调试会话已重置") 
+        print("Debug session has been reset")

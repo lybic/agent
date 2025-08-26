@@ -1,6 +1,6 @@
 """
-Main Controller for Agent-S
-整合所有模块并提供统一的接口
+Main Controller for Maestro
+Integrates all modules and provides a unified interface
 """
 
 import time
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class MainController:
-    """主控制器，整合所有模块并提供统一的接口"""
+    """Main controller that integrates all modules and provides a unified interface"""
     
     def __init__(
         self,
@@ -53,24 +53,24 @@ class MainController:
         log_dir: str = "logs",
         datetime_str: str = datetime.now().strftime("%Y%m%d_%H%M%S"),
         enable_snapshots: bool = True,
-        snapshot_interval: int = 10,  # 每N步自动创建快照
-        create_checkpoint_snapshots: bool = True,  # 是否在关键状态创建检查点快照
-        global_state: Optional[NewGlobalState] = None,  # 新增：允许注入已存在的全局状态（用于快照恢复）
-        initialize_controller: bool = True  # 新增：是否执行初始化流程（用于快照恢复时跳过）
+        snapshot_interval: int = 10,  # Automatically create snapshot every N steps
+        create_checkpoint_snapshots: bool = True,  # Whether to create checkpoint snapshots at key states
+        global_state: Optional[NewGlobalState] = None,  # New: Allow injection of existing global state (for snapshot recovery)
+        initialize_controller: bool = True  # New: Whether to execute initialization process (skip when recovering from snapshot)
     ):
-        # 快照配置
+        # Snapshot configuration
         self.enable_snapshots = enable_snapshots
         self.snapshot_interval = snapshot_interval
         self.create_checkpoint_snapshots = create_checkpoint_snapshots
         self.last_snapshot_step = 0
         
-        # 初始化全局状态（支持外部注入）
+        # Initialize global state (support external injection)
         if global_state is not None:
             self.global_state = global_state
         else:
             self.global_state = self._registry_global_state(log_dir, datetime_str)
         
-        # 基本配置
+        # Basic configuration
         self.platform = platform
         self.user_query = user_query
         self.max_steps = max_steps
@@ -81,11 +81,11 @@ class MainController:
         self.enable_rag = enable_rag
         self.backend = backend
         
-        # 初始化配置管理器
+        # Initialize configuration manager
         self.config_manager = ConfigManager(memory_root_path, memory_folder_name)
         self.tools_dict = self.config_manager.load_tools_configuration()
         self.local_kb_path = self.config_manager.setup_knowledge_base(platform)
-        # 新增：加载流程配置并覆盖默认参数
+        # New: Load flow configuration and override default parameters
         self.flow_config = self.config_manager.get_flow_config()
         self.max_steps = self.flow_config.get("max_steps", self.max_steps)
         self.enable_snapshots = self.flow_config.get("enable_snapshots", self.enable_snapshots)
@@ -93,7 +93,7 @@ class MainController:
         self.create_checkpoint_snapshots = self.flow_config.get("create_checkpoint_snapshots", self.create_checkpoint_snapshots)
         self.main_loop_sleep_secs = self.flow_config.get("main_loop_sleep_secs", 0.1)
         
-        # 初始化manager
+        # Initialize manager
         manager_params = {
             "tools_dict": self.tools_dict,
             "global_state": self.global_state,
@@ -103,7 +103,7 @@ class MainController:
         }
         self.manager = NewManager(**manager_params)
 
-        # 初始化硬件接口
+        # Initialize hardware interface
         backend_kwargs = {
             "platform": platform, 
             "env_controller": self.env
@@ -111,7 +111,7 @@ class MainController:
         self.hwi = HardwareInterface(backend=backend, **backend_kwargs)
         logger.info(f"Hardware interface initialized with backend: {backend}")
 
-        # 初始化executor
+        # Initialize executor
         executor_params = {
             "global_state": self.global_state,
             "hardware_interface": self.hwi,
@@ -120,7 +120,7 @@ class MainController:
         self.executor = NewExecutor(**executor_params)
         logger.info("Executor initialized")
         
-        # 初始化规则引擎
+        # Initialize rule engine
         rule_engine_params: Dict[str, Any] = dict(
             global_state=self.global_state,
             max_steps=self.max_steps,
@@ -130,7 +130,7 @@ class MainController:
         )
         self.rule_engine = RuleEngine(**rule_engine_params)
         
-        # 初始化状态处理器
+        # Initialize state handlers
         state_handlers_params: Dict[str, Any] = dict(
             global_state=self.global_state,
             manager=self.manager,
@@ -142,7 +142,7 @@ class MainController:
         )
         self.state_handlers = StateHandlers(**state_handlers_params)
         
-        # 初始化状态机
+        # Initialize state machine
         state_machine_params: Dict[str, Any] = dict(
             global_state=self.global_state,
             rule_engine=self.rule_engine,
@@ -150,20 +150,20 @@ class MainController:
         )
         self.state_machine = StateMachine(**state_machine_params)
         
-        # 初始化计数器
+        # Initialize counters
         self.reset_counters()
         
-        # 初始化任务与初始快照（可跳过，用于从快照恢复）
+        # Initialize task and initial snapshot (can be skipped for snapshot recovery)
         if initialize_controller:
-            # 初始化任务，生成第一次截图
+            # Initialize task and generate first screenshot
             self._handle_task_init()
             
-            # 创建初始快照
+            # Create initial snapshot
             if self.enable_snapshots:
                 self._create_initial_snapshot()
 
     def _registry_global_state(self, log_dir: str, datetime_str: str):
-        """注册全局状态"""
+        """Register global state"""
         # Ensure necessary directory structure exists
         timestamp_dir = os.path.join(log_dir, datetime_str)
         cache_dir = os.path.join(timestamp_dir, "cache", "screens")
@@ -181,29 +181,29 @@ class MainController:
         return global_state
     
     def _handle_task_init(self):
-        """立项状态处理"""
+        """Handle task initialization state"""
         logger.info("Handling INIT state")
         self.global_state.set_task_objective(self.user_query)
-        # 初始化控制器状态
+        # Initialize controller state
         self.global_state.reset_controller_state()
         logger.info("MainController initialized")
 
-        # 首次获取截图
+        # Get first screenshot
         screenshot: Image.Image = self.hwi.dispatch(Screenshot())  # type: ignore
         self.global_state.set_screenshot(scale_screenshot_dimensions(screenshot, self.hwi))
     
     def _build_env_config(self) -> Dict[str, Any]:
-        """构建可序列化的环境配置，便于快照恢复时重建 DesktopEnv。
-        只记录重建所需的关键字段，避免存储敏感信息。
+        """Build serializable environment configuration for rebuilding DesktopEnv during snapshot recovery.
+        Only record key fields needed for reconstruction, avoiding storing sensitive information.
         """
         env_config: Dict[str, Any] = {"present": False}
         try:
             if self.env is None:
                 return env_config
             env_config["present"] = True
-            # 基本信息
+            # Basic information
             env_config["class_name"] = self.env.__class__.__name__
-            # 关键字段（使用 getattr 安全获取）
+            # Key fields (safely get using getattr)
             for key in [
                 "provider_name",
                 "os_type",
@@ -216,25 +216,25 @@ class MainController:
                 value = getattr(self.env, key, None)
                 if value is not None:
                     env_config[key] = value
-            # 路径类字段：可能是相对路径，尽量存为绝对路径
+            # Path fields: may be relative paths, try to store as absolute paths
             path_to_vm = getattr(self.env, "path_to_vm", None)
             if path_to_vm:
                 try:
                     env_config["path_to_vm"] = os.path.abspath(path_to_vm)
                 except Exception:
                     env_config["path_to_vm"] = path_to_vm
-            # 分辨率
+            # Resolution
             screen_width = getattr(self.env, "screen_width", None)
             screen_height = getattr(self.env, "screen_height", None)
             if screen_width and screen_height:
                 env_config["screen_size"] = [int(screen_width), int(screen_height)]
         except Exception:
-            # 不因环境序列化失败而阻塞快照
+            # Don't block snapshot due to environment serialization failure
             logger.debug("Failed to build env config for snapshot", exc_info=True)
         return env_config
 
     def _base_snapshot_config(self) -> Dict[str, Any]:
-        """统一构建快照的配置参数，包含已有配置与环境信息。"""
+        """Uniformly build snapshot configuration parameters, including existing configuration and environment information."""
         return {
             "tools_dict": self.tools_dict,
             "platform": self.platform,
@@ -248,10 +248,10 @@ class MainController:
         }
 
     def _create_initial_snapshot(self):
-        """创建初始快照"""
+        """Create initial snapshot"""
         try:
             if self.enable_snapshots:
-                # 准备配置参数
+                # Prepare configuration parameters
                 config_params = self._base_snapshot_config()
                 
                 snapshot_id = self.global_state.create_snapshot(
@@ -264,7 +264,7 @@ class MainController:
             logger.warning(f"Failed to create initial snapshot: {e}")
 
     def _should_create_auto_snapshot(self) -> bool:
-        """判断是否应该创建自动快照"""
+        """Determine whether to create automatic snapshot"""
         if not self.enable_snapshots:
             return False
         
@@ -272,10 +272,10 @@ class MainController:
         return (current_step - self.last_snapshot_step) >= self.snapshot_interval
 
     def _create_auto_snapshot(self):
-        """创建自动快照"""
+        """Create automatic snapshot"""
         try:
             if self._should_create_auto_snapshot():
-                # 准备配置参数
+                # Prepare configuration parameters
                 config_params = self._base_snapshot_config()
                 
                 snapshot_id = self.global_state.create_snapshot(
@@ -289,13 +289,13 @@ class MainController:
             logger.warning(f"Failed to create auto snapshot: {e}")
 
     def _create_checkpoint_snapshot(self, checkpoint_name: str = ""):
-        """创建检查点快照"""
+        """Create checkpoint snapshot"""
         try:
             if self.enable_snapshots and self.create_checkpoint_snapshots:
                 if not checkpoint_name:
                     checkpoint_name = f"checkpoint_step_{self.step_count}"
                 
-                # 准备配置参数
+                # Prepare configuration parameters
                 config_params = self._base_snapshot_config()
                 
                 snapshot_id = self.global_state.create_snapshot(
@@ -310,10 +310,10 @@ class MainController:
         return None
 
     def _create_error_snapshot(self, error_message: str, error_type: str = "unknown"):
-        """创建错误快照"""
+        """Create error snapshot"""
         try:
             if self.enable_snapshots:
-                # 准备配置参数
+                # Prepare configuration parameters
                 config_params = self._base_snapshot_config()
                 
                 snapshot_id = self.global_state.create_snapshot(
@@ -328,15 +328,15 @@ class MainController:
         return None
 
     def _handle_snapshot_creation(self, current_state: ControllerState):
-        """处理快照创建逻辑"""
+        """Handle snapshot creation logic"""
         if not self.enable_snapshots:
             return
         
         try:
-            # 检查是否应该创建自动快照
+            # Check if should create automatic snapshot
             self._create_auto_snapshot()
             
-            # 在关键状态创建检查点快照
+            # In key states create checkpoint snapshot
             if self.create_checkpoint_snapshots:
                 if current_state in [ControllerState.PLAN, ControllerState.QUALITY_CHECK, ControllerState.FINAL_CHECK, ControllerState.GET_ACTION]:
                     self._create_checkpoint_snapshot(f"checkpoint_{current_state.value.lower()}")
@@ -345,90 +345,90 @@ class MainController:
             logger.warning(f"Error in snapshot creation: {e}")
     
     def execute_single_step(self, steps: int = 1) -> None:
-        """单步执行若干次状态机逻辑（执行 steps 步，不进入循环）"""
+        """Single step execution logic (execute steps steps, do not enter loop)"""
         if steps is None or steps <= 0:
             steps = 1
             
         try:
             for step_index in range(steps):
-                # 1. 检查是否应该终止（单步序列）
+                # 1. Check if should terminate (single step sequence)
                 if self.state_machine.should_exit_loop():
                     logger.info("Task fulfilled or rejected, terminating single step batch")
                     break
 
-                # 2. 获取当前状态
+                # 2. Get current state
                 current_state = self.state_machine.get_current_state()
                 logger.info(f"Current state (single step {step_index + 1}/{steps}): {current_state}")
 
-                # 3. 处理快照创建
+                # 3. Handle snapshot creation
                 self._handle_snapshot_creation(current_state)
 
-                # 4. 根据状态执行相应处理（一次一步）
+                # 4. According to state execute appropriate handling (once step by step)
                 self._handle_state(current_state)
 
-                # 5. 每步结束后，处理规则并更新状态
+                # 5. Each step ends, handle rules and update states
                 self.state_machine.process_rules_and_update_states()
 
         except Exception as e:
             logger.error(f"Error in single step batch: {e}")
-            # 创建错误快照
+            # Create error snapshot
             self._create_error_snapshot(str(e), "single_step_batch")
             
             self.global_state.add_event(
                 "controller", "error", f"Single step batch error: {str(e)}")
-            # 错误恢复：回到INIT状态（单步序列）
+            # Error recovery: back to INIT state (single step sequence)
             self.state_machine.switch_state(
                 ControllerState.INIT, TriggerRole.CONTROLLER, f"Error recovery from single step batch: {str(e)}", TriggerCode.ERROR_RECOVERY)
     
     def execute_main_loop(self) -> None:
-        """主循环执行 - 基于状态状态机"""
+        """Main loop execution - based on state state machine"""
         logger.info("Starting main loop execution")
 
-        # 记录主循环开始时间
+        # Record main loop start time
         main_loop_start_time = time.time()
         while True:
             try:
                 # print("execute_main_loop")
-                # 1. 检查是否应该退出循环
+                # 1. Check if should exit loop
                 if self.state_machine.should_exit_loop():
                     logger.info("Task fulfilled or rejected, breaking main loop")
                     break
 
-                # 2. 获取当前状态
+                # 2. Get current state
                 current_state = self.state_machine.get_current_state()
 
-                # 3. 处理快照创建
+                # 3. Handle snapshot creation
                 self._handle_snapshot_creation(current_state)
 
-                # 4. 根据状态执行相应处理
+                # 4. According to state execute appropriate handling
                 self._handle_state(current_state)
                 
-                # 如果是执行动作状态，增加步数计数
+                # If executing action state, increment step count
                 if current_state == ControllerState.EXECUTE_ACTION:
                     self.increment_step_count()
 
-                # 5. 每次循环结束后，处理规则并更新状态
+                # 5. Each loop ends, handle rules and update states
                 self.state_machine.process_rules_and_update_states()
 
-                # 6. 增加轮次计数
+                # 6. Increase turn count
                 self.increment_turn_count()
 
-                # 7. 状态间短暂等待
+                # 7. Short term wait
                 time.sleep(self.main_loop_sleep_secs)
 
             except Exception as e:
                 logger.error(f"Error in main loop: {e}")
-                # 创建错误快照
+                # Create error snapshot
                 self._create_error_snapshot(str(e), "main_loop")
                 
                 self.global_state.log_operation(
                     "controller", "error", {"error": f"Main loop error: {str(e)}"})
-                # 错误恢复：回到INIT状态
+                # Error recovery: back to INIT state
                 self.state_machine.switch_state(
                     ControllerState.INIT, TriggerRole.CONTROLLER, f"Error recovery from main loop: {str(e)}", TriggerCode.ERROR_RECOVERY)
                 time.sleep(1)
 
-        # 记录主循环结束统计
+        # Record main loop end statistics
         main_loop_duration = time.time() - main_loop_start_time
         counters = self.get_counters()
         self.global_state.log_operation(
@@ -439,7 +439,7 @@ class MainController:
                 "final_state": self.state_machine.get_current_state().value
             })
         
-        # 创建完成快照
+        # Create completed snapshot
         if self.enable_snapshots:
             self._create_checkpoint_snapshot("task_completed")
         
@@ -448,7 +448,7 @@ class MainController:
         )
     
     def _handle_state(self, current_state: ControllerState):
-        """根据状态执行相应处理"""
+        """Handle state according to state"""
         if current_state == ControllerState.INIT:
             new_state, trigger_role, trigger_details, trigger_code = self.state_handlers.handle_init_state()
             self.state_machine.switch_state(new_state, trigger_role, trigger_details, trigger_code)
@@ -485,7 +485,7 @@ class MainController:
                 ControllerState.INIT, TriggerRole.CONTROLLER, f"Unknown state encountered: {current_state}", TriggerCode.UNKNOWN_STATE)
     
     def get_controller_info(self) -> Dict[str, Any]:
-        """获取控制器信息"""
+        """Get controller information"""
         return {
             "current_state": self.state_machine.get_current_state().value,
             "state_start_time": self.global_state.get_controller_state_start_time(),
@@ -504,16 +504,16 @@ class MainController:
         }
 
     def reset_controller(self):
-        """重置控制器状态"""
+        """Reset controller state"""
         logger.info("Resetting controller")
         self.state_machine.reset_state_switch_count()
         self.global_state.reset_controller_state()
-        self.reset_counters()  # 重置计数器
+        self.reset_counters()  # Reset counters
         
-        # 重置快照相关状态
+        # Reset snapshot related state
         self.last_snapshot_step = 0
         
-        # 重置plan_num
+        # Reset plan_num
         task = self.global_state.get_task()
         if task:
             task.plan_num = 0
@@ -523,28 +523,28 @@ class MainController:
         logger.info("Controller reset completed")
 
     def reset_counters(self) -> None:
-        """重置统计计数器"""
+        """Reset statistics counters"""
         self.step_count = 0
         self.turn_count = 0
         logger.info("Counters reset: step_count=0, turn_count=0")
 
     def increment_step_count(self) -> None:
-        """增加步数计数"""
+        """Increment step count"""
         self.step_count += 1
         logger.debug(f"Step count incremented: {self.step_count}")
 
     def increment_turn_count(self) -> None:
-        """增加轮次计数"""
+        """Increment turn count"""
         self.turn_count += 1
         logger.debug(f"Turn count incremented: {self.turn_count}")
 
     def get_counters(self) -> Dict[str, int]:
-        """获取当前计数器状态"""
+        """Get current counters status"""
         return {"step_count": self.step_count, "turn_count": self.turn_count} 
 
     # ========= Snapshot Management Methods =========
     def create_manual_snapshot(self, description: str = "") -> Optional[str]:
-        """手动创建快照"""
+        """Manual snapshot creation"""
         try:
             if not self.enable_snapshots:
                 logger.warning("Snapshots are disabled")
@@ -553,7 +553,7 @@ class MainController:
             if not description:
                 description = f"Manual snapshot at step {self.step_count}"
             
-            # 准备配置参数
+            # Prepare configuration parameters
             config_params = self._base_snapshot_config()
             
             snapshot_id = self.global_state.create_snapshot(description, "manual", config_params)

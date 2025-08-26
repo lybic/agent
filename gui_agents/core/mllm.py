@@ -408,13 +408,20 @@ class LLMAgent:
             messages.append(
                 {"role": "user", "content": [{"type": "text", "text": user_message}]}
             )
-
-        content, total_tokens, cost = self.engine.generate(
-            messages,
-            temperature=temperature,
-            max_new_tokens=max_new_tokens, # type: ignore
-            **kwargs,
-        )
+    
+        if isinstance(self.engine, LMMEngineLybic):
+            content, total_tokens, cost = self.engine.generate(
+                messages,
+                max_new_tokens=max_new_tokens,  # type: ignore
+                **kwargs,
+            )
+        else:
+            content, total_tokens, cost = self.engine.generate(
+                messages,
+                temperature=temperature,
+                max_new_tokens=max_new_tokens,  # type: ignore
+                **kwargs,
+            )
         
         cost_string = CostManager.format_cost(cost, self.engine)
         

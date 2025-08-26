@@ -1,117 +1,116 @@
-"""
-Controller Enums
-集中管理所有控制器相关的枚举值
+"""Controller Enums
+Centralized management of all controller-related enumeration values
 """
 
 from enum import Enum
 
 class ControllerState(str, Enum):
-    """控制器状态定义"""
-    INIT = "INIT"                    # 立项阶段
-    GET_ACTION = "GET_ACTION"        # 取下一步动作
-    EXECUTE_ACTION = "EXECUTE_ACTION"  # 执行动作阶段
-    QUALITY_CHECK = "QUALITY_CHECK"  # 质检门检查
-    PLAN = "PLAN"                    # 重规划阶段
-    SUPPLEMENT = "SUPPLEMENT"        # 资料补全阶段
-    FINAL_CHECK = "FINAL_CHECK"      # 最终质检阶段
-    DONE = "DONE"                    # 任务终结，还没想好怎么处理done状态
+    """Controller state definitions"""
+    INIT = "INIT"                    # Project initiation phase
+    GET_ACTION = "GET_ACTION"        # Get next action
+    EXECUTE_ACTION = "EXECUTE_ACTION"  # Action execution phase
+    QUALITY_CHECK = "QUALITY_CHECK"  # Quality gate check
+    PLAN = "PLAN"                    # Re-planning phase
+    SUPPLEMENT = "SUPPLEMENT"        # Data supplementation phase
+    FINAL_CHECK = "FINAL_CHECK"      # Final quality check phase
+    DONE = "DONE"                    # Task completion, haven't figured out how to handle done state yet
 
 
 class SubtaskStatus(str, Enum):
-    """子任务状态"""
-    PENDING = "pending"      # 执行中
-    READY = "ready"          # 准备执行
-    FULFILLED = "fulfilled"  # 已完成
-    REJECTED = "rejected"    # 被拒绝
-    STALE = "stale"          # 过时
+    """Subtask status"""
+    PENDING = "pending"      # In progress
+    READY = "ready"          # Ready to execute
+    FULFILLED = "fulfilled"  # Completed
+    REJECTED = "rejected"    # Rejected
+    STALE = "stale"          # Stale
 
 
 class ExecStatus(str, Enum):
-    """执行状态"""
-    EXECUTED = "executed"    # 已执行
-    TIMEOUT = "timeout"      # 超时
-    BLOCKED = "blocked"      # 阻塞
-    ERROR = "error"          # 错误
+    """Execution status"""
+    EXECUTED = "executed"    # Executed
+    TIMEOUT = "timeout"      # Timeout
+    BLOCKED = "blocked"      # Blocked
+    ERROR = "error"          # Error
 
 
 class GateDecision(str, Enum):
-    """质检门决策"""
-    GATE_DONE = "gate_done"           # 质检通过
-    GATE_FAIL = "gate_fail"           # 质检失败
-    GATE_SUPPLEMENT = "gate_supplement"  # 需要补充资料
-    GATE_CONTINUE = "gate_continue"   # 继续执行
+    """Quality gate decision"""
+    GATE_DONE = "gate_done"           # Quality check passed
+    GATE_FAIL = "gate_fail"           # Quality check failed
+    GATE_SUPPLEMENT = "gate_supplement"  # Need to supplement data
+    GATE_CONTINUE = "gate_continue"   # Continue execution
 
 
 class GateTrigger(str, Enum):
-    """质检门触发条件"""
-    MANUAL = "manual"       # 手动触发
-    TIMEOUT = "timeout"     # 超时触发
-    ERROR = "error"         # 错误触发
-    PERIODIC_CHECK = "periodic_check"  # 定期检查
-    WORKER_STALE = "worker_stale"      # Worker过时
-    WORKER_SUCCESS = "worker_success"  # Worker成功
-    FINAL_CHECK = "final_check"        # 最终检查
+    """Quality gate trigger conditions"""
+    MANUAL = "manual"       # Manual trigger
+    TIMEOUT = "timeout"     # Timeout trigger
+    ERROR = "error"         # Error trigger
+    PERIODIC_CHECK = "periodic_check"  # Periodic check
+    WORKER_STALE = "worker_stale"      # Worker stale
+    WORKER_SUCCESS = "worker_success"  # Worker success
+    FINAL_CHECK = "final_check"        # Final check
 
 class WorkerDecision(str, Enum):
-    """Worker决策"""
-    WORKER_DONE = "worker_done"           # 子任务完成
-    CANNOT_EXECUTE = "worker_fail"           # 子任务失败
-    SUPPLEMENT = "worker_supplement"  # 需要补充资料
-    STALE_PROGRESS = "worker_stale_progress"   # 需要质检
-    GENERATE_ACTION = "worker_generate_action"  # 生成action
+    """Worker decision"""
+    WORKER_DONE = "worker_done"           # Subtask completed
+    CANNOT_EXECUTE = "worker_fail"           # Subtask failed
+    SUPPLEMENT = "worker_supplement"  # Need to supplement data
+    STALE_PROGRESS = "worker_stale_progress"   # Need quality check
+    GENERATE_ACTION = "worker_generate_action"  # Generate action
 
 class WorkerTrigger(str, Enum):
-    """Worker触发条件"""
-    MANUAL = "manual"       # 手动触发
+    """Worker trigger conditions"""
+    MANUAL = "manual"       # Manual trigger
 
 
 
 class TaskStatus(str, Enum):
-    """任务状态"""
-    CREATED = "created"      # 已创建
-    PENDING = "pending"      # 等待中
-    ON_HOLD = "on_hold"     # 暂停中
-    FULFILLED = "fulfilled"  # 已完成
-    REJECTED = "rejected"    # 被拒绝
-    CANCELLED = "cancelled"  # 已取消
+    """Task status"""
+    CREATED = "created"      # Created
+    PENDING = "pending"      # Pending
+    ON_HOLD = "on_hold"     # On hold
+    FULFILLED = "fulfilled"  # Completed
+    REJECTED = "rejected"    # Rejected
+    CANCELLED = "cancelled"  # Cancelled
 
 
 class WorkerStatus(str, Enum):
-    """Worker状态"""
-    IDLE = "idle"           # 空闲
-    BUSY = "busy"           # 忙碌
-    ERROR = "error"         # 错误
-    OFFLINE = "offline"     # 离线
+    """Worker status"""
+    IDLE = "idle"           # Idle
+    BUSY = "busy"           # Busy
+    ERROR = "error"         # Error
+    OFFLINE = "offline"     # Offline
 
 
 class EvaluatorStatus(str, Enum):
-    """Evaluator状态"""
-    IDLE = "idle"           # 空闲
-    EVALUATING = "evaluating"  # 评估中
-    ERROR = "error"         # 错误
-    OFFLINE = "offline"     # 离线
+    """Evaluator status"""
+    IDLE = "idle"           # Idle
+    EVALUATING = "evaluating"  # Evaluating
+    ERROR = "error"         # Error
+    OFFLINE = "offline"     # Offline
 
 
 class ManagerStatus(str, Enum):
-    """Manager状态"""
-    IDLE = "idle"           # 空闲
-    PLANNING = "planning"   # 规划中
-    SUPPLEMENTING = "supplementing"  # 补充资料中
-    ERROR = "error"         # 错误
-    OFFLINE = "offline"     # 离线
+    """Manager status"""
+    IDLE = "idle"           # Idle
+    PLANNING = "planning"   # Planning
+    SUPPLEMENTING = "supplementing"  # Supplementing data
+    ERROR = "error"         # Error
+    OFFLINE = "offline"     # Offline
 
 
 class EventType(str, Enum):
-    """事件类型"""
-    INFO = "info"           # 信息
-    WARNING = "warning"     # 警告
-    ERROR = "error"         # 错误
-    SUCCESS = "success"     # 成功
-    STATE_SWITCH = "state_switch"  # 状态切换
-    STATUS_CHANGE = "status_change"  # 状态变化 
+    """Event type"""
+    INFO = "info"           # Information
+    WARNING = "warning"     # Warning
+    ERROR = "error"         # Error
+    SUCCESS = "success"     # Success
+    STATE_SWITCH = "state_switch"  # State switch
+    STATUS_CHANGE = "status_change"  # Status change 
 
 class TriggerRole(str, Enum):
-    """触发角色"""
+    """Trigger role"""
     CONTROLLER = "controller" # controller
     WORKER_GET_ACTION = "worker_get_action" # Worker
     EVALUATOR_QUALITY_CHECK = "evaluator_quality_check" # Evaluator
@@ -122,25 +121,25 @@ class TriggerRole(str, Enum):
     HARDWARE_EXECUTE_ACTION = "hardware_execute_action" # Hardware
 
 class TriggerCode(str, Enum):
-    """触发代码枚举"""
+    """Trigger code enumeration"""
     
-    # 规则检验相关
+    # Rule validation related
     RULE_QUALITY_CHECK_STEPS = "rule_quality_check_steps" # controller -> evaluator: quality_check
     RULE_QUALITY_CHECK_REPEATED_ACTIONS = "rule_quality_check_repeated_actions"  # controller -> evaluator: quality_check
     RULE_REPLAN_LONG_EXECUTION = "rule_replan_long_execution"       # controller -> manager: replan
     
-    # 任务状态规则相关
+    # Task status rule related
     RULE_MAX_STATE_SWITCHES_REACHED = "rule_max_state_switches_reached"  # controller -> controller: done
     RULE_PLAN_NUMBER_EXCEEDED = "rule_plan_number_exceeded"              # controller -> controller: done
     RULE_STATE_SWITCH_COUNT_EXCEEDED = "rule_state_switch_count_exceeded"  # controller -> controller: done
     RULE_TASK_COMPLETED = "rule_task_completed"                          # controller -> controller: done
     
-    # 状态处理相关 - INIT状态
+    # State handling related - INIT state
     SUBTASK_READY = "subtask_ready" # INIT -> worker: get_action
     NO_SUBTASKS = "no_subtasks" # INIT -> manager: replan
     INIT_ERROR = "init_error" # INIT -> manager: replan
     
-    # 状态处理相关 - GET_ACTION状态
+    # State handling related - GET_ACTION state
     NO_CURRENT_SUBTASK_ID = "no_current_subtask_id" # worker: get_action | executor: execute_action | evaluator: quality_check -> INIT
     SUBTASK_NOT_FOUND = "subtask_not_found" # worker: get_action | executor: execute_action -> INIT
     WORKER_SUCCESS = "worker_success" # worker: get_action -> evaluator: quality_check
@@ -151,12 +150,12 @@ class TriggerCode(str, Enum):
     NO_WORKER_DECISION = "no_worker_decision" # worker: get_action -> manager: replan
     GET_ACTION_ERROR = "get_action_error" # worker: get_action -> manager: replan
     
-    # 状态处理相关 - EXECUTE_ACTION状态
+    # State handling related - EXECUTE_ACTION state
     EXECUTION_ERROR = "execution_error" # executor: execute_action -> worker: get_action
     COMMAND_COMPLETED = "command_completed" # executor: execute_action -> worker: get_action
     NO_COMMAND = "no_command" # executor: execute_action -> worker: get_action
     
-    # 状态处理相关 - QUALITY_CHECK状态
+    # State handling related - QUALITY_CHECK state
     ALL_SUBTASKS_COMPLETED = "all_subtasks_completed" # evaluator: quality_check -> evaluator: final_check
     QUALITY_CHECK_PASSED = "quality_check_passed" # # evaluator: quality_check -> worker: get_action
     QUALITY_CHECK_FAILED = "quality_check_failed" # evaluator: quality_check -> manager: replan
@@ -164,27 +163,27 @@ class TriggerCode(str, Enum):
     QUALITY_CHECK_EXECUTE_ACTION = "quality_check_execute_action" # evaluator: quality_check -> executor: execute_action
     QUALITY_CHECK_ERROR = "quality_check_error" # evaluator: quality_check -> manager: replan
 
-    # 状态处理相关 - PLAN状态
+    # State handling related - PLAN state
     SUBTASK_READY_AFTER_PLAN = "subtask_ready_after_plan" # manager: replan -> worker: get_action
     PLAN_ERROR = "plan_error" # manager: replan -> INIT
 
-    # 状态处理相关 - SUPPLEMENT状态
+    # State handling related - SUPPLEMENT state
     SUPPLEMENT_COMPLETED = "supplement_completed" # manager: supplement -> manager: replan
     SUPPLEMENT_ERROR = "supplement_error" # manager: supplement -> manager: replan
  
-    # 状态处理相关 - FINAL_CHECK状态
+    # State handling related - FINAL_CHECK state
     FINAL_CHECK_ERROR = "final_check_error" # evaluator: final_check -> controller: done
     FINAL_CHECK_PENDING = "final_check_pending" # evaluator: final_check -> worker: get_action
     FINAL_CHECK_PASSED = "final_check_passed" # evaluator: final_check -> controller: done
     FINAL_CHECK_FAILED = "final_check_failed" # evaluator: final_check -> manager: replan
 
-    # 错误恢复相关
+    # Error recovery related
     UNKNOWN_STATE = "unknown_state" # unknown -> INIT
     ERROR_RECOVERY = "error_recovery" # unknown -> INIT
     
-# 按模块分类的触发代码字典
+# Trigger code dictionary classified by module
 class TRIGGER_CODE_BY_MODULE:
-    # Manager replan 相关的触发代码
+    # Manager replan related trigger codes
     MANAGER_REPLAN_CODES = {
         "work_cannot_execute": TriggerCode.WORK_CANNOT_EXECUTE.value,
         "quality_check_failed": TriggerCode.QUALITY_CHECK_FAILED.value,
@@ -199,13 +198,13 @@ class TRIGGER_CODE_BY_MODULE:
         "supplement_error": TriggerCode.SUPPLEMENT_ERROR.value,
     }
     
-    # Manager supplement 相关的触发代码
+    # Manager supplement related trigger codes
     MANAGER_SUPPLEMENT_CODES = {
         "worker_supplement": TriggerCode.WORKER_SUPPLEMENT.value,
         "quality_check_supplement": TriggerCode.QUALITY_CHECK_SUPPLEMENT.value,
     }
     
-    # Worker get_action 相关的触发代码
+    # Worker get_action related trigger codes
     WORKER_GET_ACTION_CODES = {
         "subtask_ready": TriggerCode.SUBTASK_READY.value,
         "execution_error": TriggerCode.EXECUTION_ERROR.value,
@@ -216,7 +215,7 @@ class TRIGGER_CODE_BY_MODULE:
         "final_check_pending": TriggerCode.FINAL_CHECK_PENDING.value,
     }
     
-    # Evaluator quality_check 相关的触发代码
+    # Evaluator quality_check related trigger codes
     EVALUATOR_QUALITY_CHECK_CODES = {
         "rule_quality_check_steps": TriggerCode.RULE_QUALITY_CHECK_STEPS.value,
         "rule_quality_check_repeated_actions": TriggerCode.RULE_QUALITY_CHECK_REPEATED_ACTIONS.value,
@@ -224,18 +223,18 @@ class TRIGGER_CODE_BY_MODULE:
         "worker_stale_progress": TriggerCode.WORKER_STALE_PROGRESS.value,
     }
     
-    # Evaluator final_check 相关的触发代码
+    # Evaluator final_check related trigger codes
     EVALUATOR_FINAL_CHECK_CODES = {
         "all_subtasks_completed": TriggerCode.ALL_SUBTASKS_COMPLETED.value,
     }
     
-    # Executor execute_action 相关的触发代码
+    # Executor execute_action related trigger codes
     EXECUTOR_EXECUTE_ACTION_CODES = {
         "worker_generate_action": TriggerCode.WORKER_GENERATE_ACTION.value,
         "quality_check_execute_action": TriggerCode.QUALITY_CHECK_EXECUTE_ACTION.value,
     }
     
-    # INIT 状态相关的触发代码
+    # INIT state related trigger codes
     INIT_STATE_CODES = {
         "no_current_subtask_id": TriggerCode.NO_CURRENT_SUBTASK_ID.value,
         "subtask_not_found": TriggerCode.SUBTASK_NOT_FOUND.value,
@@ -244,7 +243,7 @@ class TRIGGER_CODE_BY_MODULE:
         "error_recovery": TriggerCode.ERROR_RECOVERY.value,
     }
     
-    # DONE 状态相关的触发代码
+    # DONE state related trigger codes
     DONE_STATE_CODES = {
         "rule_max_state_switches_reached": TriggerCode.RULE_MAX_STATE_SWITCHES_REACHED.value,
         "rule_plan_number_exceeded": TriggerCode.RULE_PLAN_NUMBER_EXCEEDED.value,

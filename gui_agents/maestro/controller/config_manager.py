@@ -1,6 +1,6 @@
 """
-Configuration Manager for Agent-S Controller
-负责工具配置和知识库设置
+Configuration Manager for Maestro Controller
+Responsible for tool configuration and knowledge base setup
 """
 
 import os
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class ConfigManager:
-    """配置管理器，负责工具配置和知识库设置"""
+    """Configuration manager responsible for tool configuration and knowledge base setup"""
     
     def __init__(self, 
         memory_root_path: str = os.getcwd(),
@@ -26,7 +26,7 @@ class ConfigManager:
         self.flow_config: Dict[str, Any] = {}
         
     def load_tools_configuration(self) -> Dict[str, Any]:
-        """从配置文件加载工具配置"""
+        """Load tool configuration from configuration file"""
         try:
             tools_config_path = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
@@ -37,12 +37,12 @@ class ConfigManager:
                 self.tools_config = json.load(f)
                 logger.info(f"Loaded tools configuration from: {tools_config_path}")
                 
-                # 构建工具字典，保留所有配置字段
+                # Build tool dictionary, preserving all configuration fields
                 for tool in self.tools_config["tools"]:
                     tool_name = tool["tool_name"]
-                    # 复制所有配置字段，不仅仅是 provider 和 model
+                    # Copy all configuration fields, not just provider and model
                     self.tools_dict[tool_name] = tool.copy()
-                    # 确保 model 字段存在（从 model_name 映射）
+                    # Ensure model field exists (mapped from model_name)
                     if "model_name" in tool:
                         self.tools_dict[tool_name]["model"] = tool["model_name"]
                     
@@ -54,12 +54,12 @@ class ConfigManager:
             return {}
     
     def setup_knowledge_base(self, platform: str) -> str:
-        """初始化代理的知识库路径并检查是否存在"""
+        """Initialize agent's knowledge base path and check if it exists"""
         try:
-            # 初始化代理的知识库路径
+            # Initialize agent's knowledge base path
             local_kb_path = os.path.join(self.memory_root_path, self.memory_folder_name)
             
-            # 检查知识库是否存在
+            # Check if knowledge base exists
             kb_platform_path = os.path.join(local_kb_path, platform)
             if not os.path.exists(kb_platform_path):
                 logger.warning(f"Knowledge base for {platform} platform not found in {local_kb_path}")
@@ -75,31 +75,31 @@ class ConfigManager:
             return self.memory_root_path
     
     def get_tools_dict(self) -> Dict[str, Any]:
-        """获取工具字典"""
+        """Get tools dictionary"""
         return self.tools_dict
     
     def get_tools_config(self) -> Dict[str, Any]:
-        """获取工具配置"""
+        """Get tools configuration"""
         return self.tools_config
     
-    # ===== 新增：流程配置集中管理 =====
+    # ===== New: Centralized flow configuration management =====
     def load_flow_configuration(self) -> Dict[str, Any]:
-        """加载流程配置（目前以内置默认为主，可后续扩展为文件/环境变量）。"""
+        """Load flow configuration (currently mainly built-in defaults, can be extended to files/environment variables later)."""
         try:
-            # 统一的默认阈值配置
+            # Unified default threshold configuration
             self.flow_config = {
-                # 任务与状态
+                # Task and state
                 # "max_state_switches": 500, # default: 500
                 # "max_state_duration_secs": 300, # default: 300
-                # 质检相关
-                # "quality_check_interval_secs": 300,  # 距离上次质检的时间间隔 default: 300
-                "first_quality_check_min_commands": 3,  # 首次质检触发指令数 default: 5
-                # 连续相同行为与重规划
+                # Quality check related
+                # "quality_check_interval_secs": 300,  # Time interval since last quality check default: 300
+                "first_quality_check_min_commands": 3,  # Number of commands to trigger first quality check default: 5
+                # Consecutive same behavior and replanning
                 # "repeated_action_min_consecutive": 3, # default: 3
                 # "replan_long_execution_threshold": 15, # default: 15
-                # 规划次数上限
+                # Planning count limit
                 # "plan_number_limit": 50,  # default: 50
-                # 快照与主循环
+                # Snapshots and main loop
                 "enable_snapshots": True,
                 "snapshot_interval_steps": 10,
                 "create_checkpoint_snapshots": True,
@@ -107,12 +107,12 @@ class ConfigManager:
             }
         except Exception as e:
             logger.error(f"Failed to load flow configuration: {e}")
-            # 兜底：至少提供一个空字典
+            # Fallback: at least provide an empty dictionary
             self.flow_config = {}
         return self.flow_config
     
     def get_flow_config(self) -> Dict[str, Any]:
-        """获取流程配置（如未加载则按默认加载）。"""
+        """Get flow configuration (load with defaults if not loaded)."""
         if not self.flow_config:
             return self.load_flow_configuration()
-        return self.flow_config 
+        return self.flow_config

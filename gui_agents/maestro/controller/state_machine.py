@@ -1,6 +1,5 @@
-"""
-State Machine for Agent-S Controller
-负责状态切换和流程控制
+"""State Machine for Maestro Controller
+Responsible for state switching and process control
 """
 
 import time
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class StateMachine:
-    """状态机，负责状态切换和流程控制"""
+    """State machine, responsible for state switching and process control"""
     
     def __init__(self, 
         global_state: NewGlobalState, 
@@ -29,11 +28,11 @@ class StateMachine:
         self.state_switch_count = 0
         
     def get_current_state(self) -> ControllerState:
-        """获取当前状态"""
+        """Get current state"""
         return self.global_state.get_controller_current_state()
     
     def switch_state(self, new_state: ControllerState, trigger_role: TriggerRole, trigger_details: str = "", trigger_code: str = "controller"):
-        """切换到新状态"""
+        """Switch to new state"""
         if new_state == self.get_current_state():
             logger.debug(f"Already in state {new_state}")
             return
@@ -41,13 +40,13 @@ class StateMachine:
         old_state = self.get_current_state()
         self.state_switch_count += 1
 
-        # 记录状态切换事件
+        # Record state switch event
         self.global_state.add_event(
             trigger_role, "state_switch",
             f"State changed: {old_state} -> {new_state} (trigger_role: {trigger_role}, details: {trigger_details}, trigger_code: {trigger_code})"
         )
 
-        # 更新controller状态，包含trigger_code
+        # Update controller state, including trigger_code
         try:
             self.global_state.update_controller_state(new_state, trigger_role, trigger_details, trigger_code)
         except Exception as e:
@@ -59,15 +58,15 @@ class StateMachine:
         )
     
     def process_rules_and_update_states(self) -> None:
-        """处理规则并更新状态 - 每次循环结束后调用"""
+        """Process rules and update states - called after each loop iteration"""
         try:
-            # 1. 检查任务状态规则
+            # 1. Check task state rules
             result = self.rule_engine.check_task_state_rules(self.state_switch_count)
             if result:
                 new_state, trigger_code = result
                 self.switch_state(new_state, TriggerRole.CONTROLLER, f"Task state rule triggered: {new_state}", trigger_code.value)
 
-            # 2. 检查当前状态规则
+            # 2. Check current state rules
             result = self.rule_engine.check_current_state_rules()
             if result:
                 new_state, trigger_code = result
@@ -80,7 +79,7 @@ class StateMachine:
                 {"error": f"Rule processing error: {str(e)}"})
     
     def should_exit_loop(self) -> bool:
-        """判断是否应该跳出主循环"""
+        """Determine whether to exit the main loop"""
         try:
             task = self.global_state.get_task()
 
@@ -102,10 +101,10 @@ class StateMachine:
             return False
     
     def get_state_switch_count(self) -> int:
-        """获取状态切换次数"""
+        """Get state switch count"""
         return self.state_switch_count
     
     def reset_state_switch_count(self):
-        """重置状态切换次数"""
+        """Reset state switch count"""
         self.state_switch_count = 0
-        logger.info("State switch count reset to 0") 
+        logger.info("State switch count reset to 0")

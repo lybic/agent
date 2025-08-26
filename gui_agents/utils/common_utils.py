@@ -511,23 +511,23 @@ def show_task_completion_notification(task_status: str, error_message: str = "")
         current_platform = platform.system()
         
         if task_status == "success":
-            title = "Agents3"
+            title = "Maestro"
             message = "Task Completed Successfully"
             dialog_type = "info"
         elif task_status == "failed":
-            title = "Agents3"
+            title = "Maestro"
             message = "Task Failed/Rejected"
             dialog_type = "error"
         elif task_status == "completed":
-            title = "Agents3"
+            title = "Maestro"
             message = "Task Execution Completed"
             dialog_type = "info"
         elif task_status == "error":
-            title = "Agents3 Error"
+            title = "Maestro Error"
             message = f"Task Execution Error: {error_message[:100] if error_message else 'Unknown error'}"
             dialog_type = "error"
         else:
-            title = "Agents3"
+            title = "Maestro"
             message = "Task Execution Completed"
             dialog_type = "info"
         

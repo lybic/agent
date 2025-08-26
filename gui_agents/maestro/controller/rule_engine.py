@@ -1,6 +1,5 @@
-"""
-Rule Engine for Agent-S Controller
-负责处理各种业务规则和状态检查
+"""Rule Engine for Maestro Controller
+Responsible for handling various business rules and state checks
 """
 
 import time
@@ -17,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class RuleEngine:
-    """规则引擎，负责处理各种业务规则和状态检查"""
+    """Rule engine responsible for handling various business rules and state checks"""
     
     def __init__(
         self, 
@@ -31,7 +30,7 @@ class RuleEngine:
         self.max_steps = max_steps
         self.max_state_switches = max_state_switches
         self.max_state_duration = max_state_duration
-        # 新增：流程配置阈值
+        # Added: Flow configuration thresholds
         self.flow_config = flow_config or {}
         self.quality_check_interval_secs = self.flow_config.get("quality_check_interval_secs", 300)
         self.first_quality_check_min_commands = self.flow_config.get("first_quality_check_min_commands", 5)
@@ -40,34 +39,34 @@ class RuleEngine:
         self.plan_number_limit = self.flow_config.get("plan_number_limit", 50)
     
     def _are_actions_similar(self, action1: Dict[str, Any], action2: Dict[str, Any]) -> bool:
-        """检查两个 Action 是否相同（排除描述性字段）
+        """Check if two Actions are the same (excluding descriptive fields)
         
         Args:
-            action1: 第一个 Action 的字典表示
-            action2: 第二个 Action 的字典表示
+            action1: Dictionary representation of the first Action
+            action2: Dictionary representation of the second Action
             
         Returns:
-            bool: 如果两个 Action 相同则返回 True，否则返回 False
+            bool: Returns True if the two Actions are the same, otherwise False
         """
         try:
-            # 检查 Action 类型是否相同
+            # Check if Action types are the same
             if action1.get("type") != action2.get("type"):
                 return False
             
-            # 获取 Action 类型
+            # Get Action type
             action_type = action1.get("type")
             
-            # 定义需要排除的描述性字段（这些字段不影响 Action 的实际执行）
+            # Define descriptive fields to exclude (these fields don't affect actual Action execution)
             descriptive_fields = {
                 "element_description",  # Click, DoubleClick, Move, Scroll
                 "starting_description",  # Drag
                 "ending_description",    # Drag
             }
             
-            # 比较所有非描述性字段
+            # Compare all non-descriptive fields
             for key in action1:
                 if key in descriptive_fields:
-                    continue  # 跳过描述性字段
+                    continue  # Skip descriptive fields
                 
                 if key not in action2:
                     return False
@@ -75,10 +74,10 @@ class RuleEngine:
                 if action1[key] != action2[key]:
                     return False
             
-            # 检查 action2 中是否有 action1 中没有的字段（除了描述性字段）
+            # Check if action2 has fields that action1 doesn't have (except descriptive fields)
             for key in action2:
                 if key in descriptive_fields:
-                    continue  # 跳过描述性字段
+                    continue  # Skip descriptive fields
                 
                 if key not in action1:
                     return False
@@ -90,14 +89,14 @@ class RuleEngine:
             return False
     
     def _check_consecutive_similar_actions(self, commands: List[CommandData], min_consecutive: int = 3) -> bool:
-        """检查是否有连续相同的 Action
+        """Check if there are consecutive similar Actions
         
         Args:
-            commands: 命令列表
-            min_consecutive: 最小连续次数
+            commands: List of commands
+            min_consecutive: Minimum consecutive count
             
         Returns:
-            bool: 如果发现连续相同的 Action 则返回 True，否则返回 False
+            bool: Returns True if consecutive similar Actions are found, otherwise False
         """
         return False
         try:
@@ -106,11 +105,11 @@ class RuleEngine:
             if len(commands) < min_consecutive:
                 return False
             
-            # 从最新的命令开始，检查连续的 Action
+            # Start from the latest command and check consecutive Actions
             consecutive_count = 1
             current_action = commands[-1].action
             
-            # 从倒数第二个命令开始向前检查
+            # Check forward from the second-to-last command
             for i in range(len(commands) - 2, -1, -1):
                 if self._are_actions_similar(current_action, commands[i].action):
                     consecutive_count += 1
@@ -118,7 +117,7 @@ class RuleEngine:
                         logger.info(f"Found {consecutive_count} consecutive similar actions")
                         return True
                 else:
-                    # 重置计数
+                    # Reset count
                     consecutive_count = 1
                     current_action = commands[i].action
             
@@ -129,17 +128,17 @@ class RuleEngine:
             return False
     
     def check_task_state_rules(self, state_switch_count: int) -> Optional[tuple[ControllerState, TriggerCode]]:
-        """检查task_state相关规则，包括终止条件
+        """Check task_state related rules, including termination conditions
         
         Returns:
-            Optional[tuple[ControllerState, TriggerCode]]: 返回新状态和对应的TriggerCode，如果没有规则触发则返回None
+            Optional[tuple[ControllerState, TriggerCode]]: Returns new state and corresponding TriggerCode, returns None if no rules are triggered
         """
         try:
             task = self.global_state.get_task()
             if not task:
                 return None
 
-            # # 检查状态切换次数上限
+            # # Check maximum state switch count
             # if state_switch_count >= self.max_state_switches:
             #     logger.warning(
             #         f"Maximum state switches ({self.max_state_switches}) reached"
@@ -147,12 +146,12 @@ class RuleEngine:
             #     self.global_state.update_task_status(TaskStatus.REJECTED)
             #     return (ControllerState.DONE, TriggerCode.RULE_MAX_STATE_SWITCHES_REACHED)
 
-            # 检查任务状态
+            # Check task status
             if task.status == "completed":
                 logger.info("Task marked as completed")
                 return (ControllerState.DONE, TriggerCode.RULE_TASK_COMPLETED)
 
-            # 检查规划次数上限 - 如果规划次数超过配置上限，标记任务为失败
+            # Check planning count limit - if planning count exceeds configured limit, mark task as failed
             plan_num = self.global_state.get_plan_num()
             if plan_num > self.plan_number_limit:
                 logger.warning(
@@ -160,9 +159,9 @@ class RuleEngine:
                 self.global_state.update_task_status(TaskStatus.REJECTED)
                 return (ControllerState.DONE, TriggerCode.RULE_PLAN_NUMBER_EXCEEDED)
 
-            # current_step大于max_steps步 - rejected/fulfilled
+            # current_step greater than max_steps - rejected/fulfilled
             if task.step_num >= self.max_steps:
-                # 检查是否所有subtask都完成
+                # Check if all subtasks are completed
                 if not task.pending_subtask_ids or len(task.pending_subtask_ids) == 0:
                     logger.info(f"State switch count > {self.max_steps} and all subtasks completed, entering final check")
                     return (ControllerState.FINAL_CHECK, TriggerCode.RULE_STATE_SWITCH_COUNT_EXCEEDED)
@@ -180,42 +179,42 @@ class RuleEngine:
             return None
     
     def check_current_state_rules(self) -> Optional[tuple[ControllerState, TriggerCode]]:
-        """检查current_state相关规则
+        """Check current_state related rules
         
         Returns:
-            Optional[tuple[ControllerState, TriggerCode]]: 返回新状态和对应的TriggerCode，如果没有规则触发则返回None
+            Optional[tuple[ControllerState, TriggerCode]]: Returns new state and corresponding TriggerCode, returns None if no rules are triggered
         """
         try:
             task = self.global_state.get_task()
             if not task:
                 return None
 
-            # 质检触发逻辑：距离上次质检时间，已经生成了5个command，且这5个command的创建时间都大于上次质检时间
+            # Quality check trigger logic: 5 commands have been generated since the last quality check, and the creation time of these 5 commands is all greater than the last quality check time
             gate_checks = self.global_state.get_gate_checks()
             if gate_checks:
-                # 获取最近一次质检的时间
+                # Get the time of the most recent quality check
                 latest_quality_check = max(gate_checks, key=lambda x: x.created_at)
                 latest_quality_check_time = datetime.fromisoformat(latest_quality_check.created_at)
                 
-                # 检查是否有足够的command进行质检
+                # Check if there are enough commands for quality check
                 all_commands = self.global_state.get_commands()
                 
-                # 计算距离上次质检后新产生的命令数量
+                # Calculate the number of new commands generated since the last quality check
                 new_commands_count = 0
-                for command in reversed(all_commands):  # 从最新的命令开始检查
+                for command in reversed(all_commands):  # Start checking from the latest command
                     cmd_time = datetime.fromisoformat(command.created_at)
                     if cmd_time > latest_quality_check_time:
                         new_commands_count += 1
                     else:
-                        break  # 遇到早于质检时间的命令就停止
+                        break  # Stop when encountering commands earlier than quality check time
                 
-                # 如果新产生的命令数量达到阈值，触发质检
+                # If the number of newly generated commands reaches the threshold, trigger quality check
                 if (new_commands_count >= self.first_quality_check_min_commands and 
                     self.global_state.get_controller_current_state() not in [ControllerState.QUALITY_CHECK, ControllerState.DONE]):
                     logger.info(f"Quality check triggered: {new_commands_count} new commands after last quality check at {latest_quality_check_time}, switching to QUALITY_CHECK")
                     return (ControllerState.QUALITY_CHECK, TriggerCode.RULE_QUALITY_CHECK_STEPS)
             else:
-                # 如果没有质检记录且当前subtask的command数量达到阈值，进行首次质检
+                # If there are no quality check records and the current subtask's command count reaches the threshold, perform the first quality check
                 if task.current_subtask_id:
                     subtask = self.global_state.get_subtask(task.current_subtask_id)
                     if (subtask and len(subtask.command_trace_ids) >= self.first_quality_check_min_commands and 
@@ -223,11 +222,11 @@ class RuleEngine:
                         logger.info(f"First quality check after {self.first_quality_check_min_commands} commands for subtask {task.current_subtask_id}, switching to QUALITY_CHECK")
                         return (ControllerState.QUALITY_CHECK, TriggerCode.RULE_QUALITY_CHECK_STEPS)
 
-            # 相同连续动作高于配置次数 - QUALITY_CHECK
+            # Consecutive similar actions exceed configured count - QUALITY_CHECK
             if task.current_subtask_id:
                 subtask = self.global_state.get_subtask(task.current_subtask_id)
                 if subtask and len(subtask.command_trace_ids) >= self.repeated_action_min_consecutive:
-                    # 获取当前 subtask 的所有命令
+                    # Get all commands for the current subtask
                     commands = self.global_state.get_commands_for_subtask(task.current_subtask_id)
                     if commands and self._check_consecutive_similar_actions(commands[-self.repeated_action_min_consecutive:], min_consecutive=self.repeated_action_min_consecutive):
                         logger.info(
@@ -235,7 +234,7 @@ class RuleEngine:
                         )
                         return (ControllerState.QUALITY_CHECK, TriggerCode.RULE_QUALITY_CHECK_REPEATED_ACTIONS)
 
-            # 如果一个subtask的执行action过长，超过配置阈值 - REPLAN
+            # If a subtask's execution actions are too long, exceeding the configured threshold - REPLAN
             if task.current_subtask_id:
                 subtask = self.global_state.get_subtask(task.current_subtask_id)
                 if subtask and len(subtask.command_trace_ids) > self.replan_long_execution_threshold:
@@ -252,6 +251,6 @@ class RuleEngine:
             return None
     
     def is_state_timeout(self) -> bool:
-        """检查当前状态是否超时"""
+        """Check if the current state has timed out"""
         state_start_time = self.global_state.get_controller_state_start_time()
         return (time.time() - state_start_time) > self.max_state_duration

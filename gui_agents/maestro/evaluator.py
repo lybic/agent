@@ -94,7 +94,7 @@ class Evaluator:
         prompt = self.build_prompt(trigger_type)
         screenshot = globalstate.get_screenshot()
 
-        # 开始计时
+        # Start timing
         import time
         evaluator_start_time = time.time()
 
@@ -104,7 +104,7 @@ class Evaluator:
                 "img_input": screenshot
             })
 
-        # 记录 evaluator 操作到 display.json
+        # Log evaluator operation to display.json
         evaluator_duration = time.time() - evaluator_start_time
         self.global_state.log_llm_operation(
             "evaluator", f"quality_check_{trigger_type.lower()}", {
@@ -215,17 +215,17 @@ class Evaluator:
         return self.global_state.get_supplement()
 
     def _get_command_history_for_subtask(self, subtask_id: Optional[str]) -> str:
-        """参考 operator/technician，获取指定 subtask 的历史操作记录。"""
+        """Reference operator/technician, get historical operation records for specified subtask."""
         try:
             if not subtask_id:
-                return "无历史操作记录"
+                return "No historical operation records"
             commands = list(reversed(self.global_state.get_commands_for_subtask(subtask_id)))
             if not commands:
-                return "无历史操作记录"
+                return "No historical operation records"
             history_lines: List[str] = []
-            history_lines.append("=== 历史操作记录 ===")
+            history_lines.append("=== Historical Operation Records ===")
             for i, cmd in enumerate(commands, 1):
-                action_type = "未知操作"
+                action_type = "Unknown Operation"
                 action_desc = ""
                 action = getattr(cmd, "action", None)
                 if isinstance(action, dict):
@@ -234,44 +234,44 @@ class Evaluator:
                     if "message" in action:
                         action_desc = str(action.get("message", ""))
                     elif "element_description" in action:
-                        action_desc = f"操作元素: {action['element_description']}"
+                        action_desc = f"Operate element: {action['element_description']}"
                     elif "text" in action:
-                        action_desc = f"输入文本: {action['text']}"
+                        action_desc = f"Input text: {action['text']}"
                     elif "keys" in action:
-                        action_desc = f"按键: {action['keys']}"
+                        action_desc = f"Key press: {action['keys']}"
                 elif isinstance(action, list):
-                    action_type = "代码生成"
+                    action_type = "Code Generation"
                     if action:
-                        # 简化展示，避免超长
+                        # Simplified display to avoid excessive length
                         first_lang, first_code = action[0]
-                        action_desc = f"[1] 语言: {first_lang}, 代码长度: {len(str(first_code))}"
+                        action_desc = f"[1] Language: {first_lang}, Code length: {len(str(first_code))}"
                 status = getattr(cmd, "worker_decision", "")
                 message = getattr(cmd, "message", "") or ""
                 exec_status = getattr(cmd, "exec_status", "")
                 exec_message = getattr(cmd, "exec_message", "")
-                history_lines.append(f"{i}. [{action_type}] - 状态: {status}")
+                history_lines.append(f"{i}. [{action_type}] - Status: {status}")
                 if action_desc:
-                    history_lines.append(f"   描述: {action_desc}")
+                    history_lines.append(f"   Description: {action_desc}")
                 if message:
-                    history_lines.append(f"   消息: {message}")
+                    history_lines.append(f"   Message: {message}")
                 if exec_status:
-                    history_lines.append(f"   执行状态: {exec_status}")
+                    history_lines.append(f"   Execution Status: {exec_status}")
                 if exec_message:
-                    history_lines.append(f"   执行消息: {exec_message}")
+                    history_lines.append(f"   Execution Message: {exec_message}")
                 history_lines.append("")
             return "\n".join(history_lines)
         except Exception as e:
-            return f"获取历史记录失败: {e}"
+            return f"Failed to get historical records: {e}"
 
     def _get_last_operation_brief(self, subtask_id: Optional[str]) -> str:
-        """获取最近一次操作的简要信息。"""
+        """Get brief information of the most recent operation."""
         try:
             if not subtask_id:
                 return "(no last operation)"
             cmd = self.global_state.get_current_command_for_subtask(subtask_id)
             if not cmd:
                 return "(no last operation)"
-            action_type = "未知操作"
+            action_type = "Unknown Operation"
             action_desc = ""
             action = getattr(cmd, "action", None)
             if isinstance(action, dict):
@@ -280,32 +280,32 @@ class Evaluator:
                 if "message" in action:
                     action_desc = str(action.get("message", ""))
                 elif "element_description" in action:
-                    action_desc = f"操作元素: {action['element_description']}"
+                    action_desc = f"Operate element: {action['element_description']}"
                 elif "text" in action:
-                    action_desc = f"输入文本: {action['text']}"
+                    action_desc = f"Input text: {action['text']}"
                 elif "keys" in action:
-                    action_desc = f"按键: {action['keys']}"
+                    action_desc = f"Key press: {action['keys']}"
             elif isinstance(action, list):
-                action_type = "代码生成"
+                action_type = "Code Generation"
                 if action:
                     first_lang, first_code = action[0]
-                    action_desc = f"[1] 语言: {first_lang}, 代码长度: {len(str(first_code))}"
+                    action_desc = f"[1] Language: {first_lang}, Code length: {len(str(first_code))}"
             status = getattr(cmd, "worker_decision", "")
             message = getattr(cmd, "message", "") or ""
             exec_status = getattr(cmd, "exec_status", "")
             exec_message = getattr(cmd, "exec_message", "")
             lines = [
-                f"类型: {action_type}",
-                f"状态: {status}",
+                f"Type: {action_type}",
+                f"Status: {status}",
             ]
             if action_desc:
-                lines.append(f"描述: {action_desc}")
+                lines.append(f"Description: {action_desc}")
             if message:
-                lines.append(f"消息: {message}")
+                lines.append(f"Message: {message}")
             if exec_status:
-                lines.append(f"执行状态: {exec_status}")
+                lines.append(f"Execution Status: {exec_status}")
             if exec_message:
-                lines.append(f"执行消息: {exec_message}")
+                lines.append(f"Execution Message: {exec_message}")
             return "\n".join(lines)
         except Exception as e:
             return f"(last operation unavailable: {e})"
@@ -347,7 +347,7 @@ class Evaluator:
         }
     
     def _get_global_task_status(self) -> str:
-        """获取全局任务状态摘要"""
+        """Get global task status summary"""
         task = self.global_state.get_task()
         all_subtasks = self.global_state.get_subtasks()
         
@@ -356,7 +356,7 @@ class Evaluator:
         pending_count = len(task.pending_subtask_ids or [])
         current_count = 1 if task.current_subtask_id else 0
         
-        # 统计各状态的子任务
+        # Count subtasks by status
         status_counts = {}
         for subtask in all_subtasks:
             status = subtask.status

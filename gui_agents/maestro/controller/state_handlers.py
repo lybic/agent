@@ -196,7 +196,18 @@ class StateHandlers:
             # 获取截图Executor处理
             command = self.global_state.get_current_command_for_subtask(current_subtask_id)
             if command:
-                return (ControllerState.GET_ACTION, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"{command.command_id} command completed", TriggerCode.COMMAND_COMPLETED)
+                # 检查当前subtask的assignee_role，如果是analyst，执行完action后直接进入质检
+                subtask = self.global_state.get_subtask(current_subtask_id)
+                if subtask and subtask.assignee_role == "analyst":
+                    logger.info(f"Analyst subtask {current_subtask_id} action executed, switching to QUALITY_CHECK")
+                    # 更新subtask状态为等待质检
+                    self.global_state.update_subtask_status(
+                        current_subtask_id, SubtaskStatus.PENDING,
+                        "Analyst action executed, waiting for quality check")
+                    return (ControllerState.QUALITY_CHECK, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"Analyst action executed for subtask {current_subtask_id}", TriggerCode.COMMAND_COMPLETED)
+                else:
+                    # 非analyst角色，继续正常的GET_ACTION流程
+                    return (ControllerState.GET_ACTION, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"{command.command_id} command completed", TriggerCode.COMMAND_COMPLETED)
             else:
                 return (ControllerState.GET_ACTION, TriggerRole.EXECUTOR_EXECUTE_ACTION, "No command found in EXECUTE_ACTION state", TriggerCode.NO_COMMAND)
 

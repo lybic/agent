@@ -2,14 +2,18 @@
 """极简调试函数：避免层层嵌套与多余错误处理"""
 from typing import Optional
 
-from gui_agents.maestro.debug_system.main_debugger import MainDebugger
+from gui_agents.maestro.debug_system.logging_setup import setup_file_logging
+from gui_agents.maestro.debug_system.main_debugger import MainDebugger, create_debugger
 
 
 def run_debug(runtime_path: str, snapshot_id: str, component: str = "manager") -> None:
-    debugger = MainDebugger(
+    debugger = create_debugger(
         runtime_path=runtime_path,
         snapshot_id=snapshot_id,
     )
+
+    target_path = debugger.target_path
+    setup_file_logging(str(debugger.target_path))
 
     if component == "manager":
         debugger.debug_manager()
@@ -23,6 +27,11 @@ def run_debug(runtime_path: str, snapshot_id: str, component: str = "manager") -
 
 if __name__ == "__main__":
     import argparse
+    import logging
+
+    from gui_agents.maestro.debug_system.logging_setup import setup_debug_logging
+
+    setup_debug_logging(logging.INFO)
 
     parser = argparse.ArgumentParser(description="Run snapshot/component debug easily from CLI")
     parser.add_argument(

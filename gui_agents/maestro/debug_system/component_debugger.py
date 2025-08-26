@@ -6,7 +6,6 @@ from typing import Dict, Any, Optional
 
 from pyautogui import screenshot
 
-from gui_agents.maestro.debug_system.snapshot_debugger import SnapshotDebugger
 from ..controller.state_handlers import NewWorker, Evaluator
 from ..controller.main_controller import NewManager
 

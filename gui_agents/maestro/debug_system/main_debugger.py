@@ -90,10 +90,10 @@ class MainDebugger:
         return current_manager
     
  
-def create_debugger(snapshot_dir: str = "snapshot_20250826_141736", state_dir: str = "runtime/20250826_141730") -> MainDebugger:
+def create_debugger(snapshot_id: str = "snapshot_20250826_141736", runtime_path: str = "runtime/20250826_141730") -> MainDebugger:
     """兼容旧接口: 以旧参数名创建 MainDebugger 实例
     - snapshot_dir: 兼容旧名，实为 snapshot_id
     - state_dir: 兼容旧名，实为 runtime_path
     """
-    return MainDebugger(runtime_path=state_dir, snapshot_id=snapshot_dir)
+    return MainDebugger(runtime_path=runtime_path, snapshot_id=snapshot_id)
     

@@ -54,7 +54,9 @@ class MainController:
         datetime_str: str = datetime.now().strftime("%Y%m%d_%H%M%S"),
         enable_snapshots: bool = True,
         snapshot_interval: int = 10,  # 每N步自动创建快照
-        create_checkpoint_snapshots: bool = True  # 是否在关键状态创建检查点快照
+        create_checkpoint_snapshots: bool = True,  # 是否在关键状态创建检查点快照
+        global_state: Optional[NewGlobalState] = None,  # 新增：允许注入已存在的全局状态（用于快照恢复）
+        initialize_controller: bool = True  # 新增：是否执行初始化流程（用于快照恢复时跳过）
     ):
         # 快照配置
         self.enable_snapshots = enable_snapshots
@@ -62,8 +64,11 @@ class MainController:
         self.create_checkpoint_snapshots = create_checkpoint_snapshots
         self.last_snapshot_step = 0
         
-        # 初始化全局状态
-        self.global_state = self._registry_global_state(log_dir, datetime_str)
+        # 初始化全局状态（支持外部注入）
+        if global_state is not None:
+            self.global_state = global_state
+        else:
+            self.global_state = self._registry_global_state(log_dir, datetime_str)
         
         # 基本配置
         self.platform = platform
@@ -148,12 +153,14 @@ class MainController:
         # 初始化计数器
         self.reset_counters()
         
-        # 初始化任务，生成第一次截图
-        self._handle_task_init()
-        
-        # 创建初始快照
-        if self.enable_snapshots:
-            self._create_initial_snapshot()
+        # 初始化任务与初始快照（可跳过，用于从快照恢复）
+        if initialize_controller:
+            # 初始化任务，生成第一次截图
+            self._handle_task_init()
+            
+            # 创建初始快照
+            if self.enable_snapshots:
+                self._create_initial_snapshot()
 
     def _registry_global_state(self, log_dir: str, datetime_str: str):
         """注册全局状态"""
@@ -185,21 +192,67 @@ class MainController:
         screenshot: Image.Image = self.hwi.dispatch(Screenshot())  # type: ignore
         self.global_state.set_screenshot(scale_screenshot_dimensions(screenshot, self.hwi))
     
+    def _build_env_config(self) -> Dict[str, Any]:
+        """构建可序列化的环境配置，便于快照恢复时重建 DesktopEnv。
+        只记录重建所需的关键字段，避免存储敏感信息。
+        """
+        env_config: Dict[str, Any] = {"present": False}
+        try:
+            if self.env is None:
+                return env_config
+            env_config["present"] = True
+            # 基本信息
+            env_config["class_name"] = self.env.__class__.__name__
+            # 关键字段（使用 getattr 安全获取）
+            for key in [
+                "provider_name",
+                "os_type",
+                "action_space",
+                "headless",
+                "require_a11y_tree",
+                "require_terminal",
+                "snapshot_name",
+            ]:
+                value = getattr(self.env, key, None)
+                if value is not None:
+                    env_config[key] = value
+            # 路径类字段：可能是相对路径，尽量存为绝对路径
+            path_to_vm = getattr(self.env, "path_to_vm", None)
+            if path_to_vm:
+                try:
+                    env_config["path_to_vm"] = os.path.abspath(path_to_vm)
+                except Exception:
+                    env_config["path_to_vm"] = path_to_vm
+            # 分辨率
+            screen_width = getattr(self.env, "screen_width", None)
+            screen_height = getattr(self.env, "screen_height", None)
+            if screen_width and screen_height:
+                env_config["screen_size"] = [int(screen_width), int(screen_height)]
+        except Exception:
+            # 不因环境序列化失败而阻塞快照
+            logger.debug("Failed to build env config for snapshot", exc_info=True)
+        return env_config
+
+    def _base_snapshot_config(self) -> Dict[str, Any]:
+        """统一构建快照的配置参数，包含已有配置与环境信息。"""
+        return {
+            "tools_dict": self.tools_dict,
+            "platform": self.platform,
+            "enable_search": self.enable_search,
+            "env_password": self.env_password,
+            "enable_takeover": self.enable_takeover,
+            "enable_rag": self.enable_rag,
+            "backend": self.backend,
+            "max_steps": self.max_steps,
+            "env": self._build_env_config(),
+        }
+
     def _create_initial_snapshot(self):
         """创建初始快照"""
         try:
             if self.enable_snapshots:
                 # 准备配置参数
-                config_params = {
-                    "tools_dict": self.tools_dict,
-                    "platform": self.platform,
-                    "enable_search": self.enable_search,
-                    "env_password": self.env_password,
-                    "enable_takeover": self.enable_takeover,
-                    "enable_rag": self.enable_rag,
-                    "backend": self.backend,
-                    "max_steps": self.max_steps
-                }
+                config_params = self._base_snapshot_config()
                 
                 snapshot_id = self.global_state.create_snapshot(
                     description=f"Initial state for task: {self.user_query}",
@@ -223,16 +276,7 @@ class MainController:
         try:
             if self._should_create_auto_snapshot():
                 # 准备配置参数
-                config_params = {
-                    "tools_dict": self.tools_dict,
-                    "platform": self.platform,
-                    "enable_search": self.enable_search,
-                    "env_password": self.env_password,
-                    "enable_takeover": self.enable_takeover,
-                    "enable_rag": self.enable_rag,
-                    "backend": self.backend,
-                    "max_steps": self.max_steps
-                }
+                config_params = self._base_snapshot_config()
                 
                 snapshot_id = self.global_state.create_snapshot(
                     description=f"Auto snapshot at step {self.step_count}",
@@ -252,16 +296,7 @@ class MainController:
                     checkpoint_name = f"checkpoint_step_{self.step_count}"
                 
                 # 准备配置参数
-                config_params = {
-                    "tools_dict": self.tools_dict,
-                    "platform": self.platform,
-                    "enable_search": self.enable_search,
-                    "env_password": self.env_password,
-                    "enable_takeover": self.enable_takeover,
-                    "enable_rag": self.enable_rag,
-                    "backend": self.backend,
-                    "max_steps": self.max_steps
-                }
+                config_params = self._base_snapshot_config()
                 
                 snapshot_id = self.global_state.create_snapshot(
                     description=f"Checkpoint: {checkpoint_name}",
@@ -279,16 +314,7 @@ class MainController:
         try:
             if self.enable_snapshots:
                 # 准备配置参数
-                config_params = {
-                    "tools_dict": self.tools_dict,
-                    "platform": self.platform,
-                    "enable_search": self.enable_search,
-                    "env_password": self.env_password,
-                    "enable_takeover": self.enable_takeover,
-                    "enable_rag": self.enable_rag,
-                    "backend": self.backend,
-                    "max_steps": self.max_steps
-                }
+                config_params = self._base_snapshot_config()
                 
                 snapshot_id = self.global_state.create_snapshot(
                     description=f"Error: {error_message}",
@@ -360,9 +386,9 @@ class MainController:
 
         # 记录主循环开始时间
         main_loop_start_time = time.time()
-
         while True:
             try:
+                print("execute_main_loop")
                 # 1. 检查是否应该退出循环
                 if self.state_machine.should_exit_loop():
                     logger.info("Task fulfilled or rejected, breaking main loop")
@@ -528,16 +554,7 @@ class MainController:
                 description = f"Manual snapshot at step {self.step_count}"
             
             # 准备配置参数
-            config_params = {
-                "tools_dict": self.tools_dict,
-                "platform": self.platform,
-                "enable_search": self.enable_search,
-                "env_password": self.env_password,
-                "enable_takeover": self.enable_takeover,
-                "enable_rag": self.enable_rag,
-                "backend": self.backend,
-                "max_steps": self.max_steps
-            }
+            config_params = self._base_snapshot_config()
             
             snapshot_id = self.global_state.create_snapshot(description, "manual", config_params)
             logger.info(f"Manual snapshot created: {snapshot_id}")

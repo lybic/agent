@@ -184,25 +184,7 @@ class SimpleSnapshot:
             "snapshot_metadata": metadata
         }
     
-    def restore_snapshot_and_create_globalstate(self, snapshot_id: str, target_runtime_dir: Optional[str] = None) -> tuple:
-        """
-        恢复快照并创建GlobalState对象
-        
-        Returns:
-            (restore_result, global_state_path) 元组
-            restore_result: 恢复结果字典
-            global_state_path: 恢复后的全局状态路径，可直接用于创建NewGlobalState
-        """
-        # 先恢复快照
-        restore_result = self.restore_snapshot(snapshot_id, target_runtime_dir)
-        
-        if not restore_result:
-            return {}, None
-        
-        # 返回恢复结果和路径
-        target_path = restore_result.get("target_directory")
-        return restore_result, target_path
-    
+
     def list_snapshots(self) -> list:
         """列出所有快照"""
         snapshots = []

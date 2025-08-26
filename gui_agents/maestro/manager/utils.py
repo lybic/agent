@@ -122,26 +122,68 @@ def topological_sort(dag: Dag) -> List[Node]:
         stack.append(node_name)
 
     try:
+        # Build adjacency list
         adj_list = defaultdict(list)
-        for u, v in dag.edges:
-            if not u or not v:
-                continue
-            adj_list[u.name].append(v.name)
+        for edge in dag.edges:
+            # Handle edges that contain complete Node objects
+            if isinstance(edge, (list, tuple)) and len(edge) >= 2:
+                source = edge[0]
+                target = edge[1]
+                
+                # If edge contains Node objects, get their names
+                if hasattr(source, 'name') and hasattr(target, 'name'):
+                    source_name = source.name
+                    target_name = target.name
+                else:
+                    logger.warning(f"Skipping invalid edge: {edge}")
+                    continue
+                
+                adj_list[source_name].append(target_name)
+            else:
+                logger.warning(f"Skipping malformed edge: {edge}")
 
-        visited = {node.name: False for node in dag.nodes}
-        temp_visited = set()
-        stack: List[str] = []
+        # Build in-degree table
+        in_degree = defaultdict(int)
         for node in dag.nodes:
-            if not visited.get(node.name, False):
-                dfs(node.name, visited, temp_visited, stack)
+            in_degree[node.name] = 0
+        
+        for neighbors in adj_list.values():
+            for neighbor in neighbors:
+                in_degree[neighbor] += 1
 
-        sorted_nodes: List[Node] = []
-        for name in stack[::-1]:
+        # Use Kahn's algorithm for topological sorting (more reliable)
+        queue = [node.name for node in dag.nodes if in_degree[node.name] == 0]
+        sorted_names = []
+        
+        while queue:
+            current = queue.pop(0)
+            sorted_names.append(current)
+            
+            for neighbor in adj_list.get(current, []):
+                in_degree[neighbor] -= 1
+                if in_degree[neighbor] == 0:
+                    queue.append(neighbor)
+        
+        # Check if all nodes are sorted
+        if len(sorted_names) != len(dag.nodes):
+            logger.warning(f"Topological sort incomplete: {len(sorted_names)}/{len(dag.nodes)} nodes sorted")
+            # Add unsorted nodes
+            for node in dag.nodes:
+                if node.name not in sorted_names:
+                    sorted_names.append(node.name)
+        
+        # Build sorted node list
+        sorted_nodes = []
+        for name in sorted_names:
             matching = [n for n in dag.nodes if n.name == name]
             if matching:
                 sorted_nodes.append(matching[0])
+        
+        logger.info(f"Topological sort completed: {[n.name for n in sorted_nodes]}")
         return sorted_nodes
-    except Exception:
+        
+    except Exception as e:
+        logger.error(f"Topological sort failed: {e}, returning original node order")
         return dag.nodes
 
 
@@ -243,7 +285,7 @@ def count_subtasks_from_info(subtasks_info: str) -> int:
 
 
 def get_current_failed_subtask(global_state) -> Optional[Dict[str, Any]]:
-    """获取当前失败的subtask信息"""
+    """Get information about currently failed subtask"""
     task = global_state.get_task()
     if task.current_subtask_id:
         subtask = global_state.get_subtask(task.current_subtask_id)
@@ -260,10 +302,10 @@ def get_current_failed_subtask(global_state) -> Optional[Dict[str, Any]]:
 
 
 def get_quality_check_failure_info(global_state) -> Dict[str, Any]:
-    """获取质检失败的具体信息"""
+    """Get detailed information about quality check failure"""
     task = global_state.get_task()
     if task.current_subtask_id:
-        # 获取最新的质检记录
+        # Get latest quality check record
         latest_gate = global_state.get_latest_gate_check_for_subtask(task.current_subtask_id)
         if latest_gate:
             return {
@@ -277,8 +319,8 @@ def get_quality_check_failure_info(global_state) -> Dict[str, Any]:
 
 
 def get_final_check_failure_info(global_state) -> Dict[str, Any]:
-    """获取最终质检失败的信息"""
-    # 获取所有质检记录
+    """Get information about final quality check failure"""
+    # Get all quality check records
     gate_checks = global_state.get_gate_checks()
     if gate_checks:
         latest_gate = max(gate_checks, key=lambda x: x.created_at)
@@ -297,7 +339,7 @@ def get_final_check_failure_info(global_state) -> Dict[str, Any]:
 
 
 def get_execution_time_info(global_state) -> Dict[str, Any]:
-    """获取执行时间信息"""
+    """Get execution time information"""
     task = global_state.get_task()
     return {
         "step_num": task.step_num,
@@ -308,7 +350,7 @@ def get_execution_time_info(global_state) -> Dict[str, Any]:
 
 
 def get_supplement_info(global_state) -> Dict[str, Any]:
-    """获取补充资料信息"""
+    """Get supplementary information"""
     supplement_content = global_state.get_supplement()
     return {
         "supplement_content": supplement_content,

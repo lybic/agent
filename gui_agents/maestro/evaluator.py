@@ -14,11 +14,13 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import os
+import json
 
 from .new_global_state import NewGlobalState
 from .enums import GateDecision, GateTrigger, WorkerDecision, WorkerDecision
 from gui_agents.tools.new_tools import NewTools
 from gui_agents.prompts import get_prompt
+from gui_agents.maestro.manager.utils import get_history_subtasks_info, get_pending_subtasks_info, get_failed_subtasks_info
 
 
 # ========= Data Structures =========
@@ -310,7 +312,7 @@ class Evaluator:
 
     def _collect_scene_inputs(self, scene: str) -> dict:
         """Collect and slice inputs for a specific scene.
-
+    
         Command selection rules:
         - WORKER_SUCCESS: all commands of current subtask
         - WORKER_STALE:   all commands of current subtask
@@ -321,10 +323,15 @@ class Evaluator:
         subtask_id = task.current_subtask_id
         subtask = self.global_state.get_subtask(
             subtask_id) if subtask_id else None
-
+    
         history_text = self._get_command_history_for_subtask(subtask_id)
         last_operation_text = self._get_last_operation_brief(subtask_id)
-
+        
+        global_task_status = self._get_global_task_status()
+        history_subtasks_info = get_history_subtasks_info(self.global_state)
+        pending_subtasks_info = get_pending_subtasks_info(self.global_state)
+        failed_subtasks_info = get_failed_subtasks_info(self.global_state)
+    
         return {
             "task_brief": self._format_task_brief(),
             "subtask_brief": self._format_subtask_brief(subtask),
@@ -333,7 +340,38 @@ class Evaluator:
             "worker_report": self._get_worker_report(subtask),
             "history_text": history_text,
             "last_operation_text": last_operation_text,
+            "global_task_status": global_task_status,
+            "history_subtasks_info": history_subtasks_info,
+            "pending_subtasks_info": pending_subtasks_info,
+            "failed_subtasks_info": failed_subtasks_info,
         }
+    
+    def _get_global_task_status(self) -> str:
+        """获取全局任务状态摘要"""
+        task = self.global_state.get_task()
+        all_subtasks = self.global_state.get_subtasks()
+        
+        total_subtasks = len(all_subtasks)
+        completed_count = len(task.history_subtask_ids or [])
+        pending_count = len(task.pending_subtask_ids or [])
+        current_count = 1 if task.current_subtask_id else 0
+        
+        # 统计各状态的子任务
+        status_counts = {}
+        for subtask in all_subtasks:
+            status = subtask.status
+            status_counts[status] = status_counts.get(status, 0) + 1
+        
+        status_summary = {
+            "total_subtasks": total_subtasks,
+            "completed_subtasks": completed_count,
+            "pending_subtasks": pending_count,
+            "current_subtask": task.current_subtask_id,
+            "status_distribution": status_counts,
+            "progress_percentage": round((completed_count / total_subtasks * 100), 1) if total_subtasks > 0 else 0
+        }
+        
+        return json.dumps(status_summary, indent=2)
 
     def build_prompt(self, scene: str) -> str:
         """Build user prompt string containing only runtime inputs."""
@@ -348,6 +386,14 @@ class Evaluator:
             (f"Worker Report:\n{inputs['worker_report']}\n" if scene == "WORKER_STALE" else ""),
             f"Artifacts:\n{inputs['artifacts']}\n",
             f"Supplement:\n{inputs['supplement']}\n",
+            "\n=== 全局任务状态 ===\n",
+            f"{inputs['global_task_status']}\n",
+            "\n=== 已完成子任务 ===\n",
+            f"{inputs['history_subtasks_info']}\n",
+            "\n=== 待执行子任务 ===\n",
+            f"{inputs['pending_subtasks_info']}\n",
+            "\n=== 失败子任务 ===\n",
+            f"{inputs['failed_subtasks_info']}\n",
             "\n=== 历史操作记录（当前子任务） ===\n",
             f"{inputs['history_text']}\n",
             "\n=== 最近一次操作 ===\n",
@@ -361,6 +407,10 @@ class Evaluator:
         parts = []
         if parsed.get("reason"):
             parts.append(f"Reason: {parsed['reason']}")
+        if parsed.get("global_impact"):
+            parts.append(f"Global Impact: {parsed['global_impact']}")
+        if parsed.get("strategic_recommendations"):
+            parts.append(f"Strategic Recommendations: {parsed['strategic_recommendations']}")
         if parsed.get("suggestion"):
             parts.append(f"Suggestion: {parsed['suggestion']}")
         if parsed.get("risk_alert"):
@@ -454,6 +504,8 @@ class Evaluator:
         Expected keys per scene (subset used per decision):
         - Decision: required
         - Reason: short text
+        - Global Impact: analysis of overall task impact
+        - Strategic Recommendations: suggestions for task optimization
         - Suggestion: optional in STALE
         - Risk Alert: optional in PERIODIC_CHECK
         - Incomplete Items: optional in FINAL_CHECK
@@ -467,6 +519,10 @@ class Evaluator:
                 result["decision"] = ln.split(":", 1)[1].strip()
             elif ln.lower().startswith("reason:"):
                 result["reason"] = ln.split(":", 1)[1].strip()
+            elif ln.lower().startswith("global impact:"):
+                result["global_impact"] = ln.split(":", 1)[1].strip()
+            elif ln.lower().startswith("strategic recommendations:"):
+                result["strategic_recommendations"] = ln.split(":", 1)[1].strip()
             elif ln.lower().startswith("suggestion:"):
                 result["suggestion"] = ln.split(":", 1)[1].strip()
             elif ln.lower().startswith("risk alert:"):
@@ -486,6 +542,8 @@ class Evaluator:
                 "- Cross-check each subtask requirement with clear evidence of completion\n"
                 "- Verify there is explicit success feedback for key steps\n"
                 "- If evidence is insufficient or inconsistent, choose gate_fail and explain why\n"
+                "- Consider how this subtask completion affects overall task progress and other subtasks\n"
+                "- Provide strategic insights for optimizing the overall task execution\n"
             )
         if scene == "WORKER_STALE":
             return (
@@ -494,6 +552,9 @@ class Evaluator:
                 "- Assess completed progress versus remaining path and decide feasibility of continuation\n"
                 "- If information is missing, specify the required supplement materials and their purpose\n"
                 "- If continuation is feasible, provide breakthrough suggestions; otherwise recommend replanning\n"
+                "- Analyze how this stagnation affects overall task timeline and success probability\n"
+                "- Identify lessons learned that could prevent similar issues in other subtasks\n"
+                "- Recommend strategic changes to overall task execution plan if needed\n"
             )
         if scene == "PERIODIC_CHECK":
             return (
@@ -502,6 +563,9 @@ class Evaluator:
                 "- Detect repetitive ineffective operations or obvious deviation from the target\n"
                 "- Prefer early intervention when early risks are detected\n"
                 "- Allowed decisions: gate_continue / gate_done / gate_fail / gate_supplement\n"
+                "- Evaluate overall task progress and timeline health from a strategic perspective\n"
+                "- Identify recurring issues across multiple subtasks and recommend optimizations\n"
+                "- Assess whether the overall task strategy needs adjustment\n"
             )
         if scene == "FINAL_CHECK":
             return (
@@ -509,9 +573,14 @@ class Evaluator:
                 "- Verify DoD/acceptance criteria item by item and cross-subtask consistency\n"
                 "- Check whether the final UI/result aligns with the user objective\n"
                 "- If core functionality is missing or evidence is insufficient, choose gate_fail and list the major missing items\n"
+                "- Evaluate the efficiency and effectiveness of the entire task execution\n"
+                "- Provide strategic insights and lessons learned for future task improvements\n"
+                "- Recommend optimizations for similar task planning and execution\n"
             )
         return (
             "# General Check - Guidance\n"
             "- Analyze the current context and history to make a robust judgment\n"
             "- Stay conservative when uncertain and provide clear reasons\n"
+            "- Always consider the broader task context and long-term strategy\n"
+            "- Provide strategic insights for overall task optimization\n"
         )

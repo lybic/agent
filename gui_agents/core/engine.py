@@ -1,6 +1,11 @@
 import os
 import json
+import logging
 import backoff
+
+# 获取主 logger 和专门的 doubao API logger
+logger = logging.getLogger()
+doubao_logger = logging.getLogger("doubao_api")
 import requests
 from typing import List, Dict, Any, Optional, Union
 import numpy as np
@@ -103,7 +108,7 @@ def extract_token_usage(response, provider: str) -> Tuple[int, int]:
         api_type, vendor = "llm", provider
 
     if api_type == "llm":
-        if vendor in ["openai", "qwen", "deepseek", "doubao", "siliconflow", "monica", "vllm", "groq", "zhipu", "gemini", "openrouter", "azureopenai", "huggingface", "exa"]:
+        if vendor in ["openai", "qwen", "deepseek", "doubao", "siliconflow", "monica", "vllm", "groq", "zhipu", "gemini", "openrouter", "azureopenai", "huggingface", "exa", "lybic"]:
             if hasattr(response, 'usage') and response.usage:
                 return response.usage.prompt_tokens, response.usage.completion_tokens
         
@@ -176,8 +181,47 @@ class LMMEngineOpenAI(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
+            **kwargs,
+        )
+        
+        content = response.choices[0].message.content
+        total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        return content, total_tokens, cost
+
+
+class LMMEngineLybic(LMMEngine):
+    def __init__(
+        self, base_url=None, api_key=None, model=None, rate_limit=-1, **kwargs
+    ):
+        assert model is not None, "model must be provided"
+        self.model = model
+        self.provider = "llm-lybic"
+
+        api_key = api_key or os.getenv("LYBIC_LLM_API_KEY")
+        if api_key is None:
+            raise ValueError(
+                "An API Key needs to be provided in either the api_key parameter or as an environment variable named LYBIC_LLM_API_KEY"
+            )
+
+        self.base_url = base_url or "https://aigw.lybicai.com/v1"
+        self.api_key = api_key
+        self.request_interval = 0 if rate_limit == -1 else 60.0 / rate_limit
+
+        self.llm_client = OpenAI(base_url=self.base_url, api_key=self.api_key)
+
+    @backoff.on_exception(
+        backoff.expo, (APIConnectionError, APIError, RateLimitError), max_time=60
+    )
+    def generate(self, messages, temperature=1, max_new_tokens=None, **kwargs):
+        """Generate the next message based on previous messages"""
+        response = self.llm_client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
+            # temperature=temperature,
             **kwargs,
         )
         
@@ -221,7 +265,7 @@ class LMMEngineQwen(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **extra_body,
             **kwargs,
@@ -258,10 +302,16 @@ class LMMEngineDoubao(LMMEngine):
     )
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
+        
+        # 同时记录到专门的 doubao API 日志文件
+        doubao_logger.info(f"Doubao API Call - Model: {self.model}, Temperature: {temperature}, Max Tokens: {max_new_tokens}")
+        doubao_logger.info(f"Doubao API Input - Messages count: {len(messages)}")
+        doubao_logger.info(f"Doubao API Input - messages: {messages}")
+        
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             extra_body={
                 "thinking": {
@@ -275,6 +325,12 @@ class LMMEngineDoubao(LMMEngine):
         
         content = response.choices[0].message.content
         total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        
+        # 同时记录到专门的 doubao API 日志文件
+        doubao_logger.info(f"Doubao API Response - Content length: {len(content) if content else 0}, Tokens: {total_tokens}, Cost: {cost}")
+
+        doubao_logger.info(f"Doubao API Response - Content: {content}")
         
         return content, total_tokens, cost
 
@@ -320,7 +376,7 @@ class LMMEngineAnthropic(LMMEngine):
                 system=messages[0]["content"][0]["text"],
                 model=self.model,
                 messages=messages[1:],
-                max_tokens=max_new_tokens if max_new_tokens else 4096,
+                max_tokens=max_new_tokens if max_new_tokens else 8192,
                 temperature=temperature,
                 **kwargs,
             )
@@ -363,7 +419,7 @@ class LMMEngineGemini(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             # reasoning_effort="low",
             extra_body={
@@ -419,7 +475,7 @@ class LMMEngineOpenRouter(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -478,7 +534,7 @@ class LMMEngineAzureOpenAI(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -521,7 +577,7 @@ class LMMEnginevLLM(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             top_p=top_p,
             extra_body={"repetition_penalty": repetition_penalty},
@@ -557,7 +613,7 @@ class LMMEngineHuggingFace(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model="tgi",
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -596,7 +652,7 @@ class LMMEngineDeepSeek(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -634,7 +690,7 @@ class LMMEngineZhipu(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -673,7 +729,7 @@ class LMMEngineGroq(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -711,7 +767,7 @@ class LMMEngineSiliconflow(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -749,7 +805,7 @@ class LMMEngineMonica(LMMEngine):
         response = self.llm_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
+            max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
             temperature=temperature,
             **kwargs,
         )
@@ -846,7 +902,7 @@ class LMMEngineAWSBedrock(LMMEngine):
 
         # Prepare the body for Bedrock
         body = {
-            "max_tokens": max_new_tokens if max_new_tokens else 4096,
+            "max_completion_tokens": max_new_tokens if max_new_tokens else 8192,
             "messages": user_messages,
             "anthropic_version": "bedrock-2023-05-31"
         }
@@ -1125,6 +1181,10 @@ class DoubaoEmbeddingEngine(LMMEngine):
         ),
     )
     def get_embeddings(self, text: str) -> Tuple[np.ndarray, List[int], float]:
+        # Log embedding request
+        logger.info(f"Doubao Embedding API Call - Model: {self.model}, Text length: {len(text)}")
+        doubao_logger.info(f"Doubao Embedding API Call - Model: {self.model}, Text length: {len(text)}")
+        
         response = self.client.embeddings.create(
             model=self.model,
             input=text,
@@ -1133,6 +1193,10 @@ class DoubaoEmbeddingEngine(LMMEngine):
         
         embeddings = np.array([data.embedding for data in response.data])
         total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
+        
+        # Log embedding response
+        logger.info(f"Doubao Embedding API Response - Embedding dimension: {embeddings.shape}, Tokens: {total_tokens}, Cost: {cost}")
+        doubao_logger.info(f"Doubao Embedding API Response - Embedding dimension: {embeddings.shape}, Tokens: {total_tokens}, Cost: {cost}")
         
         return embeddings, total_tokens, cost
 

@@ -4,26 +4,27 @@
 
 ### 1. OpenAI
 
-**Provider:**
+**Provider**
 
 - `openai`
 
 **Supported Models:**
 
-- `gpt-4.1`
-- `gpt-4.1-mini`
-- `gpt-4.1-nano`
-- `gpt-4.5-preview`
-- `gpt-4o`
-- `gpt-4o-realtime-preview`
-- `gpt-4o-mini`
-- `o1`
-- `o1-pro`
-- `o1-mini`
-- `o3`
-- `o3-pro`
-- `o3-mini`
-- `o4-mini`
+- `gpt-5` Window: 400,000  Max Output Tokens: 128,000
+- `gpt-5-mini` Window: 400,000  Max Output Tokens: 128,000
+- `gpt-4.1-nano` Window: 400,000  Max Output Tokens: 128,000
+- `gpt-4.1` Window: 1,047,576   Max Output Tokens: 32,768
+- `gpt-4.1-mini`  Window: 1,047,576   Max Output Tokens: 32,768
+- `gpt-4.1-nano`   Window: 1,047,576   Max Output Tokens: 32,768
+- `gpt-4o`   Window: 128,000   Max Output Tokens: 16,384 
+- `gpt-4o-mini`   Window: 128,000   Max Output Tokens: 16,384 
+- `o1`   Window: 200,000   Max Output Tokens: 100,000 
+- `o1-pro`   Window: 200,000   Max Output Tokens: 100,000 
+- `o1-mini`   Window: 200,000   Max Output Tokens: 100,000 
+- `o3`   Window: 200,000   Max Output Tokens: 100,000 
+- `o3-pro`   Window: 200,000   Max Output Tokens: 100,000 
+- `o3-mini`    Window: 200,000   Max Output Tokens: 100,000 
+- `o4-mini`    Window: 200,000   Max Output Tokens: 100,000 
 
 **Embedding Models:**
 
@@ -37,17 +38,18 @@
 
 ### 2. Anthropic Claude
 
-**Provider:**
+**Provider**
 
 - `anthropic`
 
 **Supported Models:**
 
-- `claude-opus-4-20250514`
-- `claude-sonnet-4-20250514`
-- `claude-3-7-sonnet-20250219`
-- `claude-3-5-sonnet-20241022`
-- `claude-3-5-haiku-20241022`
+- `claude-opus-4-1-20250805`  Context window: 200K  Max output: 32000
+- `claude-opus-4-20250514`   Context window: 200K  Max output: 32000
+- `claude-sonnet-4-20250514`  Context window: 200K  Max output: 64000
+- `claude-3-7-sonnet-20250219`   Context window: 200K  Max output: 64000
+- - `claude-3-5-sonnet-20240620`   Context window: 200K  Max output: 64000
+- `claude-3-5-haiku-20241022`    Context window: 200K  Max output: 8192
 
 📚 **Reference Link:** <https://www.anthropic.com/api>
 
@@ -55,9 +57,10 @@
 
 ### 3. AWS Bedrock
 
-**Provider:**
+**Provider**
 
 - `bedrock`
+
 
 **Supported Claude Models:**
 
@@ -72,17 +75,17 @@
 
 ### 4. Google Gemini
 
-**Provider:**
+**Provider**
 
 - `gemini`
 
 **Supported Models:**
 
-- `gemini-2.5-pro`
-- `gemini-2.5-flash`
-- `gemini-2.0-flash`
-- `gemini-1.5-pro`
-- `gemini-1.5-flash`
+- `gemini-2.5-pro` in: 1,048,576  out: 65536
+- `gemini-2.5-flash`  in: 1,048,576  out: 65536
+- `gemini-2.0-flash` in: 1,048,576  out: 8192
+- `gemini-1.5-pro`  in: 2,097,152  out: 8192
+- `gemini-1.5-flash` in: 1,048,576  out: 8192
 
 **Embedding Models:**
 
@@ -94,7 +97,7 @@
 
 ### 5. Groq
 
-**Provider:**
+**Provider**
 
 - `groq`
 
@@ -114,7 +117,7 @@
 
 ### 6. Monica (Proxy Platform)
 
-**Provider:**
+**Provider**
 
 - `monica`
 
@@ -136,8 +139,7 @@
 - `claude-3-5-sonnet-20241022`
 - `claude-3-5-sonnet-20240620`
 - `claude-3-5-haiku-20241022`
-- `claude-3-opus-20240229`
-- `claude-3-haiku-20240307`
+
 
 **Google Gemini Models:**
 
@@ -155,8 +157,8 @@
 
 **Meta Llama Models:**
 
-- `llama-3-8b-instruct`
-- `llama-3.1-8b-instruct`
+- `Llama-4-Scout-17B-16E-Instruct`   Context length: 10M tokens
+- `Llama-4-Maverick-17B-128E-Instruct `   Context length: 1M tokens
 - `llama-3.3-70b-instruct`
 - `llama-3-70b-instruct`
 - `llama-3.1-405b-instruct`
@@ -172,38 +174,37 @@
 
 ### 7. OpenRouter (Proxy Platform)
 
-**Provider:**
+**Provider**
 
 - `openrouter`
 
 **OpenAI Models:**
 
-- `openai/gpt-5`
-- `openai/gpt-4.1`
-- `openai/gpt-4.1-mini`
-- `openai/o1`
-- `openai/o1-pro`
-- `openai/o1-mini`
-- `openai/o3`
-- `openai/o3-pro`
-- `openai/o3-mini`
-- `openai/o4-mini`
+- `gpt-4.1`
+- `gpt-4.1-mini`
+- `o1`
+- `o1-pro`
+- `o1-mini`
+- `o3`
+- `o3-pro`
+- `o3-mini`
+- `o4-mini`
 
 **xAI Grok Models:**
 
-- `x-ai/grok-4`
-- `x-ai/grok-3`
-- `x-ai/grok-3-mini`
+- `grok-4`  Total Context: 256K   Max Output: 256K
+- `grok-3`
+- `grok-3-mini`
 
 **Anthropic Claude Models:**
 
-- `anthropic/claude-opus-4`
-- `anthropic/claude-sonnet-4`
+- `claude-opus-4`
+- `claude-sonnet-4`
 
 **Google Gemini Models:**
 
-- `google/gemini-2.5-flash`
-- `google/gemini-2.5-pro`
+- `gemini-2.5-flash`
+- `gemini-2.5-pro`
 
 📚 **Reference Link:** <https://openrouter.ai/models>
 
@@ -211,9 +212,10 @@
 
 ### 8. Azure OpenAI
 
-**Provider:**
+**Provider**
 
 - `azure`
+
 
 **Supported Models:**
 
@@ -228,30 +230,60 @@
 
 ---
 
-### 9. DeepSeek
+### 9. Lybic AI
 
 **Provider:**
+
+- `lybic`
+
+**Supported Models:**
+
+- `gpt-5`
+- `gpt-4.1`
+- `gpt-4.1-mini`
+- `gpt-4.1-nano`
+- `gpt-4.5-preview`
+- `gpt-4o`
+- `gpt-4o-realtime-preview`
+- `gpt-4o-mini`
+- `o1`
+- `o1-pro`
+- `o1-mini`
+- `o3`
+- `o3-pro`
+- `o3-mini`
+- `o4-mini`
+
+**Note:** Lybic AI provides OpenAI-compatible API endpoints with the same model names and pricing structure.
+
+📚 **Reference Link:** <https://aigw.lybicai.com/>
+
+---
+
+### 10. DeepSeek
+
+**Provider**
 
 - `deepseek`
 
 **Supported Models:**
 
-- `deepseek-chat`
-- `deepseek-reasoner`
+- `deepseek-chat`  Context length: 128K, Output length: Default 4K, Max 8K
+- `deepseek-reasoner`  Context length: 128K, Output length: Default 32K, Max 64K
 
 📚 **Reference Link:** <https://platform.deepseek.com/>
 
 ---
 
-### 10. Alibaba Cloud Qwen
+### 11. Alibaba Cloud Qwen
 
 **Supported Models:**
 
-- `qwen-max-latest`
-- `qwen-plus-latest`
-- `qwen-turbo-latest`
-- `qwen-vl-max-latest` (Grounding)
-- `qwen-vl-plus-latest` (Grounding)
+- `qwen-max-latest`  Context window: 32,768  Max input token length: 30,720  Max generation token length: 8,192
+- `qwen-plus-latest`  Context window: 131,072  Max input token length: 98,304 (thinking)  Max generation token length: 129,024  Max output: 16,384
+- `qwen-turbo-latest`  Context window: 1,000,000  Max input token length: 1,000,000  Max generation token length: 16,384
+- `qwen-vl-max-latest` (Grounding)  Context window: 131,072  Max input token length: 129,024  Max generation token length: 8,192
+- `qwen-vl-plus-latest` (Grounding)  Context window: 131,072  Max input token length: 129,024  Max generation token length: 8,192
 
 **Embedding Models:**
 
@@ -262,16 +294,16 @@
 
 ---
 
-### 11. ByteDance Doubao
+### 12. ByteDance Doubao
 
 **Supported Models:**
 
-- `doubao-seed-1-6-flash-250615`
-- `doubao-seed-1-6-thinking-250715`
-- `doubao-seed-1-6-250615`
-- `doubao-1.5-vision-pro-250328` (Grounding)
-- `doubao-1-5-thinking-vision-pro-250428` (Grounding)
-- `doubao-1-5-ui-tars-250428` (Grounding)
+- `doubao-seed-1-6-flash-250615`  Context window: 256k  Max input token length: 224k  Max generation token length: 32k  Max thinking content token length: 32k
+- `doubao-seed-1-6-thinking-250715`  Context window: 256k  Max input token length: 224k  Max generation token length: 32k  Max thinking content token length: 32k
+- `doubao-seed-1-6-250615` Context window: 256k  Max input token length: 224k  Max generation token length: 32k  Max thinking content token length: 32k
+- `doubao-1.5-vision-pro-250328` (Grounding)  Context window: 128k  Max input token length: 96k   Max generation token length: 16k  Max thinking content token length: 32k
+- `doubao-1-5-thinking-vision-pro-250428` (Grounding)  Context window: 128k  Max input token length: 96k  Max generation token length: 16k  Max thinking content token length: 32k
+- `doubao-1-5-ui-tars-250428` (Grounding)  Context window: 128k  Max input token length: 96k  Max generation token length: 16k  Max thinking content token length: 32k
 
 **Embedding Models:**
 
@@ -282,10 +314,13 @@
 
 ---
 
-### 12. Zhipu GLM
+### 13. Zhipu GLM
 
 **Supported Models:**
 
+- `GLM-4.5`  Max in: 128k Max output: 0.2K
+- `GLM-4.5-X`  Max in: 128k  Max output: 0.2K
+- `GLM-4.5-Air` Max in: 128k  Max output: 0.2K
 - `GLM-4-Plus`
 - `GLM-4-Air-250414`
 - `GLM-4-AirX` (Grounding)
@@ -300,11 +335,11 @@
 
 ---
 
-### 13. SiliconFlow
+### 14. SiliconFlow
 
 **Supported Models:**
 
-- `Kimi-K2-Instruct`
+- `Kimi-K2-Instruct`   Context Length: 128K
 - `DeepSeek-V3`
 - `DeepSeek-R1`
 - `Qwen3-32B`
@@ -315,7 +350,7 @@
 
 ## 🔤 Dedicated Embedding Providers
 
-### 14. Jina AI
+### 15. Jina AI
 
 **Embedding Models:**
 
@@ -328,7 +363,7 @@
 
 ## 🔍 AI Search Engines
 
-### 15. Bocha AI
+### 16. Bocha AI
 
 **Service Type:** AI Research & Search
 
@@ -336,7 +371,7 @@
 
 ---
 
-### 16. Exa
+### 17. Exa
 
 **Service Type:** AI Research & Search
 

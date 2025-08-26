@@ -1,9 +1,0 @@
-{
-  "current_state": "GET_ACTION",
-  "trigger": "subtask_ready",
-  "trigger_details": "First subtask subtask-e84d-2 ready",
-  "history_state": [
-    "INIT"
-  ],
-  "updated_at": "2025-08-22T20:31:40.520789"
-}

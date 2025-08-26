@@ -26,10 +26,10 @@ else:
     if parent_env_path.exists():
         load_dotenv(dotenv_path=parent_env_path)
 
-from gui_agents.agents3.new_manager import NewManager, PlanningScenario, PlanningResult
-from gui_agents.agents3.new_global_state import NewGlobalState
-from gui_agents.agents3.enums import TaskStatus, SubtaskStatus, ManagerStatus
-from gui_agents.agents3.new_controller import NewController
+from gui_agents.maestro.new_manager import NewManager, PlanningScenario, PlanningResult
+from gui_agents.maestro.new_global_state import NewGlobalState
+from gui_agents.maestro.enums import TaskStatus, SubtaskStatus, ManagerStatus
+from gui_agents.maestro.controller.main_controller import MainController
 from gui_agents.store.registry import Registry
 
 
@@ -49,15 +49,13 @@ def main():
         global_state = NewGlobalState(
             screenshot_dir=str(cache_dir),
             state_dir=str(state_dir),
-            agent_log_path=str(temp_root / "agent_log.json"),
             display_info_path=str(temp_root / "display.json"),
         )
         Registry.register(
         "GlobalStateStore", global_state)
 
         # Initialize NewController
-        controller = NewController(
-            global_state=global_state,
+        controller = MainController(
             platform=platform.system().lower(),
             memory_root_path=os.getcwd(),
             backend="pyautogui",

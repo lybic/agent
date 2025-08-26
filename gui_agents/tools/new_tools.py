@@ -150,6 +150,7 @@ class BaseTool(ABC):
         image_input = input_data.get('img_input', None)
         
         # Add the message with the formatted prompt
+        self.llm_agent.reset()
         self.llm_agent.add_message(text_input, image_content=image_input, role="user")
         
         # Implement safe retry mechanism

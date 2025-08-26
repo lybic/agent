@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Tuple, List, Union
+from typing import Dict, Tuple, List
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from gui_agents.utils.common_utils import (
@@ -9,8 +9,6 @@ from gui_agents.utils.common_utils import (
     save_embeddings,
 )
 from gui_agents.tools.new_tools import NewTools
-from gui_agents.agents.global_state import GlobalState
-from gui_agents.store.registry import Registry
 from gui_agents.core.mllm import CostManager
 
 def get_embedding_dim(model_name):
@@ -48,6 +46,16 @@ class NewKnowledgeBase:
         Tools_dict: Dict,
         save_knowledge: bool = True,
     ):
+        """
+        Initialize the KnowledgeBase module
+        
+        Args:
+            embedding_engine: Embedding engine instance
+            local_kb_path: Path to local knowledge base
+            platform: Target platform (Windows/Darwin/Ubuntu)
+            Tools_dict: Dictionary containing tool configurations
+            save_knowledge: Whether to save knowledge embeddings
+        """
         self.platform = platform
 
         self.local_kb_path = local_kb_path

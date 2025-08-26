@@ -189,19 +189,27 @@ def generate_planning_prompt(context: Dict[str, Any],
 # Current Planning Task
 You need to RE-PLAN the task based on prior attempts and failures.
 
+# CRITICAL: Original Task Objective Alignment
+**ALWAYS keep the original task objective as your north star**: {context.get('task_objective', '')}
+- Every subtask MUST directly contribute to achieving the original objective
+- Do NOT deviate from the core purpose or add unrelated functionality
+- Ensure the overall plan logically leads to completing the original task
+
 # Planning Focus (Re-plan)
 - Analyze why previous attempts failed and identify bottlenecks
 - Preserve valid progress; DO NOT duplicate completed subtasks
 - Adjust ordering, refine steps, or replace failing subtasks
 - Ensure dependencies remain valid and achievable
+- **CRITICAL**: Verify each new subtask is necessary and sufficient for the original objective
 
 {trigger_specific_guidance}
 """
         decision = """
 # Planning Decision (Re-plan)
 - Prioritize resolving blockers and mitigating risks found previously
-- Introduce new/modified subtasks only where necessary
+- Introduce new/modified subtasks only where necessary for the ORIGINAL objective
 - Keep completed subtasks out of the list; reference them only in dependencies
+- **MANDATORY**: Before finalizing, review the entire plan to ensure it directly serves the original task objective
 """
     else:
         planning_task = f"""
@@ -220,6 +228,8 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 - Decompose the user objective into an ordered set of executable subtasks
 - Make dependencies explicit and minimize unnecessary coupling
 - Assign appropriate worker roles to each subtask
+- **MANDATORY**: Ensure every subtask passes the rationality self-check
+- **MANDATORY**: Verify the complete plan directly achieves the stated objective
 """
 
     # Common guidance and output schema
@@ -229,6 +239,7 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 2. Dependencies between subtasks should be clear
 3. Assign appropriate Worker type for each subtask
 4. Consider execution risks and exceptional cases
+5. Every subtask must be justified against the original objective
 
 # Mandatory Cross-Role Split for GUI-derived Q&A/Analysis
 - If the objective requires reading content from GUI and then answering questions/doing analysis:
@@ -265,6 +276,7 @@ Failure Reasons: {context.get('failure_reasons', '')}
 - Only include new subtasks in the JSON list
 - Do not include already completed subtasks
 - Keep or update dependencies to reference existing subtask IDs when applicable
+- Before outputting, perform final alignment check with original objective
 """
 
     # Environment information
@@ -274,6 +286,13 @@ Screenshot Available: {'Yes' if context.get('screenshot') else 'No'}
 
 # Retrieved/Integrated Knowledge
 You may refer to some retrieved knowledge if you think they are useful.{integrated_knowledge if integrated_knowledge else 'N/A'}
+
+# FINAL REMINDER
+**Before submitting your plan, perform one final check:**
+1. Does every subtask directly serve the original objective: "{context.get('task_objective', '')}"?
+2. Is the sequence logical and efficient?
+3. Are there any unnecessary or redundant steps?
+4. Will completing all subtasks actually achieve the stated goal?
 
 Please output the planning solution based on the above information:
 """

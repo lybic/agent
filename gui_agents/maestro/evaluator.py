@@ -368,7 +368,7 @@ class Evaluator:
             "pending_subtasks": pending_count,
             "current_subtask": task.current_subtask_id,
             "status_distribution": status_counts,
-            "progress_percentage": round((completed_count / total_subtasks * 100), 1) if total_subtasks > 0 else 0
+            "progress_percentage (%)": round((completed_count / total_subtasks * 100), 1) if total_subtasks > 0 else 0
         }
         
         return json.dumps(status_summary, indent=2)

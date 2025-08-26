@@ -147,10 +147,11 @@ class Technician:
         # 获取命令历史
         subtask_id = subtask.get("subtask_id", "")
         command_history = self._get_command_history_for_subtask(subtask_id)
+        task = self.global_state.get_task()
 
         # 根据 trigger_code 构建上下文感知的提示词
         context_aware_prompt = self._build_context_aware_prompt(
-            subtask, guidance, command_history, trigger_code
+            subtask, task, guidance, command_history, trigger_code
         )
 
         # Get screenshot for context
@@ -353,11 +354,20 @@ class Technician:
     def _build_context_aware_prompt(
         self, 
         subtask: Dict[str, Any], 
+        task: Any,
         guidance: Optional[str], 
         command_history: str,
         trigger_code: str
     ) -> str:
         """根据 trigger_code 构建上下文感知的提示词"""
+        task_message = []
+        if task:
+            task_message.extend([
+                f"**Task Objective**: {task.objective}",
+            ])
+        else:
+            task_message.append("**Task Information**: Not available")
+
         subtask_title = subtask.get("title", "")
         subtask_desc = subtask.get("description", "")
         
@@ -427,6 +437,7 @@ class Technician:
         # Combine all sections
         full_prompt = "\n".join(
             system_context + 
+            task_message + 
             task_info + 
             history_section + 
             instructions

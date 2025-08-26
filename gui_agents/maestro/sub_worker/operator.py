@@ -197,6 +197,7 @@ class Operator:
         # 根据 trigger_code 调整提示词
         context_aware_prompt = self._build_context_aware_prompt(
             subtask,
+            task,
             guidance,
             command_history,
             trigger_code,
@@ -322,6 +323,7 @@ class Operator:
     def _build_context_aware_prompt(
         self, 
         subtask: Dict[str, Any], 
+        task: Any,
         guidance: Optional[str], 
         command_history: str,
         trigger_code: str,
@@ -329,6 +331,15 @@ class Operator:
         supplement_content: str
     ) -> str:
         """根据 trigger_code 构建上下文感知的提示词，并注入 artifacts 与 supplement 信息"""
+        message = []
+        # Format task information
+        if task:
+            message.extend([
+                f"**Task Objective**: {task.objective}",
+            ])
+        else:
+            message.append("**Task Information**: Not available")
+        
         subtask_title = subtask.get("title", "")
         subtask_desc = subtask.get("description", "")
         
@@ -339,7 +350,7 @@ class Operator:
                 return text
             return text[:limit] + "\n... (内容过长，已截断)"
         
-        message = []
+        
         message.append(f"Remember only complete the subtask: {subtask_title}")
         message.append(f"You can use this extra information for completing the current subtask: {subtask_desc}")
         if guidance:
@@ -354,9 +365,10 @@ class Operator:
         
         # 注入可用的 artifacts 内容
         message.append("")
-        message.append("=== 可用的 Artifacts 内容（来自记忆/上一步的记录） ===")
+        message.append("=== 可用的 Artifacts 内容（来自记忆的记录） ===")
         if artifacts_content and artifacts_content.strip():
-            message.append(_truncate(artifacts_content))
+            # message.append(_truncate(artifacts_content))
+            message.append(artifacts_content) # 先不做截断，后续可以在这里加上记忆优化
         else:
             message.append("无可用的 artifacts 内容")
         
@@ -364,7 +376,8 @@ class Operator:
         message.append("")
         message.append("=== 补充材料 Supplement（可能来自检索/外部工具） ===")
         if supplement_content and supplement_content.strip():
-            message.append(_truncate(supplement_content))
+            # message.append(_truncate(supplement_content))
+            message.append(supplement_content) # 先不做截断，后续可以在这里加上记忆优化
         else:
             message.append("无补充材料")
         

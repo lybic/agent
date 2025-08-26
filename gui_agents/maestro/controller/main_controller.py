@@ -388,7 +388,7 @@ class MainController:
         main_loop_start_time = time.time()
         while True:
             try:
-                print("execute_main_loop")
+                # print("execute_main_loop")
                 # 1. 检查是否应该退出循环
                 if self.state_machine.should_exit_loop():
                     logger.info("Task fulfilled or rejected, breaking main loop")

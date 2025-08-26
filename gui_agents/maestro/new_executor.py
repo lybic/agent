@@ -39,9 +39,9 @@ class NewExecutor:
         
         logger.info("NewExecutor initialized")
 
-    # ========== 纯执行（不更新 global_state） ==========
+    # ========== Pure Execution (No global_state Updates) ==========
     def _run_code_blocks(self, code_blocks: List[Tuple[str, str]]) -> Tuple[bool, str, Optional[str]]:
-        """仅执行代码块，返回 (success, combined_output, last_status)。不做任何 global_state 更新。"""
+        """Execute code blocks only, return (success, combined_output, last_status). No global_state updates."""
         if not self.env_controller:
             return False, "No environment controller available for code execution", None
         results = []
@@ -78,9 +78,9 @@ class NewExecutor:
         success = last_status == "success"
         return success, "\n".join(results), last_status
 
-    # ========== 执行硬件动作 ==========
+    # ========== Execute Hardware Actions ==========
     def _run_hardware_action(self, action: Dict[str, Any]) -> Tuple[bool, Optional[str], Optional[Image.Image]]:
-        """仅与硬件交互执行动作，返回 (success, error_message, screenshot)。不做任何 global_state 更新。"""
+        """Execute actions through hardware interaction only, return (success, error_message, screenshot). No global_state updates."""
         try:
             self.hwi.dispatchDict(action)
             time.sleep(3)
@@ -89,20 +89,20 @@ class NewExecutor:
         except Exception as e:
             return False, str(e), None
     
-    # ========== 执行命令 ==========
+    # ========== Execute Command ==========
     def execute_command(self, command: CommandData) -> Dict[str, Any]:
         """
-        执行传入的 command（只执行，不触碰 global_state）：
-        - 根据 subtask 的 assignee_role 选择执行路径
-        - operator -> 仅硬件执行
-        - technician -> 仅代码执行
-        - analyst -> 不落库artifact，仅返回意图信息
-        - 不写入 artifact、不更新 exec_status、不更新 screenshot、不递增 step
+        Execute the passed command (execution only, no global_state modifications):
+        - Choose execution path based on subtask's assignee_role
+        - operator -> hardware execution only
+        - technician -> code execution only
+        - analyst -> no artifact storage, return intent information only
+        - No artifact writing, no exec_status updates, no screenshot updates, no step increment
         """
         try:
             subtask_id: Optional[str] = getattr(command, "subtask_id", None)
             if not subtask_id:
-                return self._create_execution_result(False, "command.subtask_id 为空")
+                return self._create_execution_result(False, "command.subtask_id is empty")
             subtask = self.global_state.get_subtask(subtask_id)
             if not subtask:
                 return self._create_execution_result(False, "Subtask not found")
@@ -120,7 +120,7 @@ class NewExecutor:
                 )
 
             if assignee_role == "technician":
-                # 代码块 or 字符串中提取代码块
+                # Code blocks or extract code blocks from string
                 if isinstance(command.action, list) and command.action:
                     code_blocks: List[Tuple[str, str]] = []
                     for item in command.action:
@@ -150,14 +150,14 @@ class NewExecutor:
                     return self._create_execution_result(False, "Action is not in expected format for technician role")
 
             if assignee_role == "analyst":
-                # 不写入artifact，仅返回意图信息
+                # No artifact writing, return intent information only
                 return self._create_execution_result(
                     success=True,
                     execution_time=time.time() - start_ts,
                     action={"type": "analysis_intent", "payload": command.action}
                 )
 
-            # 兜底：未知角色按硬件执行
+            # Fallback: unknown roles execute as hardware
             ok, err, _shot = self._run_hardware_action(command.action)
             return self._create_execution_result(
                 success=ok,
@@ -168,17 +168,17 @@ class NewExecutor:
         except Exception as e:
             return self._create_execution_result(False, f"execute_command failed: {e}")
     
-    # ========== 执行当前动作 ==========
+    # ========== Execute Current Action ==========
     def execute_current_action(self) -> Dict[str, Any]:
         """
-        执行指定subtask的动作（使用该 subtask 的“当前最新 command”）。
-        保留以兼容旧用法；若需执行指定 command，请使用 execute_command。
+        Execute the action of specified subtask (using the "current latest command" of that subtask).
+        Retained for compatibility with old usage; use execute_command for executing specific commands.
         """
         try:
             subtask_id = self.global_state.get_task().current_subtask_id
             logger.info(f"Starting action execution for subtask: {subtask_id}")
             
-            # 获取相关的command（当前最新）
+            # Get related command (current latest)
             if not subtask_id:
                 error_msg = f"No subtask_id found"
                 logger.warning(error_msg)
@@ -266,15 +266,15 @@ class NewExecutor:
             return self._create_execution_result(False, error_msg)
 
 
-    # ========== 执行代码块 ==========
+    # ========== Execute Code Blocks ==========
     def _execute_code_blocks(self, code_blocks: List[Tuple[str, str]], subtask_id: str, command_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute list of code blocks
         
         Args:
-            code_blocks: 代码块列表，每个元素为 (语言, 代码) 的元组
-            subtask_id: 子任务ID，用于更新命令的 post_screenshot_id
-            command_id: 若提供，则精准更新该 command 的执行状态；否则回退至当前最新 command
+            code_blocks: List of code blocks, each element is a tuple of (language, code)
+            subtask_id: Subtask ID, used to update command's post_screenshot_id
+            command_id: If provided, precisely update the execution status of that command; otherwise fallback to current latest command
         """
         if not self.env_controller:
             error_msg = "No environment controller available for code execution"
@@ -284,16 +284,16 @@ class NewExecutor:
         execution_start = time.time()
         
         try:
-            # 纯执行
+            # Pure execution
             success, combined_output, last_status = self._run_code_blocks(code_blocks)
 
             execution_time = time.time() - execution_start
             
-            # 记录执行结果（状态更新）
+            # Record execution results (status updates)
             self.global_state.add_event("executor", "code_blocks_execution_completed", 
                 f"Code blocks execution completed in {execution_time:.2f}s")
             exec_status = ExecStatus.EXECUTED if success else ExecStatus.ERROR
-            # 精确或回退更新执行状态
+            # Precise or fallback execution status update
             target_command_id = command_id
             if not target_command_id:
                 current_cmd = self.global_state.get_current_command_for_subtask(subtask_id)
@@ -305,7 +305,7 @@ class NewExecutor:
                     combined_output,
                 )
             
-            # 硬件截图（与执行逻辑分离）
+            # Hardware screenshot (separated from execution logic)
             ok, err, screenshot = self._run_hardware_action({"type": "Screenshot"})
             if ok and screenshot is not None:
                 self.global_state.set_screenshot(
@@ -336,7 +336,7 @@ class NewExecutor:
             logger.error(error_msg)
             return self._create_execution_result(False, error_msg, execution_time)
     
-    # ========== 提取代码块 ==========
+    # ========== Extract Code Blocks ==========
     def _extract_code_blocks(self, text: str) -> List[Tuple[str, str]]:
         """Extract code blocks from markdown-style text"""
         # Match ```language\ncode\n``` pattern
@@ -352,26 +352,26 @@ class NewExecutor:
         
         return code_blocks
 
-    # ========== 执行动作 ==========
+    # ========== Execute Action ==========
     def _execute_action(self, subtask_id: str, action: Dict[str, Any], command_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute specific action
         
         Args:
             subtask_id: subtask ID
-            action: 要执行的动作字典
-            command_id: 若提供，则精准更新该 command 的截图与执行状态
+            action: Dictionary of action to execute
+            command_id: If provided, precisely update the screenshot and execution status of that command
         """
         execution_start = time.time()
         
         try:
             logger.info(f"Executing action for subtask {subtask_id}: {action}")
             
-            # memorize 动作特殊处理（写入 artifact），执行逻辑与状态更新适度分离
+            # Special handling for memorize actions (write to artifact), moderate separation of execution logic and status updates
             if isinstance(action, dict) and action.get("type") == "Memorize":
                 information = action.get("information", "")
                 if information:
-                    # 业务写入
+                    # Business write operation
                     self.global_state.add_memorize_artifact(subtask_id, information)
                     logger.info(f"Memorize action processed for subtask {subtask_id}: {information[:100]}...")
                     
@@ -379,7 +379,7 @@ class NewExecutor:
                     error_message = None
                     execution_time = time.time() - execution_start
                     
-                    # 状态更新
+                    # Status update
                     self._record_execution_result(subtask_id, execution_success, error_message, execution_time)
                     target_command_id = command_id
                     if not target_command_id:
@@ -401,17 +401,17 @@ class NewExecutor:
                         action=action
                     )
             
-            # 纯执行（硬件交互）
+            # Pure execution (hardware interaction)
             ok, err, screenshot = self._run_hardware_action(action)
             execution_success = ok
             error_message = err
             
-            # 截图写入
+            # Screenshot writing
             if ok and screenshot is not None:
                 self.global_state.set_screenshot(
                     scale_screenshot_dimensions(screenshot, self.hwi))
             
-            # 获取新截图的ID并更新命令的 post_screenshot_id
+            # Get new screenshot ID and update command's post_screenshot_id
             new_screenshot_id = self.global_state.get_screenshot_id()
             if new_screenshot_id:
                 target_command_id = command_id
@@ -423,11 +423,11 @@ class NewExecutor:
                         target_command_id, new_screenshot_id) # type: ignore
                     logger.info(f"Updated post_screenshot_id for command {target_command_id}: {new_screenshot_id}")
             
-            # 记录与状态更新
+            # Recording and status updates
             execution_time = time.time() - execution_start
             self._record_execution_result(subtask_id, execution_success, error_message, execution_time)
 
-            # 可选：根据执行结果写入该 command 的状态
+            # Optional: write the status of this command based on execution results
             target_command_id = command_id
             if not target_command_id:
                 current_command = self.global_state.get_current_command_for_subtask(subtask_id)
@@ -439,7 +439,7 @@ class NewExecutor:
                     exec_message=("Action executed" if execution_success else f"Action failed: {error_message}")
                 )
             
-            # 返回结果
+            # Return results
             result = self._create_execution_result(
                 success=execution_success,
                 error_message=error_message,
@@ -460,7 +460,7 @@ class NewExecutor:
             
             return self._create_execution_result(False, error_msg, execution_time)
     
-    # ========== 记录执行结果 ==========
+    # ========== Record Execution Results ==========
     def _record_execution_result(self, subtask_id: str, success: bool, error_message: Optional[str], execution_time: float):
         """Record execution result to global state"""
         try:
@@ -488,9 +488,9 @@ class NewExecutor:
         except Exception as e:
             logger.warning(f"Failed to record execution result: {e}")
     
-    # 创建标准化的执行结果
+    # Create standardized execution results
     def _create_execution_result(self, success: bool, error_message: Optional[str] = None, execution_time: float = 0.0, action: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """创建标准化的执行结果"""
+        """Create standardized execution results"""
         result = {
             "success": success,
             "execution_time": execution_time,

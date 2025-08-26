@@ -178,13 +178,8 @@ class StateHandlers:
                 logger.warning(f"Subtask {current_subtask_id} not found in EXECUTE_ACTION state")
                 return (ControllerState.INIT, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"Subtask {current_subtask_id} not found in EXECUTE_ACTION state", TriggerCode.SUBTASK_NOT_FOUND)
 
-<<<<<<< HEAD
-            # 使用新的执行器执行动作
+            # use executor to execute action
             execution_result = self.executor.execute_current_action()
-=======
-            # Use new executor to execute action
-            execution_result = self.executor.execute_current_action(current_subtask_id)
->>>>>>> 8c24dd2 (change frome zh to en)
             if execution_result["success"]:
                 logger.info(f"Action executed successfully for subtask {current_subtask_id} in {execution_result['execution_time']:.2f}s")
             else:

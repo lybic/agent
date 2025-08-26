@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_commands_sorted(controller) -> List[CommandData]:
-    """获取所有 commands（CommandData）并按 created_at 升序排序。"""
+    """Get all commands (CommandData) and sort them in ascending order by created_at."""
     gs: NewGlobalState = getattr(controller, "global_state")
     if gs is None or not hasattr(gs, "get_commands"):
         return []
@@ -69,7 +69,7 @@ def run_main_controller_from_snapshot(
 
     logger.info(f"MainController restored from snapshot successfully. Logs at: {target_path}")
 
-    # 在执行主循环前，按时间顺序依次执行命令，每次间隔5秒
+    # Execute commands in chronological order before running the main loop, with 5-second intervals
     try:
         commands = _extract_commands_sorted(controller)
         if commands:
@@ -79,7 +79,7 @@ def run_main_controller_from_snapshot(
                 logger.info(f"[PreExec {idx}/{len(commands)}] Executing command_id={getattr(cmd, 'command_id', 'N/A')}")
                 executor = getattr(controller, "executor", None)
                 if executor is not None and hasattr(executor, "execute_command"):
-                    executor.execute_command(cmd)  # 只执行，不触碰 global_state
+                    executor.execute_command(cmd)  # Execute only, do not touch global_state
                 else:
                     logger.warning("Controller has no executor.execute_command; skipping pre-exec")
                     break

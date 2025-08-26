@@ -381,6 +381,17 @@ class Technician:
             ""
         ]
         
+        # Task objective alignment check
+        alignment_check = [
+            "# CRITICAL: Task Objective Alignment Check",
+            "Before writing any script or making any decision, carefully review whether the current subtask description conflicts with the main Task Objective.",
+            "If there is any conflict or contradiction:",
+            "- The Task Objective takes absolute priority over subtask description",
+            "- Adapt your script/approach to align with the Task Objective",
+            "- Never execute scripts that would contradict or undermine the main Task Objective",
+            ""
+        ]
+        
         # Task information
         task_info = [
             "# Current Task",
@@ -437,6 +448,7 @@ class Technician:
         # Combine all sections
         full_prompt = "\n".join(
             system_context + 
+            alignment_check +
             task_message + 
             task_info + 
             history_section + 

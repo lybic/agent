@@ -350,6 +350,14 @@ class Operator:
                 return text
             return text[:limit] + "\n... (内容过长，已截断)"
         
+        # Add task objective alignment check
+        message.append("")
+        message.append("=== CRITICAL: Task Objective Alignment Check ===")
+        message.append("Before executing any action, carefully review whether the current subtask description conflicts with the main Task Objective.")
+        message.append("If there is any conflict or contradiction:")
+        message.append("- The Task Objective takes absolute priority")
+        message.append("- Adapt your approach to align with the Task Objective")
+        message.append("")
         
         message.append(f"Remember only complete the subtask: {subtask_title}")
         message.append(f"You can use this extra information for completing the current subtask: {subtask_desc}")

@@ -202,12 +202,14 @@ Note for the code:
     - If previous direction actions didn't work, try the alternative format
     - Pay attention to the application's response to determine which format works
     - For games, start with Arrow keys, then try simple keys if needed
-16. **LibreOffice Calc on Ubuntu**: When operating LibreOffice Calc on Ubuntu, all cell input operations must use the `set_cell_values` method. Do not use GUI operations like clicking and typing to fill cells. Here are some useful excel functions:
-    - There are four pieces of information that you will need in order to build the VLOOKUP syntax:
+16. **LibreOffice Calc on Ubuntu**: When operating LibreOffice Calc on Ubuntu, consider to use `set_cell_values` method for cell input operations firstly. Consider to use GUI operations like clicking and typing to fill cells secondary. Here are some useful excel functions:
+    - VLOOKUP
+        There are four pieces of information that you will need in order to build the VLOOKUP syntax:
         The value you want to look up, also called the lookup value.
         The range where the lookup value is located. Remember that the lookup value should always be in the first column in the range for VLOOKUP to work correctly. For example, if your lookup value is in cell C2 then your range should start with C.
         The column number in the range that contains the return value. For example, if you specify B2:D11 as the range, you should count B as the first column, C as the second, and so on.
         Optionally, you can specify TRUE if you want an approximate match or FALSE if you want an exact match of the return value. If you don't specify anything, the default value will always be TRUE or approximate match.
         Now put all of the above together as follows:
         =VLOOKUP(lookup value, range containing the lookup value, the column number in the range containing the return value, Approximate match (TRUE) or Exact match (FALSE)).
+17. Don't forget to use undo operations like Ctrl+Z when you encounter mistakes while using the computer. This helps you recover from errors and revert unwanted changes.
 Task Completion Verification: Before calling agent.done(), verify that: All required inputs have been confirmed (not just typed) -The expected result is visible on screen -No confirmation dialogs or pending actions remain 

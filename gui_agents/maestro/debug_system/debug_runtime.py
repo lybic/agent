@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """调试runtime/20250824_183617任务"""
 
+# python gui_agents/maestro/debug_system/debug_runtime.py
+
 import json
 import os
 import sys
@@ -50,9 +52,9 @@ def main():
     args = parse_arguments()
     
     # 写死运行时路径和快照名称
-    runtime_path = "runvmrun_20250826_010444/20250826_010445"
+    runtime_path = "runtime/20250826_010445"
     snapshots_path = f"{runtime_path}/snapshots"
-    target_snapshot = "snapshot_20250826_012616"
+    target_snapshot = "snapshot_20250826_012939"
     
     print("=== 运行时任务调试器 ===")
     print(f"目标运行时: {runtime_path}")
@@ -83,17 +85,17 @@ def main():
     
     # # 调试Manager组件
     # print(f"\n=== 调试Manager组件 ===")
-    # if debugger.debug_manager_from_snapshot(target_snapshot):
-    #     print("✅ Manager组件调试成功")
-    # else:
-    #     print("❌ Manager组件调试失败")
+    if debugger.debug_manager_from_snapshot(target_snapshot):
+        print("✅ Manager组件调试成功")
+    else:
+        print("❌ Manager组件调试失败")
 
     # 调试Worker组件
-    print(f"\n=== 调试Worker组件 ===")
-    if debugger.debug_worker_from_snapshot(target_snapshot):
-        print("✅ Worker组件调试成功")
-    else:
-        print("❌ Worker组件调试失败")
+    # print(f"\n=== 调试Worker组件 ===")
+    # if debugger.debug_worker_from_snapshot(target_snapshot):
+    #     print("✅ Worker组件调试成功")
+    # else:
+    #     print("❌ Worker组件调试失败")
         
 
     # 启动交互式调试模式

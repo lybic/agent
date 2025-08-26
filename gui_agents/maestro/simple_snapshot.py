@@ -47,14 +47,19 @@ class SimpleSnapshot:
         # 1. 复制整个state文件夹
         if self.state_dir.exists():
             state_backup = snapshot_dir / "state"
+            # 如果目标目录已存在，先删除
+            if state_backup.exists():
+                shutil.rmtree(state_backup)
             shutil.copytree(self.state_dir, state_backup)
             # print(f"✅ 已复制state文件夹到: {state_backup}")
         
         # 2. 获取当前截图ID列表
         screenshot_ids = []
         if self.screenshots_dir.exists():
-            for screenshot_file in self.screenshots_dir.glob("*.png"):
-                screenshot_ids.append(screenshot_file.stem)
+            # 支持多种图片格式
+            for ext in ['*.png', '*.jpg', '*.jpeg', '*.webp']:
+                for screenshot_file in self.screenshots_dir.glob(ext):
+                    screenshot_ids.append(screenshot_file.stem)
         
         # 3. 记录快照元数据和配置参数
         metadata = {
@@ -127,9 +132,17 @@ class SimpleSnapshot:
         
         restored_count = 0
         for screenshot_id in metadata.get("screenshot_ids", []):
-            source_file = self.screenshots_dir / f"{screenshot_id}.png"
-            if source_file.exists():
-                target_file = target_screenshots / f"{screenshot_id}.png"
+            # 尝试多种图片格式
+            source_file = None
+            target_file = None
+            for ext in ['.png', '.jpg', '.jpeg', '.webp']:
+                test_source = self.screenshots_dir / f"{screenshot_id}{ext}"
+                if test_source.exists():
+                    source_file = test_source
+                    target_file = target_screenshots / f"{screenshot_id}{ext}"
+                    break
+            
+            if source_file and target_file:
                 shutil.copy2(source_file, target_file)
                 restored_count += 1
         

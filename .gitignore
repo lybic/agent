@@ -173,3 +173,6 @@ vmware_vm_data*/
 results/
 webui/*
 tests/local_tests/
+
+# Tool configuration files
+gui_agents/tools/new_tools_config*.json

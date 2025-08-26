@@ -1,18 +1,38 @@
 #!/usr/bin/env python3
+# python gui_agents/maestro/debug_system/run_from_snapshot.py
 """
 Debug helper: restore MainController from a snapshot and optionally run it.
 """
 
+
 import argparse
 import logging
-from typing import Optional
+import time
+from typing import Optional, List, Any
 
+from gui_agents.maestro.data_models import CommandData
+from gui_agents.maestro.new_global_state import NewGlobalState
 from gui_agents.maestro.snapshot_restorer import (
     restore_maincontroller_from_globalstate,
 )
 from gui_agents.maestro.debug_system.logging_setup import setup_file_logging
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_commands_sorted(controller) -> List[CommandData]:
+    """获取所有 commands（CommandData）并按 created_at 升序排序。"""
+    gs: NewGlobalState = getattr(controller, "global_state")
+    if gs is None or not hasattr(gs, "get_commands"):
+        return []
+    try:
+        cmds: List[CommandData] = gs.get_commands() or []
+    except Exception:
+        return []
+    try:
+        return sorted(cmds, key=lambda c: getattr(c, "created_at", 0))
+    except Exception:
+        return cmds
 
 
 def run_main_controller_from_snapshot(
@@ -49,6 +69,26 @@ def run_main_controller_from_snapshot(
 
     logger.info(f"MainController restored from snapshot successfully. Logs at: {target_path}")
 
+    # 在执行主循环前，按时间顺序依次执行命令，每次间隔5秒
+    try:
+        commands = _extract_commands_sorted(controller)
+        if commands:
+            logger.info(f"Pre-executing {len(commands)} commands before main loop...")
+        for idx, cmd in enumerate(commands, 1):
+            try:
+                logger.info(f"[PreExec {idx}/{len(commands)}] Executing command_id={getattr(cmd, 'command_id', 'N/A')}")
+                executor = getattr(controller, "executor", None)
+                if executor is not None and hasattr(executor, "execute_command"):
+                    executor.execute_command(cmd)  # 只执行，不触碰 global_state
+                else:
+                    logger.warning("Controller has no executor.execute_command; skipping pre-exec")
+                    break
+            except Exception as e:
+                logger.warning(f"Pre-exec command failed: {e}")
+            time.sleep(5)
+    except Exception as e:
+        logger.warning(f"Failed to pre-execute commands: {e}")
+
     controller.execute_main_loop()
 
     return controller
@@ -76,8 +116,8 @@ if __name__ == "__main__":
     # args = _parse_args()
 
     target_dir=None
-    runtime_dir = "runtime/20250826_141730"
-    snapshot_id = "snapshot_20250826_141736"
+    runtime_dir = "runtime/20250826_140304"
+    snapshot_id = "snapshot_20250826_140830"
 
     controller = run_main_controller_from_snapshot(
         runtime_dir=runtime_dir,

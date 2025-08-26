@@ -41,9 +41,20 @@ debug_handler = logging.FileHandler(
 )
 stdout_handler = logging.StreamHandler(sys.stdout)
 
+# 添加专门的 doubao API 日志处理器
+doubao_handler = logging.FileHandler(
+    os.path.join(log_dir, datetime_str, "doubao_api.log"), encoding="utf-8"
+)
+
+# 创建专门的 doubao API logger
+doubao_logger = logging.getLogger("doubao_api")
+doubao_logger.setLevel(logging.DEBUG)
+doubao_logger.addHandler(doubao_handler)
+
 file_handler.setLevel(logging.INFO)
 debug_handler.setLevel(logging.DEBUG)
 stdout_handler.setLevel(logging.INFO)
+doubao_handler.setLevel(logging.DEBUG)
 
 # Add SafeLoggingFilter to prevent format errors from third-party libraries (like OpenAI)
 safe_filter = SafeLoggingFilter()
@@ -74,6 +85,7 @@ formatter = logging.Formatter(
 file_handler.setFormatter(formatter)
 debug_handler.setFormatter(formatter)
 stdout_handler.setFormatter(formatter)
+doubao_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
 logger.addHandler(debug_handler)

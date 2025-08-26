@@ -64,7 +64,7 @@ def run_main_controller_from_snapshot(
 
     controller, target_path, config_params = result
 
-    # 将文件日志写到 target_path
+    # Write file logs to target_path
     setup_file_logging(target_path)
 
     logger.info(f"MainController restored from snapshot successfully. Logs at: {target_path}")
@@ -107,11 +107,11 @@ if __name__ == "__main__":
     import logging
     from gui_agents.maestro.debug_system.logging_setup import setup_debug_logging, setup_file_logging
 
-    # 简单控制台日志
+    # Simple console logging
     setup_debug_logging(logging.INFO)
 
-    # 写入到 target_path 日志文件（按默认测试目标目录示例）
-    # 若使用 CLI 参数，可在解析后调用 setup_file_logging(args.target or target_path)
+    # Write to target_path log file (example with default test target directory)
+    # If using CLI arguments, call setup_file_logging(args.target or target_path) after parsing
 
     # args = _parse_args()
 
@@ -123,4 +123,4 @@ if __name__ == "__main__":
         runtime_dir=runtime_dir,
         snapshot_id=snapshot_id,
         target_dir=target_dir,
-    ) 
+    )

@@ -70,18 +70,18 @@ class Technician:
         )
 
     def _get_command_history_for_subtask(self, subtask_id: str) -> str:
-        """获取指定subtask的命令历史，格式化为易读的文本"""
+        """Get command history for specified subtask, formatted as readable text"""
         try:
             commands = list(reversed(self.global_state.get_commands_for_subtask(subtask_id)))
             if not commands:
-                return "无历史操作记录"
+                return "No historical operation records"
             
             history_lines = []
-            history_lines.append("=== 历史操作记录 ===")
+            history_lines.append("=== Historical Operation Records ===")
             
             for i, cmd in enumerate(commands, 1):
-                # 格式化每个命令的信息
-                action_type = "未知操作"
+                # Format each command's information
+                action_type = "Unknown operation"
                 action_desc = ""
                 
                 if isinstance(cmd.action, dict):
@@ -90,37 +90,37 @@ class Technician:
                     if "message" in cmd.action:
                         action_desc = cmd.action["message"]
                 elif isinstance(cmd.action, list):
-                    action_type = "代码生成"
+                    action_type = "Code generation"
                     if cmd.action:
                         descs = []
                         for idx, (lang, code) in enumerate(cmd.action, 1):
                             code_str = str(code)
-                            descs.append(f"[{idx}] 语言: {lang}, 代码长度: {len(code_str)} 代码{code_str}")
+                            descs.append(f"[{idx}] Language: {lang}, Code length: {len(code_str)} Code{code_str}")
                         action_desc = " | ".join(descs)
                 
-                # 添加命令状态信息
+                # Add command status information
                 status = cmd.worker_decision
                 message = cmd.message if cmd.message else ""
                 exec_status = getattr(cmd, "exec_status", "")
                 exec_message = getattr(cmd, "exec_message", "")
                 
-                history_lines.append(f"{i}. [{action_type}] - 状态: {status}")
+                history_lines.append(f"{i}. [{action_type}] - Status: {status}")
                 if action_desc:
-                    history_lines.append(f"   描述: {action_desc}")
+                    history_lines.append(f"   Description: {action_desc}")
                 if message:
-                    history_lines.append(f"   消息: {message}")
+                    history_lines.append(f"   Message: {message}")
                 if exec_status:
-                    history_lines.append(f"   执行状态: {exec_status}")
+                    history_lines.append(f"   Execution status: {exec_status}")
                 if exec_message:
-                    history_lines.append(f"   执行消息: {exec_message}")
+                    history_lines.append(f"   Execution message: {exec_message}")
                 if cmd.pre_screenshot_analysis:
-                    history_lines.append(f"   执行前截图分析: {cmd.pre_screenshot_analysis}")
+                    history_lines.append(f"   Pre-execution screenshot analysis: {cmd.pre_screenshot_analysis}")
                 history_lines.append("")
             
             return "\n".join(history_lines)
         except Exception as e:
-            logger.warning(f"获取命令历史失败: {e}")
-            return "获取历史记录失败"
+            logger.warning(f"Failed to get command history: {e}")
+            return "Failed to get historical records"
 
     def execute_task(
         self,
@@ -144,12 +144,12 @@ class Technician:
         - action: when outcome is worker_generate_action, a list of (lang, code) blocks
         """
 
-        # 获取命令历史
+        # Get command history
         subtask_id = subtask.get("subtask_id", "")
         command_history = self._get_command_history_for_subtask(subtask_id)
         task = self.global_state.get_task()
 
-        # 根据 trigger_code 构建上下文感知的提示词
+        # Build context-aware prompt based on trigger_code
         context_aware_prompt = self._build_context_aware_prompt(
             subtask, task, guidance, command_history, trigger_code
         )
@@ -359,7 +359,7 @@ class Technician:
         command_history: str,
         trigger_code: str
     ) -> str:
-        """根据 trigger_code 构建上下文感知的提示词"""
+        """Build context-aware prompt based on trigger_code"""
         task_message = []
         if task:
             task_message.extend([
@@ -458,10 +458,10 @@ class Technician:
         return full_prompt
 
     def _get_context_info_by_trigger_code(self, trigger_code: str) -> str:
-        """根据 trigger_code 返回相应的详细上下文信息和指导"""
+        """Return corresponding detailed context information and guidance based on trigger_code"""
         from gui_agents.maestro.enums import TRIGGER_CODE_BY_MODULE
         
-        # 检查是否属于 WORKER_GET_ACTION_CODES
+        # Check if it belongs to WORKER_GET_ACTION_CODES
         worker_codes = TRIGGER_CODE_BY_MODULE.WORKER_GET_ACTION_CODES
         
         if trigger_code == worker_codes["subtask_ready"]:

@@ -1,6 +1,6 @@
 """
 New Executor Implementation
-专门负责从global state中获取和执行动作的执行器模块
+Executor module specifically responsible for retrieving and executing actions from global state
 """
 
 import time
@@ -16,26 +16,26 @@ from PIL import Image
 from gui_agents.maestro.Action import Screenshot
 from gui_agents.maestro.utils.screenShot import scale_screenshot_dimensions
 
-# 设置日志
+# Setup logging
 logger = logging.getLogger(__name__)
 
 
 class NewExecutor:
-    """动作执行器 - 负责获取和执行动作"""
+    """Action Executor - Responsible for retrieving and executing actions"""
     
     def __init__(self, global_state: NewGlobalState, hardware_interface: HardwareInterface, env_controller: Optional[DesktopEnv] = None):
         """
-        初始化执行器
+        Initialize executor
         
         Args:
-            global_state: 全局状态管理器
-            hardware_interface: 硬件接口
-            env_controller: 环境控制器，用于执行代码脚本
+            global_state: Global state manager
+            hardware_interface: Hardware interface
+            env_controller: Environment controller for executing code scripts
         """
         self.global_state = global_state
         self.hwi = hardware_interface
         self.env_controller = env_controller.controller if env_controller is not None else None
-        self.execution_timeout = 30  # 单次执行超时时间(秒)
+        self.execution_timeout = 30  # Single execution timeout (seconds)
         
         logger.info("NewExecutor initialized")
 
@@ -189,20 +189,20 @@ class NewExecutor:
                 logger.warning(error_msg)
                 return self._create_execution_result(False, error_msg)
             
-            # 检查是否有action需要执行
+            # Check if there's an action to execute
             if not command.action:
                 error_msg = f"No action defined in command for subtask {subtask_id}"
                 logger.warning(error_msg)
                 return self._create_execution_result(False, error_msg)
             
-            # 获取当前subtask的assignee_role
+            # Get current subtask's assignee_role
             subtask = self.global_state.get_subtask(subtask_id)
             if not subtask:
                 return self._create_execution_result(False, "Subtask not found")
             
             assignee_role = getattr(subtask, "assignee_role", "operator")
             
-            # 根据assignee_role选择不同的执行方式
+            # Choose different execution methods based on assignee_role
             if assignee_role == "operator":
                 return self._execute_action(subtask_id, command.action)
                 
@@ -269,7 +269,7 @@ class NewExecutor:
     # ========== 执行代码块 ==========
     def _execute_code_blocks(self, code_blocks: List[Tuple[str, str]], subtask_id: str, command_id: Optional[str] = None) -> Dict[str, Any]:
         """
-        执行代码块列表
+        Execute list of code blocks
         
         Args:
             code_blocks: 代码块列表，每个元素为 (语言, 代码) 的元组
@@ -311,7 +311,7 @@ class NewExecutor:
                 self.global_state.set_screenshot(
                     scale_screenshot_dimensions(screenshot, self.hwi))
             
-            # 获取新截图的ID并更新命令的 post_screenshot_id
+            # Get new screenshot ID and update command's post_screenshot_id
             new_screenshot_id = self.global_state.get_screenshot_id()
             if new_screenshot_id:
                 if not target_command_id:
@@ -338,8 +338,8 @@ class NewExecutor:
     
     # ========== 提取代码块 ==========
     def _extract_code_blocks(self, text: str) -> List[Tuple[str, str]]:
-        """从markdown样式的文本中提取代码块"""
-        # 匹配 ```language\ncode\n``` 的模式
+        """Extract code blocks from markdown-style text"""
+        # Match ```language\ncode\n``` pattern
         pattern = r'```(\w+)\n(.*?)\n```'
         matches = re.findall(pattern, text, re.DOTALL)
         
@@ -355,7 +355,7 @@ class NewExecutor:
     # ========== 执行动作 ==========
     def _execute_action(self, subtask_id: str, action: Dict[str, Any], command_id: Optional[str] = None) -> Dict[str, Any]:
         """
-        执行具体的动作
+        Execute specific action
         
         Args:
             subtask_id: subtask ID
@@ -455,34 +455,34 @@ class NewExecutor:
             error_msg = f"Exception during action execution: {str(e)}"
             logger.error(error_msg)
             
-            # 记录执行异常
+            # Record execution exception
             self._record_execution_result(subtask_id, False, error_msg, execution_time)
             
             return self._create_execution_result(False, error_msg, execution_time)
     
     # ========== 记录执行结果 ==========
     def _record_execution_result(self, subtask_id: str, success: bool, error_message: Optional[str], execution_time: float):
-        """记录执行结果到global state"""
+        """Record execution result to global state"""
         try:
             if success:
-                # 记录成功执行事件
+                # Record successful execution event
                 self.global_state.log_operation("executor", "action_success", {
                     "subtask_id": subtask_id,
                     "execution_time": execution_time
                 })
                 
-                # 可以选择更新subtask状态为已执行，但状态管理应该由Controller决定
+                # Can choose to update subtask status to executed, but state management should be decided by Controller
                 # self.global_state.update_subtask_status(subtask_id, SubtaskStatus.FULFILLED, "Action executed successfully")
                 
             else:
-                # 记录执行失败事件
+                # Record execution failure event
                 self.global_state.log_operation("executor", "action_error", {
                     "subtask_id": subtask_id,
                     "error_message": error_message,
                     "execution_time": execution_time
                 })
                 
-                # 可以选择更新subtask状态为失败，但状态管理应该由Controller决定
+                # Can choose to update subtask status to failed, but state management should be decided by Controller
                 # self.global_state.update_subtask_status(subtask_id, SubtaskStatus.REJECTED, f"Action execution failed: {error_message}")
                 
         except Exception as e:
@@ -507,9 +507,9 @@ class NewExecutor:
         
         
     def get_execution_status(self) -> Dict[str, Any]:
-        """获取执行器状态信息"""
+        """Get executor status information"""
         return {
             "executor_type": "NewExecutor",
             "hardware_backend": getattr(self.hwi, 'backend', 'unknown'),
             "execution_timeout": self.execution_timeout
-        } 
+        }

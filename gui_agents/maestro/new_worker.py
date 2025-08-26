@@ -78,7 +78,7 @@ class NewWorker:
             logging.warning(f"Worker: subtask {subtask_id} not found")
             return None
 
-        # 获取当前的 trigger_code 来调整处理逻辑
+        # Get current trigger_code to adjust processing logic
         current_trigger_code = self._get_current_trigger_code()
         logger.info(f"Worker processing subtask {subtask_id} with trigger_code: {current_trigger_code}")
 
@@ -178,19 +178,19 @@ class NewWorker:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
 
             if role == "analyst":
-                # 获取artifacts内容，用于分析
+                # Get artifacts content for analysis
                 artifacts_content = self._global_state.get_artifacts()
                 
-                # 检查是否有memorize相关的artifacts需要分析
+                # Check if there are memorize-related artifacts that need analysis
                 if "memorize" in artifacts_content.lower() or "information" in artifacts_content.lower():
-                    # 如果有memorize内容，使用专门的memorize分析类型
+                    # If there is memorize content, use specialized memorize analysis type
                     res = self.analyst.analyze_task(
                         subtask=subtask.to_dict(), 
                         analysis_type="memorize_analysis",
                         guidance=artifacts_content
                     )
                 else:
-                    # 普通分析
+                    # General analysis
                     res = self.analyst.analyze_task(
                         subtask=subtask.to_dict(), 
                         analysis_type="general"
@@ -245,7 +245,7 @@ class NewWorker:
             return WorkerDecision.CANNOT_EXECUTE.value
 
     def _get_current_trigger_code(self) -> str:
-        """获取当前的 trigger_code"""
+        """Get current trigger_code"""
         try:
             controller_state = self._global_state.get_controller_state()
             return controller_state.get("trigger_code", "")
@@ -255,4 +255,4 @@ class NewWorker:
 
 
 # Export friendly alias
-Worker = NewWorker 
+Worker = NewWorker

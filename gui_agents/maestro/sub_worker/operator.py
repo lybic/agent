@@ -85,18 +85,18 @@ class Operator:
         )
 
     def _get_command_history_for_subtask(self, subtask_id: str) -> str:
-        """获取指定subtask的命令历史，格式化为易读的文本"""
+        """Get command history for specified subtask, formatted as readable text"""
         try:
             commands = list(reversed(self.global_state.get_commands_for_subtask(subtask_id)))
             if not commands:
-                return "无历史操作记录"
+                return "No historical operation records"
             
             history_lines = []
-            history_lines.append("=== 历史操作记录 ===")
+            history_lines.append("=== Historical Operation Records ===")
             
             for i, cmd in enumerate(commands, 1):
-                # 格式化每个命令的信息
-                action_type = "未知操作"
+                # Format each command's information
+                action_type = "Unknown operation"
                 action_desc = ""
                 
                 if isinstance(cmd.action, dict):
@@ -105,35 +105,35 @@ class Operator:
                     if "message" in cmd.action:
                         action_desc = cmd.action["message"]
                     elif "element_description" in cmd.action:
-                        action_desc = f"操作元素: {cmd.action['element_description']}"
+                        action_desc = f"Operate element: {cmd.action['element_description']}"
                     elif "text" in cmd.action:
-                        action_desc = f"输入文本: {cmd.action['text']}"
+                        action_desc = f"Input text: {cmd.action['text']}"
                     elif "keys" in cmd.action:
-                        action_desc = f"按键: {cmd.action['keys']}"
+                        action_desc = f"Keys: {cmd.action['keys']}"
                 
-                # 添加命令状态信息
+                # Add command status information
                 status = cmd.worker_decision
                 message = cmd.message if cmd.message else ""
                 exec_status = getattr(cmd, "exec_status", "")
                 exec_message = getattr(cmd, "exec_message", "")
                 
-                history_lines.append(f"{i}. [{action_type}] - 状态: {status}")
+                history_lines.append(f"{i}. [{action_type}] - Status: {status}")
                 if action_desc:
-                    history_lines.append(f"   描述: {action_desc}")
+                    history_lines.append(f"   Description: {action_desc}")
                 if message:
-                    history_lines.append(f"   消息: {message}")
+                    history_lines.append(f"   Message: {message}")
                 if exec_status:
-                    history_lines.append(f"   执行状态: {exec_status}")
+                    history_lines.append(f"   Execution status: {exec_status}")
                 if exec_message:
-                    history_lines.append(f"   执行消息: {exec_message}")
+                    history_lines.append(f"   Execution message: {exec_message}")
                 if cmd.pre_screenshot_analysis:
-                    history_lines.append(f"   执行前截图分析: {cmd.pre_screenshot_analysis}")
+                    history_lines.append(f"   Pre-execution screenshot analysis: {cmd.pre_screenshot_analysis}")
                 history_lines.append("")
             
             return "\n".join(history_lines)
         except Exception as e:
-            logger.warning(f"获取命令历史失败: {e}")
-            return "获取历史记录失败"
+            logger.warning(f"Failed to get command history: {e}")
+            return "Failed to get historical records"
 
     # ------------------------------------------------------------------
     # Public API
@@ -178,23 +178,23 @@ class Operator:
                 "outcome": "STALE_PROGRESS",
             }
 
-        # 获取命令历史
+        # Get command history
         subtask_id = subtask.get("subtask_id", "")
         command_history = self._get_command_history_for_subtask(subtask_id)
 
-        # 读取 artifacts 与 supplement 作为上下文
+        # Read artifacts and supplement as context
         artifacts_content = ""
         supplement_content = ""
         try:
             artifacts_content = self.global_state.get_artifacts() or ""
         except Exception as e:
-            logger.warning(f"获取 artifacts 失败: {e}")
+            logger.warning(f"Failed to get artifacts: {e}")
         try:
             supplement_content = self.global_state.get_supplement() or ""
         except Exception as e:
-            logger.warning(f"获取 supplement 失败: {e}")
+            logger.warning(f"Failed to get supplement: {e}")
 
-        # 根据 trigger_code 调整提示词
+        # Adjust prompt based on trigger_code
         context_aware_prompt = self._build_context_aware_prompt(
             subtask,
             task,
@@ -330,7 +330,7 @@ class Operator:
         artifacts_content: str,
         supplement_content: str
     ) -> str:
-        """根据 trigger_code 构建上下文感知的提示词，并注入 artifacts 与 supplement 信息"""
+        """Build context-aware prompt based on trigger_code and inject artifacts and supplement information"""
         message = []
         # Format task information
         if task:
@@ -348,7 +348,7 @@ class Operator:
                 return ""
             if len(text) <= limit:
                 return text
-            return text[:limit] + "\n... (内容过长，已截断)"
+            return text[:limit] + "\n... (content too long, truncated)"
         
         # Add task objective alignment check
         message.append("")
@@ -364,34 +364,34 @@ class Operator:
         if guidance:
             message.append(f"GUIDANCE: {guidance}")
         
-        # 根据 trigger_code 添加特定的上下文信息
+        # Add specific context information based on trigger_code
         context_info = self._get_context_info_by_trigger_code(trigger_code)
         if context_info:
             message.append("")
-            message.append("=== 当前上下文信息 ===")
+            message.append("=== Current Context Information ===")
             message.append(context_info)
         
-        # 注入可用的 artifacts 内容
+        # Inject available artifacts content
         message.append("")
-        message.append("=== 可用的 Artifacts 内容（来自记忆的记录） ===")
+        message.append("=== Available Artifacts Content (from memory records) ===")
         if artifacts_content and artifacts_content.strip():
             # message.append(_truncate(artifacts_content))
-            message.append(artifacts_content) # 先不做截断，后续可以在这里加上记忆优化
+            message.append(artifacts_content) # No truncation for now, memory optimization can be added here later
         else:
-            message.append("无可用的 artifacts 内容")
+            message.append("No available artifacts content")
         
-        # 注入 supplement 补充材料
+        # Inject supplement materials
         message.append("")
-        message.append("=== 补充材料 Supplement（可能来自检索/外部工具） ===")
+        message.append("=== Supplement Materials (possibly from retrieval/external tools) ===")
         if supplement_content and supplement_content.strip():
             # message.append(_truncate(supplement_content))
-            message.append(supplement_content) # 先不做截断，后续可以在这里加上记忆优化
+            message.append(supplement_content) # No truncation for now, memory optimization can be added here later
         else:
-            message.append("无补充材料")
+            message.append("No supplement materials")
         
-        # 添加历史操作记录到提示词中 - 这是非常重要的上下文信息
+        # Add historical operation records to prompt - this is very important context information
         message.append("")
-        message.append("=== 历史操作记录 ===")
+        message.append("=== Historical Operation Records ===")
         message.append(command_history)
         message.append("")
         message.append("Based on the above history, current screenshot, artifacts and supplement, decide on the next action.")
@@ -400,10 +400,10 @@ class Operator:
         return "\n\n".join(message)
 
     def _get_context_info_by_trigger_code(self, trigger_code: str) -> str:
-        """根据 trigger_code 返回相应的详细上下文信息和指导"""
+        """Return corresponding detailed context information and guidance based on trigger_code"""
         from gui_agents.maestro.enums import TRIGGER_CODE_BY_MODULE
         
-        # 检查是否属于 WORKER_GET_ACTION_CODES
+        # Check if it belongs to WORKER_GET_ACTION_CODES
         worker_codes = TRIGGER_CODE_BY_MODULE.WORKER_GET_ACTION_CODES
         
         if trigger_code == worker_codes["subtask_ready"]:
@@ -484,7 +484,7 @@ class Operator:
 """
         
         else:
-            # 默认情况
+            # Default case
             return """
 # General Context Information
 - Analyze the current screen state and task requirements
@@ -492,4 +492,4 @@ class Operator:
 - Ensure your action aligns with the subtask objectives
 - Look for visual cues and UI elements that guide the next step
 - Maintain consistency with the overall task execution strategy
-""" 
+"""

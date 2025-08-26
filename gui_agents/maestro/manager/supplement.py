@@ -95,7 +95,7 @@ class SupplementHandler:
             }
 
     def _get_current_trigger_code(self) -> str:
-        """获取当前的 trigger_code"""
+        """Get current trigger_code"""
         controller_state = self.global_state.get_controller_state()
         return controller_state.get("trigger_code", "")
 
@@ -198,28 +198,28 @@ Please output the supplementary material collection solution based on the trigge
         trigger_context = {}
         
         if trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_SUPPLEMENT_CODES["worker_supplement"]:
-            # Worker需要补充资料的情况
+            # Worker needs supplementary information situation
             trigger_context = {
                 "type": "worker_supplement",
                 "description": "Worker reported that supplementary information is needed to proceed",
                 "focus": "Need to understand what specific information the worker needs and collect it"
             }
-            # 获取当前subtask信息
+            # Get current subtask information
             if context.get("current_subtask"):
                 trigger_context["current_subtask"] = context["current_subtask"]
                 
         elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_SUPPLEMENT_CODES["quality_check_supplement"]:
-            # 质检需要补充资料的情况
+            # Quality check needs supplementary information situation
             trigger_context = {
                 "type": "quality_check_supplement",
                 "description": "Quality check requires supplementary information to proceed",
                 "focus": "Need to collect information that will help pass the quality check"
             }
-            # 获取质检失败的信息
+            # Get quality check failure information
             trigger_context["quality_check_context"] = self._get_quality_check_context() #type: ignore
             
         else:
-            # 默认情况
+            # Default situation
             trigger_context = {
                 "type": "general_supplement",
                 "description": f"General supplement collection triggered by: {trigger_code}",
@@ -231,7 +231,7 @@ Please output the supplementary material collection solution based on the trigge
     def _get_quality_check_context(self) -> Dict[str, Any]:
         """Get quality check context for supplement"""
         try:
-            # 获取最新的质检信息
+            # Get latest quality check information
             task = self.global_state.get_task()
             if task.current_subtask_id:
                 latest_gate = self.global_state.get_latest_gate_check_for_subtask(task.current_subtask_id)

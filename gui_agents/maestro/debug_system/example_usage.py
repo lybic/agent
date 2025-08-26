@@ -1,39 +1,39 @@
 """
-调试系统使用示例
+Debug System Usage Example
 """
 
 from main_debugger import create_debugger
 
 
 def main():
-    """主函数 - 演示调试系统的使用"""
+    """Main function - Demonstrate the usage of debug system"""
     
-    # 创建调试器
+    # Create debugger
     debugger = create_debugger()
     
-    print("=== Agent调试系统 ===")
-    print("这个系统允许你从快照恢复状态并调试各个组件")
+    print("=== Agent Debug System ===")
+    print("This system allows you to restore state from snapshots and debug various components")
     
-    # 列出可用快照
+    # List available snapshots
     snapshots = debugger.list_snapshots()
     if snapshots:
-        print(f"\n发现 {len(snapshots)} 个快照:")
+        print(f"\nFound {len(snapshots)} snapshots:")
         for snapshot in snapshots:
             print(f"  - {snapshot}")
         
-        # 显示第一个快照的信息
+        # Show information of the first snapshot
         first_snapshot = snapshots[0]
         debugger.show_snapshot_info(first_snapshot)
         debugger.debug_worker_from_snapshot(first_snapshot)
         
     else:
-        print("没有可用的快照")
-        print("请先运行系统创建一些快照")
+        print("No available snapshots")
+        print("Please run the system first to create some snapshots")
     
-    # 启动交互式调试模式
-    print("\n启动交互式调试模式...")
+    # Start interactive debug mode
+    print("\nStarting interactive debug mode...")
     debugger.interactive_debug()
 
 
 if __name__ == "__main__":
-    main() 
+    main()

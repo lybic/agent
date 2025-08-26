@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""极简调试函数：避免层层嵌套与多余错误处理"""
+"""Minimal debug function: avoid nested layers and redundant error handling"""
 from typing import Optional
 
 from gui_agents.maestro.debug_system.logging_setup import setup_file_logging
@@ -51,7 +51,7 @@ if __name__ == "__main__":
         help="Which component to debug (default: manager)",
     )
 
-    # 写死运行时路径和快照名称
+    # Hardcoded runtime path and snapshot name
     runtime_path = "runtime/20250826_141730"
     snapshot_id = "snapshot_20250826_141736"
     component = "manager"
@@ -60,4 +60,4 @@ if __name__ == "__main__":
         runtime_path=runtime_path, 
         snapshot_id=snapshot_id, 
         component=component
-    ) 
+    )

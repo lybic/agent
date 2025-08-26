@@ -511,7 +511,7 @@ if __name__ == "__main__":
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     args = config()
 
-    # 规范为绝对路径，避免相对路径依赖当前工作目录
+    # Normalize to absolute paths to avoid relative path dependency on current working directory
     try:
         repo_root = Path(__file__).resolve().parents[1]
         if not os.path.isabs(args.test_config_base_dir):

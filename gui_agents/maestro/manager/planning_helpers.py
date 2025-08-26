@@ -59,29 +59,29 @@ def get_trigger_code_specific_context(global_state, trigger_code: str) -> Dict[s
     context = {}
     
     if trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["work_cannot_execute"]:
-        # Worker无法执行的情况
+        # Worker cannot execute situation
         context["trigger_context"] = {
             "type": "worker_cannot_execute",
             "description": "Worker reported that the current subtask cannot be executed",
             "focus": "Need to analyze why the subtask cannot be executed and find alternative approaches"
         }
-        # 获取当前失败的subtask信息
+        # Get current failed subtask information
         current_subtask = get_current_failed_subtask(global_state)
         if current_subtask:
             context["current_failed_subtask"] = current_subtask
             
     elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["quality_check_failed"]:
-        # 质检失败的情况
+        # Quality check failed situation
         context["trigger_context"] = {
             "type": "quality_check_failed",
             "description": "Quality check failed for the current subtask",
             "focus": "Need to understand why quality check failed and improve the approach"
         }
-        # 获取质检失败的具体信息
+        # Get specific information about quality check failure
         context["quality_check_failure"] = get_quality_check_failure_info(global_state)
         
     elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["no_worker_decision"]:
-        # Worker没有决策的情况
+        # Worker has no decision situation
         context["trigger_context"] = {
             "type": "no_worker_decision",
             "description": "Worker could not make a decision for the current subtask",
@@ -89,7 +89,7 @@ def get_trigger_code_specific_context(global_state, trigger_code: str) -> Dict[s
         }
         
     elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["get_action_error"]:
-        # GET_ACTION状态错误的情况
+        # GET_ACTION state error situation
         context["trigger_context"] = {
             "type": "get_action_error",
             "description": "Error occurred during GET_ACTION state processing",
@@ -97,7 +97,7 @@ def get_trigger_code_specific_context(global_state, trigger_code: str) -> Dict[s
         }
         
     elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["quality_check_error"]:
-        # 质检错误的情况
+        # Quality check error situation
         context["trigger_context"] = {
             "type": "quality_check_error",
             "description": "Error occurred during quality check process",
@@ -105,27 +105,27 @@ def get_trigger_code_specific_context(global_state, trigger_code: str) -> Dict[s
         }
         
     elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["final_check_failed"]:
-        # 最终质检失败的情况
+        # Final quality check failed situation
         context["trigger_context"] = {
             "type": "final_check_failed",
             "description": "Final quality check failed for the entire task",
             "focus": "Need to address the final quality issues and complete the task"
         }
-        # 获取最终质检失败的信息
+        # Get final quality check failure information
         context["final_check_failure"] = get_final_check_failure_info(global_state)
         
     elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["rule_replan_long_execution"]:
-        # 长时间执行需要重规划的情况
+        # Long execution time requiring replanning situation
         context["trigger_context"] = {
             "type": "long_execution_replan",
             "description": "Task has been executing for too long, need to replan",
             "focus": "Need to optimize the execution plan and reduce execution time"
         }
-        # 获取执行时间信息
+        # Get execution time information
         context["execution_time_info"] = get_execution_time_info(global_state)
         
     elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["no_subtasks"]:
-        # 没有subtask的情况
+        # No subtasks situation
         context["trigger_context"] = {
             "type": "no_subtasks",
             "description": "No subtasks available for execution",
@@ -133,7 +133,7 @@ def get_trigger_code_specific_context(global_state, trigger_code: str) -> Dict[s
         }
         
     elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["init_error"]:
-        # 初始化错误的情况
+        # Initialization error situation
         context["trigger_context"] = {
             "type": "init_error",
             "description": "Error occurred during task initialization",
@@ -141,17 +141,17 @@ def get_trigger_code_specific_context(global_state, trigger_code: str) -> Dict[s
         }
         
     elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["supplement_completed"]:
-        # 补充资料完成的情况
+        # Supplement completed situation
         context["trigger_context"] = {
             "type": "supplement_completed",
             "description": "Supplement collection completed, ready to replan",
             "focus": "Use the collected supplement information to improve planning"
         }
-        # 获取补充资料信息
+        # Get supplement information
         context["supplement_info"] = get_supplement_info(global_state)
         
     elif trigger_code == TRIGGER_CODE_BY_MODULE.MANAGER_REPLAN_CODES["supplement_error"]:
-        # 补充资料错误的情况
+        # Supplement error situation
         context["trigger_context"] = {
             "type": "supplement_error",
             "description": "Error occurred during supplement collection",
@@ -159,7 +159,7 @@ def get_trigger_code_specific_context(global_state, trigger_code: str) -> Dict[s
         }
         
     else:
-        # 默认情况
+        # Default situation
         context["trigger_context"] = {
             "type": "general_replan",
             "description": f"General replanning triggered by: {trigger_code}",
@@ -458,18 +458,18 @@ def get_pending_subtasks_info(global_state) -> str:
     return _get_pending_subtasks_info(global_state) 
 
 def get_recent_subtasks_operation_history(global_state: NewGlobalState, limit: int = 2) -> str:
-    """获取最近完成的子任务（最多limit个）的操作历史，格式化为可读文本。
-    规则：
-    - 优先使用 Task.history_subtask_ids 从后向前取最近（非 READY）子任务
-    - 若数量不足，补充使用所有子任务中状态非 READY 的，按 updated_at 倒序补齐（去重）
-    - 每个子任务下列出该子任务的命令（按时间倒序），包含类型、状态、消息与执行摘要
+    """Get operation history of recently completed subtasks (up to limit), formatted as readable text.
+    Rules:
+    - Prioritize using Task.history_subtask_ids to get recent (non-READY) subtasks from back to front
+    - If insufficient quantity, supplement with all subtasks with non-READY status, sorted by updated_at in descending order (deduplicated)
+    - List commands for each subtask (in reverse chronological order), including type, status, message and execution summary
     """
     try:
         task = global_state.get_task()
         all_subtasks = global_state.get_subtasks()
         id_to_subtask = {s.subtask_id: s for s in all_subtasks}
 
-        # 仅选择状态非 READY 的子任务
+        # Only select subtasks with non-READY status
         def _is_non_ready(subtask):
             try:
                 return getattr(subtask, 'status', '') != SubtaskStatus.READY.value
@@ -485,7 +485,7 @@ def get_recent_subtasks_operation_history(global_state: NewGlobalState, limit: i
                 if len(recent_subtasks) >= limit:
                     break
         if len(recent_subtasks) < limit:
-            # 从所有子任务中筛选非 READY，按 updated_at 倒序补齐
+            # Filter non-READY from all subtasks, supplement in descending order by updated_at
             remaining = [s for s in all_subtasks if s.subtask_id not in {st.subtask_id for st in recent_subtasks} and _is_non_ready(s)]
             remaining.sort(key=lambda x: getattr(x, 'updated_at', ''), reverse=True)
             for s in remaining:
@@ -495,22 +495,22 @@ def get_recent_subtasks_operation_history(global_state: NewGlobalState, limit: i
 
         lines = []
         if not recent_subtasks:
-            return "无历史操作记录"
+            return "No historical operation records"
 
         for idx, subtask in enumerate(recent_subtasks, 1):
-            lines.append(f"=== 子任务 {idx} ===")
+            lines.append(f"=== Subtask {idx} ===")
             lines.append(f"ID: {subtask.subtask_id}")
             title = getattr(subtask, 'title', '') or ''
             if title:
-                lines.append(f"标题: {title}")
-            # 命令历史
+                lines.append(f"Title: {title}")
+            # Command history
             commands = list(global_state.get_commands_for_subtask(subtask.subtask_id))
             if not commands:
-                lines.append("无操作命令记录")
+                lines.append("No operation command records")
                 lines.append("")
                 continue
             for i, cmd in enumerate(commands, 1):
-                action_type = "未知操作"
+                action_type = "Unknown operation"
                 action_desc = ""
                 try:
                     if isinstance(cmd.action, dict):
@@ -519,11 +519,11 @@ def get_recent_subtasks_operation_history(global_state: NewGlobalState, limit: i
                         if "message" in cmd.action:
                             action_desc = cmd.action["message"]
                         elif "element_description" in cmd.action:
-                            action_desc = f"操作元素: {cmd.action['element_description']}"
+                            action_desc = f"Operate element: {cmd.action['element_description']}"
                         elif "text" in cmd.action:
-                            action_desc = f"输入文本: {cmd.action['text']}"
+                            action_desc = f"Input text: {cmd.action['text']}"
                         elif "keys" in cmd.action:
-                            action_desc = f"按键: {cmd.action['keys']}"
+                            action_desc = f"Keys: {cmd.action['keys']}"
                 except Exception:
                     pass
                 status = getattr(cmd, 'worker_decision', '')
@@ -531,15 +531,15 @@ def get_recent_subtasks_operation_history(global_state: NewGlobalState, limit: i
                 exec_status = getattr(cmd, 'exec_status', '')
                 exec_message = getattr(cmd, 'exec_message', '')
 
-                lines.append(f"{i}. [{action_type}] - 状态: {status}")
+                lines.append(f"{i}. [{action_type}] - Status: {status}")
                 if action_desc:
-                    lines.append(f"   描述: {action_desc}")
+                    lines.append(f"   Description: {action_desc}")
                 if message:
-                    lines.append(f"   消息: {message}")
+                    lines.append(f"   Message: {message}")
                 if exec_status:
-                    lines.append(f"   执行状态: {exec_status}")
+                    lines.append(f"   Execution status: {exec_status}")
                 if exec_message:
-                    lines.append(f"   执行消息: {exec_message}")
+                    lines.append(f"   Execution message: {exec_message}")
             lines.append("")
         return "\n".join(lines)
     except Exception:

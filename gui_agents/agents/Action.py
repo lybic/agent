@@ -170,7 +170,6 @@ class Scroll(Action):
     holdKey: List[str] = field(default_factory=list)
 
 
-# TODO Drag是否需要区分左中右键
 @dataclass(slots=True)
 class Drag(Action):
     startX: int

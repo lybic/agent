@@ -1,5 +1,5 @@
 """
-主调试器 - 整合快照调试和组件调试功能
+Main Debugger - Integrate snapshot debugging and component debugging functionality
 """
 import os
 import shutil
@@ -15,7 +15,7 @@ from ..controller.main_controller import NewManager
 
 
 class MainDebugger:
-    """主调试器 - 提供完整的调试功能"""
+    """Main Debugger - Provide complete debugging functionality"""
     
     def __init__(
         self, 
@@ -35,11 +35,11 @@ class MainDebugger:
     )
 
     def get_worker_params(self) -> Dict[str, Any]:
-        """获取Worker参数"""
+        """Get Worker parameters"""
 
         config_params = self.config_params
         
-        # 从快照中提取Worker所需参数
+        # Extract Worker required parameters from snapshot
         worker_params = {
             "tools_dict": config_params.get('tools_dict', {}),
             "global_state": self.global_state,
@@ -51,7 +51,7 @@ class MainDebugger:
         return worker_params
 
     def get_evaluator_params(self) -> Dict[str, Any]:
-        """获取Evaluator参数"""
+        """Get Evaluator parameters"""
         config_params = self.config_params
         return {
             "global_state": self.global_state,
@@ -59,7 +59,7 @@ class MainDebugger:
         }
 
     def get_manager_params(self) -> Dict[str, Any]:
-        """获取Manager参数"""
+        """Get Manager parameters"""
         config_params = self.config_params
         return {
             "tools_dict": config_params.get('tools_dict', {}),
@@ -69,31 +69,31 @@ class MainDebugger:
             "enable_search": config_params.get('enable_search', True),
         }
 
-    # === 极简接口：直接创建并执行 ===
+    # === Minimal interface: create and execute directly ===
     def debug_worker(self):
         worker_params = self.get_worker_params()
         current_worker = NewWorker(**worker_params)
         current_worker.process_subtask_and_create_command()
-        print(f"Worker组件已创建，准备调试快照: {self.snapshot_id}")
+        print(f"Worker component created, ready to debug snapshot: {self.snapshot_id}")
     
     def debug_evaluator(self):
         evaluator_params = self.get_evaluator_params()
         current_evaluator = Evaluator(**evaluator_params)
-        print(f"Evaluator组件已创建，准备调试快照: {self.snapshot_id}")
+        print(f"Evaluator component created, ready to debug snapshot: {self.snapshot_id}")
         return current_evaluator
     
     def debug_manager(self):
         manager_params = self.get_manager_params()
         current_manager = NewManager(**manager_params)
         current_manager.plan_task("replan")
-        print(f"Manager组件已创建，准备调试快照: {self.snapshot_id}")
+        print(f"Manager component created, ready to debug snapshot: {self.snapshot_id}")
         return current_manager
     
  
 def create_debugger(snapshot_id: str = "snapshot_20250826_141736", runtime_path: str = "runtime/20250826_141730") -> MainDebugger:
-    """兼容旧接口: 以旧参数名创建 MainDebugger 实例
-    - snapshot_dir: 兼容旧名，实为 snapshot_id
-    - state_dir: 兼容旧名，实为 runtime_path
+    """Compatible with old interface: create MainDebugger instance with old parameter names
+    - snapshot_dir: compatible old name, actually snapshot_id
+    - state_dir: compatible old name, actually runtime_path
     """
     return MainDebugger(runtime_path=runtime_path, snapshot_id=snapshot_id)
     

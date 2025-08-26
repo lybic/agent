@@ -41,12 +41,12 @@ debug_handler = logging.FileHandler(
 )
 stdout_handler = logging.StreamHandler(sys.stdout)
 
-# 添加专门的 doubao API 日志处理器
+# Add dedicated doubao API log handler
 doubao_handler = logging.FileHandler(
     os.path.join(log_dir, datetime_str, "doubao_api.log"), encoding="utf-8"
 )
 
-# 创建专门的 doubao API logger
+# Create dedicated doubao API logger
 doubao_logger = logging.getLogger("doubao_api")
 doubao_logger.setLevel(logging.DEBUG)
 doubao_logger.addHandler(doubao_handler)
@@ -198,7 +198,7 @@ def run_agent_maestro(params: dict):
     os.makedirs(cache_dir, exist_ok=True)
     os.makedirs(state_dir, exist_ok=True)
 
-    # registry = Registry(global_state)，都
+    # registry = Registry(global_state)
 
     # Initialize NewController (which includes all other components)
     controller = MainController(

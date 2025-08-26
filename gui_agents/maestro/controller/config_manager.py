@@ -89,17 +89,16 @@ class ConfigManager:
             # 统一的默认阈值配置
             self.flow_config = {
                 # 任务与状态
-                "max_steps": 50,
-                "max_state_switches": 100,
-                "max_state_duration_secs": 300,
+                # "max_state_switches": 500, # default: 500
+                # "max_state_duration_secs": 300, # default: 300
                 # 质检相关
-                "quality_check_interval_secs": 300,  # 距离上次质检的时间间隔
-                "first_quality_check_min_commands": 5,  # 首次质检触发指令数
+                # "quality_check_interval_secs": 300,  # 距离上次质检的时间间隔 default: 300
+                "first_quality_check_min_commands": 3,  # 首次质检触发指令数 default: 5
                 # 连续相同行为与重规划
-                "repeated_action_min_consecutive": 3,
-                "replan_long_execution_threshold": 25,
+                # "repeated_action_min_consecutive": 3, # default: 3
+                # "replan_long_execution_threshold": 15, # default: 15
                 # 规划次数上限
-                "plan_number_limit": 10,
+                # "plan_number_limit": 50,  # default: 50
                 # 快照与主循环
                 "enable_snapshots": True,
                 "snapshot_interval_steps": 10,

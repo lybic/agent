@@ -23,7 +23,7 @@ class RuleEngine:
         self, 
         global_state: NewGlobalState, 
         max_steps: int = 50,
-        max_state_switches: int = 100, 
+        max_state_switches: int = 500, 
         max_state_duration: int = 300,
         flow_config: Optional[Dict[str, Any]] = None,
     ):
@@ -36,8 +36,8 @@ class RuleEngine:
         self.quality_check_interval_secs = self.flow_config.get("quality_check_interval_secs", 300)
         self.first_quality_check_min_commands = self.flow_config.get("first_quality_check_min_commands", 5)
         self.repeated_action_min_consecutive = self.flow_config.get("repeated_action_min_consecutive", 3)
-        self.replan_long_execution_threshold = self.flow_config.get("replan_long_execution_threshold", 20)
-        self.plan_number_limit = self.flow_config.get("plan_number_limit", 10)
+        self.replan_long_execution_threshold = self.flow_config.get("replan_long_execution_threshold", 15)
+        self.plan_number_limit = self.flow_config.get("plan_number_limit", 50)
     
     def _are_actions_similar(self, action1: Dict[str, Any], action2: Dict[str, Any]) -> bool:
         """检查两个 Action 是否相同（排除描述性字段）

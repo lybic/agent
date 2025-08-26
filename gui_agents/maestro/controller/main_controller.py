@@ -124,7 +124,7 @@ class MainController:
         rule_engine_params: Dict[str, Any] = dict(
             global_state=self.global_state,
             max_steps=self.max_steps,
-            max_state_switches=self.flow_config.get("max_state_switches", 100),
+            max_state_switches=self.flow_config.get("max_state_switches", 500),
             max_state_duration=self.flow_config.get("max_state_duration_secs", 300),
             flow_config=self.flow_config,
         )

@@ -96,7 +96,34 @@ class PlanningHandler:
 
         # After planning, also generate DAG and action queue
         dag_info, dag_obj = generate_dag(self.dag_translator_agent, self.global_state, context.get("task_objective", ""), plan_result)
-        action_queue: List[Node] = topological_sort(dag_obj)
+        
+        # Add DAG retry mechanism
+        max_dag_retries = 3
+        dag_retry_count = 0
+        action_queue: List[Node] = []
+        
+        while dag_retry_count < max_dag_retries:
+            try:
+                action_queue = topological_sort(dag_obj)
+                # Validate if sorting result is reasonable
+                if len(action_queue) == len(dag_obj.nodes):
+                    logger.info(f"DAG topological sort successful on attempt {dag_retry_count + 1}")
+                    break
+                else:
+                    raise ValueError(f"Topological sort result length mismatch: expected {len(dag_obj.nodes)}, got {len(action_queue)}")
+            except Exception as e:
+                dag_retry_count += 1
+                logger.warning(f"DAG topological sort failed on attempt {dag_retry_count}: {e}")
+                
+                if dag_retry_count < max_dag_retries:
+                    # Regenerate DAG
+                    logger.info(f"Regenerating DAG (attempt {dag_retry_count + 1}/{max_dag_retries})")
+                    dag_info, dag_obj = generate_dag(self.dag_translator_agent, self.global_state, context.get("task_objective", ""), plan_result)
+                else:
+                    # Last attempt failed, use original node order
+                    logger.error(f"All DAG retries failed, using original node order")
+                    action_queue = dag_obj.nodes
+                    self.global_state.add_event("manager", "dag_retry_failed", f"Used original node order after {max_dag_retries} failed attempts")
 
         # Parse planning result
         try:

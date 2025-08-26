@@ -64,6 +64,9 @@ class Agent:
     
     For complex problems: agent.memorize("NOTE: Response times: 2.1s, 1.8s, 2.3s, 1.9s. GUIDANCE: Calculate the arithmetic mean of these response times and provide the result with 2 decimal places.")
     
+    SCRATCHPAD POLICY: Treat NOTE entries as append-only scratchpad items. Never overwrite or discard raw facts; instead add new NOTE lines with timestamps or brief tags when you refine conclusions. IMPORTANT: Treat your memorized NOTE entries as your personal scratchpad/hand-copied notebook. This is your working memory to collect raw facts, intermediate results, partial calculations that you will later use to guide precise actions.
+
+    
         Args:
             information:str, the information to be memorized. For analysis tasks, include both data and guidance for the analyst.
         '''
@@ -203,7 +206,7 @@ Note for the code:
     - Pay attention to the application's response to determine which format works
     - For games, start with Arrow keys, then try simple keys if needed
 16. **LibreOffice Calc on Ubuntu**: When operating LibreOffice Calc on Ubuntu, consider to use `set_cell_values` method for cell input operations firstly. Consider to use GUI operations like clicking and typing to fill cells secondary. Here are some useful excel functions:
-    - VLOOKUP
+        - VLOOKUP
         There are four pieces of information that you will need in order to build the VLOOKUP syntax:
         The value you want to look up, also called the lookup value.
         The range where the lookup value is located. Remember that the lookup value should always be in the first column in the range for VLOOKUP to work correctly. For example, if your lookup value is in cell C2 then your range should start with C.
@@ -211,5 +214,6 @@ Note for the code:
         Optionally, you can specify TRUE if you want an approximate match or FALSE if you want an exact match of the return value. If you don't specify anything, the default value will always be TRUE or approximate match.
         Now put all of the above together as follows:
         =VLOOKUP(lookup value, range containing the lookup value, the column number in the range containing the return value, Approximate match (TRUE) or Exact match (FALSE)).
-17. Don't forget to use undo operations like Ctrl+Z when you encounter mistakes while using the computer. This helps you recover from errors and revert unwanted changes.
+17. **Ubuntu Desktop Behavior**: On Ubuntu systems, when documents or applications are already open but minimized, you CANNOT reopen them by double-clicking on their desktop icons or files. You MUST click on the corresponding icon in the taskbar/application launcher to restore the minimized window. This is a key difference from other operating systems and is important to remember when working with Ubuntu.
+18. Don't forget to use undo operations like Ctrl+Z when you encounter mistakes while using the computer. This helps you recover from errors and revert unwanted changes.
 Task Completion Verification: Before calling agent.done(), verify that: All required inputs have been confirmed (not just typed) -The expected result is visible on screen -No confirmation dialogs or pending actions remain 

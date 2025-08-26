@@ -27,8 +27,16 @@ The output should be a valid JSON object wrapped in <json></json> tags, with the
     ],
     "edges": [
       [
-        {"name": "Name of the source node", "info": "Info of the source node", "assignee_role": "operator|analyst|technician"},
-        {"name": "Name of the target node", "info": "Info of the target node", "assignee_role": "operator|analyst|technician"}
+        {
+          "name": "Source node name",
+          "info": "Source node info",
+          "assignee_role": "operator|analyst|technician"
+        },
+        {
+          "name": "Target node name", 
+          "info": "Target node info",
+          "assignee_role": "operator|analyst|technician"
+        }
       ]
     ]
   }
@@ -41,11 +49,13 @@ Important guidelines you must follow:
   b. 'assignee_role' must be one of: 'operator', 'analyst', 'technician'. Choose the role that best matches the node's intent (GUI actions → operator; question-answer/analysis → analyst; terminal/system operations → technician).
   c. 'name' should be a concise, one-line description of the subtask.
   d. 'info' should contain all available information about executing that subtask from the original plan. Do not remove or edit any information from the 'info' field.
-2. The "edges" array should represent the connections between nodes, showing the order and dependencies of the steps. Each edge is an array of two node objects (source, target). Including 'assignee_role' for edge endpoints is recommended for clarity.
+2. The "edges" array should represent the connections between nodes, showing the order and dependencies of the steps. Each edge is an array of two complete node objects: [source_node, target_node]. The source node must be completed before the target node can start.
 3. If the plan only has one subtask, you MUST construct a graph with a SINGLE node. The "nodes" array should have that single subtask as a node, and the "edges" array should be empty.
 4. The graph must be a directed acyclic graph (DAG) and must be connected.
 5. Do not include completed subtasks in the graph. A completed subtask must not be included in a node or an edge.
 6. Do not include repeated or optional steps in the graph. Any extra information should be incorporated into the 'info' field of the relevant node.
 7. It is okay for the graph to have a single node and no edges, if the provided plan only has one subtask.
+8. IMPORTANT: Edges should represent dependencies where the source node must be completed before the target node can start. For example, if "Gather Questions from Test 2" depends on "Access Grammar Test Files", the edge should contain the complete node objects for both nodes.
+9. CRITICAL: Each edge must contain complete node objects with all three fields (name, info, assignee_role), not just node names as strings.
 
 Analyze the given plan and provide the output in this JSON format within the <json></json> tags. Ensure the JSON is valid and properly escaped.

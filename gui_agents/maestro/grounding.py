@@ -123,8 +123,8 @@ class Grounding(ACI):
             raise RuntimeError(f"Error in parsing grounded action: {e}") from e
 
         if (function_name in [
-                "agent.click", "agent.doubleclick", "agent.move", "agent.scroll"
-        ] and len(args) >= 1 and args[0] is not None):
+                "agent.click", "agent.doubleclick", "agent.move", "agent.scroll", "agent.type"
+        ] and len(args) >= 1 and args[0] is not None and str(args[0]).strip() != ""):
             self.coords1 = self.generate_coords(args[0], obs)
         elif function_name == "agent.drag" and len(args) >= 2:
             self.coords1 = self.generate_coords(args[0], obs)
@@ -328,15 +328,29 @@ class Grounding(ACI):
     @agent_action
     def type(
         self,
+        element_description: Optional[str] = None,
         text: str = "",
+        overwrite: bool = False,
+        enter: bool = False,
     ):
-        actionDict = {
+        # 若提供 element_description 并已在 assign_coordinates 中得到 coords1，则下发坐标
+        payload: Dict[str, Any] = {
             "type": "TypeText",
             "text": text,
+            "overwrite": overwrite,
+            "enter": enter,
         }
-        action_details = f"Typed text: {text}"
+        if element_description and self.coords1 is not None:
+            x, y = self.resize_coordinates(self.coords1)  # type: ignore
+            payload.update({
+                "x": x,
+                "y": y,
+                "element_description": element_description,
+            })
+
+        action_details = f"Type text with params: element={element_description}, overwrite={overwrite}, enter={enter}, text={text}"
         self._record_passive_memory("TypeText", action_details)
-        return actionDict
+        return payload
 
     @agent_action
     def hotkey(

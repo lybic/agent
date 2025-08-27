@@ -94,10 +94,13 @@ class Agent:
             holdKey:List[str], list of keys to hold while scrolling.
         '''
         
-    def type(self, text: str = ''):
-    '''Type text
+    def type(self, element_description: str = None, text: str = '', overwrite: bool = False, enter: bool = False):
+    '''Type text into a specific element or current focus
         Args:
+            element_description:str, a detailed description of which element to type into. If not provided, typing will occur at current focus.
             text:str, the text to type.
+            overwrite:bool, set True to select-all and clear existing text before typing.
+            enter:bool, set True to press Enter after typing.
         '''
         
     def set_cell_values(self, cell_values: Dict[str, Any], app_name: str, sheet_name: str):

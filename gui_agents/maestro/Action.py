@@ -185,6 +185,11 @@ class Drag(Action):
 @dataclass(slots=True)
 class TypeText(Action):
     text: str
+    x: int | None = None
+    y: int | None = None
+    element_description: str | None = None
+    overwrite: bool = False
+    enter: bool = False
 
 
 @dataclass(slots=True)

@@ -163,20 +163,36 @@ class PyAutoGUIBackend(Backend):
             self.pag.keyUp(k)
 
     def _type(self, act: TypeText) -> None:
-        # ------- Paste Chinese / any text --------------------------------
+        # 1) Optional focus by clicking target element center
+        if act.x is not None and act.y is not None:
+            self.pag.click(x=act.x, y=act.y)
+            time.sleep(0.05)
+
+        # 2) Optional overwrite: select-all + backspace
+        if act.overwrite:
+            if self.platform.startswith("darwin"):
+                self.pag.hotkey("command", "a", interval=0.2)
+            else:
+                self.pag.hotkey("ctrl", "a", interval=0.2)
+            time.sleep(0.05)
+            self.pag.press("backspace")
+            time.sleep(0.05)
+
+        # 3) Type text (keep clipboard-paste for robust i18n like Chinese)
         pyperclip.copy(act.text)
         time.sleep(0.05)  # let clipboard stabilize
-
         if self.platform.startswith("darwin"):
-            # self.pag.hotkey("commandright", "v", interval=0.05)
-            # # 1. Press Command key
             subprocess.run([
                 "osascript", "-e",
                 'tell application "System Events" to keystroke "v" using command down'
             ])
-
-        else:                               # Windows / Linux
+        else:  # Windows / Linux
             self.pag.hotkey("ctrl", "v", interval=0.05)
+
+        # 4) Optional press enter
+        if act.enter:
+            key = "return" if self.platform.startswith("darwin") else "enter"
+            self.pag.press(key)
 
     def _hotkey(self, act: Hotkey) -> None:
         # self.pag.hotkey(*act.keys, interval=0.1)

@@ -249,6 +249,10 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 4. Consider execution risks and exceptional cases
 5. Every subtask must be justified against the original objective
 
+# No Side Effects (No Extra Artifacts/Files)
+- Do NOT create, save any files, documents, screenshots, notes, or other artifacts unless the objective explicitly requests such outputs.
+- Prefer reusing currently open software and webpages; avoid opening new ones unless necessary for the objective.
+
 # CRITICAL ANALYST ASSIGNMENT RULES
 1. **NEVER assign Analyst as the first subtask** - Analyst cannot start any task
 2. **Analyst MUST be preceded by Operator** - Operator must write information to memory first

@@ -44,7 +44,8 @@ class PlanningHandler:
     """Handles task planning and DAG generation"""
     
     def __init__(self, global_state, planner_agent, dag_translator_agent, 
-                 knowledge_base, search_engine, platform, enable_search, enable_narrative):
+                 knowledge_base, search_engine, platform, enable_search, enable_narrative,
+                 objective_alignment_agent=None):
         self.global_state = global_state
         self.planner_agent = planner_agent
         self.dag_translator_agent = dag_translator_agent
@@ -53,6 +54,7 @@ class PlanningHandler:
         self.platform = platform
         self.enable_search = enable_search
         self.enable_narrative = enable_narrative
+        self.objective_alignment_agent = objective_alignment_agent
         self.planning_history = []
         self.replan_attempts = 0
     
@@ -67,6 +69,76 @@ class PlanningHandler:
             trigger_code
         )
 
+        # Step 0: Align/Rewrite objective using current screenshot if tool is available
+        try:
+            if self.objective_alignment_agent is not None:
+                raw_objective = context.get("task_objective", "")
+                screenshot = context.get("screenshot")
+                if isinstance(raw_objective, str) and raw_objective.strip():
+                    aligned_text, a_tokens, a_cost = self.objective_alignment_agent.execute_tool(
+                        "objective_alignment",
+                        {"str_input": "Original objective: " + raw_objective, "img_input": screenshot}
+                    )
+                    # Update context for downstream prompt generation
+                    if isinstance(aligned_text, str) and aligned_text.strip() and not aligned_text.startswith("Error:"):
+                        context["objective_alignment_raw"] = aligned_text
+                        # Try parse JSON to extract final objective text (robust against ```json ... ``` and extra text)
+                        refined_obj = None
+                        try:
+                            import json as _json
+                            _text = aligned_text.strip()
+                            # Strip markdown fences if present
+                            if _text.startswith("```"):
+                                # Remove opening fence line (e.g., ```json or ```)
+                                nl = _text.find("\n")
+                                if nl != -1:
+                                    _candidate = _text[nl + 1 :]
+                                else:
+                                    _candidate = _text
+                                # Remove closing fence ``` if present
+                                if _candidate.rstrip().endswith("```"):
+                                    _candidate = _candidate.rstrip()[:-3]
+                                _text = _candidate.strip()
+                            # If still fails, extract JSON object substring by braces
+                            _parsed = None
+                            try:
+                                _parsed = _json.loads(_text)
+                            except Exception:
+                                lb = _text.find("{")
+                                rb = _text.rfind("}")
+                                if lb != -1 and rb != -1 and rb > lb:
+                                    _maybe = _text[lb: rb + 1]
+                                    try:
+                                        _parsed = _json.loads(_maybe)
+                                    except Exception:
+                                        _parsed = None
+                            if isinstance(_parsed, dict):
+                                # Prefer the new key; fallback to older keys for compatibility
+                                refined_obj = (
+                                    _parsed.get("rewritten_final_objective_text")
+                                )
+                        except Exception:
+                            refined_obj = None
+                        if isinstance(refined_obj, str) and refined_obj.strip():
+                            context["objective_alignment"] = refined_obj
+                            context["task_objective"] = refined_obj
+                        else:
+                            # Fallback: use full aligned_text as objective
+                            context["objective_alignment"] = aligned_text
+                            context["task_objective"] = aligned_text
+                        # Log the alignment action
+                        self.global_state.log_llm_operation(
+                            "manager", "objective_alignment", {
+                                "tokens": a_tokens,
+                                "cost": a_cost,
+                                "llm_output": aligned_text,
+                            },
+                            str_input=raw_objective
+                        )
+        except Exception as e:
+            logger.warning(f"Objective alignment step failed: {e}")
+
+        
         # Retrieve external knowledge (web + narrative) and optionally fuse
         integrated_knowledge = self._retrieve_and_fuse_knowledge(context)
 

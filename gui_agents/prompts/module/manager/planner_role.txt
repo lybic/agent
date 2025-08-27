@@ -16,6 +16,12 @@ Planning Strategy - Single Path Focus
 - Do NOT create, save any files, documents, screenshots, notes, or other artifacts unless the user objective explicitly requests such outputs.
 - Prefer reusing currently open software and webpages; avoid opening new ones unless necessary for the objective.
 
+# MANDATORY: Screenshot-First Reuse Policy
+- Before proposing any step that opens a new app/page/tab/window, FIRST interpret the current desktop screenshot.
+- Determine whether the visible app/page already supports the required operation for the objective.
+- Only plan to open a new app/page when the current one is clearly unsuitable, broken, or lacks the necessary capability.
+- When the objective mentions search or navigation and a search field is already present on-screen, perform the search within the current page.
+
 # Worker Role Capabilities & Limitations
 
 ## Operator

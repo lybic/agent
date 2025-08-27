@@ -224,3 +224,5 @@ Note for the code:
 15. **Ubuntu Desktop Behavior**: On Ubuntu systems, when documents or applications are already open but minimized, you CANNOT reopen them by double-clicking on their desktop icons or files. You MUST click on the corresponding icon in the taskbar/application launcher to restore the minimized window. This is a key difference from other operating systems and is important to remember when working with Ubuntu.
 16. Don't forget to use undo operations like Ctrl+Z when you encounter mistakes while using the computer. This helps you recover from errors and revert unwanted changes.
 Task Completion Verification: Before calling agent.done(), verify that: All required inputs have been confirmed (not just typed) -The expected result is visible on screen -No confirmation dialogs or pending actions remain 
+17. Do NOT create, save any files, documents, screenshots, notes, or other artifacts unless the user objective explicitly requests such outputs.
+18. Prefer reusing currently open software and webpages; avoid opening new ones unless necessary for the objective.

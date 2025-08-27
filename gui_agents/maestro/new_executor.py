@@ -423,6 +423,8 @@ class NewExecutor:
                         target_command_id, new_screenshot_id) # type: ignore
                     logger.info(f"Updated post_screenshot_id for command {target_command_id}: {new_screenshot_id}")
             
+
+            self.global_state.increment_step_num()
             # Recording and status updates
             execution_time = time.time() - execution_start
             self._record_execution_result(subtask_id, execution_success, error_message, execution_time)

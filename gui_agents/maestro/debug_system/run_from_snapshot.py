@@ -39,6 +39,7 @@ def run_main_controller_from_snapshot(
     runtime_dir: str,
     snapshot_id: Optional[str] = None,
     target_dir: Optional[str] = None,
+    os_word_task_id: Optional[str] = None,
 ):
     """
     Restore a MainController from an existing snapshot and optionally run it.
@@ -56,8 +57,8 @@ def run_main_controller_from_snapshot(
         runtime_dir=runtime_dir,
         snapshot_id=snapshot_id,
         target_dir=target_dir,
+        os_word_task_id=os_word_task_id
     )
-
     if result is None:
         logger.error("Failed to restore MainController from snapshot")
         return None
@@ -116,11 +117,13 @@ if __name__ == "__main__":
     # args = _parse_args()
 
     target_dir=None
-    runtime_dir = "runtime/20250826_140304"
-    snapshot_id = "snapshot_20250826_140830"
+    runtime_dir = "runtime/20250826_202442"
+    snapshot_id = "snapshot_20250826_203316"
+    os_word_task_id = "82e3c869-49f6-4305-a7ce-f3e64a0618e7"
 
     controller = run_main_controller_from_snapshot(
         runtime_dir=runtime_dir,
         snapshot_id=snapshot_id,
         target_dir=target_dir,
-    )
+        os_word_task_id=os_word_task_id
+    ) 

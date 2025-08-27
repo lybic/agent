@@ -208,7 +208,7 @@ class PyAutoGUIVMwareBackend(Backend):
 
     def _type(self, act: TypeText) -> str:
         code_parts = []
-        code_parts.append(f"pyautogui.write('{act.text}')")
+        code_parts.append("pyautogui.write(" + repr(act.text) + ")")
         return "; ".join(code_parts)
 
     def _hotkey(self, act: Hotkey) -> str:
@@ -510,7 +510,7 @@ import time
 
 pyautogui.hotkey('win', 'd', interval=0.1)
 time.sleep(0.5)
-pyautogui.typewrite('{act.app_code}')
+pyautogui.typewrite(""" + repr(act.app_code) + """)
 time.sleep(1.0)
 pyautogui.press('enter')
 time.sleep(1.0)
@@ -530,7 +530,7 @@ import time
 
 pyautogui.press('win')
 time.sleep(0.5)
-pyautogui.write('{act.app_or_filename}')
+pyautogui.write(""" + repr(act.app_or_filename) + """)
 time.sleep(1.0)
 pyautogui.hotkey('enter')
 time.sleep(0.5)
@@ -543,7 +543,7 @@ import time
 
 pyautogui.hotkey('win', 'r', interval=0.1)
 time.sleep(0.5)
-pyautogui.typewrite('{act.app_or_filename}')
+pyautogui.typewrite(""" + repr(act.app_or_filename) + """)
 time.sleep(1.0)
 pyautogui.press('enter')
 time.sleep(1.0)

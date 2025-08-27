@@ -162,15 +162,12 @@ class RuleEngine:
             # current_step greater than max_steps - rejected/fulfilled
             if task.step_num >= self.max_steps:
                 # Check if all subtasks are completed
-                if not task.pending_subtask_ids or len(task.pending_subtask_ids) == 0:
-                    logger.info(f"State switch count > {self.max_steps} and all subtasks completed, entering final check")
-                    return (ControllerState.FINAL_CHECK, TriggerCode.RULE_STATE_SWITCH_COUNT_EXCEEDED)
-                else:
-                    logger.warning(
-                        f"Step number ({task.step_num}) >= max_steps ({self.max_steps}) but subtasks not completed, marking task as REJECTED"
-                    )
-                    self.global_state.update_task_status(TaskStatus.REJECTED)
-                    return (ControllerState.DONE, TriggerCode.RULE_STATE_SWITCH_COUNT_EXCEEDED)
+                logger.warning(
+                    f"Step number ({task.step_num}) >= max_steps ({self.max_steps}) but subtasks not completed, marking task as REJECTED"
+                )
+                self.global_state.update_task_status(TaskStatus.REJECTED)
+                return (ControllerState.DONE, TriggerCode.RULE_STATE_SWITCH_COUNT_EXCEEDED)
+                    
 
             return None
 

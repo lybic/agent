@@ -226,7 +226,7 @@ class PyAutoGUIVMwareBackend(Backend):
 
     def _type(self, act: TypeText) -> str:
         code_parts = []
-        code_parts.append(f"pyautogui.write('{act.text}')")
+        code_parts.append("pyautogui.write(" + repr(act.text) + ")")
         return "; ".join(code_parts)
 
     def _hotkey(self, act: Hotkey) -> str:

@@ -10,11 +10,11 @@ def get_replay(env, trajectory: List[Dict[str, Any]]) -> None:
 
         if action["type"] == "typewrite":
             text = action["param"]
-            return f"pyautogui.typewrite('{text}')"
+            return "pyautogui.typewrite(" + repr(text) + ")"
 
         if action["type"] == "press":
             key = action["param"]
-            return f"pyautogui.press('{key}')"
+            return "pyautogui.press(" + repr(key) + ")"
 
     for action in trajectory:
         env.controller.execute_python_command(parse(action))

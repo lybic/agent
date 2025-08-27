@@ -208,7 +208,21 @@ class PyAutoGUIVMwareBackend(Backend):
 
     def _type(self, act: TypeText) -> str:
         code_parts = []
+        # 1) Optional focus
+        if act.x is not None and act.y is not None:
+            code_parts.append(f"pyautogui.click({act.x}, {act.y})")
+            code_parts.append("time.sleep(0.05)")
+        # 2) Optional overwrite
+        if act.overwrite:
+            code_parts.append("pyautogui.hotkey('ctrl', 'a', interval=0.2)")
+            code_parts.append("time.sleep(0.05)")
+            code_parts.append("pyautogui.press('backspace')")
+            code_parts.append("time.sleep(0.05)")
+        # 3) Type text by write in VMware codegen path
         code_parts.append("pyautogui.write(" + repr(act.text) + ")")
+        # 4) Optional enter
+        if act.enter:
+            code_parts.append("pyautogui.press('enter')")
         return "; ".join(code_parts)
 
     def _hotkey(self, act: Hotkey) -> str:

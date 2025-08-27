@@ -168,10 +168,35 @@ class LybicBackend(Backend):
         })
 
     def _type(self, act: TypeText) -> None:
-        # Input text content
-        self._do(
-            {"type": "keyboard:type", "content": act.text}
-        )
+        # 1) Optional focus
+        if act.x is not None and act.y is not None:
+            self._do({
+                "type": "mouse:click",
+                "x": _px(act.x),
+                "y": _px(act.y),
+                "button": 1,
+                "holdKey": ""
+            })
+        # 2) Optional overwrite
+        if act.overwrite:
+            # select all + backspace via hotkeys
+            self._do({
+                "type": "keyboard:hotkey",
+                "keys": "+".join(["ctrl", "a"]),
+                "duration": 80
+            })
+            self._do({
+                "type": "keyboard:press",
+                "key": "backspace"
+            })
+        # 3) Type content
+        self._do({"type": "keyboard:type", "content": act.text})
+        # 4) Optional enter
+        if act.enter:
+            self._do({
+                "type": "keyboard:press",
+                "key": "enter"
+            })
 
     def _scroll(self, act: Scroll) -> None:
         if act.stepVertical is None:

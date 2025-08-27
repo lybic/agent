@@ -201,6 +201,7 @@ You need to RE-PLAN the task based on prior attempts and failures.
 - Adjust ordering, refine steps, or replace failing subtasks
 - Ensure dependencies remain valid and achievable
 - **CRITICAL**: Verify each new subtask is necessary and sufficient for the original objective
+- **ALLOWED**: Consider alternative approaches only when previous methods have failed
 
 {trigger_specific_guidance}
 """
@@ -210,6 +211,8 @@ You need to RE-PLAN the task based on prior attempts and failures.
 - Introduce new/modified subtasks only where necessary for the ORIGINAL objective
 - Keep completed subtasks out of the list; reference them only in dependencies
 - **MANDATORY**: Before finalizing, review the entire plan to ensure it directly serves the original task objective
+- **ALLOWED**: Use alternative approaches when previous methods have proven ineffective
+- **FORBIDDEN**: Add verification/validation-only subtasks (Verify/Review/Confirm/Test/Check/QA). Evaluator performs quality checks and the system will re-plan on failures.
 """
     else:
         planning_task = f"""
@@ -220,6 +223,9 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 - Cover the full path from start to completion
 - Define clear, verifiable completion criteria for each subtask
 - Keep reasonable granularity; avoid overly fine steps unless needed for reliability
+- **CRITICAL**: Generate only ONE optimal execution path for each subtask
+- **FORBIDDEN**: Do NOT create alternative approaches, backup plans, or fallback strategies
+- **FORBIDDEN**: Do NOT create standalone verification/validation-only subtasks (e.g., "Verify", "Validation", "Review", "Confirm", "Test", "Check", "QA"). Quality checks are handled automatically by the Evaluator.
 
 {trigger_specific_guidance}
 """
@@ -230,6 +236,8 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 - Assign appropriate worker roles to each subtask
 - **MANDATORY**: Ensure every subtask passes the rationality self-check
 - **MANDATORY**: Verify the complete plan directly achieves the stated objective
+- **FORBIDDEN**: Do NOT include alternative approaches or backup strategies
+- **SINGLE PATH**: Focus on the most likely successful approach for each subtask
 """
 
     # Common guidance and output schema
@@ -241,6 +249,17 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 4. Consider execution risks and exceptional cases
 5. Every subtask must be justified against the original objective
 
+# No Side Effects (No Extra Artifacts/Files)
+- Do NOT create, save any files, documents, screenshots, notes, or other artifacts unless the objective explicitly requests such outputs.
+- Prefer reusing currently open software and webpages; avoid opening new ones unless necessary for the objective.
+
+# CRITICAL ANALYST ASSIGNMENT RULES
+1. **NEVER assign Analyst as the first subtask** - Analyst cannot start any task
+2. **Analyst MUST be preceded by Operator** - Operator must write information to memory first
+3. **Analyst can only work with memory** - cannot access desktop or perform GUI operations
+4. **Verify memory availability** - ensure all required data is in memory before assigning Analyst
+5. **Analyst dependency chain**: Operator (gather) → Analyst (analyze) → Operator (apply)
+
 # Mandatory Cross-Role Split for GUI-derived Q&A/Analysis
 - If the objective requires reading content from GUI and then answering questions/doing analysis:
   1) Operator must gather the content via GUI and store it with memorize using QUESTION / DATA / GUIDANCE fields.
@@ -248,6 +267,7 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
   3) Operator must write/apply the answers back into GUI and save/confirm.
 - Do not merge these roles in one subtask. Keep one clear role per subtask.
 - Prefer batching: gather all items first, then answer once, then write once.
+- Note: Do NOT include verification/validation-only subtasks; Evaluator will handle quality checks automatically.
 
 # Task Information
 Objective: {context.get('task_objective', '')}
@@ -293,6 +313,10 @@ You may refer to some retrieved knowledge if you think they are useful.{integrat
 2. Is the sequence logical and efficient?
 3. Are there any unnecessary or redundant steps?
 4. Will completing all subtasks actually achieve the stated goal?
+5. **CRITICAL ANALYST CHECK**: 
+   - Is the first subtask assigned to Analyst? (FORBIDDEN - Analyst cannot be first)
+   - For any Analyst subtask, has Operator written required information to memory first?
+   - Can Analyst work with only memory data (no desktop access needed)?
 
 Please output the planning solution based on the above information:
 """

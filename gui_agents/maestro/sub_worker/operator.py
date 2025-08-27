@@ -135,6 +135,82 @@ class Operator:
             logger.warning(f"Failed to get command history: {e}")
             return "Failed to get historical records"
 
+    def _get_previous_subtasks_command_history(self, current_subtask_id: str, limit: Optional[int] = None) -> str:
+        """Aggregate command histories of all previous subtasks (excluding current).
+
+        Args:
+            current_subtask_id: ID of the current subtask to exclude
+            limit: Optional maximum number of previous subtasks to include (most recent first)
+        """
+        try:
+            task = self.global_state.get_task()
+            all_subtasks = {s.subtask_id: s for s in self.global_state.get_subtasks()}
+            history_ids = list(getattr(task, 'history_subtask_ids', []) or [])
+            # Keep order from oldest to newest, then exclude current and optionally limit from the end (most recent)
+            previous_ids = [sid for sid in history_ids if sid != current_subtask_id and sid in all_subtasks]
+            if limit is not None and limit > 0:
+                previous_ids = previous_ids[-limit:]
+            if not previous_ids:
+                # Fallback: include any other subtasks except current, ordered by updated_at if available
+                others = [s for sid, s in all_subtasks.items() if sid != current_subtask_id]
+                if not others:
+                    return ""
+                try:
+                    others.sort(key=lambda x: getattr(x, 'updated_at', ''), reverse=True)
+                except Exception:
+                    pass
+                previous_ids = [s.subtask_id for s in others]
+                if limit is not None and limit > 0:
+                    previous_ids = previous_ids[:limit]
+
+            lines: List[str] = []
+            if not previous_ids:
+                return ""
+            
+            for idx, sid in enumerate(previous_ids, 1):
+                subtask = all_subtasks.get(sid)
+                title = getattr(subtask, 'title', '') if subtask else ''
+                lines.append(f"--- Subtask {idx} ---")
+                if title:
+                    lines.append(f"Title: {title}")
+                commands = list(reversed(self.global_state.get_commands_for_subtask(sid)))
+                if not commands:
+                    lines.append("No operation command records")
+                    lines.append("")
+                    continue
+                for i, cmd in enumerate(commands, 1):
+                    action_type = "Unknown operation"
+                    action_desc = ""
+                    if isinstance(cmd.action, dict):
+                        if "type" in cmd.action:
+                            action_type = cmd.action["type"]
+                        if "message" in cmd.action:
+                            action_desc = cmd.action["message"]
+                        elif "element_description" in cmd.action:
+                            action_desc = f"Operate element: {cmd.action['element_description']}"
+                        elif "text" in cmd.action:
+                            action_desc = f"Input text: {cmd.action['text']}"
+                        elif "keys" in cmd.action:
+                            action_desc = f"Keys: {cmd.action['keys']}"
+                    status = getattr(cmd, 'worker_decision', '')
+                    message = getattr(cmd, 'message', '') or ''
+                    exec_status = getattr(cmd, 'exec_status', '')
+                    exec_message = getattr(cmd, 'exec_message', '')
+                    lines.append(f"{i}. [{action_type}] - Status: {status}")
+                    if action_desc:
+                        lines.append(f"   Description: {action_desc}")
+                    if message:
+                        lines.append(f"   Message: {message}")
+                    if exec_status:
+                        lines.append(f"   Execution status: {exec_status}")
+                    if exec_message:
+                        lines.append(f"   Execution message: {exec_message}")
+                lines.append("")
+            return "\n".join(lines)
+        except Exception as e:
+            logger.warning(f"Failed to get previous subtasks history: {e}")
+            return ""
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -181,6 +257,7 @@ class Operator:
         # Get command history
         subtask_id = subtask.get("subtask_id", "")
         command_history = self._get_command_history_for_subtask(subtask_id)
+        previous_history = self._get_previous_subtasks_command_history(subtask_id)
 
         # Read artifacts and supplement as context
         artifacts_content = ""
@@ -200,6 +277,7 @@ class Operator:
             task,
             guidance,
             command_history,
+            previous_history,
             trigger_code,
             artifacts_content,
             supplement_content,
@@ -326,6 +404,7 @@ class Operator:
         task: Any,
         guidance: Optional[str], 
         command_history: str,
+        previous_subtasks_history: str,
         trigger_code: str,
         artifacts_content: str,
         supplement_content: str
@@ -359,7 +438,7 @@ class Operator:
         message.append("- Adapt your approach to align with the Task Objective")
         message.append("")
         
-        message.append(f"Remember only complete the subtask: {subtask_title}")
+        message.append(f"The current subtask is: {subtask_title}")
         message.append(f"You can use this extra information for completing the current subtask: {subtask_desc}")
         if guidance:
             message.append(f"GUIDANCE: {guidance}")
@@ -388,11 +467,18 @@ class Operator:
             message.append(supplement_content) # No truncation for now, memory optimization can be added here later
         else:
             message.append("No supplement materials")
+
+        # Add previous subtasks operation records
+        if previous_subtasks_history and previous_subtasks_history.strip():
+            message.append("")
+            message.append("=== Previous Subtasks Operation Records ===")
+            message.append(previous_subtasks_history)
         
         # Add historical operation records to prompt - this is very important context information
         message.append("")
-        message.append("=== Historical Operation Records ===")
+        message.append("=== Historical Operation Records (from current subtask) ===")
         message.append(command_history)
+        
         message.append("")
         message.append("Based on the above history, current screenshot, artifacts and supplement, decide on the next action.")
         message.append("Return exactly one action as an agent.* function in Python fenced code under (Grounded Action).")

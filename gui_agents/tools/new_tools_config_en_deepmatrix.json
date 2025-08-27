@@ -99,6 +99,11 @@
       "tool_name": "final_check_role",
       "provider": "openrouter",
       "model_name": "openai/gpt-5"
+    },
+    {
+      "tool_name": "objective_alignment",
+      "provider": "openrouter",
+      "model_name": "openai/gpt-5"
     }
   ]
 } 

@@ -99,6 +99,11 @@
       "tool_name": "final_check_role",
       "provider": "doubao",
       "model_name": "doubao-seed-1-6-250615"
+    },
+    {
+      "tool_name": "objective_alignment",
+      "provider": "doubao",
+      "model_name": "doubao-seed-1-6-250615"
     }
   ]
 } 

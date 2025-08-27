@@ -99,6 +99,11 @@
       "tool_name": "final_check_role",
       "provider": "lybic",
       "model_name": "gpt-5"
+    },
+    {
+      "tool_name": "objective_alignment",
+      "provider": "lybic",
+      "model_name": "gpt-5"
     }
   ]
 } 

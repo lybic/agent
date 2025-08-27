@@ -99,6 +99,11 @@
       "tool_name": "final_check_role",
       "provider": "gemini",
       "model_name": "gemini-2.5-pro"
+    },
+    {
+      "tool_name": "objective_alignment",
+      "provider": "gemini",
+      "model_name": "gemini-2.5-pro"
     }
   ]
 } 

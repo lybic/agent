@@ -99,6 +99,19 @@ class NewManager:
             self.tools_dict[self.supplement_agent_name]["model"]
         )
 
+        # objective_alignment agent
+        self.objective_alignment_agent = None
+        if self.tools_dict.get("objective_alignment"):
+            try:
+                self.objective_alignment_agent = NewTools()
+                self.objective_alignment_agent.register_tool(
+                    "objective_alignment",
+                    self.tools_dict["objective_alignment"]["provider"],
+                    self.tools_dict["objective_alignment"]["model"],
+                )
+            except Exception:
+                self.objective_alignment_agent = None
+
         # Embedding engine for Memory
         self.embedding_engine = NewTools()
         self.embedding_engine.register_tool(
@@ -144,7 +157,8 @@ class NewManager:
             search_engine=self.search_engine,
             platform=self.platform,
             enable_search=self.enable_search,
-            enable_narrative=self.enable_narrative
+            enable_narrative=self.enable_narrative,
+            objective_alignment_agent=self.objective_alignment_agent,
         )
         
         self.supplement_handler = SupplementHandler(

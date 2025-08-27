@@ -69,6 +69,7 @@ class BaseTool(ABC):
                 "planner_role": ("manager", "planner_role"),
                 "supplement_role": ("manager", "supplement_role"),
                 "dag_translator": ("manager", "dag_translator"),
+                "objective_alignment": ("manager", "objective_alignment"),
                 # worker prompts
                 "operator_role": ("worker", "operator_role"),
                 "technician_role": ("worker", "technician_role"),
@@ -95,6 +96,7 @@ class BaseTool(ABC):
                 "worker_stale_role",
                 "periodic_role",
                 "final_check_role",
+                "objective_alignment",
             }
 
             category_tuple = prompt_category_map.get(self.tool_name)
@@ -216,6 +218,7 @@ class ToolFactory:
             "planner_role": (SubtaskPlannerTool, "planner_role"), # manager
             "supplement_role": (SubtaskPlannerTool, "supplement_role"), # manager
             "dag_translator": (DAGTranslatorTool, "dag_translator"), # manager
+            "objective_alignment": (ObjectiveAlignmentTool, "objective_alignment"), # manager
             
             "operator_role": (ActionGeneratorTool, "operator_role"), # worker
             "technician_role": (ActionGeneratorTool, "technician_role"), # worker
@@ -428,6 +431,29 @@ class DAGTranslatorTool(BaseTool):
             return "Error: No task description provided"
         
         # Use the prompt template and LMM for DAG translation
+        return self._call_lmm(tool_input)
+
+
+class ObjectiveAlignmentTool(BaseTool):
+    """Tool for aligning and rewriting user objective with current screen context."""
+    
+    def execute(self, tool_input: Dict[str, Any]):
+        """
+        Align ambiguous or high-level user objective with the current desktop screenshot context
+        and output a refined objective and assumptions.
+        
+        Args:
+            tool_input: Dict with keys:
+                - 'str_input': the raw user objective or context text
+                - 'img_input': optional screenshot image content
+        
+        Returns:
+            Refined objective as text (ideally JSON-structured), token count, and cost string
+        """
+        text = tool_input.get('str_input', '')
+        if not text:
+            return "Error: No objective text provided", [0, 0, 0], ""
+        # Forward to LMM with the prompt template
         return self._call_lmm(tool_input)
 
 

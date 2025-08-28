@@ -265,7 +265,10 @@ class StateHandlers:
                     # Check if task is completed
                     task = self.global_state.get_task()
                     if not task.pending_subtask_ids:
-                        # All subtasks completed, enter final check phase
+                        # All subtasks completed
+                        if not getattr(task, 'managerComplete', False):
+                            logger.info("All subtasks completed, but manager incomplete, entering plan")
+                            return (ControllerState.PLAN, TriggerRole.EVALUATOR_QUALITY_CHECK, "All subtasks completed, manager incomplete; entering plan", TriggerCode.FINAL_CHECK_FAILED)
                         logger.info("All subtasks completed, entering final check")
                         return (ControllerState.FINAL_CHECK, TriggerRole.EVALUATOR_QUALITY_CHECK, "All subtasks completed, entering final check", TriggerCode.ALL_SUBTASKS_COMPLETED)
 

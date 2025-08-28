@@ -310,6 +310,53 @@ class Evaluator:
         except Exception as e:
             return f"(last operation unavailable: {e})"
 
+    def _get_command_history_for_entire_task(self) -> str:
+        """Aggregate operation histories for all subtasks in the task.
+
+        Order of aggregation:
+        1) Completed/history subtasks (in recorded order)
+        2) Current subtask (if any)
+        3) Pending subtasks (in recorded order)
+        """
+        try:
+            task = self.global_state.get_task()
+            completed_ids = list(task.history_subtask_ids or [])
+            current_id = task.current_subtask_id
+            pending_ids = list(task.pending_subtask_ids or [])
+
+            ordered_ids: List[str] = []
+            ordered_ids.extend(completed_ids)
+            if current_id:
+                ordered_ids.append(current_id)
+            ordered_ids.extend(pending_ids)
+
+            if not ordered_ids:
+                return "No historical operation records"
+
+            sections: List[str] = ["=== All Subtasks Operation Records ==="]
+            for idx, sid in enumerate(ordered_ids, 1):
+                subtask = self.global_state.get_subtask(sid)
+                # Get a readable brief for the subtask
+                if isinstance(subtask, dict):
+                    title = subtask.get("title", "")
+                    status = subtask.get("status", "")
+                else:
+                    title = getattr(subtask, "title", "")
+                    status = getattr(subtask, "status", "")
+
+                sections.append(f"\n--- Subtask {idx} [{sid}] ---")
+                if title:
+                    sections.append(f"Title: {title}")
+                if status:
+                    sections.append(f"Status: {status}")
+                # Reuse per-subtask history formatter
+                history_text = self._get_command_history_for_subtask(sid)
+                sections.append(history_text)
+
+            return "\n".join(sections)
+        except Exception as e:
+            return f"Failed to aggregate operation records: {e}"
+
     def _collect_scene_inputs(self, scene: str) -> dict:
         """Collect and slice inputs for a specific scene.
     
@@ -324,7 +371,11 @@ class Evaluator:
         subtask = self.global_state.get_subtask(
             subtask_id) if subtask_id else None
     
-        history_text = self._get_command_history_for_subtask(subtask_id)
+        history_text = (
+            self._get_command_history_for_entire_task()
+            if scene == "FINAL_CHECK"
+            else self._get_command_history_for_subtask(subtask_id)
+        )
         last_operation_text = self._get_last_operation_brief(subtask_id)
         
         global_task_status = self._get_global_task_status()

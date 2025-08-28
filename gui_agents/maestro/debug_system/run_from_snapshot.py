@@ -71,24 +71,24 @@ def run_main_controller_from_snapshot(
     logger.info(f"MainController restored from snapshot successfully. Logs at: {target_path}")
 
     # Execute commands in chronological order before running the main loop, with 5-second intervals
-    try:
-        commands = _extract_commands_sorted(controller)
-        if commands:
-            logger.info(f"Pre-executing {len(commands)} commands before main loop...")
-        for idx, cmd in enumerate(commands, 1):
-            try:
-                logger.info(f"[PreExec {idx}/{len(commands)}] Executing command_id={getattr(cmd, 'command_id', 'N/A')}")
-                executor = getattr(controller, "executor", None)
-                if executor is not None and hasattr(executor, "execute_command"):
-                    executor.execute_command(cmd)  # Execute only, do not touch global_state
-                else:
-                    logger.warning("Controller has no executor.execute_command; skipping pre-exec")
-                    break
-            except Exception as e:
-                logger.warning(f"Pre-exec command failed: {e}")
-            time.sleep(5)
-    except Exception as e:
-        logger.warning(f"Failed to pre-execute commands: {e}")
+    # try:
+    #     commands = _extract_commands_sorted(controller)
+    #     if commands:
+    #         logger.info(f"Pre-executing {len(commands)} commands before main loop...")
+    #     for idx, cmd in enumerate(commands, 1):
+    #         try:
+    #             logger.info(f"[PreExec {idx}/{len(commands)}] Executing command_id={getattr(cmd, 'command_id', 'N/A')}")
+    #             executor = getattr(controller, "executor", None)
+    #             if executor is not None and hasattr(executor, "execute_command"):
+    #                 executor.execute_command(cmd)  # Execute only, do not touch global_state
+    #             else:
+    #                 logger.warning("Controller has no executor.execute_command; skipping pre-exec")
+    #                 break
+    #         except Exception as e:
+    #             logger.warning(f"Pre-exec command failed: {e}")
+    #         time.sleep(5)
+    # except Exception as e:
+    #     logger.warning(f"Failed to pre-execute commands: {e}")
 
     controller.execute_main_loop()
 
@@ -117,8 +117,8 @@ if __name__ == "__main__":
     # args = _parse_args()
 
     target_dir=None
-    runtime_dir = "runtime/20250827_172125"
-    snapshot_id = "snapshot_20250827_172911"
+    runtime_dir = "runtime/20250826_223403"
+    snapshot_id = "snapshot_20250826_224938"
     # runtime_dir = "runtime/20250828_141244"
     # snapshot_id = "snapshot_20250828_141320"
     os_word_task_id = "82e3c869-49f6-4305-a7ce-f3e64a0618e7"

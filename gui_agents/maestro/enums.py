@@ -31,6 +31,7 @@ class ExecStatus(str, Enum):
     TIMEOUT = "timeout"      # Timeout
     BLOCKED = "blocked"      # Blocked
     ERROR = "error"          # Error
+    SKIPPED = "skipped"      # Skipped (no hardware/code execution)
 
 
 class GateDecision(str, Enum):
@@ -162,11 +163,11 @@ class TriggerCode(str, Enum):
     QUALITY_CHECK_SUPPLEMENT = "quality_check_supplement" # evaluator: quality_check -> manager: supplement
     QUALITY_CHECK_EXECUTE_ACTION = "quality_check_execute_action" # evaluator: quality_check -> executor: execute_action
     QUALITY_CHECK_ERROR = "quality_check_error" # evaluator: quality_check -> manager: replan
-
+    
     # State handling related - PLAN state
     SUBTASK_READY_AFTER_PLAN = "subtask_ready_after_plan" # manager: replan -> worker: get_action
     PLAN_ERROR = "plan_error" # manager: replan -> INIT
-
+    
     # State handling related - SUPPLEMENT state
     SUPPLEMENT_COMPLETED = "supplement_completed" # manager: supplement -> manager: replan
     SUPPLEMENT_ERROR = "supplement_error" # manager: supplement -> manager: replan

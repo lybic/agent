@@ -247,6 +247,7 @@ class Evaluator:
                         action_desc = f"[1] Language: {first_lang}, Code length: {len(str(first_code))}"
                 status = getattr(cmd, "worker_decision", "")
                 message = getattr(cmd, "message", "") or ""
+                reason_text = getattr(cmd, "reason_text", "") or ""
                 exec_status = getattr(cmd, "exec_status", "")
                 exec_message = getattr(cmd, "exec_message", "")
                 history_lines.append(f"{i}. [{action_type}] - Status: {status}")
@@ -254,6 +255,8 @@ class Evaluator:
                     history_lines.append(f"   Description: {action_desc}")
                 if message:
                     history_lines.append(f"   Message: {message}")
+                if reason_text:
+                    history_lines.append(f"   Reason: {reason_text}")
                 if exec_status:
                     history_lines.append(f"   Execution Status: {exec_status}")
                 if exec_message:
@@ -277,7 +280,12 @@ class Evaluator:
             if isinstance(action, dict):
                 if "type" in action:
                     action_type = str(action.get("type", ""))
-                if "message" in action:
+                if "analysis" in action:
+                    analysis_text = str(action.get("analysis", ""))
+                    recs = action.get("recommendations", [])
+                    recs_len = len(recs) if isinstance(recs, list) else 0
+                    action_desc = f"Analysis: {len(analysis_text)} chars; Recommendations: {recs_len} items"
+                elif "message" in action:
                     action_desc = str(action.get("message", ""))
                 elif "element_description" in action:
                     action_desc = f"Operate element: {action['element_description']}"
@@ -292,6 +300,7 @@ class Evaluator:
                     action_desc = f"[1] Language: {first_lang}, Code length: {len(str(first_code))}"
             status = getattr(cmd, "worker_decision", "")
             message = getattr(cmd, "message", "") or ""
+            reason_text = getattr(cmd, "reason_text", "") or ""
             exec_status = getattr(cmd, "exec_status", "")
             exec_message = getattr(cmd, "exec_message", "")
             lines = [
@@ -302,6 +311,8 @@ class Evaluator:
                 lines.append(f"Description: {action_desc}")
             if message:
                 lines.append(f"Message: {message}")
+            if reason_text:
+                lines.append(f"Reason: {reason_text}")
             if exec_status:
                 lines.append(f"Execution Status: {exec_status}")
             if exec_message:

@@ -180,6 +180,30 @@ class Analyst:
 
         # Parse analysis result
         try:
+            # Try to extract CandidateAction first
+            candidate_action = self._extract_candidate_action(analysis_result)
+            if isinstance(candidate_action, dict) and candidate_action:
+                # Provide candidate action for continuation via STALE
+                ok = True
+                outcome = "STALE_PROGRESS"
+                err = None
+                result = StepResult(
+                    step_id=f"{subtask.get('subtask_id','unknown')}.analyst-1",
+                    ok=ok,
+                    error=err,
+                    latency_ms=latency_ms,
+                    outcome=outcome,
+                    action=candidate_action,  # type: ignore
+                )
+                self.global_state.add_event("analyst", "candidate_action_detected", "CandidateAction suggested in analysis")
+                return {
+                    "analysis": "",
+                    "recommendations": [],
+                    "candidate_action": candidate_action,
+                    "step_result": result.__dict__,
+                    "outcome": outcome,
+                }
+
             parsed_result = self._parse_analysis_result(analysis_result)
             ok = True
             outcome = "analysis_complete"
@@ -388,7 +412,9 @@ class Analyst:
             "- **analysis**: Comprehensive explanation of findings (required)",
             "- **recommendations**: List of specific, actionable suggestions (required, can be empty list)",
             "- **summary**: Concise overview of key points (required)",
-            ""
+            "",
+            "If you believe GUI action is needed to proceed but you cannot ensure correctness (stale), also include a CandidateAction JSON block after the main JSON, for example:",
+            'CandidateAction: {"type": "click", "selector": {"by": "text", "value": "Next"}}',
         ]
         
         # Combine all sections
@@ -468,3 +494,21 @@ class Analyst:
             "recommendations": list(parsed.get("recommendations", [])),
             "summary": str(parsed.get("summary", "")).strip() or "Analysis completed"
         }
+
+    def _extract_candidate_action(self, text: str) -> Optional[Dict[str, Any]]:
+        """Try to extract a CandidateAction JSON block from the LLM output."""
+        try:
+            # Pattern 1: explicit CandidateAction: { ... }
+            m = re.search(r"CandidateAction\s*:\s*(\{.*?\})", text, re.DOTALL)
+            if m:
+                return json.loads(m.group(1))
+
+            # Pattern 2: fenced json with a top-level object having type/selector
+            m2 = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
+            if m2:
+                candidate = json.loads(m2.group(1))
+                if isinstance(candidate, dict):
+                    return candidate
+        except Exception as e:
+            logger.debug(f"No CandidateAction found: {e}")
+        return None

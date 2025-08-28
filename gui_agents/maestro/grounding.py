@@ -295,10 +295,10 @@ class Grounding(ACI):
                 "x": x,
                 "y": y,
                 "element_description": element_description,
-                "stepHorizontal": clicks,
+                "stepHorizontal": -clicks,
                 "holdKey": holdKey
             }
-            action_details = f"Scrolled horizontally at coordinates ({x}, {y}) with {clicks} clicks, element: {element_description}"
+            action_details = f"Scrolled horizontally at coordinates ({x}, {y}) with {clicks} clicks (mapped to {-clicks}), element: {element_description}"
         self._record_passive_memory("Scroll", action_details)
         return actionDict
 

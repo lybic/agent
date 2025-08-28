@@ -65,6 +65,7 @@ class TaskData:
     plan_num: int = 0  # Record the number of planning attempts
     history_subtask_ids: List[str] = field(default_factory=list)
     pending_subtask_ids: List[str] = field(default_factory=list)
+    managerComplete: bool = False
     qa_policy: Dict[str, Any] = field(default_factory=lambda: {
         "per_subtask": True,
         "final_gate": True,
@@ -83,6 +84,7 @@ class TaskData:
             "plan_num": self.plan_num,
             "history_subtask_ids": self.history_subtask_ids,
             "pending_subtask_ids": self.pending_subtask_ids,
+            "managerComplete": self.managerComplete,
             "qa_policy": self.qa_policy
         }
 
@@ -99,6 +101,7 @@ class TaskData:
             plan_num=data.get("plan_num", 0),
             history_subtask_ids=data.get("history_subtask_ids", []),
             pending_subtask_ids=data.get("pending_subtask_ids", []),
+            managerComplete=data.get("managerComplete", False),
             qa_policy=data.get("qa_policy", {
                 "per_subtask": True,
                 "final_gate": True,

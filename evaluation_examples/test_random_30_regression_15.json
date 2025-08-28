@@ -1,0 +1,25 @@
+{
+  "libreoffice_calc": [
+    "d681960f-7bc3-4286-9913-a8812ba3261a"
+  ],
+  "libreoffice_impress": [
+    "08aced46-45a2-48d7-993b-ed3fb5b32302",
+    "04578141-1d42-4146-b9cf-6fab4ce5fd74"
+  ],
+  "multi_apps": [
+    "9219480b-3aed-47fc-8bac-d2cffc5849f7",
+    "acb0f96b-e27c-44d8-b55f-7cb76609dfcd",
+    "82e3c869-49f6-4305-a7ce-f3e64a0618e7",
+    "7e287123-70ca-47b9-8521-47db09b69b14",
+    "9f3bb592-209d-43bc-bb47-d77d9df56504",
+    "36037439-2044-4b50-b9d1-875b5a332143",
+    "26660ad1-6ebb-4f59-8cba-a8432dfe8d38",
+    "bb83cab4-e5c7-42c7-a67b-e46068032b86",
+    "3f05f3b9-29ba-4b6b-95aa-2204697ffc06",
+    "5990457f-2adb-467b-a4af-5c857c92d762",
+    "2fe4b718-3bd7-46ec-bdce-b184f5653624"
+  ],
+  "vlc": [
+    "8d9fd4e2-6fdb-46b0-b9b9-02f06495c62f"
+  ]
+}

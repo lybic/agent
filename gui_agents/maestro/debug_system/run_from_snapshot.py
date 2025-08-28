@@ -117,8 +117,10 @@ if __name__ == "__main__":
     # args = _parse_args()
 
     target_dir=None
-    runtime_dir = "runtime/20250826_202442"
-    snapshot_id = "snapshot_20250826_203316"
+    runtime_dir = "runtime/20250827_172125"
+    snapshot_id = "snapshot_20250827_172911"
+    # runtime_dir = "runtime/20250828_141244"
+    # snapshot_id = "snapshot_20250828_141320"
     os_word_task_id = "82e3c869-49f6-4305-a7ce-f3e64a0618e7"
 
     controller = run_main_controller_from_snapshot(

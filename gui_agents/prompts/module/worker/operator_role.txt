@@ -227,7 +227,7 @@ Before generating any action, carefully analyze the current state and consider: 
     - If previous direction actions didn't work, try the alternative format
     - Pay attention to the application's response to determine which format works
     - For games, start with Arrow keys, then try simple keys if needed
-15. **LibreOffice Calc on Ubuntu**: When operating LibreOffice Calc on Ubuntu, consider to use `set_cell_values` method for cell input operations firstly. Consider to use GUI operations like clicking and typing to fill cells secondary. Here are some useful excel functions:
+15. **LibreOffice Calc on Ubuntu**: When operating LibreOffice Calc on Ubuntu, consider to use agent.set_cell_values(self, cell_values: Dict[str, Any], app_name: str, sheet_name: str) for cell input operations firstly. Consider to use GUI operations like clicking and typing to fill cells secondary. Here are some useful excel functions:
         - VLOOKUP
         There are four pieces of information that you will need in order to build the VLOOKUP syntax:
         The value you want to look up, also called the lookup value.
@@ -244,3 +244,12 @@ Before generating any action, carefully analyze the current state and consider: 
     - Do not perform extra clicks/typing during this waiting period.
     - If the remaining time updates to a longer duration, extend the next `agent.wait` accordingly (still respecting the ≥10000 ms minimum).
     - When completion indicators appear (e.g., status changes to "Completed/Installed" or a "Finish/Close" button becomes enabled), proceed to the next action.
+21. CONTEXT MENUS (Right-Click) STRATEGY: When an action is not visibly available (e.g., adding/mapping fields, tags, properties, columns, or inserting new items), try opening the context menu with a right-click on the most relevant area first.
+    - Typical targets: the blank area of a list/table/panel, the header or body of a properties/tags section, an item row, a sidebar entry, or an editor canvas.
+    - Look for options like "Add", "Insert", "New", "Properties", "Edit", "Customize columns/fields", or similar.
+    - If the panel appears empty, right-clicking on the empty space often reveals creation or add-item options.
+    - Use a single right-click (button=2). Example grounded action:
+      ```python
+      agent.click("The blank area of the list/panel where context options should appear", 2)
+      ```
+    - If nothing appears, try right-clicking on nearby elements (e.g., headers, items) before switching to menus/toolbars.

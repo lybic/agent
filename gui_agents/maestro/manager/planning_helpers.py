@@ -202,6 +202,9 @@ You need to RE-PLAN the task based on prior attempts and failures.
 - Ensure dependencies remain valid and achievable
 - **CRITICAL**: Verify each new subtask is necessary and sufficient for the original objective
 - **ALLOWED**: Consider alternative approaches only when previous methods have failed
+- **MANDATORY WHEN SWITCHING APPROACH (e.g., GUI → CLI/Technician)**: Preserve all key parameters from the preferred plan. Keep time offsets, durations/ranges, fps/frame rate, resolution/aspect ratio, sample rate, bitrate/quality, formats/containers, file names/paths, and input/output selection consistent unless there is a strong, stated reason to change.
+- **PARAMETER MAPPING**: Explicitly enumerate how each original parameter maps to the new commands/flags.
+- **MEDIA VIA ffmpeg (if applicable)**: Keep clip start and duration identical. Default to using the source video's native frame rate; if you change fps, state the reason, the target fps value, and ensure playback speed remains 1x (no unintended speedup/slowdown).
 
 {trigger_specific_guidance}
 """
@@ -258,6 +261,17 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 - If the visible app/page can perform the required action (e.g., it has a search/input field relevant to the objective), plan to use it directly.
 - Only plan to open a new app/page/tab when the current context clearly lacks the needed capability or is unusable.
 - When an on-screen search field exists and the objective involves search, perform the search in the current page.
+
+# Alternative Approach Consistency (MANDATORY)
+- When replacing a previously proposed approach with another (e.g., GUI → CLI/Technician), preserve all key parameters from the preferred plan.
+- Keep time offsets, durations/ranges, fps/frame rate, resolution/aspect ratio, sample rate, bitrate/quality, formats/containers, file names/paths, and input/output selection consistent unless a change is justified.
+- If you change any of these, explicitly state the reason and the expected effect.
+- Provide a concise parameter mapping table from the prior approach to the new commands/flags.
+
+# Media Processing Defaults (if applicable)
+- For clip extraction or frame sampling, keep the start timestamp and duration identical to the specification.
+- Frame rate policy: default to the source's native frame rate. If changing fps, specify the target fps and rationale (e.g., size/performance), and ensure playback speed remains 1x.
+- For GIF generation from video with ffmpeg, prefer the palettegen/paletteuse pipeline to improve quality; preserve resolution or downscale to even dimensions if needed, and state your sampling strategy.
 
 # CRITICAL ANALYST ASSIGNMENT RULES
 1. **NEVER assign Analyst as the first subtask** - Analyst cannot start any task

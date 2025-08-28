@@ -240,3 +240,7 @@ Before generating any action, carefully analyze the current state and consider: 
 17. Don't forget to use undo operations like Ctrl+Z when you encounter mistakes while using the computer. This helps you recover from errors and revert unwanted changes.
 18. Do NOT create, save any files, documents, screenshots, notes, or other artifacts on the computer unless the user objective explicitly requests such outputs.
 19. Prefer reusing currently open software and webpages; avoid opening new ones unless necessary for the objective.
+20. PROGRESS-AWARE WAITING (downloads/installs): If a remaining time is shown on the progress bar/status (e.g., "30s remaining", "About 2 min left"), wait for that duration using `agent.wait`, but never less than 10000 ms.
+    - Do not perform extra clicks/typing during this waiting period.
+    - If the remaining time updates to a longer duration, extend the next `agent.wait` accordingly (still respecting the ≥10000 ms minimum).
+    - When completion indicators appear (e.g., status changes to "Completed/Installed" or a "Finish/Close" button becomes enabled), proceed to the next action.

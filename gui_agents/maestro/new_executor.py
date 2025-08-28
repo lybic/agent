@@ -107,16 +107,23 @@ class NewExecutor:
             if not subtask:
                 return self._create_execution_result(False, "Subtask not found")
 
+            # Minimal Stale handling: execute candidate_action if provided
+            command_action = command.action
+            if isinstance(command_action, dict) and str(command_action.get("type", "")).strip().lower() == "stale":
+                cand = command_action.get("candidate_action")
+                if isinstance(cand, dict) and cand:
+                    command_action = cand
+
             assignee_role = getattr(subtask, "assignee_role", "operator")
             start_ts = time.time()
 
             if assignee_role == "operator":
-                ok, err, _shot = self._run_hardware_action(command.action)
+                ok, err, _shot = self._run_hardware_action(command_action)
                 return self._create_execution_result(
                     success=ok,
                     error_message=err,
                     execution_time=time.time() - start_ts,
-                    action=command.action,
+                    action=command_action,
                 )
 
             if assignee_role == "technician":
@@ -195,6 +202,13 @@ class NewExecutor:
                 logger.warning(error_msg)
                 return self._create_execution_result(False, error_msg)
             
+            # Minimal Stale handling: execute candidate_action if provided
+            command_action = command.action
+            if isinstance(command_action, dict) and str(command_action.get("type", "")).strip().lower() == "stale":
+                cand = command_action.get("candidate_action")
+                if isinstance(cand, dict) and cand:
+                    command_action = cand
+            
             # Get current subtask's assignee_role
             subtask = self.global_state.get_subtask(subtask_id)
             if not subtask:
@@ -204,7 +218,7 @@ class NewExecutor:
             
             # Choose different execution methods based on assignee_role
             if assignee_role == "operator":
-                return self._execute_action(subtask_id, command.action)
+                return self._execute_action(subtask_id, command_action)
                 
             elif assignee_role == "technician":
                 if isinstance(command.action, list) and command.action:

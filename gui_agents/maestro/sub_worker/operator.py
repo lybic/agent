@@ -84,6 +84,22 @@ class Operator:
             height=self.screen_size[1]
         )
 
+    def _extract_candidate_action(self, text: str) -> Optional[Dict[str, Any]]:
+        """Extract CandidateAction JSON from LLM output if provided."""
+        import re, json
+        try:
+            m = re.search(r"CandidateAction\s*:\s*(\{.*?\})", text, re.DOTALL)
+            if m:
+                return json.loads(m.group(1))
+            m2 = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
+            if m2:
+                candidate = json.loads(m2.group(1))
+                if isinstance(candidate, dict):
+                    return candidate
+        except Exception:
+            pass
+        return None
+
     def _get_command_history_for_subtask(self, subtask_id: str) -> str:
         """Get command history for specified subtask, formatted as readable text"""
         try:
@@ -359,6 +375,9 @@ class Operator:
                 elif action_type == "Supplement":
                     outcome = "worker_supplement"
                 elif action_type == "NeedQualityCheck":
+                    # For stale, try to extract CandidateAction JSON from action_plan
+                    candidate = self._extract_candidate_action(action_plan)
+                    exec_code = candidate if isinstance(candidate, dict) else {}
                     outcome = "worker_stale_progress"
                 else:
                     outcome = "worker_generate_action"
@@ -482,6 +501,9 @@ class Operator:
         message.append("")
         message.append("Based on the above history, current screenshot, artifacts and supplement, decide on the next action.")
         message.append("Return exactly one action as an agent.* function in Python fenced code under (Grounded Action).")
+        message.append("")
+        message.append("If you cannot confidently proceed and decide NEED_QUALITY_CHECK (stale), you MUST also output a CandidateAction JSON block, e.g.:")
+        message.append("CandidateAction: {\"type\": \"click\", \"selector\": {\"by\": \"text\", \"value\": \"Next\"}}")
         
         return "\n\n".join(message)
 

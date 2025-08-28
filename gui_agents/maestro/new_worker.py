@@ -68,6 +68,25 @@ class NewWorker:
         self._tools_dict = tools_dict
         self._platform = platform
 
+    def _normalize_action_for_outcome(self, outcome: str, raw_action: Optional[Dict[str, Any]], message: str) -> Dict[str, Any]:
+        """Normalize action dict based on outcome for unified commands schema."""
+        action: Dict[str, Any] = {}
+        if outcome == WorkerDecision.STALE_PROGRESS.value:
+            # Represent stale as an action with optional candidate_action
+            action = {"type": "Stale"}
+            if isinstance(raw_action, dict) and raw_action:
+                action["candidate_action"] = raw_action
+            return action
+        if outcome == WorkerDecision.CANNOT_EXECUTE.value:
+            # Keep historical style: empty action
+            return {}
+        if outcome == WorkerDecision.SUPPLEMENT.value:
+            return {"type": "Supplement", "message": message or "."}
+        if outcome == WorkerDecision.WORKER_DONE.value:
+            return {"type": "Done", "message": message or ""}
+        # GENERATE_ACTION or others: keep raw action
+        return raw_action or {}
+
     def process_subtask_and_create_command(self) -> Optional[str]:
         """Route to the right role, create command/decision if applicable, and return worker_decision string.
         Returns one of WorkerDecision values or None on no-op/error.
@@ -90,16 +109,18 @@ class NewWorker:
                     trigger_code=current_trigger_code
                 )
                 outcome = (res.get("outcome") or "").strip()
-                action = res.get("action")
+                raw_action = res.get("action")
                 action_plan = res.get("action_plan", "")
                 screenshot_analysis = res.get("screenshot_analysis", "")
                 message = res.get("message", "")
                 
+                normalized_action = self._normalize_action_for_outcome(outcome, raw_action, message)
+
                 # Create command with complete information
                 cmd = create_command_data(
                     command_id="", 
                     task_id=self._global_state.task_id, 
-                    action=action or {}, 
+                    action=normalized_action, 
                     subtask_id=subtask_id,
                     assignee_role=subtask.assignee_role or "operator"
                 )
@@ -108,18 +129,19 @@ class NewWorker:
                 pre_screenshot_analysis = screenshot_analysis
                 pre_screenshot_id = self._global_state.get_screenshot_id()
 
-                # Update command with all fields including message
+                # Update command with all fields including message and reason_text
                 self._global_state.update_command_fields(
                     command_id,
                     assignee_role=subtask.assignee_role or "operator",
-                    action=action or {},
+                    action=normalized_action,
                     pre_screenshot_id=pre_screenshot_id,
                     pre_screenshot_analysis=pre_screenshot_analysis,
-                    message=message
+                    message=message,
+                    reason_text=message,
                 )
 
                 # Update worker decision based on outcome
-                if outcome == WorkerDecision.GENERATE_ACTION.value and action:
+                if outcome == WorkerDecision.GENERATE_ACTION.value and raw_action:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.GENERATE_ACTION.value)
                 elif outcome == WorkerDecision.WORKER_DONE.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
@@ -136,37 +158,38 @@ class NewWorker:
                     trigger_code=current_trigger_code
                 )
                 outcome = (res.get("outcome") or "").strip()
-                action = res.get("action")
-                # command_plan = res.get("command_plan", "")
+                raw_action = res.get("action")
                 screenshot_analysis = res.get("screenshot_analysis", "")
                 message = res.get("message", "")
+                
+                normalized_action = self._normalize_action_for_outcome(outcome, raw_action if isinstance(raw_action, dict) else None, message)
                 
                 # Create command with complete information
                 cmd = create_command_data(
                     command_id="", 
                     task_id=self._global_state.task_id, 
-                    action=action or {}, 
+                    action=normalized_action, 
                     subtask_id=subtask_id,
                     assignee_role=subtask.assignee_role or "technician"
                 )
                 command_id = self._global_state.add_command(cmd)
                 
                 pre_screenshot_analysis = screenshot_analysis
-                # Add screenshot and get ID
                 pre_screenshot_id = self._global_state.get_screenshot_id()
 
-                # Update command with all fields including message
+                # Update command with all fields including message and reason_text
                 self._global_state.update_command_fields(
                     command_id,
                     assignee_role=subtask.assignee_role or "technician",
-                    action=action or {},
+                    action=normalized_action,
                     pre_screenshot_id=pre_screenshot_id,
                     pre_screenshot_analysis=pre_screenshot_analysis,
-                    message=message
+                    message=message,
+                    reason_text=message,
                 )
 
                 # Update worker decision based on outcome
-                if outcome == WorkerDecision.GENERATE_ACTION.value and action:
+                if outcome == WorkerDecision.GENERATE_ACTION.value and raw_action:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.GENERATE_ACTION.value)
                 elif outcome == WorkerDecision.WORKER_DONE.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
@@ -199,35 +222,35 @@ class NewWorker:
                 outcome = (res.get("outcome") or "").strip()
                 analysis = res.get("analysis", "")
                 recommendations = res.get("recommendations", [])
+                message = res.get("message", "")
+                
+                # For analyst, keep action payload for artifacts, but still carry reason_text
+                normalized_action = {"analysis": analysis, "recommendations": recommendations}
                 
                 # Create command with complete information
                 cmd = create_command_data(
                     command_id="", 
                     task_id=self._global_state.task_id, 
-                    action={"analysis": analysis, "recommendations": recommendations}, 
+                    action=normalized_action, 
                     subtask_id=subtask_id,
                     assignee_role=subtask.assignee_role or "analyst"
                 )
                 command_id = self._global_state.add_command(cmd)
                 
                 pre_screenshot_analysis = ""
-                # Add screenshot and get ID
                 pre_screenshot_id = self._global_state.get_screenshot_id()
-                # Use the analysis result as pre_screenshot_analysis
-                # pre_screenshot_analysis = analysis
 
                 # Update command with all fields
                 self._global_state.update_command_fields(
                     command_id,
                     assignee_role=subtask.assignee_role or "analyst",
-                    action={"analysis": analysis, "recommendations": recommendations},
+                    action=normalized_action,
                     pre_screenshot_id=pre_screenshot_id,
-                    pre_screenshot_analysis=pre_screenshot_analysis
+                    pre_screenshot_analysis=pre_screenshot_analysis,
+                    reason_text=message,
                 )
                 
                 if outcome == "analysis_complete":
-                    # self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
-                    # return WorkerDecision.WORKER_DONE.value
                     logger.info(f"Analyst generated action, switching to EXECUTE_ACTION")
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.GENERATE_ACTION.value)
                     return WorkerDecision.GENERATE_ACTION.value
@@ -238,7 +261,6 @@ class NewWorker:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
                     return WorkerDecision.CANNOT_EXECUTE.value
 
-            # logging.info(f"Worker: unknown assignee_role '{role}' for subtask {subtask_id}")
             return WorkerDecision.CANNOT_EXECUTE.value
         except Exception as e:
             logging.error(f"Worker: error processing subtask {subtask_id}: {e}")

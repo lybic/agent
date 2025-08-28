@@ -180,6 +180,7 @@ class CommandData:
     post_screenshot_id: Optional[str] = None
     worker_decision: str = field(default_factory=lambda: WorkerDecision.GENERATE_ACTION.value)
     message: str = ""  # Worker decision message
+    reason_text: str = ""  # Unified reason text across decisions
     exec_status: str = field(default_factory=lambda: ExecStatus.EXECUTED.value)
     exec_message: str = "OK"
     exec_latency_ms: int = 0
@@ -200,6 +201,7 @@ class CommandData:
             "post_screenshot_id": self.post_screenshot_id,
             "worker_decision": self.worker_decision,
             "message": self.message,
+            "reason_text": self.reason_text,
             "exec_status": self.exec_status,
             "exec_message": self.exec_message,
             "exec_latency_ms": self.exec_latency_ms,
@@ -222,6 +224,7 @@ class CommandData:
             post_screenshot_id=data.get("post_screenshot_id"),
             worker_decision=data.get("worker_decision", WorkerDecision.GENERATE_ACTION.value),
             message=data.get("message", ""),
+            reason_text=data.get("reason_text", ""),
             exec_status=data.get("exec_status", ExecStatus.EXECUTED.value),
             exec_message=data.get("exec_message", "OK"),
             exec_latency_ms=data.get("exec_latency_ms", 0),

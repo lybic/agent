@@ -242,7 +242,9 @@ class Technician:
                 outcome = WorkerDecision.STALE_PROGRESS.value
                 err = None
                 decision_message = self._extract_decision_message(command_plan, decision)
-                action = {"type": "NeedQualityCheck", "message": decision_message}
+                # Prefer CandidateAction JSON over placeholder
+                candidate = self._extract_candidate_action(command_plan)
+                action = candidate if isinstance(candidate, dict) else {}
                 message = decision_message
             else:
                 # No clear signal; treat as cannot execute
@@ -360,105 +362,6 @@ class Technician:
         trigger_code: str
     ) -> str:
         """Build context-aware prompt based on trigger_code"""
-        task_message = []
-        if task:
-            task_message.extend([
-                f"**Task Objective**: {task.objective}",
-            ])
-        else:
-            task_message.append("**Task Information**: Not available")
-
-        subtask_title = subtask.get("title", "")
-        subtask_desc = subtask.get("description", "")
-        
-        # System context information
-        system_context = [
-            "# System Environment",
-            f"- Linux username: \"user\"",
-            f"- Client password: {self.client_password}",
-            f"- Platform: {self.platform}",
-            f"- Starting directory: Same base directory for each new script execution",
-            ""
-        ]
-        
-        # Task objective alignment check
-        alignment_check = [
-            "# CRITICAL: Task Objective Alignment Check",
-            "Before writing any script or making any decision, carefully review whether the current subtask description conflicts with the main Task Objective.",
-            "If there is any conflict or contradiction:",
-            "- The Task Objective takes absolute priority over subtask description",
-            "- Adapt your script/approach to align with the Task Objective",
-            "- Never execute scripts that would contradict or undermine the main Task Objective",
-            ""
-        ]
-        
-        # Task information
-        task_info = [
-            "# Current Task",
-            f"**Title**: {subtask_title}",
-            f"**Description**: {subtask_desc}",
-        ]
-        
-        if guidance:
-            task_info.append(f"**Guidance**: {guidance}")
-        
-        # Add context-specific guidance based on trigger_code
-        context_guidance = self._get_context_info_by_trigger_code(trigger_code)
-        if context_guidance:
-            task_info.extend([
-                "# Context-Specific Guidance",
-                context_guidance,
-                ""
-            ])
-        
-        # Previous operations history
-        history_section = [
-            "# Previous Operations History",
-            command_history,
-            ""
-        ]
-
-        # Instructions for script generation
-        instructions = [
-            "# Instructions",
-            "Based on the task description, previous history, and current context:",
-            "",
-            "1. **If you need to write a script**, provide exactly ONE complete code block:",
-            "   - Use ```bash for bash scripts or ```python for python code",
-            "   - Include verification steps and progress reporting within the script",
-            "   - Handle directory navigation explicitly or use absolute paths",
-            "   - Include error checking and informative output messages",
-            "",
-            "2. **If you cannot proceed or task is complete**, use the decision format:",
-            "   ```",
-            "   DECISION_START",
-            "   Decision: [DONE|FAILED|SUPPLEMENT|NEED_QUALITY_CHECK]",
-            "   Message: [Your detailed explanation]",
-            "   DECISION_END",
-            "   ```",
-            "",
-            "3. **Important reminders**:",
-            "   - Each script runs in a fresh terminal session",
-            "   - You cannot see GUI changes - rely on command output for verification",
-            "   - Use `echo password | sudo -S [command]` format for sudo operations",
-            "   - Include progress indicators and result verification in your scripts",
-            ""
-        ]
-
-        # Combine all sections
-        full_prompt = "\n".join(
-            system_context + 
-            alignment_check +
-            task_message + 
-            task_info + 
-            history_section + 
-            instructions
-        )
-        
-        return full_prompt
-
-    def _get_context_info_by_trigger_code(self, trigger_code: str) -> str:
-        """Return corresponding detailed context information and guidance based on trigger_code"""
         from gui_agents.maestro.enums import TRIGGER_CODE_BY_MODULE
         
         # Check if it belongs to WORKER_GET_ACTION_CODES
@@ -549,3 +452,23 @@ class Technician:
 - Consider system security, resource usage, and operational impact
 - Maintain consistency with overall task execution strategy
 """
+
+    def _extract_candidate_action(self, text: str) -> Optional[Dict[str, Any]]:
+        """Try to extract a CandidateAction JSON block from the LLM output."""
+        try:
+            # Pattern 1: explicit CandidateAction: { ... }
+            m = re.search(r"CandidateAction\s*:\s*(\{.*?\})", text, re.DOTALL)
+            if m:
+                import json
+                return json.loads(m.group(1))
+
+            # Pattern 2: fenced json with a top-level object having type/selector
+            m2 = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
+            if m2:
+                import json
+                candidate = json.loads(m2.group(1))
+                if isinstance(candidate, dict):
+                    return candidate
+        except Exception as e:
+            logger.debug(f"No CandidateAction found: {e}")
+        return None

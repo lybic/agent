@@ -28,6 +28,7 @@ MANIFEST
 runtime/
 kb_s2/*/embeddings*
 .github/
+tests/bug_analysis/*
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

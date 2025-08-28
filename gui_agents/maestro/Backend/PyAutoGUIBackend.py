@@ -136,12 +136,19 @@ class PyAutoGUIBackend(Backend):
             self.pag.keyUp(k)
     
     def _scroll(self, act: Scroll) -> None:
+        for k in act.holdKey or []:
+            self.pag.keyDown(k)
+            time.sleep(0.05)
+        
         self.pag.moveTo(x = act.x, y = act.y)
         if act.stepVertical is None:
             if act.stepHorizontal is not None:
                 self.pag.hscroll(act.stepHorizontal)
         else:
             self.pag.vscroll(act.stepVertical)
+        
+        for k in act.holdKey or []:
+            self.pag.keyUp(k)
 
     def _drag(self, act: Drag) -> None:
         for k in act.holdKey or []:

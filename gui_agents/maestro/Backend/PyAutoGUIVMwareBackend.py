@@ -176,12 +176,21 @@ class PyAutoGUIVMwareBackend(Backend):
 
     def _scroll(self, act: Scroll) -> str:
         code_parts = []
+        
+        for k in act.holdKey or []:
+            code_parts.append(f"pyautogui.keyDown('{k}')")
+            code_parts.append(f"time.sleep(0.05)")
+
         code_parts.append(f"pyautogui.moveTo(x = {act.x}, y = {act.y})")
         if act.stepVertical is None:
             if act.stepHorizontal is not None:
                 code_parts.append(f"pyautogui.hscroll({act.stepHorizontal})")
         else:
             code_parts.append(f"pyautogui.vscroll({act.stepVertical})")
+        
+        for k in act.holdKey or []:
+            code_parts.append(f"pyautogui.keyUp('{k}')")
+
         return "; ".join(code_parts)
 
     def _drag(self, act: Drag) -> str:
@@ -247,8 +256,6 @@ class PyAutoGUIVMwareBackend(Backend):
 
     def _set_cell_values(self, act: SetCellValues) -> str:
         """Set cell values in LibreOffice Calc (Linux only)"""
-        if self.env_controller is None: # Assuming env_controller is self.env_controller
-            return f"# SetCellValues not supported on platform: {self.platform}" # type: ignore
         if self.platform == "Ubuntu":
             # Create Python script for LibreOffice automation
             script_content = f"""
@@ -377,8 +384,6 @@ set_cell_values(new_cell_values={act.cell_values}, app_name="{act.app_name}", sh
 
     def _switch_applications(self, act: SwitchApplications) -> str:
         """Switch to a different application that is already open"""
-        if self.env_controller is None: # Assuming env_controller is self.env_controller
-            return f"# SwitchApplications not supported on platform: {self.platform}" # type: ignore
         if self.platform == "Ubuntu":
             # Linux: Use wmctrl to switch windows with improved matching
             return f"""
@@ -534,8 +539,6 @@ time.sleep(1.0)
 
     def _open(self, act: Open) -> str:
         """Open an application or file"""
-        if self.env_controller is None: # Assuming env_controller is self.env_controller
-            return f"# Open not supported on platform: {self.platform}" # type: ignore
         if self.platform == "Ubuntu":
             # Linux: Win key to open application menu
             return f"""

@@ -16,6 +16,17 @@ Planning Strategy - Single Path Focus
 - Do NOT create, save any files, documents, screenshots, notes, or other artifacts unless the user objective explicitly requests such outputs.
 - Prefer reusing currently open software and webpages; avoid opening new ones unless necessary for the objective.
 
+# Incremental Planning Policy (Important)
+The system allows incremental planning: you MAY stop planning after proposing a set of high-confidence subtasks that can be executed next, and defer the remainder until more environment information is available (e.g., after new screens/results appear).
+
+To support this, you MUST set a completion flag at the end of your output using the line `MANAGER_COMPLETE: true|false` (see details at the end of this document). The intended semantics are:
+- MANAGER_COMPLETE: true — The current plan (the subtasks you output now) is sufficient to fully accomplish the overall objective without further planning.
+- MANAGER_COMPLETE: false — The current plan only covers the next high-confidence segment. Further planning is expected after additional environment information is gathered during execution.
+
+Guidance for choosing the flag:
+- Prefer false when critical UI states, data, or results are uncertain or gated behind interactions you cannot reliably predict yet.
+- Prefer true only when the proposed subtasks clearly and directly complete the objective under typical conditions, with no unresolved dependencies on unseen states.
+
 # MANDATORY: Screenshot-First Reuse Policy
 - Before proposing any step that opens a new app/page/tab/window, FIRST interpret the current desktop screenshot.
 - Determine whether the visible app/page already supports the required operation for the objective.
@@ -237,3 +248,14 @@ Operation Count Guidelines by Complexity
 - Gathering information from multiple sources
 - Complex form submissions with validation
 - Installation or configuration processes
+
+# Manager Completion Flag (MANDATORY)
+To support incremental planning, you MUST append exactly one line at the very end of your output:
+MANAGER_COMPLETE: true
+or
+MANAGER_COMPLETE: false
+
+- Use true if the currently planned subtasks, when executed, are sufficient to fully complete the overall objective without further planning.
+- Use false if you expect further planning will be needed after more environment information is obtained (e.g., after seeing new screens, results, or states).
+
+Ensure this line appears as the final line of your response, on its own line, with no extra content after it.

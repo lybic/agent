@@ -338,6 +338,14 @@ You may refer to some retrieved knowledge if you think they are useful.{integrat
    - For any Analyst subtask, has Operator written required information to memory first?
    - Can Analyst work with only memory data (no desktop access needed)?
 
+# Manager Completion Flag (MANDATORY)
+At the very end of your output, add exactly one line:
+MANAGER_COMPLETE: true
+or
+MANAGER_COMPLETE: false
+- Use true if the currently planned subtasks, when executed, are sufficient to complete the overall objective without further planning.
+- Use false if you expect further planning will be needed after more environment information is obtained.
+
 Please output the planning solution based on the above information:
 """
 

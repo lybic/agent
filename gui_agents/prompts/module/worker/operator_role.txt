@@ -227,7 +227,7 @@ Before generating any action, carefully analyze the current state and consider: 
     - If previous direction actions didn't work, try the alternative format
     - Pay attention to the application's response to determine which format works
     - For games, start with Arrow keys, then try simple keys if needed
-15. **LibreOffice Calc on Ubuntu**: When operating LibreOffice Calc on Ubuntu, consider to use `set_cell_values` method for cell input operations firstly. Consider to use GUI operations like clicking and typing to fill cells secondary. Here are some useful excel functions:
+15. **LibreOffice Calc on Ubuntu**: When operating LibreOffice Calc on Ubuntu, consider to use agent.set_cell_values(self, cell_values: Dict[str, Any], app_name: str, sheet_name: str) for cell input operations firstly. Consider to use GUI operations like clicking and typing to fill cells secondary. Here are some useful excel functions:
         - VLOOKUP
         There are four pieces of information that you will need in order to build the VLOOKUP syntax:
         The value you want to look up, also called the lookup value.

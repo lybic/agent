@@ -302,9 +302,9 @@ class LMMEngineDoubao(LMMEngine):
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
         
-        doubao_logger.info(f"Doubao API Call - Model: {self.model}, Temperature: {temperature}, Max Tokens: {max_new_tokens}")
-        doubao_logger.info(f"Doubao API Input - Messages count: {len(messages)}")
-        doubao_logger.info(f"Doubao API Input - messages: {messages}")
+        # doubao_logger.info(f"Doubao API Call - Model: {self.model}, Temperature: {temperature}, Max Tokens: {max_new_tokens}")
+        # doubao_logger.info(f"Doubao API Input - Messages count: {len(messages)}")
+        # doubao_logger.info(f"Doubao API Input - messages: {messages}")
         
         response = self.llm_client.chat.completions.create(
             model=self.model,
@@ -324,9 +324,9 @@ class LMMEngineDoubao(LMMEngine):
         content = response.choices[0].message.content
         total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)
         
-        doubao_logger.info(f"Doubao API Response - Content length: {len(content) if content else 0}, Tokens: {total_tokens}, Cost: {cost}")
+        # doubao_logger.info(f"Doubao API Response - Content length: {len(content) if content else 0}, Tokens: {total_tokens}, Cost: {cost}")
 
-        doubao_logger.info(f"Doubao API Response - Content: {content}")
+        # doubao_logger.info(f"Doubao API Response - Content: {content}")
         
         return content, total_tokens, cost
 

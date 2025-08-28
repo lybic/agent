@@ -507,7 +507,7 @@ class NewExecutor:
             
         return result
         
-        
+      
     def get_execution_status(self) -> Dict[str, Any]:
         """Get executor status information"""
         return {

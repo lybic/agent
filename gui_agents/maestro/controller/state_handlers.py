@@ -5,6 +5,7 @@ Responsible for handling specific logic of various states
 import logging
 from typing import Optional
 
+from gui_agents.maestro.data_models import CommandData
 from gui_agents.maestro.new_global_state import NewGlobalState
 from ..enums import ControllerState, TaskStatus, SubtaskStatus, WorkerDecision, GateDecision, TriggerRole, TriggerCode
 from ..new_manager import NewManager
@@ -90,10 +91,17 @@ class StateHandlers:
             worker = NewWorker(**worker_params)
             worker.process_subtask_and_create_command()
 
+            # Get worker decision
             worker_decision = self.global_state.get_subtask_worker_decision(current_subtask_id)
 
             if worker_decision:
                 logger.info(f"Subtask {current_subtask_id} has worker_decision: {worker_decision}")
+
+                # Check if command should be executed immediately
+                command = self.global_state.get_current_command_for_subtask(current_subtask_id)
+                if command and self.should_execute_immediately(command):
+                    logger.info(f"Command {command.command_id} should be executed immediately")
+                    self.executor.execute_current_action()
 
                 # Switch states based on worker_decision
                 if worker_decision == WorkerDecision.WORKER_DONE.value:
@@ -178,6 +186,12 @@ class StateHandlers:
                 logger.warning(f"Subtask {current_subtask_id} not found in EXECUTE_ACTION state")
                 return (ControllerState.INIT, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"Subtask {current_subtask_id} not found in EXECUTE_ACTION state", TriggerCode.SUBTASK_NOT_FOUND)
 
+            # Check if command should be executed immediately
+            command = self.global_state.get_current_command_for_subtask(current_subtask_id)
+            if command and self.should_execute_immediately(command):
+                logger.info(f"Command {command.command_id} has executed immediately, switching to GET_ACTION")
+                return (ControllerState.GET_ACTION, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"Command {command.command_id} has executed immediately", TriggerCode.COMMAND_COMPLETED)
+            
             # use executor to execute action
             execution_result = self.executor.execute_current_action()
             if execution_result["success"]:
@@ -424,3 +438,29 @@ class StateHandlers:
             self.global_state.add_event("controller", "error", f"FINAL_CHECK state error: {str(e)}")
             # Final quality check failed
             return (ControllerState.PLAN, TriggerRole.EVALUATOR_FINAL_CHECK, f"Final check failed: {str(e)}", TriggerCode.FINAL_CHECK_FAILED)
+        
+
+    def should_execute_immediately(self, command: CommandData) -> bool:
+        """Decide whether a command should be executed immediately.
+        Current heuristic: if action.type == 'memorize', do NOT execute immediately.
+        Args:
+            command: CommandData instance or plain dict representing a command
+        Returns:
+            True if should execute immediately, False otherwise
+        """
+        try:
+            # Extract action dict from CommandData or dict
+            if hasattr(command, "action"):
+                action = getattr(command, "action", {}) or {}
+            elif isinstance(command, dict):
+                action = command.get("action", {}) or {}
+            else:
+                action = {}
+
+            action_type = str(action.get("type", "")).strip().lower()
+            if action_type == "memorize":
+                return True
+            return False
+        except Exception:
+            # Be conservative: if unsure, default to execute
+            return False

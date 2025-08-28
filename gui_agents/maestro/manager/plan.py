@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from enum import Enum
 from dataclasses import dataclass
+import re
 
 from gui_agents.utils.common_utils import Node
 from gui_agents.maestro.data_models import SubtaskData
@@ -152,6 +153,17 @@ class PlanningHandler:
                 "img_input": context.get("screenshot")
             })
 
+        # Parse manager completion flag from planner output and strip the flag line
+        manager_complete_flag = True
+        try:
+            match = re.search(r"^\s*MANAGER_COMPLETE:\s*(true|false)\s*$", str(plan_result), re.IGNORECASE | re.MULTILINE)
+            if match:
+                manager_complete_flag = match.group(1).lower() == "true"
+                # Remove the flag line from plan_result to avoid polluting downstream DAG translation
+                plan_result = re.sub(r"^\s*MANAGER_COMPLETE:\s*(true|false)\s*$", "", str(plan_result), flags=re.IGNORECASE | re.MULTILINE).strip()
+        except Exception:
+            manager_complete_flag = True
+
         # Log planning operation (reflect initial vs replan based on attempts)
         scenario_label = context.get("planning_scenario", scenario.value)
         self.global_state.log_llm_operation(
@@ -234,6 +246,11 @@ class PlanningHandler:
                     new_id = self.global_state.add_subtask(subtask_data)
                     if first_new_subtask_id is None:
                         first_new_subtask_id = new_id
+                # Update managerComplete after adding subtasks
+                try:
+                    self.global_state.set_manager_complete(manager_complete_flag)
+                except Exception:
+                    logger.warning("Failed to update managerComplete flag in global state during replan")
             else:
                 # Initial planning: append new subtasks; set current only if not set
                 for subtask_dict in enhanced_subtasks:
@@ -254,6 +271,11 @@ class PlanningHandler:
                         updated_at=subtask_dict["updated_at"],
                     )
                     self.global_state.add_subtask(subtask_data)
+                # Update managerComplete after adding subtasks
+                try:
+                    self.global_state.set_manager_complete(manager_complete_flag)
+                except Exception:
+                    logger.warning("Failed to update managerComplete flag in global state during initial planning")
 
             # Update planning history
             self.planning_history.append({

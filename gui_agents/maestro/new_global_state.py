@@ -238,6 +238,12 @@ class NewGlobalState:
         task.objective = objective
         self.set_task(task)
 
+    def set_manager_complete(self, complete: bool) -> None:
+        """Set whether manager has completed planning for the whole task"""
+        task = self.get_task()
+        task.managerComplete = bool(complete)
+        self.set_task(task)
+
     def set_current_subtask_id(self, subtask_id: str) -> None:
         """Set current subtask ID"""
         task = self.get_task()

@@ -268,6 +268,8 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 - **DIRECT APPROACH**: Do not add intermediate steps like change the layout to title only unless explicitly required.
 - **CONTEXT AWARENESS**: Consider the current state and what a human would do next, not what a system might need to "prepare" for.
 - **AVOID OVER-ENGINEERING**: Do not add setup, preparation, or configuration steps unless the objective explicitly requires them.
+- **NO LAYOUT PREPARATION**: Do NOT add steps to change slide layouts, apply templates, or modify page structure unless the objective explicitly requires it.
+- **DIRECT TEXT OPERATIONS**: If the goal is to add/edit text, do it directly without first changing layouts, selecting placeholders, or preparing text areas.
 
 # Alternative Approach Consistency (MANDATORY)
 - When replacing a previously proposed approach with another (e.g., GUI → CLI/Technician), preserve all key parameters from the preferred plan.
@@ -350,6 +352,8 @@ You may refer to some retrieved knowledge if you think they are useful.{integrat
 6. **HUMAN WORKFLOW CHECK**:
    - Would a normal person take these exact steps to achieve the objective?
    - Are there any unnecessary intermediate steps that a human wouldn't naturally take?
+   - **SPECIFIC CHECK**: Did I add any layout changes, placeholder selections, or preparation steps that aren't explicitly required?
+   - **TEXT OPERATION CHECK**: For text-related tasks, am I adding the text directly or unnecessarily preparing the environment first?
 
 # Manager Completion Flag (MANDATORY)
 At the very end of your output, add exactly one line:
@@ -539,13 +543,13 @@ def generate_trigger_specific_guidance(trigger_code: str, trigger_context: Dict[
 
 def get_history_subtasks_info(global_state) -> str:
     """Get information about completed subtasks"""
-    from gui_agents.maestro.manager.utils import get_history_subtasks_info as _get_history_subtasks_info
+    from .utils import get_history_subtasks_info as _get_history_subtasks_info
     return _get_history_subtasks_info(global_state)
 
 
 def get_pending_subtasks_info(global_state) -> str:
     """Get information about pending subtasks"""
-    from gui_agents.maestro.manager.utils import get_pending_subtasks_info as _get_pending_subtasks_info
+    from .utils import get_pending_subtasks_info as _get_pending_subtasks_info
     return _get_pending_subtasks_info(global_state) 
 
 def get_recent_subtasks_operation_history(global_state: NewGlobalState, limit: int = 2) -> str:

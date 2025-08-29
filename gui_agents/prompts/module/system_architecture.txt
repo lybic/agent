@@ -166,3 +166,6 @@ Branch based on GateDecision:
 └── gate_supplement → SUPPLEMENT supplement materials
    ↓
 Finally converges to FINAL_CHECK → System ends
+
+Incremental Clarification Policy (for unreadable UI details)
+- When the current screenshot does not make critical UI regions legible (e.g., spreadsheet headers, cell ranges, table columns), the Manager MUST first plan an Operator subtask to adjust zoom/viewport to clarify and batch-memorize the required labels/ranges, and set MANAGER_COMPLETE=false. Subsequent computation/input subtasks should be planned only after the clarified screenshot is available.

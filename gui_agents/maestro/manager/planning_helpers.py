@@ -261,6 +261,7 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 - If the visible app/page can perform the required action (e.g., it has a search/input field relevant to the objective), plan to use it directly.
 - Only plan to open a new app/page/tab when the current context clearly lacks the needed capability or is unusable.
 - When an on-screen search field exists and the objective involves search, perform the search in the current page.
+- For ANY spreadsheet/tabular objective (e.g., mapping by scale table, VLOOKUP/LOOKUP, filling ranges), the FIRST subtask MUST normalize zoom/viewport to make reference tables and target ranges clearly readable; if further planning depends on clarified details, end with MANAGER_COMPLETE: false and continue after the updated screenshot.
 
 # MANDATORY: Natural Human Workflow Thinking
 - **THINK LIKE A HUMAN**: Plan tasks as a normal person would naturally approach them, not as a computer program.

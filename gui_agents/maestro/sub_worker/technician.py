@@ -361,6 +361,104 @@ class Technician:
         command_history: str,
         trigger_code: str
     ) -> str:
+        task_message = []
+        if task:
+            task_message.extend([
+                f"**Task Objective**: {task.objective}",
+            ])
+        else:
+            task_message.append("**Task Information**: Not available")
+
+        subtask_title = subtask.get("title", "")
+        subtask_desc = subtask.get("description", "")
+        
+        # System context information
+        system_context = [
+            "# System Environment",
+            f"- Linux username: \"user\"",
+            f"- Client password: {self.client_password}",
+            f"- Platform: {self.platform}",
+            f"- Starting directory: Same base directory for each new script execution",
+            ""
+        ]
+        
+        # Task objective alignment check
+        alignment_check = [
+            "# CRITICAL: Task Objective Alignment Check",
+            "Before writing any script or making any decision, carefully review whether the current subtask description conflicts with the main Task Objective.",
+            "If there is any conflict or contradiction:",
+            "- The Task Objective takes absolute priority over subtask description",
+            "- Adapt your script/approach to align with the Task Objective",
+            "- Never execute scripts that would contradict or undermine the main Task Objective",
+            ""
+        ]
+        
+        # Task information
+        task_info = [
+            "# Current Task",
+            f"**Title**: {subtask_title}",
+            f"**Description**: {subtask_desc}",
+        ]
+        
+        if guidance:
+            task_info.append(f"**Guidance**: {guidance}")
+        
+        # Add context-specific guidance based on trigger_code
+        context_guidance = self._get_context_info_by_trigger_code(trigger_code)
+        if context_guidance:
+            task_info.extend([
+                "# Context-Specific Guidance",
+                context_guidance,
+                ""
+            ])
+        
+        # Previous operations history
+        history_section = [
+            "# Previous Operations History",
+            command_history,
+            ""
+        ]
+
+        # Instructions for script generation
+        instructions = [
+            "# Instructions",
+            "Based on the task description, previous history, and current context:",
+            "",
+            "1. **If you need to write a script**, provide exactly ONE complete code block:",
+            "   - Use ```bash for bash scripts or ```python for python code",
+            "   - Include verification steps and progress reporting within the script",
+            "   - Handle directory navigation explicitly or use absolute paths",
+            "   - Include error checking and informative output messages",
+            "",
+            "2. **If you cannot proceed or task is complete**, use the decision format:",
+            "   ```",
+            "   DECISION_START",
+            "   Decision: [DONE|FAILED|SUPPLEMENT|NEED_QUALITY_CHECK]",
+            "   Message: [Your detailed explanation]",
+            "   DECISION_END",
+            "   ```",
+            "",
+            "3. **Important reminders**:",
+            "   - Each script runs in a fresh terminal session",
+            "   - You cannot see GUI changes - rely on command output for verification",
+            "   - Use `echo password | sudo -S [command]` format for sudo operations",
+            "   - Include progress indicators and result verification in your scripts",
+            ""
+        ]
+
+        # Combine all sections
+        full_prompt = "\n".join(
+            system_context + 
+            alignment_check +
+            task_message + 
+            task_info + 
+            history_section + 
+            instructions
+        )
+        
+        return full_prompt
+
+    def _get_context_info_by_trigger_code(self, trigger_code: str) -> str:
         """Build context-aware prompt based on trigger_code"""
         from ..enums import TRIGGER_CODE_BY_MODULE
         

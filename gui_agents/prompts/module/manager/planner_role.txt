@@ -33,6 +33,14 @@ Guidance for choosing the flag:
 - Only plan to open a new app/page when the current one is clearly unsuitable, broken, or lacks the necessary capability.
 - When the objective mentions search or navigation and a search field is already present on-screen, perform the search within the current page.
 
+# MANDATORY: Tabular/Cell Position Uncertainty Policy (Zoom-First)
+- When the task depends on precise cell ranges, headers, or table positions (e.g., spreadsheets, forms, tables) and the current screenshot makes them unreadable or uncertain (e.g., low zoom, truncated headers, overlapping panes), you MUST first plan an Operator subtask whose single objective is to make the target regions legible and unambiguous.
+- Keep wording at the intent level (do not specify clicks/keystrokes). Example objective text: "Increase zoom and reveal the scale table and the result column so that headers and ranges are clearly readable; store the visible ranges and labels to memory in batch for later use."
+- After this clarifying subtask, set MANAGER_COMPLETE: false to defer subsequent calculation/input planning until the information is confirmed by the screenshot.
+- Prefer reusing the currently open sheet/page. Do not create new files or switch apps unless necessary for the objective.
+- For ANY objective involving spreadsheets or tabular data manipulation (e.g., grading by scale table, VLOOKUP/LOOKUP mapping, filling ranges), the FIRST subtask MUST be an Operator subtask to normalize zoom/viewport so that the scale/reference tables and target ranges are clearly visible and readable.
+- Only after this normalization subtask completes may you plan computation/input subtasks. If subsequent steps depend on clarified info, end planning with MANAGER_COMPLETE: false and continue after the new screenshot.
+
 # MANDATORY: Natural Human Workflow Thinking
 - **THINK LIKE A HUMAN**: Plan tasks as a normal person would naturally approach them, not as a computer program.
 - **AVOID UNNECESSARY INTERMEDIATE STEPS**: Do not add steps that a human would not naturally take to achieve the goal.

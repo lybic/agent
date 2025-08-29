@@ -91,9 +91,9 @@ class Agent:
     '''Scroll the element in the specified direction
         Args:
             element_description:str, a very detailed description of which element or where to place the mouse for scrolling. This description should be at least a full sentence.
-            clicks:int, the number of clicks to scroll. Positive values show content above/left, negative values show content below/right.
+            clicks:int, the number of clicks to scroll. Positive values show content above/left, negative values show content below/right. "clicks" corresponds to discrete scroll notches/lines — clicks=1 roughly scrolls one line/notch. Choose an appropriate value based on how far you need to move (e.g., small adjustments: 1-5; section/page-wise: 5-10; long jumps: 10-20).
             vertical:bool, whether to vertical scrolling.
-            holdKey:List[str], list of keys to hold while scrolling. Use holdKey=['ctrl'] for zoom: ctrl+up scroll (+clicks) zooms in, ctrl+down scroll (-clicks) zooms out.
+            holdKey:List[str], list of keys to hold while scrolling. Use holdKey=['ctrl'] for zoom: ctrl+up scroll (+clicks) zooms in, ctrl+down scroll (-clicks) zooms out. NOTE: When using ctrl+scroll for zoom, each scroll notch changes zoom by an app-defined step. In LibreOffice, typical per-notch changes are ~5% at lower zooms, ~10% around 100%, ~20% at higher zooms, and can reach ~30% at very high levels. Plan clicks based on the desired zoom delta (e.g., from 100% to ~130% use clicks=3; from 100% to ~180% use clicks=5, adjusting if the app applies 20% steps).
         '''
         
     def type(self, element_description: str = None, text: str = '', overwrite: bool = False, enter: bool = False):
@@ -197,6 +197,13 @@ agent.click("The menu button at the top right of the window", 1, "left")
 ### SCREENSHOT ANALYSIS GUIDELINES:
 Before generating any action, carefully analyze the current state and consider: -Window Size: If windows appear small or cramped, prioritize maximizing them for better operation -Placeholder Text: Grayed-out placeholder text in input fields is NOT clickable - click in the input area and type directly, Input fields that need only ONE click to activate, NEVER click repeatedly on the same input field -Information Completeness: If the current view doesn't show enough information, scroll to see more content before proceeding -Input Confirmation: After typing text, always confirm with Enter or appropriate confirmation buttons 
 
+### SPREADSHEET PRECISION PROTOCOL
+- When a subtask mentions spreadsheets, tables, or cell ranges, first increase zoom for readability to avoid misaligned row/column targeting.
+- Ensure the target range's top-left and bottom-right are both visible; scroll the grid if needed before editing.
+- Visually confirm the active column header (F) and row indices (5..18) are aligned before input.
+- For bulk inputs, prefer `agent.set_cell_values({...}, app_name, sheet_name)`; for manual edits, click the exact cell only after zooming.
+- If any doubt of off-by-one errors, undo (Ctrl+Z) immediately, increase zoom, and re-validate headers/row indices, then retry.
+
 ### NOTE FOR THE CODE
 1. Only perform one action at a time.
 2. You must use only the available methods provided above to interact with the UI, do not invent new methods.
@@ -210,9 +217,10 @@ Before generating any action, carefully analyze the current state and consider: 
 10. Do not use the "command" + "tab" hotkey on MacOS.
 11. Window Management: If you notice a window is too small or cramped for effective operation, maximize it using hotkeys (like F11 for fullscreen or Windows+Up for maximize) or by double-clicking the title bar. Placeholder Text Handling: When you see grayed-out placeholder text in input fields (like "Search...", "Enter name...", etc.), do NOT try to click on or select this text. Instead, click in the input field area and type directly - the placeholder text will automatically disappear. Information Gathering: If the current view doesn't show enough information to make an informed decision, scroll up/down or left/right to see more content before proceeding. Text Input Completion Protocol: Do NOT call agent.done() immediately after typing text - always confirm the input first. After typing text in input fields (rename dialogs, forms, etc.), you MUST confirm the input with one of these actions: Press Enter key: agent.hotkey(['return'], 80) - Click OK/Submit/Save button - Click outside the input field if that confirms the input - Common scenarios requiring confirmation: - File/folder renaming operations - Form field submissions - Dialog box text inputs - Search box entries.
 12. View Management: If you find that certain elements are difficult to see clearly, such as when viewing PDFs, try using scroll with holdKey combinations to zoom in, or directly opening some items. For example:
-    - To zoom in: agent.scroll("the document content area", -3, True, ["ctrl"])
-    - To zoom out: agent.scroll("the document content area", 3, True, ["ctrl"])
+    - To zoom in: agent.scroll("the document content area", 3, True, ["ctrl"]) 
+    - To zoom out: agent.scroll("the document content area", -3, True, ["ctrl"]) 
     This ensures better visibility on UI elements.
+    - LibreOffice note: each ctrl+scroll notch usually changes zoom by ~5% to 10% near 100%, and by ~20% to 30% at higher levels. Choose clicks accordingly (e.g., +3 for ~+30%).
 13. **VSCODE TEXT INPUT PROTOCOL**: When working with VSCode and needing to input text:
     - Do NOT type directly into VSCode editor
     - Instead, first open Notepad or any text editor
@@ -236,6 +244,20 @@ Before generating any action, carefully analyze the current state and consider: 
         Optionally, you can specify TRUE if you want an approximate match or FALSE if you want an exact match of the return value. If you don't specify anything, the default value will always be TRUE or approximate match.
         Now put all of the above together as follows:
         =VLOOKUP(lookup value, range containing the lookup value, the column number in the range containing the return value, Approximate match (TRUE) or Exact match (FALSE)).
+        LibreOffice Calc (Ubuntu) Notes:
+        - Use semicolons ; as argument separators instead of commas ,.
+        - When you plan to fill formulas down, prefer mixed references with column absolute and row relative, e.g., $A2:$B7 (avoid $A$2:$B$7 locking rows). Caution: use "$A2" ('$' and 'A' and '2') instead of "$A$2" ('$' and 'A' and '$'and '2') to lock the column but allow the row to change.
+        - Approximate match can be 1, exact match can be 0 (equivalent to TRUE/FALSE).
+        Example: 
+        "action": {
+            "type": "SetCellValues",
+            "cell_values": {
+                "F11": "=VLOOKUP(D11;$D2:$E7;2;1)",
+            },
+            "app_name": "abc.xlsx",
+            "sheet_name": "Sheet1"
+        },
+
 16. **Ubuntu Desktop Behavior**: On Ubuntu systems, when documents or applications are already open but minimized, you CANNOT reopen them by double-clicking on their desktop icons or files. You MUST click on the corresponding icon in the taskbar/application launcher to restore the minimized window. This is a key difference from other operating systems and is important to remember when working with Ubuntu.
 17. Don't forget to use undo operations like Ctrl+Z when you encounter mistakes while using the computer. This helps you recover from errors and revert unwanted changes.
 18. Do NOT create, save any files, documents, screenshots, notes, or other artifacts on the computer unless the user objective explicitly requests such outputs.

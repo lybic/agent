@@ -219,7 +219,7 @@ class PyAutoGUIVMwareBackend(Backend):
         code_parts = []
         # 1) Optional focus
         if act.x is not None and act.y is not None:
-            code_parts.append(f"pyautogui.click({act.x}, {act.y})")
+            code_parts.append(f"pyautogui.click({act.x}, {act.y}, clicks=2, interval=0.1)")
             code_parts.append("time.sleep(0.05)")
         # 2) Optional overwrite
         if act.overwrite:

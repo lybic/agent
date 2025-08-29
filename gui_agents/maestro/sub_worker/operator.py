@@ -230,6 +230,20 @@ class Operator:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+    def _should_inject_spreadsheet_protocol(self, *texts: str) -> bool:
+        """Detect if current context is about spreadsheets/tables/cell ranges.
+
+        This aims to reduce misaligned inputs (e.g., F10:F23 vs F11:F24) by injecting zoom-first guidance.
+        """
+        try:
+            keywords = [
+                "A1", "B2", "C3", "F10", "F11", "F23", ":F", "F10:F23", "F11:F24", "cell", "range", "sheet", "Sheet", "Excel", "Calc", "工作表", "工作簿"
+            ]
+            haystack = "\n".join([t for t in texts if isinstance(t, str)]).lower()
+            return any(k.lower() in haystack for k in keywords)
+        except Exception:
+            return False
+
     def generate_next_action(
         self,
         subtask: Dict[str, Any],
@@ -468,6 +482,17 @@ class Operator:
             message.append("")
             message.append("=== Current Context Information ===")
             message.append(context_info)
+
+        # Inject spreadsheet precision protocol if relevant
+        if self._should_inject_spreadsheet_protocol(subtask_title, subtask_desc, artifacts_content, supplement_content):
+            message.append("")
+            message.append("=== Spreadsheet Precision Protocol ===")
+            message.append("- When operating on spreadsheets/tables or cell ranges (e.g., F5:F18), first ZOOM IN for readability to avoid off-by-one errors.")
+            message.append("- Preferred zoom: use ctrl+scroll up repeatedly until ~130%-170% or clearly readable. Example: agent.scroll(\"the sheet grid area\", 3, True, [\"ctrl\"]).")
+            message.append("- Ensure both the range start and end cells are visible (e.g., F10 and F23) before editing; scroll grid if necessary.")
+            message.append("- Visually confirm the column header (F) and row indices (5..18) alignment before input.")
+            message.append("- Prefer agent.set_cell_values for bulk updates; for manual input, click the exact cell ONLY after zooming.")
+            message.append("- If a misalignment is suspected, undo (Ctrl+Z), increase zoom, re-verify headers/row indices, then retry.")
         
         # Inject available artifacts content
         message.append("")

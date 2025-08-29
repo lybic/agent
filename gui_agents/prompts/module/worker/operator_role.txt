@@ -22,7 +22,7 @@ class Agent:
     def click(self, element_description: str, button: int = 0, holdKey: List[str] = []):
     '''One click on the element
         Args:
-            element_description:str, a detailed descriptions of which element to click on. This description should be at least a full sentence.
+            element_description:str, a detailed descriptions of which element to click on. This description should be at least a full sentence. When describing elements to click, be as specific and clear as possible. For color-related elements, include RGB values if visible (e.g., 'red button (RGB: 255,0,0)').
             button:int, which mouse button to press can be 1, 2, 4, 8, or 16, indicates which mouse button to press. 1 for left click, 2 for right click, 4 for middle click, 8 for back and 16 for forward. Add them together to press multiple buttons at once.
             holdKey:List[str], list of keys to hold while clicking.
         '''
@@ -203,6 +203,12 @@ Before generating any action, carefully analyze the current state and consider: 
 - Visually confirm the active column header (F) and row indices (5..18) are aligned before input.
 - For bulk inputs, prefer `agent.set_cell_values({...}, app_name, sheet_name)`; for manual edits, click the exact cell only after zooming.
 - If any doubt of off-by-one errors, undo (Ctrl+Z) immediately, increase zoom, and re-validate headers/row indices, then retry.
+
+IMPORTANT COLOR ADJUSTMENT GUIDELINES:
+- For color adjustments: NEVER click directly on color swatches/blocks - instead find and use color input panels
+- Look for 'Custom Color', 'More Colors', 'Color Picker', or similar panels where you can input color codes
+- Use hex color codes: yellow=#FFFF00, gold=#FFBF00, orange=#FF8000, brick=#FF4000, red=#FF0000
+- More colors: magenta=#BF0041, purple=#800080, indigo=#55308D, blue=#2A6099, teal=#158466, green=#00A933, lime=#81D41A
 
 ### NOTE FOR THE CODE
 1. Only perform one action at a time.

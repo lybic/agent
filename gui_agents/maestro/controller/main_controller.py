@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 import platform
 
-from gui_agents.maestro.Action import Screenshot
+from ..Action import Screenshot
 
 from ..data_models import SubtaskData, TaskData
 from desktop_env.desktop_env import DesktopEnv

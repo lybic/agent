@@ -14,10 +14,10 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 from desktop_env.desktop_env import DesktopEnv
 
-from gui_agents.tools.new_tools import NewTools
-from gui_agents.maestro.new_global_state import NewGlobalState
-from gui_agents.maestro.enums import WorkerDecision
-from gui_agents.utils.common_utils import parse_technician_screenshot_analysis
+from ...tools.new_tools import NewTools
+from ..new_global_state import NewGlobalState
+from ..enums import WorkerDecision
+from ...utils.common_utils import parse_technician_screenshot_analysis
 
 logger = logging.getLogger(__name__)
 
@@ -362,7 +362,7 @@ class Technician:
         trigger_code: str
     ) -> str:
         """Build context-aware prompt based on trigger_code"""
-        from gui_agents.maestro.enums import TRIGGER_CODE_BY_MODULE
+        from ..enums import TRIGGER_CODE_BY_MODULE
         
         # Check if it belongs to WORKER_GET_ACTION_CODES
         worker_codes = TRIGGER_CODE_BY_MODULE.WORKER_GET_ACTION_CODES

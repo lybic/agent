@@ -3,7 +3,7 @@
 # https://lybic.ai/docs/api/executeComputerUseAction
 # ---------------------------------------------------------------------------
 from typing import Dict
-from gui_agents.maestro.Action import (
+from ..Action import (
     Action,
     Click,
     DoubleClick,
@@ -25,8 +25,8 @@ from gui_agents.maestro.Action import (
     # Open
 )
 
-from gui_agents.maestro.Backend.Backend import Backend
-from gui_agents.lybic.lybic_client import LybicClient
+from .Backend import Backend
+from ...lybic.lybic_client import LybicClient
 import asyncio, httpx, time, logging
 from typing import Dict, Any, List, Optional
 from httpx import HTTPStatusError, TimeoutException

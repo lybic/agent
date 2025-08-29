@@ -11,15 +11,15 @@ import time
 import logging
 from typing import Any, Dict, List, Optional
 
-from gui_agents.tools.new_tools import NewTools
-from gui_agents.utils.common_utils import (
+from ...tools.new_tools import NewTools
+from ...utils.common_utils import (
     parse_single_code_from_string,
     sanitize_code,
     extract_first_agent_function,
     parse_screenshot_analysis,
 )
-from gui_agents.maestro.grounding import Grounding
-from gui_agents.maestro.new_global_state import NewGlobalState
+from ..grounding import Grounding
+from ..new_global_state import NewGlobalState
 
 logger = logging.getLogger(__name__)
 
@@ -509,7 +509,7 @@ class Operator:
 
     def _get_context_info_by_trigger_code(self, trigger_code: str) -> str:
         """Return corresponding detailed context information and guidance based on trigger_code"""
-        from gui_agents.maestro.enums import TRIGGER_CODE_BY_MODULE
+        from ..enums import TRIGGER_CODE_BY_MODULE
         
         # Check if it belongs to WORKER_GET_ACTION_CODES
         worker_codes = TRIGGER_CODE_BY_MODULE.WORKER_GET_ACTION_CODES

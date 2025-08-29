@@ -1,7 +1,7 @@
 from PIL import Image
 
-from gui_agents.maestro.hardware_interface import HardwareInterface
-from gui_agents.maestro.Backend.PyAutoGUIBackend import PyAutoGUIBackend
+from ..hardware_interface import HardwareInterface
+from ..Backend.PyAutoGUIBackend import PyAutoGUIBackend
 import pyautogui
 
 

@@ -6,9 +6,9 @@ import time
 import logging
 from typing import Dict, Any
 
-from gui_agents.maestro.controller.rule_engine import RuleEngine
-from gui_agents.maestro.controller.state_handlers import StateHandlers
-from gui_agents.maestro.new_global_state import NewGlobalState
+from .rule_engine import RuleEngine
+from .state_handlers import StateHandlers
+from ..new_global_state import NewGlobalState
 from ..enums import ControllerState, TriggerRole
 
 logger = logging.getLogger(__name__)

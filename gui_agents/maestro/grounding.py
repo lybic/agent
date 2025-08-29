@@ -9,8 +9,8 @@ import pytesseract
 from PIL import Image
 from pytesseract import Output
 
-from gui_agents.tools.new_tools import NewTools
-from gui_agents.utils.common_utils import parse_single_code_from_string
+from ..tools.new_tools import NewTools
+from ..utils.common_utils import parse_single_code_from_string
 
 logger = logging.getLogger("desktopenv.agent")
 

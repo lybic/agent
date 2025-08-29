@@ -14,9 +14,9 @@ import time
 from typing import Dict, Any, Optional, List, Union, Tuple
 from abc import ABC, abstractmethod
 import logging
-from gui_agents.core.mllm import LLMAgent, WebSearchAgent, EmbeddingAgent
+from ..core.mllm import LLMAgent, WebSearchAgent, EmbeddingAgent
 import threading
-from gui_agents.prompts import get_prompt, module
+from ..prompts import get_prompt, module
 
 logger = logging.getLogger("desktopenv.tools")
 

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 from io import BytesIO
 from PIL import Image
 
-from gui_agents.agents.worker import Worker
-from gui_agents.utils.common_utils import Node
+from ..agents.worker import Worker
+from ..utils.common_utils import Node
 
 # Configure colored logging
 class ColoredFormatter(logging.Formatter):

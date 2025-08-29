@@ -4,16 +4,15 @@ Contains helper functions for context building, prompt generation, and trigger c
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 
-from gui_agents.maestro.enums import TRIGGER_CODE_BY_MODULE
-from gui_agents.maestro.manager.utils import (
+from ..enums import TRIGGER_CODE_BY_MODULE, SubtaskStatus
+from ..manager.utils import (
     get_failed_subtasks_info, get_failure_reasons, get_current_failed_subtask,
     get_quality_check_failure_info, get_final_check_failure_info,
     get_execution_time_info, get_supplement_info, count_subtasks_from_info
 )
-from gui_agents.maestro.new_global_state import NewGlobalState
-from gui_agents.maestro.enums import SubtaskStatus
+from ..new_global_state import NewGlobalState
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +169,8 @@ def get_trigger_code_specific_context(global_state, trigger_code: str) -> Dict[s
 
 
 def generate_planning_prompt(context: Dict[str, Any], 
-                           integrated_knowledge: str = "", trigger_code: str = "controller") -> str:
+                           integrated_knowledge: str = "", trigger_code: str = "controller",
+                           assumptions: List[str] = []) -> str:
     """Generate planning prompt based on scenario, context and trigger_code"""
 
     # Determine scenario from context to ensure auto mode works
@@ -262,6 +262,13 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 - Only plan to open a new app/page/tab when the current context clearly lacks the needed capability or is unusable.
 - When an on-screen search field exists and the objective involves search, perform the search in the current page.
 
+# MANDATORY: Natural Human Workflow Thinking
+- **THINK LIKE A HUMAN**: Plan tasks as a normal person would naturally approach them, not as a computer program.
+- **AVOID UNNECESSARY INTERMEDIATE STEPS**: Do not add steps that a human would not naturally take to achieve the goal.
+- **DIRECT APPROACH**: Do not add intermediate steps like change the layout to title only unless explicitly required.
+- **CONTEXT AWARENESS**: Consider the current state and what a human would do next, not what a system might need to "prepare" for.
+- **AVOID OVER-ENGINEERING**: Do not add setup, preparation, or configuration steps unless the objective explicitly requires them.
+
 # Alternative Approach Consistency (MANDATORY)
 - When replacing a previously proposed approach with another (e.g., GUI → CLI/Technician), preserve all key parameters from the preferred plan.
 - Keep time offsets, durations/ranges, fps/frame rate, resolution/aspect ratio, sample rate, bitrate/quality, formats/containers, file names/paths, and input/output selection consistent unless a change is justified.
@@ -297,6 +304,9 @@ Current Progress: {count_subtasks_from_info(context.get('history_subtasks', ''))
 History Subtasks: {history_subtasks}
 Pending Subtasks: {pending_subtasks}
 Platform: {context.get('platform', '')}
+
+# Objective Alignment Information
+{format_assumptions_and_constraints(assumptions, context)}
 """
 
     # Replan-specific extra diagnostic information
@@ -337,6 +347,9 @@ You may refer to some retrieved knowledge if you think they are useful.{integrat
    - Is the first subtask assigned to Analyst? (FORBIDDEN - Analyst cannot be first)
    - For any Analyst subtask, has Operator written required information to memory first?
    - Can Analyst work with only memory data (no desktop access needed)?
+6. **HUMAN WORKFLOW CHECK**:
+   - Would a normal person take these exact steps to achieve the objective?
+   - Are there any unnecessary intermediate steps that a human wouldn't naturally take?
 
 # Manager Completion Flag (MANDATORY)
 At the very end of your output, add exactly one line:
@@ -358,6 +371,32 @@ Please output the planning solution based on the above information:
 """
 
     return planning_prompt
+
+
+def format_assumptions_and_constraints(assumptions: List[str] = [], context: Dict[str, Any] = {}) -> str:
+    """Format assumptions and constraints for inclusion in planning prompt"""
+    # Try to get assumptions and constraints from parameters first, then from context
+    if assumptions is None:
+        assumptions = context.get("objective_assumptions")
+    # if constraints_from_screen is None and context is not None:
+    #     constraints_from_screen = context.get("objective_constraints")
+    
+    lines = []
+    
+    # Format assumptions
+    if assumptions and isinstance(assumptions, list) and len(assumptions) > 0:
+        lines.append("## Objective Assumptions")
+        for i, assumption in enumerate(assumptions, 1):
+            if isinstance(assumption, str) and assumption.strip():
+                lines.append(f"{i}. {assumption.strip()}")
+        lines.append("")
+    
+    # If no assumptions or constraints, add a note
+    if not lines:
+        lines.append("No specific assumptions or screen constraints identified.")
+        lines.append("")
+    
+    return "\n".join(lines)
 
 
 def generate_trigger_specific_guidance(trigger_code: str, trigger_context: Dict[str, Any], 

@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from gui_agents.maestro.snapshot_restorer import restore_snapshot_and_create_globalstate
+from ..snapshot_restorer import restore_snapshot_and_create_globalstate
 from .component_debugger import ComponentDebugger
 from ..controller.state_handlers import NewWorker, Evaluator
 from ..controller.main_controller import NewManager

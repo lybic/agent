@@ -2,8 +2,8 @@
 """Minimal debug function: avoid nested layers and redundant error handling"""
 from typing import Optional
 
-from gui_agents.maestro.debug_system.logging_setup import setup_file_logging
-from gui_agents.maestro.debug_system.main_debugger import MainDebugger, create_debugger
+from .logging_setup import setup_file_logging
+from .main_debugger import MainDebugger, create_debugger
 
 
 def run_debug(runtime_path: str, snapshot_id: str, component: str = "manager") -> None:
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     import argparse
     import logging
 
-    from gui_agents.maestro.debug_system.logging_setup import setup_debug_logging
+    from .logging_setup import setup_debug_logging
 
     setup_debug_logging(logging.INFO)
 

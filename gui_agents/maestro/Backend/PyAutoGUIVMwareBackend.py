@@ -5,7 +5,7 @@ import os
 import io
 from typing import Optional
 from desktop_env.desktop_env import DesktopEnv
-from gui_agents.maestro.Action import (
+from ..Action import (
     Action,
     Click,
     DoubleClick,
@@ -22,8 +22,8 @@ from gui_agents.maestro.Action import (
     SwitchApplications,
     Open
 )
-from gui_agents.utils.common_utils import screenshot_bytes_to_pil_image
-from gui_agents.maestro.Backend.Backend import Backend
+from ...utils.common_utils import screenshot_bytes_to_pil_image
+from .Backend import Backend
 import time
 
 class PyAutoGUIVMwareBackend(Backend):

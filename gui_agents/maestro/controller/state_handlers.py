@@ -5,8 +5,8 @@ Responsible for handling specific logic of various states
 import logging
 from typing import Optional
 
-from gui_agents.maestro.data_models import CommandData
-from gui_agents.maestro.new_global_state import NewGlobalState
+from ..data_models import CommandData
+from ..new_global_state import NewGlobalState
 from ..enums import ControllerState, TaskStatus, SubtaskStatus, WorkerDecision, GateDecision, TriggerRole, TriggerCode
 from ..new_manager import NewManager
 from ..new_worker import NewWorker

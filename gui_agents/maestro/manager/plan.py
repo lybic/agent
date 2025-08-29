@@ -12,12 +12,12 @@ from enum import Enum
 from dataclasses import dataclass
 import re
 
-from gui_agents.utils.common_utils import Node
-from gui_agents.maestro.data_models import SubtaskData
-from gui_agents.maestro.manager.utils import (
+from ...utils.common_utils import Node
+from ..data_models import SubtaskData
+from ..manager.utils import (
     enhance_subtasks, generate_dag, topological_sort
 )
-from gui_agents.maestro.manager.planning_helpers import (
+from .planning_helpers import (
     get_planning_context, generate_planning_prompt
 )
 
@@ -83,8 +83,10 @@ class PlanningHandler:
                     # Update context for downstream prompt generation
                     if isinstance(aligned_text, str) and aligned_text.strip() and not aligned_text.startswith("Error:"):
                         context["objective_alignment_raw"] = aligned_text
-                        # Try parse JSON to extract final objective text (robust against ```json ... ``` and extra text)
+                        # Try parse JSON to extract final objective text and assumptions (robust against ```json ... ``` and extra text)
                         refined_obj = None
+                        assumptions = None
+                        constraints_from_screen = None
                         try:
                             import json as _json
                             _text = aligned_text.strip()
@@ -114,12 +116,15 @@ class PlanningHandler:
                                     except Exception:
                                         _parsed = None
                             if isinstance(_parsed, dict):
-                                # Prefer the new key; fallback to older keys for compatibility
-                                refined_obj = (
-                                    _parsed.get("rewritten_final_objective_text")
-                                )
+                                # Extract all relevant fields from the parsed JSON
+                                refined_obj = _parsed.get("rewritten_final_objective_text")
+                                assumptions = _parsed.get("assumptions")
+                                constraints_from_screen = _parsed.get("constraints_from_screen")
                         except Exception:
                             refined_obj = None
+                            assumptions = None
+                            constraints_from_screen = None
+                        
                         if isinstance(refined_obj, str) and refined_obj.strip():
                             context["objective_alignment"] = refined_obj
                             context["task_objective"] = refined_obj
@@ -127,6 +132,12 @@ class PlanningHandler:
                             # Fallback: use full aligned_text as objective
                             context["objective_alignment"] = aligned_text
                             context["task_objective"] = aligned_text
+                        
+                        # Store assumptions and constraints for planning
+                        if assumptions is not None:
+                            context["objective_assumptions"] = assumptions
+                        # if constraints_from_screen is not None:
+                        #     context["objective_constraints"] = constraints_from_screen
                         # Log the alignment action
                         self.global_state.log_llm_operation(
                             "manager", "objective_alignment", {
@@ -144,7 +155,16 @@ class PlanningHandler:
         integrated_knowledge = self._retrieve_and_fuse_knowledge(context)
 
         # Generate planning prompt (with integrated knowledge if any) based on trigger_code
-        prompt = generate_planning_prompt(context, integrated_knowledge=integrated_knowledge, trigger_code=trigger_code)
+        # Pass assumptions and constraints from objective alignment if available
+        assumptions = context.get("objective_assumptions")
+        # constraints_from_screen = context.get("objective_constraints")
+        prompt = generate_planning_prompt(
+            context, 
+            integrated_knowledge=integrated_knowledge, 
+            trigger_code=trigger_code,
+            assumptions=assumptions, # type: ignore
+            # constraints_from_screen=constraints_from_screen
+        )
 
         # Execute planning using the registered planner tool
         plan_result, total_tokens, cost_string = self.planner_agent.execute_tool(

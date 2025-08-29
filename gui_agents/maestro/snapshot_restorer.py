@@ -13,9 +13,9 @@ from typing import Optional, Dict, Any, Tuple
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from gui_agents.maestro.simple_snapshot import SimpleSnapshot
-from gui_agents.maestro.new_global_state import NewGlobalState
-from gui_agents.maestro.controller.main_controller import MainController
+from .simple_snapshot import SimpleSnapshot
+from .new_global_state import NewGlobalState
+from .controller.main_controller import MainController
 from desktop_env.desktop_env import DesktopEnv
 
 

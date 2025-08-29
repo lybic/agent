@@ -7,14 +7,14 @@ import time
 import logging
 import re
 from typing import Dict, Any, Optional, List, Tuple
-from gui_agents.maestro.data_models import CommandData
-from gui_agents.maestro.hardware_interface import HardwareInterface
+from .data_models import CommandData
+from .hardware_interface import HardwareInterface
 from .new_global_state import NewGlobalState
 from .enums import ExecStatus, SubtaskStatus
 from desktop_env.desktop_env import DesktopEnv
 from PIL import Image
-from gui_agents.maestro.Action import Screenshot
-from gui_agents.maestro.utils.screenShot import scale_screenshot_dimensions
+from .Action import Screenshot
+from .utils.screenShot import scale_screenshot_dimensions
 
 # Setup logging
 logger = logging.getLogger(__name__)

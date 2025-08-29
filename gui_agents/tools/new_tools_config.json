@@ -27,40 +27,40 @@
     },
     {
       "tool_name": "planner_role",
-      "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615"
+      "provider": "lybic",
+      "model_name": "gpt-5"
     },
     {
       "tool_name": "supplement_role",
-      "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615",
+      "provider": "lybic",
+      "model_name": "gpt-5",
       "enable_search": true
     },
     {
       "tool_name": "dag_translator",
-      "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615"
+      "provider": "lybic",
+      "model_name": "gpt-5"
     },
     {
       "tool_name": "operator_role",
-      "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615",
+      "provider": "lybic",
+      "model_name": "gpt-5",
       "enable_search": false,
       "search_provider": "bocha",
       "search_model": ""
     },
     {
       "tool_name": "technician_role",
-      "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615",
+      "provider": "lybic",
+      "model_name": "gpt-5",
       "enable_search": false,
       "search_provider": "bocha",
       "search_model": ""
     },
     {
       "tool_name": "analyst_role",
-      "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615",
+      "provider": "lybic",
+      "model_name": "gpt-5",
       "enable_search": false,
       "search_provider": "bocha",
       "search_model": ""
@@ -82,28 +82,28 @@
     },
     {
       "tool_name": "worker_success_role",
-      "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615"
+      "provider": "lybic",
+      "model_name": "gpt-5"
     },
     {
       "tool_name": "worker_stale_role",
-      "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615"
+      "provider": "lybic",
+      "model_name": "gpt-5"
     },
     {
       "tool_name": "periodic_role",
-      "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615"
+      "provider": "lybic",
+      "model_name": "gpt-5"
     },
     {
       "tool_name": "final_check_role",
-      "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615"
+      "provider": "lybic",
+      "model_name": "gpt-5"
     },
     {
       "tool_name": "objective_alignment",
-      "provider": "doubao",
-      "model_name": "doubao-seed-1-6-250615"
+      "provider": "lybic",
+      "model_name": "gpt-5"
     }
   ]
 } 

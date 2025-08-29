@@ -7,8 +7,8 @@ from unittest.mock import patch
 from io import BytesIO
 from PIL import Image
 
-from gui_agents.agents.manager import Manager
-from gui_agents.utils.common_utils import Node, Dag
+from ..agents.manager import Manager
+from ..utils.common_utils import Node, Dag
 
 # Configure colored logging
 class ColoredFormatter(logging.Formatter):
@@ -190,7 +190,7 @@ class TestManager(unittest.TestCase):
         
         # Manually parse DAG
         print_test_section("Parse DAG")
-        from gui_agents.utils.common_utils import parse_dag
+        from ..utils.common_utils import parse_dag
         dag = parse_dag(dag_raw)
         
         if dag is None:
@@ -270,7 +270,7 @@ class TestManager(unittest.TestCase):
             logger.info(f"Raw DAG output: {dag_raw}")
             
             # Try to parse DAG
-            from gui_agents.utils.common_utils import parse_dag
+            from ..utils.common_utils import parse_dag
             dag = parse_dag(dag_raw)
             
             # If parsing fails, create a simple test DAG

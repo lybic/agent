@@ -33,6 +33,13 @@ Guidance for choosing the flag:
 - Only plan to open a new app/page when the current one is clearly unsuitable, broken, or lacks the necessary capability.
 - When the objective mentions search or navigation and a search field is already present on-screen, perform the search within the current page.
 
+# MANDATORY: Natural Human Workflow Thinking
+- **THINK LIKE A HUMAN**: Plan tasks as a normal person would naturally approach them, not as a computer program.
+- **AVOID UNNECESSARY INTERMEDIATE STEPS**: Do not add steps that a human would not naturally take to achieve the goal.
+- **DIRECT APPROACH**: Do not add intermediate steps like change the layout to title only unless explicitly required.
+- **CONTEXT AWARENESS**: Consider the current state and what a human would do next, not what a system might need to "prepare" for.
+- **AVOID OVER-ENGINEERING**: Do not add setup, preparation, or configuration steps unless the objective explicitly requires them.
+
 # Worker Role Capabilities & Limitations
 
 ## Operator
@@ -186,6 +193,7 @@ When revising existing plans:
 4. **Clear Dependencies**: Ensure information flow between roles is logical
 5. **Role Boundaries**: Respect each role's capabilities and limitations
 6. Do not add validation-only subtasks (Verify/Review/Confirm/Test/Check/QA/Validation). Evaluator handles quality checks; re-plan if issues are found.
+7. **Natural Workflow**: Plan tasks as a human would naturally approach them, avoiding unnecessary intermediate steps.
 
 
 Below are important considerations when generating your plan:

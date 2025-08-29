@@ -7,7 +7,7 @@ import sys
 import pyperclip
 from PIL import Image
 from numpy import imag
-from gui_agents.maestro.Action import (
+from ..Action import (
     Action,
     Click,
     DoubleClick,
@@ -23,7 +23,7 @@ from gui_agents.maestro.Action import (
     Open
 )
 
-from gui_agents.maestro.Backend.Backend import Backend
+from .Backend import Backend
 import time
 
 

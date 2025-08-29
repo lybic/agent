@@ -12,12 +12,12 @@ from enum import Enum
 
 from PIL import Image
 
-from gui_agents.utils.common_utils import Node
-from gui_agents.utils.file_utils import (
+from ..utils.common_utils import Node
+from ..utils.file_utils import (
     locked, safe_json_dump, safe_json_load,
     safe_write_json, safe_read_json, safe_write_text, safe_read_text
 )
-from gui_agents.utils.id_utils import generate_uuid, generate_timestamp_id
+from ..utils.id_utils import generate_uuid, generate_timestamp_id
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +36,6 @@ from .data_models import (
 
 # ========= Import Simple Snapshot System =========
 from .simple_snapshot import SimpleSnapshot
-
-# ========= File Lock and JSON Operations =========
-# These functions are now imported from gui_agents.utils.file_utils
 
 # ========= New GlobalState =========
 class NewGlobalState:

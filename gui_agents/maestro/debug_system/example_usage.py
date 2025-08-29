@@ -2,7 +2,7 @@
 Debug System Usage Example
 """
 
-from main_debugger import create_debugger
+from .main_debugger import create_debugger
 
 
 def main():
@@ -15,7 +15,7 @@ def main():
     print("This system allows you to restore state from snapshots and debug various components")
     
     # List available snapshots
-    snapshots = debugger.list_snapshots()
+    snapshots = debugger.list_snapshots() # type: ignore
     if snapshots:
         print(f"\nFound {len(snapshots)} snapshots:")
         for snapshot in snapshots:
@@ -23,8 +23,8 @@ def main():
         
         # Show information of the first snapshot
         first_snapshot = snapshots[0]
-        debugger.show_snapshot_info(first_snapshot)
-        debugger.debug_worker_from_snapshot(first_snapshot)
+        debugger.show_snapshot_info(first_snapshot) # type: ignore
+        debugger.debug_worker_from_snapshot(first_snapshot) # type: ignore
         
     else:
         print("No available snapshots")
@@ -32,7 +32,7 @@ def main():
     
     # Start interactive debug mode
     print("\nStarting interactive debug mode...")
-    debugger.interactive_debug()
+    debugger.interactive_debug() # type: ignore
 
 
 if __name__ == "__main__":

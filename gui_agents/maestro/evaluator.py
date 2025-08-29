@@ -18,9 +18,9 @@ import json
 
 from .new_global_state import NewGlobalState
 from .enums import GateDecision, GateTrigger, WorkerDecision, WorkerDecision
-from gui_agents.tools.new_tools import NewTools
-from gui_agents.prompts import get_prompt
-from gui_agents.maestro.manager.utils import get_history_subtasks_info, get_pending_subtasks_info, get_failed_subtasks_info
+from ..tools.new_tools import NewTools
+from ..prompts import get_prompt
+from .manager.utils import get_history_subtasks_info, get_pending_subtasks_info, get_failed_subtasks_info
 
 
 # ========= Data Structures =========

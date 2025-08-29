@@ -1,5 +1,5 @@
 import numpy as np
-from gui_agents.utils.common_utils import (
+from ..utils.common_utils import (
     load_embeddings,
     save_embeddings,
 )

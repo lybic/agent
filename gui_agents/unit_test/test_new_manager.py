@@ -26,11 +26,11 @@ else:
     if parent_env_path.exists():
         load_dotenv(dotenv_path=parent_env_path)
 
-from gui_agents.maestro.new_manager import NewManager, PlanningScenario, PlanningResult
-from gui_agents.maestro.new_global_state import NewGlobalState
-from gui_agents.maestro.enums import TaskStatus, SubtaskStatus, ManagerStatus
-from gui_agents.maestro.controller.main_controller import MainController
-from gui_agents.store.registry import Registry
+from ..maestro.new_manager import NewManager, PlanningScenario, PlanningResult
+from ..maestro.new_global_state import NewGlobalState
+from ..maestro.enums import TaskStatus, SubtaskStatus, ManagerStatus
+from ..maestro.controller.main_controller import MainController
+from ..store.registry import Registry
 
 
 def main():

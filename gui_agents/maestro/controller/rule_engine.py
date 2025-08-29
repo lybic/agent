@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
-from gui_agents.maestro.new_global_state import NewGlobalState
+from ..new_global_state import NewGlobalState
 from ..enums import ControllerState, SubtaskStatus, TaskStatus, TriggerCode
 from ..data_models import CommandData
 from ..Action import Action

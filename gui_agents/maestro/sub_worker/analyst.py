@@ -15,9 +15,9 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from gui_agents.tools.new_tools import NewTools
-from gui_agents.maestro.new_global_state import NewGlobalState
-from gui_agents.maestro.enums import SubtaskStatus
+from ...tools.new_tools import NewTools
+from ..new_global_state import NewGlobalState
+from ..enums import SubtaskStatus
 
 logger = logging.getLogger(__name__)
 

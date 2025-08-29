@@ -9,9 +9,9 @@ import time
 from datetime import datetime
 from typing import Dict, Any
 
-from gui_agents.maestro.enums import TRIGGER_CODE_BY_MODULE
-from gui_agents.maestro.manager.utils import get_supplement_info
-from gui_agents.maestro.new_global_state import NewGlobalState
+from ..enums import TRIGGER_CODE_BY_MODULE
+from ..manager.utils import get_supplement_info
+from ..new_global_state import NewGlobalState
 
 logger = logging.getLogger(__name__)
 

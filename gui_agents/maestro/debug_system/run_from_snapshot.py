@@ -10,12 +10,12 @@ import logging
 import time
 from typing import Optional, List, Any
 
-from gui_agents.maestro.data_models import CommandData
-from gui_agents.maestro.new_global_state import NewGlobalState
-from gui_agents.maestro.snapshot_restorer import (
+from ..data_models import CommandData
+from ..new_global_state import NewGlobalState
+from ..snapshot_restorer import (
     restore_maincontroller_from_globalstate,
 )
-from gui_agents.maestro.debug_system.logging_setup import setup_file_logging
+from .logging_setup import setup_file_logging
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ def _parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     import logging
-    from gui_agents.maestro.debug_system.logging_setup import setup_debug_logging, setup_file_logging
+    from .logging_setup import setup_debug_logging, setup_file_logging
 
     # Simple console logging
     setup_debug_logging(logging.INFO)

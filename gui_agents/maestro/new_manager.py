@@ -8,8 +8,8 @@ import time
 from datetime import datetime
 from typing import Dict, Any, Union
 
-from gui_agents.tools.new_tools import NewTools
-from gui_agents.core.new_knowledge import NewKnowledgeBase
+from ..tools.new_tools import NewTools
+from ..core.new_knowledge import NewKnowledgeBase
 
 from .new_global_state import NewGlobalState
 from .enums import ManagerStatus

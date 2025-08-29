@@ -91,9 +91,9 @@ class Agent:
     '''Scroll the element in the specified direction
         Args:
             element_description:str, a very detailed description of which element or where to place the mouse for scrolling. This description should be at least a full sentence.
-            clicks:int, the number of clicks to scroll can be positive (for up and left) or negative (for down and right).
+            clicks:int, the number of clicks to scroll. Positive values show content above/left, negative values show content below/right.
             vertical:bool, whether to vertical scrolling.
-            holdKey:List[str], list of keys to hold while scrolling.
+            holdKey:List[str], list of keys to hold while scrolling. Use holdKey=['ctrl'] for zoom: ctrl+up scroll (+clicks) zooms in, ctrl+down scroll (-clicks) zooms out.
         '''
         
     def type(self, element_description: str = None, text: str = '', overwrite: bool = False, enter: bool = False):

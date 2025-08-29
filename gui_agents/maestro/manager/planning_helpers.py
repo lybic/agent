@@ -271,6 +271,7 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 - **AVOID OVER-ENGINEERING**: Do not add setup, preparation, or configuration steps unless the objective explicitly requires them.
 - **NO LAYOUT PREPARATION**: Do NOT add steps to change slide layouts, apply templates, or modify page structure unless the objective explicitly requires it.
 - **DIRECT TEXT OPERATIONS**: If the goal is to add/edit text, do it directly without first changing layouts, selecting placeholders, or preparing text areas.
+- **COLORING SEMANTICS (MANDATORY)**: When the objective mentions "color textboxes" or "color shapes" without explicitly stating "background"/"fill", interpret it as changing the text (font) color, not the background/fill color. Only apply background/fill changes if the instruction explicitly mentions background/fill. This follows natural human thinking where "coloring text" means changing the text color, not the background.
 
 # Alternative Approach Consistency (MANDATORY)
 - When replacing a previously proposed approach with another (e.g., GUI → CLI/Technician), preserve all key parameters from the preferred plan.
@@ -309,6 +310,26 @@ Pending Subtasks: {pending_subtasks}
 Platform: {context.get('platform', '')}
 
 # Objective Alignment Information
+**IMPORTANT**: The following information represents the user's original objective that has been refined and contextualized based on the current desktop screenshot. This is NOT the final plan - it's a reference to help you understand what the user actually wants to achieve in the current screen context.
+
+**What happened here:**
+- The original user objective was analyzed and rewritten to be more specific and actionable
+- The rewritten objective is grounded in what's currently visible on screen
+- Assumptions and constraints were identified based on the visible UI elements
+- Intent alignment was checked to ensure the rewritten objective preserves the user's original intent
+
+**Use this information to:**
+- Understand the user's true goal in the current context
+- Plan subtasks that directly serve the refined objective
+- Consider the identified assumptions and constraints when planning
+- Pay attention to any intent alignment warnings or gaps
+
+**Key Planning Guidelines:**
+- **Screenshot-First Approach**: The refined objective is based on what's currently visible - plan to use existing on-screen elements when possible
+- **Contextual Constraints**: Respect the identified screen constraints (e.g., available buttons, read-only states, visible data)
+- **Assumption Awareness**: Build your plan considering the documented assumptions about the current state
+- **Intent Verification**: If alignment score is low (<8), be extra careful to ensure your plan serves the user's original goal
+
 {format_assumptions_and_constraints(assumptions, context)}
 """
 
@@ -355,6 +376,11 @@ You may refer to some retrieved knowledge if you think they are useful.{integrat
    - Are there any unnecessary intermediate steps that a human wouldn't naturally take?
    - **SPECIFIC CHECK**: Did I add any layout changes, placeholder selections, or preparation steps that aren't explicitly required?
    - **TEXT OPERATION CHECK**: For text-related tasks, am I adding the text directly or unnecessarily preparing the environment first?
+7. **INTENT ALIGNMENT CHECK**:
+   - Review the Intent Alignment Check section above for any warnings about low alignment scores
+   - If alignment score is below 8, ensure the plan addresses the identified gaps
+   - Verify that the rewritten objective truly serves the user's original intent
+   - Consider requesting clarification if there are significant intent misalignments
 
 # Manager Completion Flag (MANDATORY)
 At the very end of your output, add exactly one line:
@@ -394,6 +420,34 @@ def format_assumptions_and_constraints(assumptions: List[str] = [], context: Dic
         for i, assumption in enumerate(assumptions, 1):
             if isinstance(assumption, str) and assumption.strip():
                 lines.append(f"{i}. {assumption.strip()}")
+        lines.append("")
+    
+    # Format intent alignment check if available
+    intent_alignment = context.get("objective_intent_alignment_check")
+    if intent_alignment and isinstance(intent_alignment, dict):
+        lines.append("## Intent Alignment Check")
+        alignment_score = intent_alignment.get("alignment_score", "N/A")
+        gap_analysis = intent_alignment.get("gap_analysis", "")
+        justification = intent_alignment.get("justification", "")
+        confidence_level = intent_alignment.get("confidence_level", "N/A")
+        
+        lines.append(f"**Alignment Score**: {alignment_score}/10")
+        lines.append(f"**Confidence Level**: {confidence_level}")
+        
+        if gap_analysis and gap_analysis.strip():
+            lines.append(f"**Gap Analysis**: {gap_analysis.strip()}")
+        
+        if justification and justification.strip():
+            lines.append(f"**Justification**: {justification.strip()}")
+        
+        # Add warning if alignment score is low
+        try:
+            score = int(alignment_score) if alignment_score.isdigit() else 0
+            if score < 8:
+                lines.append("⚠️ **WARNING**: Low intent alignment score detected. Review the rewritten objective carefully.")
+        except (ValueError, AttributeError):
+            pass
+        
         lines.append("")
     
     # If no assumptions or constraints, add a note

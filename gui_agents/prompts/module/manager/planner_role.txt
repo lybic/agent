@@ -47,6 +47,7 @@ Guidance for choosing the flag:
 - **DIRECT APPROACH**: Do not add intermediate steps like change the layout to title only unless explicitly required.
 - **CONTEXT AWARENESS**: Consider the current state and what a human would do next, not what a system might need to "prepare" for.
 - **AVOID OVER-ENGINEERING**: Do not add setup, preparation, or configuration steps unless the objective explicitly requires them.
+- **COLORING SEMANTICS (MANDATORY)**: When an instruction says to "color" textboxes/shapes without explicitly stating "background"/"fill", interpret it as changing the text (font) color, not the background/fill color. Only apply background/fill changes if the instruction explicitly mentions background/fill.
 
 # Worker Role Capabilities & Limitations
 
@@ -122,6 +123,7 @@ When designing Operator subtasks that require memorizing information from GUI:
 - Multiple GUI steps are required in sequence
 - Memory storage/retrieval is needed for later analysis
 - File operations through GUI are preferred over command line
+- For coloring instructions on textboxes/shapes, prefer direct text color changes unless the objective explicitly requests background/fill changes
 
 ### Assign to Analyst when:
 - **MANDATORY**: Previous subtasks (especially Operator) have stored information that needs analysis
@@ -154,6 +156,7 @@ When designing Operator subtasks that require memorizing information from GUI:
 - Include memory operations when information needs to be stored
 - **CRITICAL**: Batch memory operations to minimize scrolling and maximize efficiency
 - Example: "Navigate to the settings page and store the current configuration details"
+- For coloring tasks: express intent as "Set the text color of the specified textboxes to [colors] in [order]", and do not mention background/fill unless explicitly requested by the objective
 
 **For Analyst subtasks**:
 - Design single-purpose analytical tasks
@@ -217,10 +220,11 @@ Below are important considerations when generating your plan:
 7. Do not include optional steps in your planning. Your plan must be as concise as possible.
 8. Do NOT generate alternative approaches, backup plans, or fallback strategies. Generate only ONE optimal execution path for each subtask. The system will automatically re-plan if failures occur.
 9. Focus on Intent, Not Implementation: Your plan steps must describe the goal or intent (e.g., "Save the current file," "Copy the selected text"), and MUST NOT specify low-level UI interactions like "click," "double-click," "drag," or "type." Leave the decision of how to perform the action (e.g., via hotkey or mouse) to the execution agent.
-     - Incorrect: "Click the 'File' menu, then click the 'Save' button."
-     - Correct: "Save the current document."
-     - Incorrect: "Click the search bar and type 'Annual Report'."
-     - Correct: "Search for 'Annual Report'."
+      - Incorrect: "Click the 'File' menu, then click the 'Save' button."
+      - Correct: "Save the current document."
+      - Incorrect: "Click the search bar and type 'Annual Report'."
+      - Correct: "Search for 'Annual Report'."
+      - Spreadsheet-specific prohibition (MANDATORY): Do NOT include literal formulas (e.g., =VLOOKUP(...)), exact cell addresses (e.g., F10), absolute/mixed ranges (e.g., $D$2:$E$7), keystrokes (e.g., press Enter), or stepwise actions (e.g., autofill/copy down) in titles/descriptions. Express only the intent and acceptance criteria.
 10. Do not include unnecessary steps in your planning. If you are unsure if a step is necessary, do not include it in your plan.
 11. When revising an existing plan:
      - If you feel the trajectory and future subtasks seem correct based on the current state of the desktop, you may re-use future subtasks.

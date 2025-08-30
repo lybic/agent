@@ -203,12 +203,13 @@ class Technician:
         
         try:
             decision = self._infer_decision_from_text(command_plan)
-            code_blocks: List[Tuple[str, str]] = []
+            # code_blocks: List[Tuple[str, str]] = []
+            code_blocks = self._extract_code_blocks(command_plan)
             decision_message = ""
 
             # Only try to extract code blocks when no explicit decision is detected
-            if decision is None:
-                code_blocks = self._extract_code_blocks(command_plan)
+            # if decision is None:
+            #     code_blocks = self._extract_code_blocks(command_plan)
 
             if decision is None and code_blocks:
                 ok = True
@@ -288,8 +289,16 @@ class Technician:
         }
 
     def _extract_code_blocks(self, text: str) -> List[Tuple[str, str]]:
-        """Extract code blocks from markdown-style text."""
+        """Extract code blocks from markdown-style text.
+        
+        Handles both literal newlines (\n) and escaped newlines (\\n) for compatibility
+        with different LLM output formats.
+        """
         import re
+        
+        # Normalize newlines: convert escaped newlines to literal newlines
+        # This handles cases where LLM outputs \\n instead of \n
+        text = text.replace('\\n', '\n')
         
         # Pattern to match ```language\ncode\n```
         pattern = r'```(\w+)\n(.*?)\n```'

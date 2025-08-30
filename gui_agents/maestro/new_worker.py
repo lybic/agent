@@ -162,7 +162,7 @@ class NewWorker:
                 screenshot_analysis = res.get("screenshot_analysis", "")
                 message = res.get("message", "")
                 
-                normalized_action = self._normalize_action_for_outcome(outcome, raw_action if isinstance(raw_action, dict) else None, message)
+                normalized_action = self._normalize_action_for_outcome(outcome, raw_action, message)
                 
                 # Create command with complete information
                 cmd = create_command_data(

@@ -5,42 +5,23 @@
   Lybic GUI Agent: <small>An open-source agentic framework for Computer Use Agents</small> 
 </h1>
 
-<p align="center">
-    <img src="https://img.shields.io/badge/OS-Windows-blue?logo=windows&logoColor=white" alt="Windows">
-    <img src="https://img.shields.io/badge/OS-macOS-black?logo=apple&logoColor=white" alt="macOS">
-    <img src="https://img.shields.io/badge/OS-Linux-yellow?logo=linux&logoColor=black" alt="Linux">
-    <a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
-    &nbsp;
-    <a href="https://github.com/lybic/agent/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/pypi/l/lybic-guiagents"></a>
-    &nbsp;
-    <a href="https://github.com/lybic/agent"><img alt="Stars" src="https://img.shields.io/github/stars/lybic/agent?style=social"></a>
-</p>
-
-<div align="center">
-  <a href="https://www.readme-i18n.com/lybic/agent?lang=de">Deutsch</a> | 
-  <a href="https://www.readme-i18n.com/lybic/agent?lang=es">Español</a> | 
-  <a href="https://www.readme-i18n.com/lybic/agent?lang=fr">français</a> | 
-  <a href="https://www.readme-i18n.com/lybic/agent?lang=ja">日本語</a> | 
-  <a href="https://www.readme-i18n.com/lybic/agent?lang=ko">한국어</a> | 
-  <a href="https://www.readme-i18n.com/lybic/agent?lang=pt">Português</a> | 
-  <a href="https://www.readme-i18n.com/lybic/agent?lang=ru">Русский</a> | 
-  <a href="https://www.readme-i18n.com/lybic/agent?lang=zh">中文</a>
-</div>
-
 ## What is Lybic GUI Agent?
 
-[Lybic platform placeholder - comprehensive AI platform for building and deploying intelligent agents] <a href="https://lybic.ai/docs">What is Lybic?</a>. Lybic GUI Agent is an open-source framework that enables developers and businesses to create intelligent computer use agents that can understand and interact with graphical user interfaces across Windows, macOS, and Linux platforms.
+Lybic platform placeholder - comprehensive AI platform for building and deploying intelligent agents
+
+Lybic GUI Agent is an open-source framework that enables developers and businesses to create intelligent computer-use agents,mobile-use agents, and intelligent agents that can understand and interact with graphical user interfaces across Windows, macOS, Linux and Android(via lybic Android Sandbox) platforms.
 
 <!-- <p align="center"><small>Lybic GUI Agent is based upon the <a href="https://github.com/simular-ai/Agent-S">Agent-S</a> codebase, allowing us to focus on making the best interaction experience with Lybic while maintaining a familiar execution logic.</small></p> -->
 
 <div align="center">
-  &nbsp;&nbsp;
-<p>Skip the setup? Try Lybic GUI Agent in <a href="https://lybic.ai/">Lybic Cloud</a>
+
+<p>Skip the setup? Try Lybic GUI Agent in our <a href="https://playground.lybic.cn/">Playground</a> with a few clicks.(Only in the Chinese mainland supported)
+
 </div>
 
 ## 🥳 Updates
-- [x] **2025/0x/xx**: Released v0.1.0 of [Lybic GUI Agent](https://github.com/lybic/agent) library, with support for Windows, Mac, Ubuntu and Lybic API!
-- [x] **2025/0x/xx**: Released the [Lybic GUI Agent paper](https://arxiv.org/abs/2410.xxxxx) and codebase!
+- [x] **2025/09/09**: We achieved the world's first place in the 50-step length of [OS-world](https://os-world.github.io/)!
+- [x] **2025/08/08**: Released v0.1.0 of [Lybic GUI Agent](https://github.com/lybic/agent) library, with support for Windows, Mac, Ubuntu and Lybic API!
 
 ## Table of Contents
 
@@ -50,88 +31,19 @@
 
 ## 💡 Introduction
 
-## ✨ Feature Comparison
+## ✨ Feature Agentic Lybic Support
 
-<div align="center">
-  <table border="1" cellspacing="0" cellpadding="10">
-    <tr>
-      <th style="background-color: #f8f9fa; font-weight: bold;">Feature</th>
-      <th style="background-color: #f8f9fa; font-weight: bold;">Lybic GUI Agent</th>
-      <th style="background-color: #f8f9fa; font-weight: bold;">xxxxx</th>
-      <th style="background-color: #f8f9fa; font-weight: bold;">xxxxx</th>
-      <th style="background-color: #f8f9fa; font-weight: bold;">xxxxx</th>
-      <th style="background-color: #f8f9fa; font-weight: bold;">xxxxx</th>
-    </tr>
-    <tr>
-      <td><strong>Supported LLMs</strong></td>
-      <td>Rich Variety</td>
-      <td>Rich Variety</td>
-      <td>Rich Variety</td>
-      <td>Rich Variety</td>
-      <td>OpenAI-only</td>
-    </tr>
-    <tr>
-      <td><strong>RAG Engine</strong></td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>✅</td>
-    </tr>
-    <tr>
-      <td><strong>Agent</strong></td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>❌</td>
-      <td>✅</td>
-    </tr>
-    <tr>
-      <td><strong>Observability</strong></td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>❌</td>
-      <td>❌</td>
-    </tr>
-    <tr>
-      <td><strong>Local Deployment</strong></td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>❌</td>
-    </tr>
-    <tr>
-      <td><strong>GUI Understanding</strong></td>
-      <td>✅</td>
-      <td>❌</td>
-      <td>❌</td>
-      <td>❌</td>
-      <td>❌</td>
-    </tr>
-    <tr>
-      <td><strong>Cross-Platform GUI Control</strong></td>
-      <td>✅</td>
-      <td>❌</td>
-      <td>❌</td>
-      <td>❌</td>
-      <td>❌</td>
-    </tr>
-    <tr>
-      <td><strong>Cloud Sandbox Environment</strong></td>
-      <td>✅</td>
-      <td>❌</td>
-      <td>❌</td>
-      <td>❌</td>
-      <td>❌</td>
-    </tr>
-  </table>
-</div>
+- **Multiple LLMs providers**:  OpenAI, Anthropic, Google, xAI , AzureOpenAI, DeepSeek, Qwen, Doubao, ZhipuGLM
+  - **Aggregation Model Provider**:  Bedrock, Groq, Monica, OpenRouter, SiliconFlow
+- **RAG**: We support RAG, and this capability is provided as an extension
+- **Cross-Platform GUI Control**: Windows, Linux, macOS, Android Supported
+- **Observability**: Supported
+- **Local Deployment**: Supported
+- **Cloud Sandbox Environment**: Supported
 
-<p align="center">🎉 Agents Demo</p>
+<p align="center">🎉 Agents Online Demo</p>
 
-[![Our demo](https://img.youtube.com/vi/YRLlpQhnMso/maxresdefault.jpg)](https://www.youtube.com/watch?v=YRLlpQhnMso)
+[![Our demo](https://img.youtube.com/vi/GaOoYoRKWhE/maxresdefault.jpg)](https://www.youtube.com/watch?v=GaOoYoRKWhE)
 
 <p align="center">🎯 Current Results</p>
 
@@ -143,20 +55,10 @@
       <th>Previous SOTA</th>
     </tr>
     <tr>
-      <td>OSWorld Verified (100 step)</td>
-      <td><b>56.0%</b></td>
+      <td>OSWorld Verified (50 step)</td>
+      <td><b>57.1%</b></td>
       <td>53.1%</td>
     </tr>
-<!--     <tr>
-      <td>WindowsAgentArena</td>
-      <td>29.8%</td>
-      <td>19.5% (NAVI)</td>
-    </tr>
-    <tr>
-      <td>AndroidWorld</td>
-      <td>54.3%</td>
-      <td>46.8% (UI-TARS)</td>
-    </tr> -->
   </table>
 </div>
 
@@ -400,9 +302,11 @@ If you encounter issues not covered here:
    - Complete error messages
    - Steps to reproduce the issue
 
+<!--
 ## Stargazers over time
 
 [![Stargazers over time](https://starchart.cc/lybic/agent.svg)](https://starchart.cc/lybic/agent)
+-->
 
 ## License
 

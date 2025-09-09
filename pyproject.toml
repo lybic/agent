@@ -1,9 +1,20 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
 [project]
-name = "lybicguiagents"
+name = "lybic-guiagents"
 version = "0.1.0"
-description = "Add your description here"
+authors = [
+  { name="Lybic Development Team", email="lybic@tingyutech.com" },
+]
+description = "An open-source agentic framework that enables AI to use computers like humans and can provide a multi-agent runtime environment as an infrastructure capability"
 readme = "README.md"
 requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 dependencies = [
     "numpy",
     "backoff",

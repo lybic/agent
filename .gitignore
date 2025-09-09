@@ -27,7 +27,6 @@ share/python-wheels/
 MANIFEST
 runtime/
 kb_s2/*/embeddings*
-.github/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -124,6 +123,9 @@ celerybeat.pid
 
 # SageMath parsed files
 *.sage.py
+
+# IDE
+.idea/
 
 # Environments
 .env

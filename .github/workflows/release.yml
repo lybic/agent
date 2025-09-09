@@ -1,0 +1,79 @@
+name: Create Release Changelog And Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      new_tag:
+        description: 'The new tag(version) to create (e.g., v0.4.0)'
+        required: true
+      previous_tag:
+        description: 'The previous tag for changelog generation (e.g., v0.3.58)'
+        required: true
+
+jobs:
+  create_changelog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # To push tags, branches, and commits
+      pull-requests: write # To create and merge pull requests
+    steps:
+      - name: Checkout master branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # Required for changelog generation from git history
+
+      - name: Configure Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create release branch
+        run: |
+          git checkout -b changelog_${{ github.event.inputs.new_tag }}
+
+      - name: Generate changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEW_TAG: ${{ github.event.inputs.new_tag }}
+          PREVIOUS_TAG: ${{ github.event.inputs.previous_tag }}
+        run: |
+          echo "## Changelog for $NEW_TAG" > changelog.md
+          echo "" >> changelog.md
+          echo "Update from $PREVIOUS_TAG to $NEW_TAG" >> changelog.md
+          echo "" >> changelog.md
+          echo "Release timestamp: $(date +%Y-%m-%d)" >> changelog.md
+          echo "" >> changelog.md
+          gh api repos/${{ github.repository }}/compare/${PREVIOUS_TAG}...HEAD --jq '.commits[] | "- \(.commit.message | split("\n")[0]) (by @\(.author.login // .commit.author.name) in `\(.sha | tostring | .[0:7])`) "' >> changelog.md
+          mkdir -p CHANGELOGS
+          mv changelog.md CHANGELOGS/${NEW_TAG}-release.md
+
+      - name: Update version in pyproject.toml
+        run: |
+          # Remove 'v' prefix from tag if present (e.g., v0.4.0 -> 0.4.0)
+          VERSION=${{ github.event.inputs.new_tag }}
+          VERSION=${VERSION#v}
+
+          # Update version in pyproject.toml
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+
+          # Commit the version update
+          git add pyproject.toml
+          git commit -m "build: bump Agentic-Lybic version to $VERSION"
+          git push --set-upstream origin changelog_${{ github.event.inputs.new_tag }}
+
+      - name: Commit and push changelog
+        run: |
+          git add CHANGELOGS/${{ github.event.inputs.new_tag }}-release.md
+          git commit -m "docs(changelog): Generate changelog for ${{ github.event.inputs.new_tag }}"
+          git push origin changelog_${{ github.event.inputs.new_tag }}
+
+      - name: Create Changelog Pull Request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEW_TAG: ${{ github.event.inputs.new_tag }}
+        run:  |
+          gh pr create \
+            --title "build: bump Agentic-Lybic to ${NEW_TAG}" \
+            --body "build: bump Agentic-Lybic to ${NEW_TAG}" \
+            --base master \
+            --head changelog_${{ github.event.inputs.new_tag }}

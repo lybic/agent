@@ -6,8 +6,8 @@ setup(
     description="A library for creating general purpose GUI agents using multimodal LLMs.",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    author="Deepmatrix",
-    author_email="guoliangxuan@deepmatrix.com.cn",
+    author="Lybic Development Team",
+    author_email="lybic@tingyutech.com",
     packages=find_packages(),
     extras_require={"dev": ["black"]},  # Code formatter for linting
     entry_points={
@@ -26,8 +26,8 @@ setup(
     ],
     keywords="ai, llm, gui, agent, multimodal",
     project_urls={
-        "Source": "https://git.flam.dev/lybic/agent/lybicguiagents",
-        "Bug Reports": "https://git.flam.dev/lybic/agent/lybicguiagents/-/issues",
+        "Source": "https://github.com/lybic/agent",
+        "Bug Reports": "https://github.com/lybic/agent/issues",
     },
     python_requires=">=3.9, <=3.12",
 )

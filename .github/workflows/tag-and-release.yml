@@ -1,0 +1,43 @@
+name: Tag
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  tag-and-release:
+    if: |
+     github.event.pull_request.merged == true &&
+     startsWith(github.event.pull_request.title, 'build: bump Agentic-Lybic to')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Extract tag name
+        id: extract_tag
+        run: |
+          TAG_NAME=$(echo "${{ github.event.pull_request.title }}" | sed 's/build: bump Agentic-Lybic to //')
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Configure Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+      - name: Create and push tag
+        run: |
+          git tag ${{ steps.extract_tag.outputs.tag_name }}
+          git push origin ${{ steps.extract_tag.outputs.tag_name }}
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create ${{ steps.extract_tag.outputs.tag_name }} \
+            --title "Release ${{ steps.extract_tag.outputs.tag_name }}" \
+            --notes-file "CHANGELOGS/${{ steps.extract_tag.outputs.tag_name }}-release.md"

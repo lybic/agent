@@ -100,5 +100,3 @@ dependencies = [
     'pywin32; platform_system == "Windows"',
     "tldextract>=5.3.0",
 ]
-[tool.uv]
-index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"

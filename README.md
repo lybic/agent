@@ -2,6 +2,7 @@
   <a href="https://lybic.ai/">
     <img src="https://avatars.githubusercontent.com/lybic" alt="Lybic Logo" width="60" height="60">
   </a>
+  <br/>
   Lybic GUI Agent: <small>An open-source agentic framework for Computer Use Agents</small> 
 </h1>
 

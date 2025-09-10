@@ -1,3 +1,9 @@
+<div align="center">
+
+**[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-jp.md)**
+
+</div>
+
 <h1 align="center">
   <a href="https://lybic.ai/">
     <img src="https://avatars.githubusercontent.com/lybic" alt="Lybic Logo" width="60" height="60">

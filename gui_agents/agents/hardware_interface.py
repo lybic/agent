@@ -4,6 +4,7 @@ import pyautogui
 from gui_agents.agents.Backend.Backend import Backend
 from gui_agents.agents.Backend.ADBBackend import ADBBackend
 from gui_agents.agents.Backend.LybicBackend import LybicBackend
+from gui_agents.agents.Backend.LybicSDKBackend import LybicSDKBackend
 from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
 from gui_agents.agents.Backend.PyAutoGUIVMwareBackend import PyAutoGUIVMwareBackend
 """hardware_interface.py  ▸  Execute Action objects on real devices / emulators
@@ -16,8 +17,8 @@ use to perform UI operations.  It is deliberately thin:
     into platform‑specific calls (PyAutoGUI, ADB, Lybic cloud device, …).
 *   Performs minimal capability checks + error propagation.
 
-The default backend implemented here is **PyAutoGUIBackend**.  Stubs for
-**ADBBackend** and **LybicBackend** show how to extend the system.
+The default backend implemented here is **PyAutoGUIBackend**.  
+Available backends: **ADBBackend**, **LybicBackend**, **LybicSDKBackend**, and **PyAutoGUIVMwareBackend**.
 
 --------------------------------------------------------------------------
 Quick usage
@@ -27,6 +28,8 @@ from actions import Click
 from hardware_interface import HardwareInterface
 
 hwi = HardwareInterface(backend="pyautogui")
+# Or use Lybic SDK backend
+hwi_lybic = HardwareInterface(backend="lybic_sdk")
 
 # Single action
 hwi.dispatch(Click(xy=(960, 540)))
@@ -55,6 +58,7 @@ __all__ = [
     "PyAutoGUIBackend",
     "ADBBackend",
     "LybicBackend",
+    "LybicSDKBackend",
     "PyAutoGUIVMwareBackend",
 ]
 
@@ -70,6 +74,7 @@ class HardwareInterface:
         "pyautogui": PyAutoGUIBackend,
         "adb": ADBBackend,
         "lybic": LybicBackend,
+        "lybic_sdk": LybicSDKBackend,
         "pyautogui_vmware": PyAutoGUIVMwareBackend,
     }
 

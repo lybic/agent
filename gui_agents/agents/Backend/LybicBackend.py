@@ -23,7 +23,7 @@ from gui_agents.agents.Action import (
 )
 
 from gui_agents.agents.Backend.Backend import Backend
-from gui_agents.lybic.lybic_client import LybicClient
+from gui_agents.lybic_client.lybic_client import LybicClient
 import asyncio, httpx, time, logging
 from typing import Dict, Any, List, Optional
 from httpx import HTTPStatusError, TimeoutException

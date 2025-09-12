@@ -2,12 +2,13 @@
 
 **[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-jp.md)**
 
+<br/>
 </div>
 
-<h1 align="center">
-  <a href="https://lybic.ai/">
-    <img src="https://avatars.githubusercontent.com/lybic" alt="Lybic Logo" width="60" height="60">
-  </a>
+<p align="center">
+  <img src="assets/logo.png" alt="Lybic Logo" width="400"/>
+</p>
+<h1>
   <br/>
   Lybic GUI Agent: <small>コンピューター利用エージェントのためのオープンソースのエージェントフレームワーク</small> 
 </h1>
@@ -309,11 +310,9 @@ USE_PRECREATE_VM=Ubuntu
    - 完全なエラーメッセージ
    - 問題を再現する手順
 
-<!--
 ## Stargazers over time
 
 [![Stargazers over time](https://starchart.cc/lybic/agent.svg)](https://starchart.cc/lybic/agent)
--->
 
 ## ライセンス
 

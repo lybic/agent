@@ -2,13 +2,13 @@
 
 **[English](./README.md) | [中文](./README-zh.md) | [日本語](./README-jp.md)**
 
+<br/>
 </div>
 
+<p align="center">
+  <img src="assets/logo.png" alt="Lybic Logo" width="400"/>
+</p>
 <h1 align="center">
-  <a href="https://lybic.ai/">
-    <img src="assets/logo.png" alt="Lybic Logo">
-  </a>
-  <br/>
   Lybic GUI Agent: <small>An open-source agentic framework for Computer Use Agents</small> 
 </h1>
 

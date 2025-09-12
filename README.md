@@ -6,7 +6,7 @@
 
 <h1 align="center">
   <a href="https://lybic.ai/">
-    <img src="https://avatars.githubusercontent.com/lybic" alt="Lybic Logo" width="60" height="60">
+    <img src="assets/logo.png" alt="Lybic Logo">
   </a>
   <br/>
   Lybic GUI Agent: <small>An open-source agentic framework for Computer Use Agents</small> 
@@ -309,11 +309,9 @@ If you encounter issues not covered here:
    - Complete error messages
    - Steps to reproduce the issue
 
-<!--
 ## Stargazers over time
 
 [![Stargazers over time](https://starchart.cc/lybic/agent.svg)](https://starchart.cc/lybic/agent)
--->
 
 ## License
 

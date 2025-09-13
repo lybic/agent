@@ -26,7 +26,8 @@ class StateHandlers:
             tools_dict: dict, 
             platform: str, 
             enable_search: bool, 
-            env_password: str
+            env_password: str = "osworld-public-evaluation",
+            rule_engine=None
         ):
         self.global_state: NewGlobalState = global_state
         self.manager = manager
@@ -35,6 +36,7 @@ class StateHandlers:
         self.platform = platform
         self.enable_search = enable_search
         self.env_password = env_password
+        self.rule_engine = rule_engine
     
     def handle_init_state(self) -> tuple[ControllerState, TriggerRole, str, TriggerCode]:
         """Initialize state handling"""
@@ -79,6 +81,12 @@ class StateHandlers:
             if not subtask:
                 logger.warning(f"Subtask {current_subtask_id} not found, switching to INIT")
                 return (ControllerState.INIT, TriggerRole.WORKER_GET_ACTION, f"Subtask {current_subtask_id} not found in GET_ACTION state", TriggerCode.SUBTASK_NOT_FOUND)
+
+            # Check if current subtask indicates task is impossible
+            if subtask.title == "Task Cannot Be Completed" or "cannot be completed" in subtask.title.lower():
+                logger.info("Detected impossible task subtask, rejecting task")
+                self.global_state.update_task_status(TaskStatus.REJECTED)
+                return (ControllerState.DONE, TriggerRole.WORKER_GET_ACTION, "Task cannot be completed", TriggerCode.TASK_IMPOSSIBLE)
 
             # Handled uniformly by Worker: generate action/record decision/create command based on role
             worker_params = {
@@ -212,12 +220,12 @@ class StateHandlers:
                 # Check current subtask's assignee_role, if analyst, enter quality check directly after executing action
                 subtask = self.global_state.get_subtask(current_subtask_id)
                 if subtask and subtask.assignee_role == "analyst":
-                    logger.info(f"Analyst subtask {current_subtask_id} action executed, switching to QUALITY_CHECK")
-                    # Update subtask status to waiting for quality check
+                    logger.info(f"Analyst subtask {current_subtask_id} action executed, switching to GET_ACTION")
+                    # Update subtask status to continue normal flow
                     self.global_state.update_subtask_status(
                         current_subtask_id, SubtaskStatus.PENDING,
-                        "Analyst action executed, waiting for quality check")
-                    return (ControllerState.QUALITY_CHECK, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"Analyst action executed for subtask {current_subtask_id}", TriggerCode.COMMAND_COMPLETED)
+                        "Analyst action executed, continue to next action")
+                    return (ControllerState.GET_ACTION, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"Analyst action executed for subtask {current_subtask_id}", TriggerCode.COMMAND_COMPLETED)
                 else:
                     # Non-analyst role, continue normal GET_ACTION flow
                     return (ControllerState.GET_ACTION, TriggerRole.EXECUTOR_EXECUTE_ACTION, f"{command.command_id} command completed", TriggerCode.COMMAND_COMPLETED)
@@ -238,6 +246,18 @@ class StateHandlers:
             if not current_subtask_id:
                 logger.warning("No current subtask ID in QUALITY_CHECK state")
                 return (ControllerState.INIT, TriggerRole.EVALUATOR_QUALITY_CHECK, "No current subtask ID in QUALITY_CHECK state", TriggerCode.NO_CURRENT_SUBTASK_ID)
+
+            # Check if current subtask indicates task is impossible
+            subtask = self.global_state.get_subtask(current_subtask_id)
+            if subtask and (subtask.title == "Task Cannot Be Completed" or "cannot be completed" in subtask.title.lower()):
+                logger.info("Detected impossible task subtask in quality check, rejecting task")
+                self.global_state.update_task_status(TaskStatus.REJECTED)
+                return (ControllerState.DONE, TriggerRole.EVALUATOR_QUALITY_CHECK, "Task cannot be completed", TriggerCode.TASK_IMPOSSIBLE)
+
+            # Reset repeated action counter when entering quality check state
+            # This ensures we don't immediately trigger another quality check for the same pattern
+            if self.rule_engine:
+                self.rule_engine.reset_repeated_action_counter()
 
             evaluator_params = {
                 "global_state": self.global_state,
@@ -390,6 +410,14 @@ class StateHandlers:
             if not task:
                 logger.error("No task found for final check")
                 return (ControllerState.DONE, TriggerRole.EVALUATOR_FINAL_CHECK, "No task found", TriggerCode.FINAL_CHECK_ERROR)
+
+            # Check if task is impossible by looking for "Task Cannot Be Completed" subtask
+            all_subtasks = self.global_state.get_subtasks()
+            for subtask in all_subtasks:
+                if subtask.title == "Task Cannot Be Completed" or "cannot be completed" in subtask.title.lower():
+                    logger.info("Detected impossible task, rejecting task")
+                    self.global_state.update_task_status(TaskStatus.REJECTED)
+                    return (ControllerState.DONE, TriggerRole.EVALUATOR_FINAL_CHECK, "Task cannot be completed", TriggerCode.TASK_IMPOSSIBLE)
 
             # Check if there are still pending subtasks
             if task.pending_subtask_ids and len(task.pending_subtask_ids) > 0:

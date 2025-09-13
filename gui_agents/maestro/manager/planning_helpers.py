@@ -5,6 +5,7 @@ Contains helper functions for context building, prompt generation, and trigger c
 
 import logging
 from typing import Dict, Any, List
+import json
 
 from ..enums import TRIGGER_CODE_BY_MODULE, SubtaskStatus
 from ..manager.utils import (
@@ -37,7 +38,12 @@ def get_planning_context(global_state, platform: str, replan_attempts: int,
         "planning_scenario": "replan" if is_replan_now else "initial_plan",
         "replan_attempts": replan_attempts,
         "planning_history": planning_history[-3:] if planning_history else [],
-        "trigger_code": trigger_code
+        "trigger_code": trigger_code,
+        
+        "commands": global_state.get_commands(),
+        "gate_checks": global_state.get_gate_checks(),
+        "artifacts": global_state.get_artifacts(),
+        "supplement": global_state.get_supplement(),
     }
 
     # Add failure information only when truly re-planning
@@ -245,61 +251,6 @@ You need to perform INITIAL PLANNING to decompose the objective into executable 
 
     # Common guidance and output schema
     common_guidance = f"""
-# Decomposition Principles
-1. Each subtask should have clear objectives and completion criteria
-2. Dependencies between subtasks should be clear
-3. Assign appropriate Worker type for each subtask
-4. Consider execution risks and exceptional cases
-5. Every subtask must be justified against the original objective
-
-# No Side Effects (No Extra Artifacts/Files)
-- Do NOT create, save any files, documents, screenshots, notes, or other artifacts unless the objective explicitly requests such outputs.
-- Prefer reusing currently open software and webpages; avoid opening new ones unless necessary for the objective.
-
-# Screenshot-First Reuse (MANDATORY)
-- ALWAYS interpret the current desktop screenshot before proposing navigation or opening anything new.
-- If the visible app/page can perform the required action (e.g., it has a search/input field relevant to the objective), plan to use it directly.
-- Only plan to open a new app/page/tab when the current context clearly lacks the needed capability or is unusable.
-- When an on-screen search field exists and the objective involves search, perform the search in the current page.
-- For ANY spreadsheet/tabular objective (e.g., mapping by scale table, VLOOKUP/LOOKUP, filling ranges), the FIRST subtask MUST normalize zoom/viewport to make reference tables and target ranges clearly readable; if further planning depends on clarified details, end with MANAGER_COMPLETE: false and continue after the updated screenshot.
-
-# MANDATORY: Natural Human Workflow Thinking
-- **THINK LIKE A HUMAN**: Plan tasks as a normal person would naturally approach them, not as a computer program.
-- **AVOID UNNECESSARY INTERMEDIATE STEPS**: Do not add steps that a human would not naturally take to achieve the goal.
-- **DIRECT APPROACH**: Do not add intermediate steps like change the layout to title only unless explicitly required.
-- **CONTEXT AWARENESS**: Consider the current state and what a human would do next, not what a system might need to "prepare" for.
-- **AVOID OVER-ENGINEERING**: Do not add setup, preparation, or configuration steps unless the objective explicitly requires them.
-- **NO LAYOUT PREPARATION**: Do NOT add steps to change slide layouts, apply templates, or modify page structure unless the objective explicitly requires it.
-- **DIRECT TEXT OPERATIONS**: If the goal is to add/edit text, do it directly without first changing layouts, selecting placeholders, or preparing text areas.
-- **COLORING SEMANTICS (MANDATORY)**: When the objective mentions "color textboxes" or "color shapes" without explicitly stating "background"/"fill", interpret it as changing the text (font) color, not the background/fill color. Only apply background/fill changes if the instruction explicitly mentions background/fill. This follows natural human thinking where "coloring text" means changing the text color, not the background.
-
-# Alternative Approach Consistency (MANDATORY)
-- When replacing a previously proposed approach with another (e.g., GUI → CLI/Technician), preserve all key parameters from the preferred plan.
-- Keep time offsets, durations/ranges, fps/frame rate, resolution/aspect ratio, sample rate, bitrate/quality, formats/containers, file names/paths, and input/output selection consistent unless a change is justified.
-- If you change any of these, explicitly state the reason and the expected effect.
-- Provide a concise parameter mapping table from the prior approach to the new commands/flags.
-
-# Media Processing Defaults (if applicable)
-- For clip extraction or frame sampling, keep the start timestamp and duration identical to the specification.
-- Frame rate policy: default to the source's native frame rate. If changing fps, specify the target fps and rationale (e.g., size/performance), and ensure playback speed remains 1x.
-- For GIF generation from video with ffmpeg, prefer the palettegen/paletteuse pipeline to improve quality; preserve resolution or downscale to even dimensions if needed, and state your sampling strategy.
-
-# CRITICAL ANALYST ASSIGNMENT RULES
-1. **NEVER assign Analyst as the first subtask** - Analyst cannot start any task
-2. **Analyst MUST be preceded by Operator** - Operator must write information to memory first
-3. **Analyst can only work with memory** - cannot access desktop or perform GUI operations
-4. **Verify memory availability** - ensure all required data is in memory before assigning Analyst
-5. **Analyst dependency chain**: Operator (gather) → Analyst (analyze) → Operator (apply)
-
-# Mandatory Cross-Role Split for GUI-derived Q&A/Analysis
-- If the objective requires reading content from GUI and then answering questions/doing analysis:
-  1) Operator must gather the content via GUI and store it with memorize using QUESTION / DATA / GUIDANCE fields.
-  2) Analyst must answer using only memory/artifacts (no screenshot), producing the final answers/list.
-  3) Operator must write/apply the answers back into GUI and save/confirm.
-- Do not merge these roles in one subtask. Keep one clear role per subtask.
-- Prefer batching: gather all items first, then answer once, then write once.
-- Note: Do NOT include verification/validation-only subtasks; Evaluator will handle quality checks automatically.
-
 # Task Information
 Objective: {context.get('task_objective', '')}
 Planning Scenario: {planning_scenario}
@@ -358,6 +309,21 @@ Failure Reasons: {context.get('failure_reasons', '')}
 # Current Environment Information
 Screenshot Available: {'Yes' if context.get('screenshot') else 'No'}
 
+# Complete State Information for Planning
+**CRITICAL**: The following information provides complete context about the current environment state. Use this to understand what has been done, what resources exist, and what needs to be done next.
+
+## Quality Check Results
+All quality check decisions and notes:
+{json.dumps(context.get('gate_checks', []), indent=2, default=str) if context.get('gate_checks') else 'No quality checks performed yet'}
+
+## Generated Artifacts
+All files, resources, and artifacts created:
+{json.dumps(context.get('artifacts', []), indent=2, default=str) if context.get('artifacts') else 'No artifacts created yet'}
+
+## Supplement Information
+Additional context and supplementary data:
+{json.dumps(context.get('supplement', {}), indent=2, default=str) if context.get('supplement') else 'No supplement information available'}
+
 # Retrieved/Integrated Knowledge
 You may refer to some retrieved knowledge if you think they are useful.{integrated_knowledge if integrated_knowledge else 'N/A'}
 
@@ -407,20 +373,20 @@ Please output the planning solution based on the above information:
 def format_assumptions_and_constraints(assumptions: List[str] = [], context: Dict[str, Any] = {}) -> str:
     """Format assumptions and constraints for inclusion in planning prompt"""
     # Try to get assumptions and constraints from parameters first, then from context
-    if assumptions is None:
-        assumptions = context.get("objective_assumptions")
+    # if assumptions is None:
+    #     assumptions = context.get("objective_assumptions")
     # if constraints_from_screen is None and context is not None:
     #     constraints_from_screen = context.get("objective_constraints")
     
     lines = []
     
-    # Format assumptions
-    if assumptions and isinstance(assumptions, list) and len(assumptions) > 0:
-        lines.append("## Objective Assumptions")
-        for i, assumption in enumerate(assumptions, 1):
-            if isinstance(assumption, str) and assumption.strip():
-                lines.append(f"{i}. {assumption.strip()}")
-        lines.append("")
+    # # Format assumptions
+    # if assumptions and isinstance(assumptions, list) and len(assumptions) > 0:
+    #     lines.append("## Objective Assumptions")
+    #     for i, assumption in enumerate(assumptions, 1):
+    #         if isinstance(assumption, str) and assumption.strip():
+    #             lines.append(f"{i}. {assumption.strip()}")
+    #     lines.append("")
     
     # Format intent alignment check if available
     intent_alignment = context.get("objective_intent_alignment_check")

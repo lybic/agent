@@ -232,7 +232,7 @@ import subprocess
 
 def set_cell_values(new_cell_values, app_name, sheet_name):
     # Clean up previous TCP connections
-    subprocess.run('echo "password" | sudo -S ss --kill --tcp state TIME-WAIT sport = :2002', 
+                subprocess.run('echo "osworld-public-evaluation" | sudo -S ss --kill --tcp state TIME-WAIT sport = :2002', 
                   shell=True, check=True, text=True, capture_output=True)
     
     # Start LibreOffice with socket connection

@@ -75,11 +75,18 @@ class PlanningHandler:
             if self.objective_alignment_agent is not None:
                 raw_objective = context.get("task_objective", "")
                 screenshot = context.get("screenshot")
+                recent_subtasks_history = context.get("recent_subtasks_history")
+                # Construct complete alignment prompt with objective and recent history
+                alignment_prompt = "Original objective: " + raw_objective
+                if recent_subtasks_history:
+                    alignment_prompt += "\n\nRecent subtasks history: " + str(recent_subtasks_history)
+                
                 if isinstance(raw_objective, str) and raw_objective.strip():
                     aligned_text, a_tokens, a_cost = self.objective_alignment_agent.execute_tool(
                         "objective_alignment",
-                        {"str_input": "Original objective: " + raw_objective, "img_input": screenshot}
+                        {"str_input": alignment_prompt, "img_input": screenshot}
                     )
+                    logger.info(f"Alignment Done.")
                     # Update context for downstream prompt generation
                     if isinstance(aligned_text, str) and aligned_text.strip() and not aligned_text.startswith("Error:"):
                         context["objective_alignment_raw"] = aligned_text
@@ -134,8 +141,8 @@ class PlanningHandler:
                             context["task_objective"] = aligned_text
                         
                         # Store assumptions and constraints for planning
-                        if assumptions is not None:
-                            context["objective_assumptions"] = assumptions
+                        # if assumptions is not None:
+                        #     context["objective_assumptions"] = assumptions
                         # if constraints_from_screen is not None:
                         #     context["objective_constraints"] = constraints_from_screen
                         # Log the alignment action
@@ -153,9 +160,10 @@ class PlanningHandler:
         
         # Retrieve external knowledge (web + narrative) and optionally fuse
         integrated_knowledge = self._retrieve_and_fuse_knowledge(context)
+        logger.info(f"Knowledge integrated.")
 
         # Generate planning prompt (with integrated knowledge if any) based on trigger_code
-        # Pass assumptions and constraints from objective alignment if available
+        # Includes generic configuration persistence and role assignment guidance (see planning_helpers.generate_planning_prompt)
         assumptions = context.get("objective_assumptions")
         # constraints_from_screen = context.get("objective_constraints")
         prompt = generate_planning_prompt(
@@ -171,7 +179,9 @@ class PlanningHandler:
             "planner_role", {
                 "str_input": prompt,
                 "img_input": context.get("screenshot")
-            })
+            }
+        )
+        logger.info(f"Planner Executed.")
 
         # Parse manager completion flag from planner output and strip the flag line
         manager_complete_flag = True

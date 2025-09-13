@@ -72,7 +72,7 @@ def analyze_display_json(file_path: str) -> Dict:
         return {}
 
     # Initialize counters
-    fast_action_count = 0
+    action_count = 0
     total_duration = 0
     total_input_tokens = 0
     total_output_tokens = 0
@@ -87,7 +87,7 @@ def analyze_display_json(file_path: str) -> Dict:
             if operation.get('operation') == 'main_loop_completed':
                 is_agents3 = True
                 # Extract agents3 statistics
-                fast_action_count = operation.get('step_count', 0)
+                action_count = operation.get('step_count', 0)
                 total_duration = int(operation.get('duration', 0))
                 break
 
@@ -96,7 +96,7 @@ def analyze_display_json(file_path: str) -> Dict:
         if 'operations' in data and 'controller' in data['operations']:
             for operation in data['operations']['controller']:
                 if operation.get('operation') == 'main_loop_completed':
-                    fast_action_count = operation.get('step_count', 0)
+                    action_count = operation.get('step_count', 0)
                     total_duration = int(operation.get('duration', 0))
                     break
 
@@ -130,7 +130,7 @@ def analyze_display_json(file_path: str) -> Dict:
             ops_list.extend([operation for operation in data['operations']['grounding']])
             for operation in ops_list:
                 if operation.get('operation') == 'fast_planning_execution':
-                    fast_action_count += 1
+                    action_count += 1
 
                 # Extract tokens
                 tokens = operation.get('tokens', [0, 0, 0])
@@ -166,7 +166,7 @@ def analyze_display_json(file_path: str) -> Dict:
 
             # Count hardware operations as steps
             if 'hardware' in data['operations']:
-                fast_action_count = len(data['operations']['hardware'])
+                action_count = len(data['operations']['hardware'])
 
             # Extract tokens and cost from specific operations across all modules
             for module_name, module_operations in data['operations'].items():
@@ -200,7 +200,7 @@ def analyze_display_json(file_path: str) -> Dict:
                         break
 
     return {
-        'fast_action_count': fast_action_count,
+        'action_count': action_count,
         'total_duration': total_duration,
         'total_input_tokens': total_input_tokens,
         'total_output_tokens': total_output_tokens,
@@ -255,7 +255,7 @@ def aggregate_results(results: List[Dict]) -> Dict:
     if not results:
         return {}
 
-    total_fast_actions = sum(r['fast_action_count'] for r in results)
+    total_fast_actions = sum(r['action_count'] for r in results)
     total_duration = max(r['total_duration'] for r in results) if results else 0
     total_input_tokens = sum(r['total_input_tokens'] for r in results)
     total_output_tokens = sum(r['total_output_tokens'] for r in results)
@@ -290,7 +290,7 @@ def format_output_line(stats: Dict) -> str:
         return "No data available"
 
     # Format: steps, duration (seconds), tokens, cost
-    steps = stats.get('fast_action_count', 0)
+    steps = stats.get('action_count', 0)
     duration = stats.get('total_duration', 0)
     tokens = (stats.get('total_input_tokens', 0),stats.get('total_output_tokens', 0),stats.get('total_tokens', 0))
     cost = stats.get('total_cost', 0.0)

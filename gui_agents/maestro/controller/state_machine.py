@@ -40,6 +40,11 @@ class StateMachine:
         old_state = self.get_current_state()
         self.state_switch_count += 1
 
+        # Reset repeated action counter when switching to certain states
+        # This prevents stale counters from affecting new state logic
+        if new_state in [ControllerState.PLAN, ControllerState.QUALITY_CHECK, ControllerState.FINAL_CHECK]:
+            self.rule_engine.reset_repeated_action_counter()
+
         # Record state switch event
         self.global_state.add_event(
             trigger_role, "state_switch",

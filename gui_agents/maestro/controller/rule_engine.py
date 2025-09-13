@@ -37,59 +37,105 @@ class RuleEngine:
         self.repeated_action_min_consecutive = self.flow_config.get("repeated_action_min_consecutive", 3)
         self.replan_long_execution_threshold = self.flow_config.get("replan_long_execution_threshold", 15)
         self.plan_number_limit = self.flow_config.get("plan_number_limit", 50)
+        
+        # Added: Repeated action counter to track consecutive similar actions
+        # This counter is reset after each quality check trigger to avoid continuous triggering
+        self.repeated_action_counter = 0
     
-    def _are_actions_similar(self, action1: Dict[str, Any], action2: Dict[str, Any]) -> bool:
+    def _are_actions_similar(self, action1: Any, action2: Any) -> bool:
         """Check if two Actions are the same (excluding descriptive fields)
         
+        Supports both dict format (regular Actions) and list format (technician Actions).
+        
         Args:
-            action1: Dictionary representation of the first Action
-            action2: Dictionary representation of the second Action
+            action1: Action representation (dict or list)
+            action2: Action representation (dict or list)
             
         Returns:
             bool: Returns True if the two Actions are the same, otherwise False
         """
         try:
-            # Check if Action types are the same
-            if action1.get("type") != action2.get("type"):
+            # Handle different action format combinations
+            action1_is_dict = isinstance(action1, dict)
+            action2_is_dict = isinstance(action2, dict)
+            action1_is_list = isinstance(action1, list)
+            action2_is_list = isinstance(action2, list)
+            
+            # Case 1: Both are dict format (regular Actions)
+            if action1_is_dict and action2_is_dict:
+                return self._compare_dict_actions(action1, action2)
+            
+            # Case 2: Both are list format (technician Actions)
+            elif action1_is_list and action2_is_list:
+                return self._compare_list_actions(action1, action2)
+            
+            # Case 3: Mixed formats (dict vs list) - always different
+            else:
                 return False
-            
-            # Get Action type
-            action_type = action1.get("type")
-            
-            # Define descriptive fields to exclude (these fields don't affect actual Action execution)
-            descriptive_fields = {
-                "element_description",  # Click, DoubleClick, Move, Scroll
-                "starting_description",  # Drag
-                "ending_description",    # Drag
-            }
-            
-            # Compare all non-descriptive fields
-            for key in action1:
-                if key in descriptive_fields:
-                    continue  # Skip descriptive fields
-                
-                if key not in action2:
-                    return False
-                
-                if action1[key] != action2[key]:
-                    return False
-            
-            # Check if action2 has fields that action1 doesn't have (except descriptive fields)
-            for key in action2:
-                if key in descriptive_fields:
-                    continue  # Skip descriptive fields
-                
-                if key not in action1:
-                    return False
-            
-            return True
             
         except Exception as e:
             logger.error(f"Error comparing actions: {e}")
             return False
     
+    def _compare_dict_actions(self, action1: Dict[str, Any], action2: Dict[str, Any]) -> bool:
+        """Compare two dict format actions (regular Actions)"""
+        # Check if Action types are the same
+        if action1.get("type") != action2.get("type"):
+            return False
+        
+        # Define descriptive fields to exclude (these fields don't affect actual Action execution)
+        descriptive_fields = {
+            "element_description",  # Click, DoubleClick, Move, Scroll
+            "starting_description",  # Drag
+            "ending_description",    # Drag
+        }
+        
+        # Compare all non-descriptive fields
+        for key in action1:
+            if key in descriptive_fields:
+                continue  # Skip descriptive fields
+            
+            if key not in action2:
+                return False
+            
+            if action1[key] != action2[key]:
+                return False
+        
+        # Check if action2 has fields that action1 doesn't have (except descriptive fields)
+        for key in action2:
+            if key in descriptive_fields:
+                continue  # Skip descriptive fields
+            
+            if key not in action1:
+                return False
+        
+        return True
+    
+    def _compare_list_actions(self, action1: List[Any], action2: List[Any]) -> bool:
+        """Compare two list format actions (technician Actions)
+        
+        Technician actions are in format [language, code] where:
+        - language: programming language (e.g., "bash", "python")
+        - code: the actual code content
+        """
+        # Both should be lists with exactly 2 elements
+        if len(action1) != 2 or len(action2) != 2:
+            return False
+        
+        # Extract language and code for both actions
+        lang1, code1 = action1[0], action1[1]
+        lang2, code2 = action2[0], action2[1]
+        
+        # Both language and code should be strings
+        if not (isinstance(lang1, str) and isinstance(code1, str) and 
+                isinstance(lang2, str) and isinstance(code2, str)):
+            return False
+        
+        # Compare language and code
+        return lang1 == lang2 and code1 == code2
+    
     def _check_consecutive_similar_actions(self, commands: List[CommandData], min_consecutive: int = 3) -> bool:
-        """Check if there are consecutive similar Actions
+        """Check if there are consecutive similar Actions using repeated_action_counter
         
         Args:
             commands: List of commands
@@ -98,29 +144,30 @@ class RuleEngine:
         Returns:
             bool: Returns True if consecutive similar Actions are found, otherwise False
         """
-        return False
         try:
             if min_consecutive is None:
                 min_consecutive = self.repeated_action_min_consecutive
             if len(commands) < min_consecutive:
                 return False
             
-            # Start from the latest command and check consecutive Actions
-            consecutive_count = 1
-            current_action = commands[-1].action
-            
-            # Check forward from the second-to-last command
-            for i in range(len(commands) - 2, -1, -1):
-                if self._are_actions_similar(current_action, commands[i].action):
-                    consecutive_count += 1
-                    if consecutive_count >= min_consecutive:
-                        logger.info(f"Found {consecutive_count} consecutive similar actions")
+            # Check if the latest command is similar to the previous one
+            if len(commands) >= 2:
+                latest_action = commands[-1].action
+                previous_action = commands[-2].action
+                
+                if self._are_actions_similar(latest_action, previous_action):
+                    # Increment counter for consecutive similar actions
+                    self.repeated_action_counter += 1
+                    logger.debug(f"Incremented repeated action counter to {self.repeated_action_counter}")
+                    
+                    # Check if we've reached the threshold
+                    if self.repeated_action_counter >= min_consecutive:
+                        logger.info(f"Found {self.repeated_action_counter} consecutive similar actions")
                         return True
                 else:
-                    # Reset count
-                    consecutive_count = 1
-                    current_action = commands[i].action
-            
+                    # Reset counter if actions are different
+                    self.repeated_action_counter = 1
+                    logger.debug("Reset repeated action counter due to different action")
             return False
             
         except Exception as e:
@@ -138,18 +185,30 @@ class RuleEngine:
             if not task:
                 return None
 
-            # # Check maximum state switch count
-            # if state_switch_count >= self.max_state_switches:
-            #     logger.warning(
-            #         f"Maximum state switches ({self.max_state_switches}) reached"
-            #     )
-            #     self.global_state.update_task_status(TaskStatus.REJECTED)
-            #     return (ControllerState.DONE, TriggerCode.RULE_MAX_STATE_SWITCHES_REACHED)
+            # Check maximum state switch count
+            if state_switch_count >= self.max_state_switches:
+                logger.warning(
+                    f"Maximum state switches ({self.max_state_switches}) reached"
+                )
+                self.global_state.update_task_status(TaskStatus.REJECTED)
+                return (ControllerState.DONE, TriggerCode.RULE_MAX_STATE_SWITCHES_REACHED)
 
             # Check task status
-            if task.status == "completed":
+            if task.status == "fulfilled":
                 logger.info("Task marked as completed")
                 return (ControllerState.DONE, TriggerCode.RULE_TASK_COMPLETED)
+
+            # rule: If task runtime exceeds 2 hours from created_at, mark as REJECTED
+            try:
+                created_at_dt = datetime.fromisoformat(task.created_at)
+                if (datetime.now() - created_at_dt).total_seconds() > 2 * 3600:
+                    logger.warning(
+                        "Task runtime exceeded 2 hours since creation, marking task as REJECTED"
+                    )
+                    self.global_state.update_task_status(TaskStatus.REJECTED)
+                    return (ControllerState.DONE, TriggerCode.RULE_TASK_RUNTIME_EXCEEDED)
+            except Exception as _time_err:
+                logger.error(f"Error parsing task.created_at or computing runtime: {_time_err}")
 
             # Check planning count limit - if planning count exceeds configured limit, mark task as failed
             plan_num = self.global_state.get_plan_num()
@@ -225,10 +284,12 @@ class RuleEngine:
                 if subtask and len(subtask.command_trace_ids) >= self.repeated_action_min_consecutive:
                     # Get all commands for the current subtask
                     commands = self.global_state.get_commands_for_subtask(task.current_subtask_id)
-                    if commands and self._check_consecutive_similar_actions(commands[-self.repeated_action_min_consecutive:], min_consecutive=self.repeated_action_min_consecutive):
+                    if commands and self._check_consecutive_similar_actions(commands, min_consecutive=self.repeated_action_min_consecutive):
                         logger.info(
-                            f"Found {self.repeated_action_min_consecutive}+ consecutive similar actions in subtask {task.current_subtask_id}, switching to QUALITY_CHECK"
+                            f"Found {self.repeated_action_counter} consecutive similar actions in subtask {task.current_subtask_id}, switching to QUALITY_CHECK"
                         )
+                        # Reset immediately to avoid re-trigger loops
+                        self.reset_repeated_action_counter()
                         return (ControllerState.QUALITY_CHECK, TriggerCode.RULE_QUALITY_CHECK_REPEATED_ACTIONS)
 
             # If a subtask's execution actions are too long, exceeding the configured threshold - REPLAN
@@ -251,3 +312,8 @@ class RuleEngine:
         """Check if the current state has timed out"""
         state_start_time = self.global_state.get_controller_state_start_time()
         return (time.time() - state_start_time) > self.max_state_duration
+    
+    def reset_repeated_action_counter(self):
+        """Reset the repeated action counter - called when state changes or quality check is triggered"""
+        self.repeated_action_counter = 0
+        logger.debug("Repeated action counter reset")

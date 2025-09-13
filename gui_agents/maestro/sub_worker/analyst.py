@@ -1,23 +1,13 @@
-"""
-Analyst Module for GUI-Agent Architecture (Maestro)
-- Provides data analysis and recommendations based on artifacts content
-- Analyzes stored information and extracts insights
-- Supports decision-making with analytical insights
-- Handles non-GUI interaction subtasks
-"""
-
-from __future__ import annotations
-
 import json
 import re
 import time
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ...tools.new_tools import NewTools
 from ..new_global_state import NewGlobalState
-from ..enums import SubtaskStatus
+from ..enums import SubtaskStatus, WorkerDecision
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +75,8 @@ class Analyst:
         - analysis: detailed analysis result
         - recommendations: list of recommendations
         - step_result: StepResult as dict
-        - outcome: one of {"analysis_complete", "CANNOT_EXECUTE", "STALE_PROGRESS"}
+        - outcome: 
+        - message: optional message when outcome is WORKER_DONE or other decisions
         """
         # Get all required context information
         task = self.global_state.get_task()
@@ -125,13 +116,13 @@ class Analyst:
                 ok=False,
                 error=msg,
                 latency_ms=0,
-                outcome="STALE_PROGRESS",
+                outcome=WorkerDecision.STALE_PROGRESS.value,
             )
             return {
                 "analysis": "",
                 "recommendations": [],
                 "step_result": result.__dict__,
-                "outcome": "STALE_PROGRESS",
+                "outcome": WorkerDecision.STALE_PROGRESS.value,
             }
 
         # Build analysis prompt with all context information
@@ -169,23 +160,48 @@ class Analyst:
                 ok=False,
                 error=err,
                 latency_ms=int((time.time() - t0) * 1000),
-                outcome="CANNOT_EXECUTE",
+                outcome=WorkerDecision.CANNOT_EXECUTE.value,
             )
             return {
                 "analysis": "",
                 "recommendations": [],
                 "step_result": result.__dict__,
-                "outcome": "CANNOT_EXECUTE",
+                "outcome": WorkerDecision.CANNOT_EXECUTE.value,
             }
 
-        # Parse analysis result
+        # 1) Check explicit DONE decision markers or JSON fields
         try:
-            # Try to extract CandidateAction first
+            decision = self._infer_done_decision(analysis_result)
+        except Exception:
+            decision = None
+        if decision == "done":
+            # Return a WORKER_DONE outcome with a message
+            msg = self._extract_done_message(analysis_result)
+            ok = True
+            outcome = WorkerDecision.WORKER_DONE.value
+            err = None
+            result = StepResult(
+                step_id=f"{subtask.get('subtask_id','unknown')}.analyst-1",
+                ok=ok,
+                error=err,
+                latency_ms=latency_ms,
+                outcome=outcome,
+            )
+            self.global_state.add_event("analyst", "analysis_done", "Analyst marked subtask as done")
+            return {
+                "analysis": "",
+                "recommendations": [],
+                "message": msg,
+                "step_result": result.__dict__,
+                "outcome": outcome,
+            }
+
+        # 2) Try to extract CandidateAction first (stale continuation)
+        try:
             candidate_action = self._extract_candidate_action(analysis_result)
             if isinstance(candidate_action, dict) and candidate_action:
-                # Provide candidate action for continuation via STALE
                 ok = True
-                outcome = "STALE_PROGRESS"
+                outcome = WorkerDecision.STALE_PROGRESS.value
                 err = None
                 result = StepResult(
                     step_id=f"{subtask.get('subtask_id','unknown')}.analyst-1",
@@ -203,17 +219,23 @@ class Analyst:
                     "step_result": result.__dict__,
                     "outcome": outcome,
                 }
+        except Exception:
+            # Ignore and continue to parse JSON
+            pass
 
+        # 3) Parse analysis JSON output
+        try:
             parsed_result = self._parse_analysis_result(analysis_result)
             ok = True
-            outcome = "analysis_complete"
+            outcome = WorkerDecision.GENERATE_ACTION.value
             err = None
         except Exception as e:
             ok = False
-            outcome = "CANNOT_EXECUTE"
+            outcome = WorkerDecision.CANNOT_EXECUTE.value
             parsed_result = {
                 "analysis": f"Failed to parse analysis: {str(e)}",
                 "recommendations": [],
+                "summary": "",
             }
             err = f"PARSE_ANALYSIS_FAILED: {e}"
             logger.warning(err)
@@ -234,9 +256,9 @@ class Analyst:
         )
 
         return {
-            "analysis": parsed_result["analysis"],
-            "recommendations": parsed_result["recommendations"],
-            "summary": parsed_result["summary"],
+            "analysis": parsed_result.get("analysis", ""),
+            "recommendations": parsed_result.get("recommendations", []),
+            "summary": parsed_result.get("summary", ""),
             "step_result": result.__dict__,
             "outcome": outcome,
         }
@@ -392,14 +414,21 @@ class Analyst:
             "- For question-answering, provide comprehensive answers with evidence",
             "- When data is insufficient, clearly state limitations",
             "- Base all conclusions on available evidence, not assumptions",
+            "",
+            "## Completion Signaling:",
+            "- If you determine the current subtask is fully completed by analysis alone, you may explicitly mark it as DONE.",
+            "- You can signal completion using one of the following:",
+            "  Structured markers:",
+            "     DECISION_START\n     Decision: DONE\n     Message: [why it's done]\n     DECISION_END",
             ""
         ]
         
         # Output format specification
         output_section = [
             "# Required Output Format",
-            "Provide your analysis in valid JSON format with these exact fields:",
+            "Your response supports two mutually exclusive output modes. Do NOT mix them in the same response.",
             "",
+            "- JSON Mode (default when not making a decision): Return exactly one JSON object with these fields:",
             "```json",
             "{",
             '    "analysis": "Detailed analysis description explaining your findings and methodology",',
@@ -413,8 +442,14 @@ class Analyst:
             "- **recommendations**: List of specific, actionable suggestions (required, can be empty list)",
             "- **summary**: Concise overview of key points (required)",
             "",
-            "If you believe GUI action is needed to proceed but you cannot ensure correctness (stale), also include a CandidateAction JSON block after the main JSON, for example:",
-            'CandidateAction: {"type": "click", "selector": {"by": "text", "value": "Next"}}',
+            "- Decision Mode (when you must signal task state): Use the structured decision markers exactly as specified below and do not include JSON.",
+            "- If you determine the current subtask is fully completed by analysis alone, you may explicitly mark it as DONE so the controller can proceed.",
+            "- You can signal completion using one of the following methods:",
+            "Structured decision markers:",
+            "    DECISION_START",
+            "    Decision: DONE",
+            "    Message: [why it's done and no further action is required]",
+            "    DECISION_END",
         ]
         
         # Combine all sections
@@ -512,3 +547,57 @@ class Analyst:
         except Exception as e:
             logger.debug(f"No CandidateAction found: {e}")
         return None
+
+    def _infer_done_decision(self, text: str) -> Optional[str]:
+        """Infer DONE decision from LLM output.
+        Supports structured markers and JSON fields to indicate completion.
+        Returns 'done' if detected, otherwise None.
+        """
+        try:
+            # Structured markers
+            if "DECISION_START" in text and "DECISION_END" in text:
+                start = text.find("DECISION_START") + len("DECISION_START")
+                end = text.find("DECISION_END")
+                if 0 < start < end:
+                    content = text[start:end]
+                    m = re.search(r"Decision:\s*(DONE)", content, re.IGNORECASE)
+                    if m:
+                        return "done"
+            # JSON fields
+            try:
+                parsed = json.loads(text)
+                decision = str(parsed.get("decision", "")).strip().lower()
+                outcome = str(parsed.get("outcome", "")).strip().upper()
+                if decision == "done" or outcome == "WORKER_DONE":
+                    return "done"
+            except Exception:
+                pass
+        except Exception:
+            pass
+        return None
+
+    def _extract_done_message(self, text: str) -> str:
+        """Extract a message explaining DONE decision, best-effort."""
+        try:
+            if "DECISION_START" in text and "DECISION_END" in text:
+                start = text.find("DECISION_START") + len("DECISION_START")
+                end = text.find("DECISION_END")
+                if 0 < start < end:
+                    content = text[start:end]
+                    m = re.search(r"Message:\s*(.+)", content, re.IGNORECASE | re.DOTALL)
+                    if m:
+                        import re as _re
+                        msg = m.group(1).strip()
+                        msg = _re.sub(r'\s+', ' ', msg)
+                        return msg
+            # JSON fields
+            try:
+                parsed = json.loads(text)
+                msg = str(parsed.get("message", "")).strip()
+                if msg:
+                    return msg
+            except Exception:
+                pass
+        except Exception:
+            pass
+        return "Analysis indicates the subtask is complete."

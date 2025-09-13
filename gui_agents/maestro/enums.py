@@ -27,6 +27,7 @@ class SubtaskStatus(str, Enum):
 
 class ExecStatus(str, Enum):
     """Execution status"""
+    PENDING = "pending"      # Pending
     EXECUTED = "executed"    # Executed
     TIMEOUT = "timeout"      # Timeout
     BLOCKED = "blocked"      # Blocked
@@ -134,6 +135,7 @@ class TriggerCode(str, Enum):
     RULE_PLAN_NUMBER_EXCEEDED = "rule_plan_number_exceeded"              # controller -> controller: done
     RULE_STATE_SWITCH_COUNT_EXCEEDED = "rule_state_switch_count_exceeded"  # controller -> controller: done
     RULE_TASK_COMPLETED = "rule_task_completed"                          # controller -> controller: done
+    RULE_TASK_RUNTIME_EXCEEDED = "rule_task_runtime_exceeded"            # controller -> controller: done
     
     # State handling related - INIT state
     SUBTASK_READY = "subtask_ready" # INIT -> worker: get_action
@@ -177,6 +179,7 @@ class TriggerCode(str, Enum):
     FINAL_CHECK_PENDING = "final_check_pending" # evaluator: final_check -> worker: get_action
     FINAL_CHECK_PASSED = "final_check_passed" # evaluator: final_check -> controller: done
     FINAL_CHECK_FAILED = "final_check_failed" # evaluator: final_check -> manager: replan
+    TASK_IMPOSSIBLE = "task_impossible" # evaluator: final_check -> controller: done (task rejected)
 
     # Error recovery related
     UNKNOWN_STATE = "unknown_state" # unknown -> INIT
@@ -250,6 +253,8 @@ class TRIGGER_CODE_BY_MODULE:
         "rule_plan_number_exceeded": TriggerCode.RULE_PLAN_NUMBER_EXCEEDED.value,
         "rule_state_switch_count_exceeded": TriggerCode.RULE_STATE_SWITCH_COUNT_EXCEEDED.value,
         "rule_task_completed": TriggerCode.RULE_TASK_COMPLETED.value,
+        "rule_task_runtime_exceeded": TriggerCode.RULE_TASK_RUNTIME_EXCEEDED.value,
         "final_check_error": TriggerCode.FINAL_CHECK_ERROR.value,
         "final_check_passed": TriggerCode.FINAL_CHECK_PASSED.value,
+        "task_impossible": TriggerCode.TASK_IMPOSSIBLE.value,
     }

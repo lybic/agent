@@ -3,7 +3,6 @@ from __future__ import annotations
 import pyautogui
 from .Backend.Backend import Backend
 from .Backend.ADBBackend import ADBBackend
-from .Backend.LybicBackend import LybicBackend
 from .Backend.PyAutoGUIBackend import PyAutoGUIBackend
 from .Backend.PyAutoGUIVMwareBackend import PyAutoGUIVMwareBackend
 """hardware_interface.py  ▸  Execute Action objects on real devices / emulators
@@ -54,7 +53,6 @@ __all__ = [
     "Backend",
     "PyAutoGUIBackend",
     "ADBBackend",
-    "LybicBackend",
     "PyAutoGUIVMwareBackend",
 ]
 
@@ -69,7 +67,6 @@ class HardwareInterface:
     BACKEND_MAP: Dict[str, Type[Backend]] = {
         "pyautogui": PyAutoGUIBackend,
         "adb": ADBBackend,
-        "lybic": LybicBackend,
         "pyautogui_vmware": PyAutoGUIVMwareBackend,
     }
 

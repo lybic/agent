@@ -234,7 +234,7 @@ if __name__ == "__main__":
         "tools_dict": {"example": "config"},
         "platform": "darwin",
         "enable_search": True,
-        "env_password": "password123"
+        "env_password": "osworld-public-evaluation"
     }
     
     # Create snapshot

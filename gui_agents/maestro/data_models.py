@@ -184,7 +184,7 @@ class CommandData:
     worker_decision: str = field(default_factory=lambda: WorkerDecision.GENERATE_ACTION.value)
     message: str = ""  # Worker decision message
     reason_text: str = ""  # Unified reason text across decisions
-    exec_status: str = field(default_factory=lambda: ExecStatus.EXECUTED.value)
+    exec_status: str = field(default_factory=lambda: ExecStatus.PENDING.value)
     exec_message: str = "OK"
     exec_latency_ms: int = 0
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -228,7 +228,7 @@ class CommandData:
             worker_decision=data.get("worker_decision", WorkerDecision.GENERATE_ACTION.value),
             message=data.get("message", ""),
             reason_text=data.get("reason_text", ""),
-            exec_status=data.get("exec_status", ExecStatus.EXECUTED.value),
+            exec_status=data.get("exec_status", ExecStatus.PENDING.value),
             exec_message=data.get("exec_message", "OK"),
             exec_latency_ms=data.get("exec_latency_ms", 0),
             created_at=data.get("created_at", datetime.now().isoformat()),
@@ -307,7 +307,7 @@ def create_command_data(command_id: str, task_id: str, action: Dict[str, Any],
         subtask_id=subtask_id,
         assignee_role=assignee_role,
         action=action,
-        exec_status=ExecStatus.EXECUTED.value
+        exec_status=ExecStatus.PENDING.value
     )
 
 

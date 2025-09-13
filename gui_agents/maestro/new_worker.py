@@ -40,7 +40,7 @@ class NewWorker:
         global_state: NewGlobalState,
         platform: str = "Windows",
         enable_search: bool = False,
-        client_password: str = "",
+        client_password: str = "osworld-public-evaluation",
         screen_size: List[int] = [1920, 1080],
     ) -> None:
         self.operator = Operator(
@@ -49,6 +49,7 @@ class NewWorker:
             platform=platform,
             enable_search=enable_search,
             screen_size=screen_size,
+            client_password=client_password,
         )
         
         self.technician = Technician(
@@ -74,7 +75,7 @@ class NewWorker:
         if outcome == WorkerDecision.STALE_PROGRESS.value:
             # Represent stale as an action with optional candidate_action
             action = {"type": "Stale"}
-            if isinstance(raw_action, dict) and raw_action:
+            if raw_action:
                 action["candidate_action"] = raw_action
             return action
         if outcome == WorkerDecision.CANNOT_EXECUTE.value:
@@ -226,6 +227,9 @@ class NewWorker:
                 
                 # For analyst, keep action payload for artifacts, but still carry reason_text
                 normalized_action = {"analysis": analysis, "recommendations": recommendations}
+                if outcome == WorkerDecision.WORKER_DONE.value:
+                    # When analyst decides the subtask is done, convert to a Done action
+                    normalized_action = {"type": "Done", "message": message or ""}
                 
                 # Create command with complete information
                 cmd = create_command_data(
@@ -250,13 +254,15 @@ class NewWorker:
                     reason_text=message,
                 )
                 
-                if outcome == "analysis_complete":
-                    logger.info(f"Analyst generated action, switching to EXECUTE_ACTION")
+                if outcome == WorkerDecision.GENERATE_ACTION.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.GENERATE_ACTION.value)
                     return WorkerDecision.GENERATE_ACTION.value
-                elif outcome == "STALE_PROGRESS":
+                elif outcome == WorkerDecision.STALE_PROGRESS.value:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.STALE_PROGRESS.value)
                     return WorkerDecision.STALE_PROGRESS.value
+                elif outcome == WorkerDecision.WORKER_DONE.value:
+                    self._global_state.update_command_worker_decision(command_id, WorkerDecision.WORKER_DONE.value)
+                    return WorkerDecision.WORKER_DONE.value
                 else:
                     self._global_state.update_command_worker_decision(command_id, WorkerDecision.CANNOT_EXECUTE.value)
                     return WorkerDecision.CANNOT_EXECUTE.value

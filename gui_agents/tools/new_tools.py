@@ -514,7 +514,7 @@ class GroundingTool(BaseTool):
             grounding_height (int): Height value (768)
             Otherwise returns None, None
         """
-        if self.provider == "doubao" and "ui-tars" in self.model_name:
+        if self.provider == "doubao" and ("ui-tars" in self.model_name or "ep-" in self.model_name):
             grounding_width = 1000
             grounding_height = 1000
             return grounding_width, grounding_height

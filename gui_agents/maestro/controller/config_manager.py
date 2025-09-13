@@ -89,7 +89,7 @@ class ConfigManager:
             # Unified default threshold configuration
             self.flow_config = {
                 # Task and state
-                # "max_state_switches": 500, # default: 500
+                "max_state_switches": 1000, # default: 500
                 # "max_state_duration_secs": 300, # default: 300
                 # Quality check related
                 # "quality_check_interval_secs": 300,  # Time interval since last quality check default: 300
@@ -100,9 +100,11 @@ class ConfigManager:
                 # Planning count limit
                 # "plan_number_limit": 50,  # default: 50
                 # Snapshots and main loop
-                "enable_snapshots": True,
+                # "enable_snapshots": True,
+                "enable_snapshots": False,
                 "snapshot_interval_steps": 10,
-                "create_checkpoint_snapshots": True,
+                # "create_checkpoint_snapshots": True,
+                "create_checkpoint_snapshots": False,
                 "main_loop_sleep_secs": 0.1,
             }
         except Exception as e:

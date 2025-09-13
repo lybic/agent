@@ -7,6 +7,7 @@ import os
 import sys
 import json
 from pathlib import Path
+import time
 from typing import Optional, Dict, Any, Tuple
 
 # Add project root directory to Python path
@@ -117,7 +118,8 @@ def _build_env_from_config(env_config: Dict[str, Any], os_word_task_id: Optional
             if task_config:
                 try:
                     # Call reset method to set task configuration
-                    # env.reset(task_config=task_config)
+                    env.reset(task_config=task_config)
+                    time.sleep(10)
                     print(f"✅ Task {os_word_task_id} environment setup completed")
                     print("task_config", task_config)
                 except Exception as e:
@@ -243,7 +245,7 @@ def restore_maincontroller_from_globalstate(
     enable_takeover_value = bool(config_params.get("enable_takeover", False))
     enable_rag_value = bool(config_params.get("enable_rag", False))
     max_steps_value = int(config_params.get("max_steps", 50))
-    env_password_value = config_params.get("env_password", "")
+    env_password_value = config_params.get("env_password", "osworld-public-evaluation")
 
     # Protective check: target_path needs to be available
     if not target_path:

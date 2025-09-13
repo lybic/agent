@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # python gui_agents/maestro/debug_system/run_from_snapshot.py
+# python -m gui_agents.maestro.debug_system.run_from_snapshot
 """
 Debug helper: restore MainController from a snapshot and optionally run it.
 """
@@ -117,11 +118,11 @@ if __name__ == "__main__":
     # args = _parse_args()
 
     target_dir=None
-    runtime_dir = "lybicguiagents/runtime/vmrun_20250830_104501/20250830_104502"
-    snapshot_id = "snapshot_20250830_104557"
+    runtime_dir = "runtime/vmrun_20250831_003040/20250831_003117"
+    snapshot_id = "snapshot_20250831_004442"
     # runtime_dir = "runtime/20250828_141244"
     # snapshot_id = "snapshot_20250828_141320"
-    os_word_task_id = "acb0f96b-e27c-44d8-b55f-7cb76609dfcd"
+    os_word_task_id = "535364ea-05bd-46ea-9937-9f55c68507e8"
 
     controller = run_main_controller_from_snapshot(
         runtime_dir=runtime_dir,

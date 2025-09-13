@@ -42,12 +42,14 @@ class Operator:
         platform: str = "Windows",
         enable_search: bool = False,
         screen_size: List[int] = [1920, 1080],
+        client_password: str = "osworld-public-evaluation",
     ) -> None:
         self.tools_dict = tools_dict
         self.global_state = global_state
         self.platform = platform
         self.enable_search = enable_search
         self.screen_size = screen_size
+        self.client_password = client_password
 
         # Embedding engine for Memory
         self.embedding_engine = NewTools()
@@ -116,26 +118,27 @@ class Operator:
                 action_desc = ""
                 
                 if isinstance(cmd.action, dict):
-                    if "type" in cmd.action:
-                        action_type = cmd.action["type"]
-                    if "message" in cmd.action:
-                        action_desc = cmd.action["message"]
-                    elif "element_description" in cmd.action:
-                        action_desc = f"Operate element: {cmd.action['element_description']}"
-                    elif "text" in cmd.action:
-                        action_desc = f"Input text: {cmd.action['text']}"
-                    elif "keys" in cmd.action:
-                        action_desc = f"Keys: {cmd.action['keys']}"
+                    action_type = cmd.action["type"]
+                    action_desc = str(cmd.action)
+                elif isinstance(cmd.action, list):
+                    action_type = "Code generation"
+                    if cmd.action:
+                        descs = []
+                        for idx, (lang, code) in enumerate(cmd.action, 1):
+                            code_str = str(code)
+                            descs.append(f"[{idx}] Language: {lang}, Code length: {len(code_str)} Code{code_str}")
+                        action_desc = " | ".join(descs)
                 
                 # Add command status information
                 status = cmd.worker_decision
                 message = cmd.message if cmd.message else ""
                 exec_status = getattr(cmd, "exec_status", "")
                 exec_message = getattr(cmd, "exec_message", "")
+                created_at = getattr(cmd, "created_at", "")
                 
                 history_lines.append(f"{i}. [{action_type}] - Status: {status}")
                 if action_desc:
-                    history_lines.append(f"   Description: {action_desc}")
+                    history_lines.append(f"   Action details: {action_desc}")
                 if message:
                     history_lines.append(f"   Message: {message}")
                 if exec_status:
@@ -144,6 +147,8 @@ class Operator:
                     history_lines.append(f"   Execution message: {exec_message}")
                 if cmd.pre_screenshot_analysis:
                     history_lines.append(f"   Pre-execution screenshot analysis: {cmd.pre_screenshot_analysis}")
+                if created_at:
+                    history_lines.append(f"   Created at: {created_at}")
                 history_lines.append("")
             
             return "\n".join(history_lines)
@@ -212,6 +217,8 @@ class Operator:
                     message = getattr(cmd, 'message', '') or ''
                     exec_status = getattr(cmd, 'exec_status', '')
                     exec_message = getattr(cmd, 'exec_message', '')
+                    pre_screenshot_analysis = getattr(cmd, 'pre_screenshot_analysis', '')
+                    created_at = getattr(cmd, 'created_at', '')
                     lines.append(f"{i}. [{action_type}] - Status: {status}")
                     if action_desc:
                         lines.append(f"   Description: {action_desc}")
@@ -221,6 +228,10 @@ class Operator:
                         lines.append(f"   Execution status: {exec_status}")
                     if exec_message:
                         lines.append(f"   Execution message: {exec_message}")
+                    if pre_screenshot_analysis:
+                        lines.append(f"   Pre-execution screenshot analysis: {pre_screenshot_analysis}")
+                    if created_at:
+                        lines.append(f"   Created at: {created_at}")
                 lines.append("")
             return "\n".join(lines)
         except Exception as e:
@@ -244,6 +255,22 @@ class Operator:
         except Exception:
             return False
 
+    def _should_inject_vscode_protocol(self, *texts: str) -> bool:
+        """Detect if current context is about VS Code operations, especially settings.
+
+        This aims to ensure proper command palette usage with ">" symbol for settings.
+        """
+        try:
+            keywords = [
+                "vs code", "vscode", "visual studio code", "code editor", "settings", "preferences", 
+                "command palette", "ctrl+shift+p", "__pycache__", "files.exclude", "explorer view",
+                "extension", "theme", "configuration", "workspace"
+            ]
+            haystack = "\n".join([t for t in texts if isinstance(t, str)]).lower()
+            return any(k.lower() in haystack for k in keywords)
+        except Exception:
+            return False
+
     def generate_next_action(
         self,
         subtask: Dict[str, Any],
@@ -256,7 +283,7 @@ class Operator:
             subtask: Subtask information
             guidance: Optional guidance for the task
             trigger_code: Current trigger code to adjust behavior
-
+        
         Returns a dict containing:
         - plan: raw LLM output text
         - action: JSON action dict (if ok)
@@ -476,6 +503,16 @@ class Operator:
         if guidance:
             message.append(f"GUIDANCE: {guidance}")
         
+        # System context information
+        message.append("")
+        message.append("=== System Environment ===")
+        system_context = [
+            f"- Linux username: \"user\"",
+            f"- [CLIENT_PASSWORD]: {self.client_password}",
+            f"- Platform: {self.platform}",
+        ]
+        message.append("\n".join(system_context))
+        
         # Add specific context information based on trigger_code
         context_info = self._get_context_info_by_trigger_code(trigger_code)
         if context_info:
@@ -483,16 +520,38 @@ class Operator:
             message.append("=== Current Context Information ===")
             message.append(context_info)
 
-        # Inject spreadsheet precision protocol if relevant
-        if self._should_inject_spreadsheet_protocol(subtask_title, subtask_desc, artifacts_content, supplement_content):
+
+        # Inject VS Code command palette protocol if relevant
+        if self._should_inject_vscode_protocol(subtask_title, subtask_desc, artifacts_content, supplement_content):
             message.append("")
-            message.append("=== Spreadsheet Precision Protocol ===")
-            message.append("- When operating on spreadsheets/tables or cell ranges (e.g., F5:F18), first ZOOM IN for readability to avoid off-by-one errors.")
-            message.append("- Preferred zoom: use ctrl+scroll up repeatedly until ~130%-170% or clearly readable. Example: agent.scroll(\"the sheet grid area\", 3, True, [\"ctrl\"]).")
-            message.append("- Ensure both the range start and end cells are visible (e.g., F10 and F23) before editing; scroll grid if necessary.")
-            message.append("- Visually confirm the column header (F) and row indices (5..18) alignment before input.")
-            message.append("- Prefer agent.set_cell_values for bulk updates; for manual input, click the exact cell ONLY after zooming.")
-            message.append("- If a misalignment is suspected, undo (Ctrl+Z), increase zoom, re-verify headers/row indices, then retry.")
+            message.append("=== VS Code Command Palette Protocol ===")
+            message.append("- When using Ctrl+Shift+P to access VS Code command palette, ALWAYS ensure the \">\" symbol is present before typing setting names.")
+            message.append("- If the \">\" symbol is missing or deleted, type \">\" first before entering the setting name.")
+            message.append("- Examples: \">Preferences: Open Settings\", \">Files: Exclude\", \">Extensions: Install Extensions\".")
+            message.append("- The \">\" symbol is essential for accessing settings and preferences in VS Code command palette.")
+            message.append("- Do NOT proceed with typing setting names if the \">\" symbol is absent - add it first.")
+            message.append("")
+            message.append("=== VS Code Settings File Distinction ===")
+            message.append("- VS Code has TWO types of settings files:")
+            message.append("  * Default Settings (defaultSettings.json) - READ-ONLY system settings")
+            message.append("    Access: \">Preferences: Open Default Settings (JSON)\" - CANNOT be modified")
+            message.append("  * User Settings (settings.json) - EDITABLE user configuration")
+            message.append("    Access: \">Preferences: Open User Settings (JSON)\" - CAN be modified")
+            message.append("- When tasks require MODIFYING VS Code settings, ALWAYS use User Settings.")
+            message.append("- NEVER attempt to edit Default Settings - they are read-only and changes will fail.")
+            message.append("")
+            message.append("=== VS Code File Exclusion Format (MANDATORY) ===")
+            message.append("- When configuring file exclusion patterns in VS Code settings (e.g., files.exclude), use the format WITHOUT trailing slash.")
+            message.append("- This ensures exact matching with expected validation criteria and prevents comparison failures.")
+            message.append("")
+            message.append("=== VS Code Settings JSON Validation (CRITICAL) ===")
+            message.append("- After editing VS Code settings.json, ALWAYS verify the JSON format is valid:")
+            message.append("  * Ensure proper JSON structure with matching braces: {...}")
+            message.append("  * Use consistent indentation (2 or 4 spaces)")
+            message.append("  * No duplicate opening/closing braces")
+            message.append("  * Valid JSON syntax with proper comma placement")
+            message.append("- If JSON is malformed, fix it immediately before proceeding.")
+            message.append("- Invalid JSON will cause VS Code settings to fail and may corrupt the configuration.")
         
         # Inject available artifacts content
         message.append("")
@@ -534,11 +593,33 @@ class Operator:
         message.append("- For text color changes: ALWAYS select the text first (Ctrl+A), then use color input panel - direct clicking on color options won't work")
         message.append("- Avoid vague descriptions like 'the button' - use 'the blue Save button below the text input field'")
         message.append("")
+        message.append("=== File Extension Handling ===")
+        message.append("- When changing file formats in Save/Open dialogs, selecting a supported file type will automatically update the file extension; do NOT retype the filename.")
+        message.append("- Only when 'All files' or 'All formats' is selected should you manually edit the filename extension.")
+        message.append("- Prefer keeping the original filename and only change the extension unless the task explicitly requires renaming the base name.")
+        message.append("")
+        message.append("=== Terminal Python Execution Rule ===")
+        message.append("Do NOT use here-doc to run Python in the current opened terminal. If you need to run Python, create a .py file first, then use `python3 your_file.py` to execute it.")
+        message.append("")
+        message.append("=== Browser Reuse Guideline ===")
+        message.append("- Before opening a browser, check whether a browser window/tab is already open. Unless explicitly instructed to open a new browser/page, continue in the existing browser window/tab.")
+        message.append("- **Smart Tab Usage**: If the current tab is empty (blank page, new tab page, or about:blank), use it directly instead of opening a new tab.")
+        message.append("- If the browser already has open pages with content, avoid closing them. For searches or opening links/files, prefer opening a new tab unless the task explicitly requires closing pages.")
+        message.append("- Avoid using Ctrl+O to open files in existing browser tabs, as this replaces the current page. Instead, open a new tab first, then use Ctrl+O.")
+        message.append("")
+        message.append("=== CRITICAL: Data Integrity and Accuracy Guidelines ===")
+        message.append("- NEVER create fake URLs like 'scholar.google.com/citations?user=VjJmJUsAAAAJ' or similar patterns")
+        message.append("- NEVER generate random user IDs, citation numbers, or profile identifiers")
+        message.append("  * Do not create placeholder or example data")
+        message.append("  * If you need to search for someone, use the actual search functionality rather than guessing")
+        message.append("")
+        message.append("=== WEB QUERY RETRY STRATEGY ===")
+        message.append("- When searching for information online, implement systematic retry before concluding failure")
+        message.append("")
         message.append("Based on the above history, current screenshot, artifacts and supplement, decide on the next action.")
         message.append("Return exactly one action as an agent.* function in Python fenced code under (Grounded Action).")
         message.append("")
-        message.append("If you cannot confidently proceed and decide NEED_QUALITY_CHECK (stale), you MUST also output a CandidateAction JSON block, e.g.:")
-        message.append("CandidateAction: {\"type\": \"click\", \"selector\": {\"by\": \"text\", \"value\": \"Next\"}}")
+
         
         return "\n\n".join(message)
 
@@ -569,6 +650,10 @@ class Operator:
 - Consider alternative approaches or methods to achieve the same goal
 - Review the error context and adapt your strategy accordingly
 - Ensure the new action addresses the specific failure point identified
+
+# Web Query Retry Strategy (for search/information gathering tasks)
+- If this is a web search or information gathering task that failed:
+  * Do NOT immediately conclude the information is unavailable after just one failed attempt
 """
         
         elif trigger_code == worker_codes["command_completed"]:

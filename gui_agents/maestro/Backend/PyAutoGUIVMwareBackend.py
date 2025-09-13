@@ -121,7 +121,8 @@ class PyAutoGUIVMwareBackend(Backend):
                 # This shouldn't happen due to supports() check, but be safe.
                 raise NotImplementedError(f"Unhandled action: {action}")
 
-            self.env_controller.step(action_pyautogui_code)
+            pause = 2 if action_pyautogui_code != "WAIT" else action.duration * 1e-3
+            self.env_controller.step(action_pyautogui_code, pause)
 
     # ----- individual helpers ------------------------------------------------
     def _click(self, act: Click) -> str:

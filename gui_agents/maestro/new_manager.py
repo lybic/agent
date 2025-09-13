@@ -23,6 +23,8 @@ class NewManager:
     """
     Enhanced Manager module for GUI-Agent architecture
     Responsible for task planning, decomposition, and resource allocation
+
+    Note: Planning prompts include generic guidance for configuration persistence (prefer editing config files; GUI changes require Save/Exit) and role assignment (Technician vs Operator). See planning_helpers.generate_planning_prompt.
     """
 
     def __init__(
@@ -235,8 +237,46 @@ class NewManager:
 
     def _handle_supplement_scenario(self) -> PlanningResult:
         """Handle supplement collection scenario"""
-        result = self.supplement_handler.handle_supplement_scenario()
-        return PlanningResult(**result)
+        try:
+            logger.info("Starting supplement scenario handling")
+            result = self.supplement_handler.handle_supplement_scenario()
+            
+            # Validate result structure
+            if not isinstance(result, dict):
+                logger.error(f"Invalid supplement result type: {type(result)}")
+                return PlanningResult(
+                    success=False,
+                    scenario="supplement",
+                    subtasks=[],
+                    supplement="",
+                    reason="Invalid supplement result structure",
+                    created_at=datetime.now().isoformat()
+                )
+            
+            # Log supplement result
+            self.global_state.log_operation("manager", "supplement_completed", {
+                "success": result.get("success", False),
+                "supplement_length": len(result.get("supplement", "")),
+                "timestamp": time.time()
+            })
+            
+            return PlanningResult(**result)
+            
+        except Exception as e:
+            logger.error(f"Supplement scenario handling failed: {e}")
+            self.global_state.log_operation("manager", "supplement_error", {
+                "error": str(e),
+                "timestamp": time.time()
+            })
+            
+            return PlanningResult(
+                success=False,
+                scenario="supplement",
+                subtasks=[],
+                supplement="",
+                reason=f"Supplement handling failed: {str(e)}",
+                created_at=datetime.now().isoformat()
+            )
 
     def get_planning_status(self) -> Dict[str, Any]:
         """Get current planning status"""

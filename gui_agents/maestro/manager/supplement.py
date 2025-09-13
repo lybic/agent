@@ -42,33 +42,44 @@ class SupplementHandler:
             # Get current trigger_code to determine supplement strategy
             current_trigger_code = self._get_current_trigger_code()
             
+            # Validate trigger_code
+            if not current_trigger_code or current_trigger_code.strip() == "":
+                logger.warning("No valid trigger_code found, using default supplement strategy")
+                current_trigger_code = "general_supplement"
+            
             # Generate supplement prompt based on trigger_code
             prompt = self._generate_supplement_prompt(context, current_trigger_code)
             
             # Execute supplement collection using LLM if available
             if self.supplement_agent:
-                supplement_result, total_tokens, cost_string = self.supplement_agent.execute_tool(
-                    "supplement_role",
-                    {"str_input": prompt},
-                )
-                
-                # Log supplement operation with LLM details
-                self.global_state.log_llm_operation(
-                    "manager",
-                    "supplement_collection",
-                    {
-                        "attempt": self.supplement_attempts,
-                        "trigger_code": current_trigger_code,
-                        "tokens": total_tokens,
-                        "cost": cost_string
-                    },
-                    str_input=prompt
-                )
-                
-                # Parse and execute supplement plan
-                collected_data = self._execute_supplement_plan(supplement_result, current_trigger_code)
+                try:
+                    supplement_result, total_tokens, cost_string = self.supplement_agent.execute_tool(
+                        "supplement_role",
+                        {"str_input": prompt},
+                    )
+                    
+                    # Log supplement operation with LLM details
+                    self.global_state.log_llm_operation(
+                        "manager",
+                        "supplement_collection",
+                        {
+                            "attempt": self.supplement_attempts,
+                            "trigger_code": current_trigger_code,
+                            "tokens": total_tokens,
+                            "cost": cost_string
+                        },
+                        str_input=prompt
+                    )
+                    
+                    # Parse and execute supplement plan
+                    collected_data = self._execute_supplement_plan(supplement_result, current_trigger_code)
+                except Exception as e:
+                    logger.error(f"Supplement agent execution failed: {e}")
+                    # Fallback to fallback strategy if LLM fails
+                    collected_data = self._fallback_supplement_strategy(context, current_trigger_code)
             else:
                 # No supplement tool configured; use fallback strategy
+                logger.info("No supplement agent configured, using fallback strategy")
                 collected_data = self._fallback_supplement_strategy(context, current_trigger_code)
 
             # Update supplement content
@@ -97,7 +108,24 @@ class SupplementHandler:
     def _get_current_trigger_code(self) -> str:
         """Get current trigger_code"""
         controller_state = self.global_state.get_controller_state()
-        return controller_state.get("trigger_code", "")
+        trigger_code = controller_state.get("trigger_code", "")
+        
+        # Validate trigger_code
+        if not trigger_code or trigger_code.strip() == "":
+            logger.warning("No trigger_code found in controller state")
+            return ""
+        
+        # Check if it's a valid supplement trigger code
+        valid_supplement_codes = [
+            TRIGGER_CODE_BY_MODULE.MANAGER_SUPPLEMENT_CODES["worker_supplement"],
+            TRIGGER_CODE_BY_MODULE.MANAGER_SUPPLEMENT_CODES["quality_check_supplement"]
+        ]
+        
+        if trigger_code not in valid_supplement_codes:
+            logger.warning(f"Trigger code '{trigger_code}' is not a recognized supplement code")
+            # Still return it for fallback handling
+        
+        return trigger_code
 
     def _get_supplement_context(self) -> Dict[str, Any]:
         """Get context information for supplement collection"""
@@ -296,20 +324,31 @@ Please output the supplementary material collection solution based on the trigge
             needed_info = plan_data.get("needed_info", "")
             expected_outcome = plan_data.get("expected_outcome", "")
             
+            # Validate search queries
+            if not search_queries or not isinstance(search_queries, list):
+                logger.warning("Invalid search queries from LLM, using fallback")
+                return self._fallback_supplement_strategy({}, trigger_code)
+            
             # Execute web search for each query
             collected_data = []
             
             if search_queries and self.search_engine:
                 for query in search_queries:
                     try:
+                        logger.info(f"Executing web search for query: {query}")
                         search_result, _, _ = self.search_engine.execute_tool("websearch", {"query": query})
                         if search_result:
                             collected_data.append(f"Web Search Result for '{query}':\n{search_result}")
+                        else:
+                            collected_data.append(f"Web Search returned no results for '{query}'")
                     except Exception as e:
                         logger.warning(f"Web search failed for query '{query}': {e}")
                         collected_data.append(f"Web Search Failed for '{query}': {str(e)}")
             else:
-                collected_data.append("No search queries provided or search engine not available")
+                if not search_queries:
+                    collected_data.append("No search queries provided by LLM")
+                if not self.search_engine:
+                    collected_data.append("Search engine not available")
             
             # Combine collected data with context
             combined_data = f"""
@@ -329,13 +368,21 @@ This supplement was collected to address the specific needs identified by trigge
             
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse supplement result: {e}")
+            logger.warning(f"Raw supplement result: {supplement_result[:200]}...")  # Log first 200 chars
+            return self._fallback_supplement_strategy({}, trigger_code)
+        except Exception as e:
+            logger.error(f"Unexpected error in supplement plan execution: {e}")
             return self._fallback_supplement_strategy({}, trigger_code)
 
     def _fallback_supplement_strategy(self, context: Dict[str, Any], trigger_code: str) -> str:
         """Fallback supplement strategy when LLM is unavailable"""
         objective = context.get("task_objective", "").strip()
 
-        search_queries = objective
+        # Fix: Ensure search_queries is a list, not a string
+        if objective:
+            search_queries = [objective]  # Convert string to list
+        else:
+            search_queries = ["supplement information", "task details"]  # Default queries
         
         # Execute fallback web search
         collected_data = []
@@ -347,6 +394,8 @@ This supplement was collected to address the specific needs identified by trigge
                         collected_data.append(f"Fallback Web Search Result for '{query}':\n{search_result}")
                 except Exception as e:
                     logger.warning(f"Fallback web search failed for query '{query}': {e}")
+        else:
+            collected_data.append("Search engine not available for fallback strategy")
         
         combined_data = f"""
 # Fallback Supplement Collection

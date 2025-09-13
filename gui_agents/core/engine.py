@@ -181,7 +181,7 @@ class LMMEngineOpenAI(LMMEngine):
             model=self.model,
             messages=messages,
             max_completion_tokens=max_new_tokens if max_new_tokens else 8192,
-            temperature=temperature,
+            **({} if self.model in ["o3", "o3-pro"] else {"temperature": temperature}),
             **kwargs,
         )
         

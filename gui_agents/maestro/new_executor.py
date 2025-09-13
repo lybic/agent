@@ -49,7 +49,7 @@ class NewExecutor:
         for lang, code in code_blocks:
             try:
                 if lang in ["bash", "shell", "sh"]:
-                    output_dict = self.env_controller.run_bash_script(code)
+                    output_dict = self.env_controller.run_bash_script(code, timeout=600)
                     status = (output_dict or {}).get("status")
                     last_status = status
                     if status == "success":
@@ -195,7 +195,7 @@ class NewExecutor:
                 error_msg = f"No command found for subtask {subtask_id}"
                 logger.warning(error_msg)
                 return self._create_execution_result(False, error_msg)
-            
+            command_id = command.command_id
             # Check if there's an action to execute
             if not command.action:
                 error_msg = f"No action defined in command for subtask {subtask_id}"
@@ -218,22 +218,22 @@ class NewExecutor:
             
             # Choose different execution methods based on assignee_role
             if assignee_role == "operator":
-                return self._execute_action(subtask_id, command_action)
+                return self._execute_action(subtask_id, command_action, command_id)
                 
             elif assignee_role == "technician":
-                if isinstance(command.action, list) and command.action:
+                if isinstance(command_action, list) and command_action:
                     code_blocks = []
-                    for item in command.action:
+                    for item in command_action:
                         if isinstance(item, list) and len(item) == 2:
                             lang, code = item
                             if isinstance(lang, str) and isinstance(code, str):
                                 code_blocks.append((lang, code))
                     if code_blocks:
-                        return self._execute_code_blocks(code_blocks, subtask_id)
+                        return self._execute_code_blocks(code_blocks, subtask_id, command_id)
                     else:
                         return self._create_execution_result(False, "Invalid code blocks format in action")
-                elif isinstance(command.action, str):
-                    code_blocks = self._extract_code_blocks(command.action)
+                elif isinstance(command_action, str):
+                    code_blocks = self._extract_code_blocks(command_action)
                     if code_blocks:
                         return self._execute_code_blocks(code_blocks, subtask_id)
                     else:
@@ -243,9 +243,9 @@ class NewExecutor:
                     
             elif assignee_role == "analyst":
                 try:
-                    if isinstance(command.action, dict) and "analysis" in command.action:
-                        analysis_result = command.action.get("analysis", "")
-                        recommendations = command.action.get("recommendations", [])
+                    if isinstance(command_action, dict) and "analysis" in command_action:
+                        analysis_result = command_action.get("analysis", "")
+                        recommendations = command_action.get("recommendations", [])
                         artifact_data = {
                             "subtask_id": subtask_id,
                             "type": "analysis_result",
@@ -255,14 +255,24 @@ class NewExecutor:
                             "source": "analyst_memorize_analysis"
                         }
                         self.global_state.add_artifact("analysis_result", artifact_data)
+                        self.global_state.update_command_exec_status(
+                            command_id, # type: ignore
+                            ExecStatus.EXECUTED,
+                            exec_message='',
+                        )
                         return self._create_execution_result(True, action={"type": "analysis_artifact_stored", "artifact": artifact_data})
                     else:
                         artifact_data = {
                             "subtask_id": subtask_id,
-                            "action": command.action,
+                            "action": command_action,
                             "timestamp": time.time(),
                             "type": "action_artifact"
                         }
+                        self.global_state.update_command_exec_status(
+                            command_id, # type: ignore
+                            ExecStatus.EXECUTED,
+                            exec_message='',
+                        )
                         self.global_state.add_artifact("action_artifact", artifact_data)
                         return self._create_execution_result(True, action={"type": "artifact_stored", "artifact": artifact_data})
                 except Exception as e:
@@ -272,7 +282,7 @@ class NewExecutor:
                     
             else:
                 logger.warning(f"Unknown assignee_role '{assignee_role}', falling back to hardware execution")
-                return self._execute_action(subtask_id, command.action)
+                return self._execute_action(subtask_id, command_action, command_id)
             
         except Exception as e:
             error_msg = f"Exception in execute_current_action: {str(e)}"
@@ -308,13 +318,8 @@ class NewExecutor:
                 f"Code blocks execution completed in {execution_time:.2f}s")
             exec_status = ExecStatus.EXECUTED if success else ExecStatus.ERROR
             # Precise or fallback execution status update
-            target_command_id = command_id
-            if not target_command_id:
-                current_cmd = self.global_state.get_current_command_for_subtask(subtask_id)
-                target_command_id = getattr(current_cmd, "command_id", None) if current_cmd else None
-            if target_command_id:
-                self.global_state.update_command_exec_status(
-                    target_command_id, # type: ignore
+            self.global_state.update_command_exec_status(
+                    command_id, # type: ignore
                     exec_status,
                     combined_output,
                 )
@@ -328,13 +333,9 @@ class NewExecutor:
             # Get new screenshot ID and update command's post_screenshot_id
             new_screenshot_id = self.global_state.get_screenshot_id()
             if new_screenshot_id:
-                if not target_command_id:
-                    current_cmd = self.global_state.get_current_command_for_subtask(subtask_id)
-                    target_command_id = getattr(current_cmd, "command_id", None) if current_cmd else None
-                if target_command_id:
-                    self.global_state.update_command_post_screenshot(
-                        target_command_id, new_screenshot_id) # type: ignore
-                    logger.info(f"Updated post_screenshot_id for command {target_command_id}: {new_screenshot_id}")
+                self.global_state.update_command_post_screenshot(command_id, new_screenshot_id) # type: ignore
+                logger.info(f"Updated post_screenshot_id for command {command_id}: {new_screenshot_id}")
+                    
             
             self.global_state.increment_step_num()
             
@@ -395,18 +396,16 @@ class NewExecutor:
                     
                     # Status update
                     self._record_execution_result(subtask_id, execution_success, error_message, execution_time)
-                    target_command_id = command_id
-                    if not target_command_id:
-                        current_command = self.global_state.get_current_command_for_subtask(subtask_id)
-                        target_command_id = getattr(current_command, "command_id", None) if current_command else None
-                    if target_command_id:
-                        msg_preview = information.replace("\n", " ").strip()[:200]
-                        exec_msg = f"Memorize stored ({len(information)} chars): {msg_preview}{'...' if len(information) > 200 else ''}"
-                        self.global_state.update_command_exec_status(
-                            target_command_id, # type: ignore
-                            ExecStatus.EXECUTED,
-                            exec_message=exec_msg,
-                        )
+
+
+                    msg_preview = information.replace("\n", " ").strip()[:200]
+                    exec_msg = f"Memorize stored ({len(information)} chars): {msg_preview}{'...' if len(information) > 200 else ''}"
+                    self.global_state.update_command_exec_status(
+                        command_id, # type: ignore
+                        ExecStatus.EXECUTED,
+                        exec_message=exec_msg,
+                    )
+                        
                     
                     return self._create_execution_result(
                         success=execution_success,
@@ -428,15 +427,9 @@ class NewExecutor:
             # Get new screenshot ID and update command's post_screenshot_id
             new_screenshot_id = self.global_state.get_screenshot_id()
             if new_screenshot_id:
-                target_command_id = command_id
-                if not target_command_id:
-                    current_command = self.global_state.get_current_command_for_subtask(subtask_id)
-                    target_command_id = getattr(current_command, "command_id", None) if current_command else None
-                if target_command_id:
-                    self.global_state.update_command_post_screenshot(
-                        target_command_id, new_screenshot_id) # type: ignore
-                    logger.info(f"Updated post_screenshot_id for command {target_command_id}: {new_screenshot_id}")
-            
+                self.global_state.update_command_post_screenshot(command_id, new_screenshot_id) # type: ignore
+                logger.info(f"Updated post_screenshot_id for command {command_id}: {new_screenshot_id}")
+                 
 
             self.global_state.increment_step_num()
             # Recording and status updates
@@ -444,16 +437,12 @@ class NewExecutor:
             self._record_execution_result(subtask_id, execution_success, error_message, execution_time)
 
             # Optional: write the status of this command based on execution results
-            target_command_id = command_id
-            if not target_command_id:
-                current_command = self.global_state.get_current_command_for_subtask(subtask_id)
-                target_command_id = getattr(current_command, "command_id", None) if current_command else None
-            if target_command_id:
-                self.global_state.update_command_exec_status(
-                    target_command_id, # type: ignore
-                    ExecStatus.EXECUTED if execution_success else ExecStatus.ERROR,
-                    exec_message=("Action executed" if execution_success else f"Action failed: {error_message}")
-                )
+            self.global_state.update_command_exec_status(
+                command_id, # type: ignore
+                ExecStatus.EXECUTED if execution_success else ExecStatus.ERROR,
+                exec_message=("Action executed" if execution_success else f"Action failed: {error_message}")
+            )
+                
             
             # Return results
             result = self._create_execution_result(

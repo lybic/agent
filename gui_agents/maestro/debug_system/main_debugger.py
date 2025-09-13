@@ -45,7 +45,7 @@ class MainDebugger:
             "global_state": self.global_state,
             "platform": config_params.get('platform', 'default'),
             "enable_search": config_params.get('enable_search', True),
-            "client_password": config_params.get('client_password', '')
+            "client_password": config_params.get('client_password', 'osworld-public-evaluation')
         }
         
         return worker_params

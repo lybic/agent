@@ -17,7 +17,7 @@ import os
 import json
 
 from .new_global_state import NewGlobalState
-from .enums import GateDecision, GateTrigger, WorkerDecision, WorkerDecision
+from .enums import GateDecision, GateTrigger, WorkerDecision, WorkerDecision, TriggerCode, TRIGGER_CODE_BY_MODULE
 from ..tools.new_tools import NewTools
 from ..prompts import get_prompt
 from .manager.utils import get_history_subtasks_info, get_pending_subtasks_info, get_failed_subtasks_info
@@ -87,11 +87,11 @@ class Evaluator:
         task = globalstate.get_task()
         subtask_id: Optional[str] = task.current_subtask_id
 
-        # Infer trigger type from global state
-        trigger_type = self._infer_trigger_type()
-        tool_name = self._scene_to_tool_name(trigger_type)
+        # Get trigger code and determine tool name and prompt
+        trigger_code = self._get_current_trigger_code()
+        tool_name = self._trigger_code_to_tool_name(trigger_code)
         # Build prompts
-        prompt = self.build_prompt(trigger_type)
+        prompt = self.build_prompt_by_trigger_code(trigger_code)
         screenshot = globalstate.get_screenshot()
 
         # Start timing
@@ -107,11 +107,11 @@ class Evaluator:
         # Log evaluator operation to display.json
         evaluator_duration = time.time() - evaluator_start_time
         self.global_state.log_llm_operation(
-            "evaluator", f"quality_check_{trigger_type.lower()}", {
+            "evaluator", f"quality_check_{trigger_code.lower()}", {
                 "tokens": _tokens,
                 "cost": _cost,
                 "evaluator_result": content,
-                "trigger_type": trigger_type,
+                "trigger_code": trigger_code,
                 "subtask_id": subtask_id,
                 "duration": evaluator_duration
             },
@@ -120,18 +120,13 @@ class Evaluator:
         )
 
         parsed = self.parse_llm_output(content or "")
-        normalized = self._normalize_decision(parsed.get("decision", ""), trigger_type)
+        normalized = self._normalize_decision_by_trigger_code(parsed.get("decision", ""), trigger_code)
         if normalized is None:
             raise ValueError(
                 f"Invalid decision from LLM: {parsed.get('decision', '')}")
         decision = normalized
         notes = self._compose_notes(parsed)
-        trigger_enum = {
-            "WORKER_SUCCESS": GateTrigger.WORKER_SUCCESS,
-            "WORKER_STALE": GateTrigger.WORKER_STALE,
-            "PERIODIC_CHECK": GateTrigger.PERIODIC_CHECK,
-            "FINAL_CHECK": GateTrigger.FINAL_CHECK,
-        }[trigger_type]
+        trigger_enum = self._trigger_code_to_gate_trigger(trigger_code)
 
         # Persist to global state in system format
         from .data_models import create_gate_check_data
@@ -159,27 +154,23 @@ class Evaluator:
         return record
 
     # ---- Trigger inference ----
-    def _infer_trigger_type(self) -> str:
-        """Infer trigger type from current global state."""
-        task = self.global_state.get_task()
-        pending = task.pending_subtask_ids or []
-        completed = task.history_subtask_ids or []
-        current_subtask_id = task.current_subtask_id
+    def _get_current_trigger_code(self) -> str:
+        """Get current trigger_code from controller state."""
+        controller_state = self.global_state.get_controller_state()
+        return controller_state.get("trigger_code", "")
 
-        if not pending and completed:
-            return "FINAL_CHECK"
 
-        if current_subtask_id:
-            # Get the latest command for current subtask to check worker_decision
-            latest_command = self.global_state.get_current_command_for_subtask(current_subtask_id)
-            if latest_command and latest_command.worker_decision:
-                worker_decision = latest_command.worker_decision
-                if worker_decision == WorkerDecision.WORKER_DONE.value:
-                    return "WORKER_SUCCESS"
-                if worker_decision == WorkerDecision.STALE_PROGRESS.value:
-                    return "WORKER_STALE"
 
-        return "PERIODIC_CHECK"
+    def _trigger_code_to_tool_name(self, trigger_code: str) -> str:
+        """Map trigger code to the concrete tool name in the new tool system."""
+        mapping = {
+            TriggerCode.WORKER_SUCCESS.value: "worker_success_role",
+            TriggerCode.WORKER_STALE_PROGRESS.value: "worker_stale_role",
+            TriggerCode.RULE_QUALITY_CHECK_STEPS.value: "periodic_role",
+            TriggerCode.RULE_QUALITY_CHECK_REPEATED_ACTIONS.value: "periodic_role",  # Use periodic system prompt
+            TriggerCode.ALL_SUBTASKS_COMPLETED.value: "final_check_role",
+        }
+        return mapping.get(trigger_code, "periodic_role")
 
     def _scene_to_tool_name(self, scene: str) -> str:
         """Map scene name to the concrete tool name in the new tool system."""
@@ -250,6 +241,8 @@ class Evaluator:
                 reason_text = getattr(cmd, "reason_text", "") or ""
                 exec_status = getattr(cmd, "exec_status", "")
                 exec_message = getattr(cmd, "exec_message", "")
+                pre_screenshot_analysis = getattr(cmd, "pre_screenshot_analysis", "")
+                created_at = getattr(cmd, "created_at", "")
                 history_lines.append(f"{i}. [{action_type}] - Status: {status}")
                 if action_desc:
                     history_lines.append(f"   Description: {action_desc}")
@@ -261,6 +254,10 @@ class Evaluator:
                     history_lines.append(f"   Execution Status: {exec_status}")
                 if exec_message:
                     history_lines.append(f"   Execution Message: {exec_message}")
+                if pre_screenshot_analysis:
+                    history_lines.append(f"   Pre-Screenshot Analysis: {pre_screenshot_analysis}")
+                if created_at:
+                    history_lines.append(f"   Created at: {created_at}")
                 history_lines.append("")
             return "\n".join(history_lines)
         except Exception as e:
@@ -303,6 +300,8 @@ class Evaluator:
             reason_text = getattr(cmd, "reason_text", "") or ""
             exec_status = getattr(cmd, "exec_status", "")
             exec_message = getattr(cmd, "exec_message", "")
+            pre_screenshot_analysis = getattr(cmd, "pre_screenshot_analysis", "")
+            created_at = getattr(cmd, "created_at", "")
             lines = [
                 f"Type: {action_type}",
                 f"Status: {status}",
@@ -317,6 +316,10 @@ class Evaluator:
                 lines.append(f"Execution Status: {exec_status}")
             if exec_message:
                 lines.append(f"Execution Message: {exec_message}")
+            if pre_screenshot_analysis:
+                lines.append(f"Pre-Screenshot Analysis: {pre_screenshot_analysis}")
+            if created_at:
+                lines.append(f"Created at: {created_at}")
             return "\n".join(lines)
         except Exception as e:
             return f"(last operation unavailable: {e})"
@@ -434,6 +437,31 @@ class Evaluator:
         }
         
         return json.dumps(status_summary, indent=2)
+
+    def build_prompt_by_trigger_code(self, trigger_code: str) -> str:
+        """Build user prompt string based on trigger code."""
+        # Map trigger code to scene for input collection
+        scene = self._trigger_code_to_scene(trigger_code)
+        inputs = self._collect_scene_inputs(scene)
+
+        trigger_guidance = self._get_context_info_by_trigger_code(trigger_code)
+
+        parts = [
+            "# GlobalState Information\n",
+            f"Task objective:\n{inputs['task_brief']}\n",
+            f"\nGlobal Task Status:\n{inputs['global_task_status']}\n",
+            f"\nCompleted Subtasks:\n{inputs['history_subtasks_info']}\n",
+            f"\nPending Subtasks:\n{inputs['pending_subtasks_info']}\n",
+            f"\nFailed Subtasks:\n{inputs['failed_subtasks_info']}\n",
+            f"Artifacts (Memory written by previous operators and analysts):\n{inputs['artifacts']}\n",
+            f"Supplement (Supplement materials provided by the manager):\n{inputs['supplement']}\n",
+            f"Subtask:\n{inputs['subtask_brief']}\n",
+            (f"Worker Report:\n{inputs['worker_report']}\n" if trigger_code == TriggerCode.WORKER_STALE_PROGRESS.value else ""),
+            f"\nOperation History (Current Subtask):\n{inputs['history_text']}\n",
+            f"\nLatest Operation:\n{inputs['last_operation_text']}\n",
+            f"\nGuidance:\n{trigger_guidance}\n",
+        ]
+        return "\n".join(parts)
 
     def build_prompt(self, scene: str) -> str:
         """Build user prompt string containing only runtime inputs."""
@@ -585,6 +613,136 @@ class Evaluator:
             elif ln.lower().startswith("incomplete items:"):
                 result["incomplete_items"] = ln.split(":", 1)[1].strip()
         return result
+
+    def _trigger_code_to_scene(self, trigger_code: str) -> str:
+        """Map trigger code to scene for input collection."""
+        mapping = {
+            TriggerCode.WORKER_SUCCESS.value: "WORKER_SUCCESS",
+            TriggerCode.WORKER_STALE_PROGRESS.value: "WORKER_STALE",
+            TriggerCode.RULE_QUALITY_CHECK_STEPS.value: "PERIODIC_CHECK",
+            TriggerCode.RULE_QUALITY_CHECK_REPEATED_ACTIONS.value: "PERIODIC_CHECK",
+            TriggerCode.ALL_SUBTASKS_COMPLETED.value: "FINAL_CHECK",
+        }
+        return mapping.get(trigger_code, "PERIODIC_CHECK")
+
+    def _get_context_info_by_trigger_code(self, trigger_code: str) -> str:
+        """Return detailed guidance text per trigger code.
+        Mirrors the system architecture trigger guidance philosophy.
+        """
+        if trigger_code == TriggerCode.WORKER_SUCCESS.value:
+            return (
+                "# Worker Success - Verification Guidance\n"
+                "- Worker claims the current subtask is completed; rigorously verify completeness\n"
+                "- Cross-check each subtask requirement with clear evidence of completion\n"
+                "- Verify there is explicit success feedback for key steps\n"
+                "- If evidence is insufficient or inconsistent, choose gate_fail and explain why\n"
+                "- Consider how this subtask completion affects overall task progress and other subtasks\n"
+                "- Provide strategic insights for optimizing the overall task execution\n"
+            )
+        if trigger_code == TriggerCode.WORKER_STALE_PROGRESS.value:
+            return (
+                "# Worker Stale - Diagnosis Guidance\n"
+                "- Diagnose causes of stagnation: element not found, error dialogs, loops, missing credentials, etc.\n"
+                "- Assess completed progress versus remaining path and decide feasibility of continuation\n"
+                "- If information is missing, specify the required supplement materials and their purpose\n"
+                "- If continuation is feasible, provide breakthrough suggestions; otherwise recommend replanning\n"
+                "- Analyze how this stagnation affects overall task timeline and success probability\n"
+                "- Identify lessons learned that could prevent similar issues in other subtasks\n"
+                "- Recommend strategic changes to overall task execution plan if needed\n"
+            )
+        if trigger_code == TriggerCode.RULE_QUALITY_CHECK_STEPS.value:
+            return (
+                "# Periodic Check - Health Monitoring Guidance\n"
+                "- Identify the current execution stage and whether it matches expectations\n"
+                "- Detect repetitive ineffective operations or obvious deviation from the target\n"
+                "- Prefer early intervention when early risks are detected\n"
+                "- Allowed decisions: gate_continue / gate_done / gate_fail / gate_supplement\n"
+                "- Evaluate overall task progress and timeline health from a strategic perspective\n"
+                "- Identify recurring issues across multiple subtasks and recommend optimizations\n"
+                "- Assess whether the overall task strategy needs adjustment\n"
+            )
+        if trigger_code == TriggerCode.RULE_QUALITY_CHECK_REPEATED_ACTIONS.value:
+            return (
+                "# Repeated Actions Check - Repetitive Behavior Detection Guidance\n"
+                "- This check was triggered because the last several commands are identical or highly similar\n"
+                "- Analyze the repetitive pattern to determine if it indicates stuck behavior or systematic approach\n"
+                "- Look for signs of: element not found, permission denied, network errors, or UI state issues\n"
+                "- If the worker appears stuck, recommend specific breakthrough strategies or replanning\n"
+                "- If missing information is causing repetition, specify required supplement materials\n"
+                "- Allowed decisions: gate_continue (if repetition is justified) / gate_fail (if stuck) / gate_supplement (if missing info) / gate_done (if actually completed)\n"
+                "- Provide specific recommendations for breaking out of the repetitive cycle\n"
+                "- Consider how this repetition affects overall task timeline and success probability\n"
+            )
+        if trigger_code == TriggerCode.ALL_SUBTASKS_COMPLETED.value:
+            return (
+                "# Final Check - Completion Verification Guidance\n"
+                "- Verify DoD/acceptance criteria item by item and cross-subtask consistency\n"
+                "- Check whether the final UI/result aligns with the user objective\n"
+                "- If core functionality is missing or evidence is insufficient, choose gate_fail and list the major missing items\n"
+                "- Evaluate the efficiency and effectiveness of the entire task execution\n"
+                "- Provide strategic insights and lessons learned for future task improvements\n"
+                "- Recommend optimizations for similar task planning and execution\n"
+            )
+        return (
+            "# General Check - Guidance\n"
+            "- Analyze the current context and history to make a robust judgment\n"
+            "- Stay conservative when uncertain and provide clear reasons\n"
+            "- Always consider the broader task context and long-term strategy\n"
+            "- Provide strategic insights for overall task optimization\n"
+        )
+
+    def _normalize_decision_by_trigger_code(self, decision_text: str, trigger_code: str) -> Optional[GateDecision]:
+        """Normalize decision text to GateDecision enum based on trigger code."""
+        if not decision_text:
+            return None
+        d = decision_text.strip().lower()
+        # Accept raw or bracketed
+        d = d.replace("[", "").replace("]", "")
+        # Allow synonyms
+        synonyms = {
+            "gate_done": GateDecision.GATE_DONE,
+            "done": GateDecision.GATE_DONE,
+            "gate_fail": GateDecision.GATE_FAIL,
+            "fail": GateDecision.GATE_FAIL,
+            "gate_supplement": GateDecision.GATE_SUPPLEMENT,
+            "supplement": GateDecision.GATE_SUPPLEMENT,
+            "gate_continue": GateDecision.GATE_CONTINUE,
+            "continue": GateDecision.GATE_CONTINUE,
+        }
+        candidate = synonyms.get(d)
+        if candidate is None:
+            return None
+
+        # Enforce allowed set per trigger code
+        allowed = {
+            TriggerCode.WORKER_SUCCESS.value: {GateDecision.GATE_DONE, GateDecision.GATE_FAIL},
+            TriggerCode.WORKER_STALE_PROGRESS.value: {
+                GateDecision.GATE_CONTINUE, GateDecision.GATE_FAIL,
+                GateDecision.GATE_SUPPLEMENT
+            },
+            TriggerCode.RULE_QUALITY_CHECK_STEPS.value: {
+                GateDecision.GATE_CONTINUE, GateDecision.GATE_DONE,
+                GateDecision.GATE_FAIL, GateDecision.GATE_SUPPLEMENT
+            },
+            TriggerCode.RULE_QUALITY_CHECK_REPEATED_ACTIONS.value: {
+                GateDecision.GATE_CONTINUE, GateDecision.GATE_DONE,
+                GateDecision.GATE_FAIL, GateDecision.GATE_SUPPLEMENT
+            },
+            TriggerCode.ALL_SUBTASKS_COMPLETED.value: {GateDecision.GATE_DONE, GateDecision.GATE_FAIL},
+        }.get(trigger_code, {GateDecision.GATE_CONTINUE, GateDecision.GATE_DONE, GateDecision.GATE_FAIL, GateDecision.GATE_SUPPLEMENT})
+        
+        return candidate if candidate in allowed else None
+
+    def _trigger_code_to_gate_trigger(self, trigger_code: str) -> GateTrigger:
+        """Map trigger code to GateTrigger enum."""
+        mapping = {
+            TriggerCode.WORKER_SUCCESS.value: GateTrigger.WORKER_SUCCESS,
+            TriggerCode.WORKER_STALE_PROGRESS.value: GateTrigger.WORKER_STALE,
+            TriggerCode.RULE_QUALITY_CHECK_STEPS.value: GateTrigger.PERIODIC_CHECK,
+            TriggerCode.RULE_QUALITY_CHECK_REPEATED_ACTIONS.value: GateTrigger.PERIODIC_CHECK,
+            TriggerCode.ALL_SUBTASKS_COMPLETED.value: GateTrigger.FINAL_CHECK,
+        }
+        return mapping.get(trigger_code, GateTrigger.PERIODIC_CHECK)
 
     def _get_context_info_by_trigger(self, scene: str) -> str:
         """Return detailed guidance text per evaluator trigger scene.

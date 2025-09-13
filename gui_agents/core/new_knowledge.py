@@ -3,13 +3,13 @@ import os
 from typing import Dict, Tuple, List
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from gui_agents.utils.common_utils import (
+from ..utils.common_utils import (
     load_embeddings,
     load_knowledge_base,
     save_embeddings,
 )
-from gui_agents.tools.new_tools import NewTools
-from gui_agents.core.mllm import CostManager
+from ..tools.new_tools import NewTools
+from .mllm import CostManager
 
 def get_embedding_dim(model_name):
     if model_name == "doubao-embedding-large-text-250515":

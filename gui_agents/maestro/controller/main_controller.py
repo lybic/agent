@@ -49,7 +49,7 @@ class MainController:
         user_query: str = "",
         max_steps: int = 50,
         env: Optional[DesktopEnv] = None,
-        env_password: str = "password",
+        env_password: str = "osworld-public-evaluation",
         log_dir: str = "logs",
         datetime_str: str = datetime.now().strftime("%Y%m%d_%H%M%S"),
         enable_snapshots: bool = True,
@@ -138,7 +138,8 @@ class MainController:
             tools_dict=self.tools_dict,
             platform=self.platform,
             enable_search=enable_search,
-            env_password=self.env_password
+            env_password=self.env_password,
+            rule_engine=self.rule_engine
         )
         self.state_handlers = StateHandlers(**state_handlers_params)
         
@@ -187,7 +188,10 @@ class MainController:
         # Initialize controller state
         self.global_state.reset_controller_state()
         logger.info("MainController initialized")
-
+        
+        # wait for environment to setup
+        time.sleep(10)
+        
         # Get first screenshot
         screenshot: Image.Image = self.hwi.dispatch(Screenshot())  # type: ignore
         self.global_state.set_screenshot(scale_screenshot_dimensions(screenshot, self.hwi))
@@ -268,22 +272,26 @@ class MainController:
         if not self.enable_snapshots:
             return False
         
-        current_step = self.step_count
+        task = self.global_state.get_task()
+        current_step = task.step_num if task else 0
         return (current_step - self.last_snapshot_step) >= self.snapshot_interval
 
     def _create_auto_snapshot(self):
         """Create automatic snapshot"""
         try:
             if self._should_create_auto_snapshot():
+                task = self.global_state.get_task()
+                current_step = task.step_num if task else 0
+                
                 # Prepare configuration parameters
                 config_params = self._base_snapshot_config()
                 
                 snapshot_id = self.global_state.create_snapshot(
-                    description=f"Auto snapshot at step {self.step_count}",
+                    description=f"Auto snapshot at step {current_step}",
                     snapshot_type="auto",
                     config_params=config_params
                 )
-                self.last_snapshot_step = self.step_count
+                self.last_snapshot_step = current_step
                 logger.debug(f"Auto snapshot created: {snapshot_id}")
         except Exception as e:
             logger.warning(f"Failed to create auto snapshot: {e}")
@@ -292,8 +300,11 @@ class MainController:
         """Create checkpoint snapshot"""
         try:
             if self.enable_snapshots and self.create_checkpoint_snapshots:
+                task = self.global_state.get_task()
+                current_step = task.step_num if task else 0
+                
                 if not checkpoint_name:
-                    checkpoint_name = f"checkpoint_step_{self.step_count}"
+                    checkpoint_name = f"checkpoint_step_{current_step}"
                 
                 # Prepare configuration parameters
                 config_params = self._base_snapshot_config()
@@ -402,10 +413,6 @@ class MainController:
 
                 # 4. According to state execute appropriate handling
                 self._handle_state(current_state)
-                
-                # If executing action state, increment step count
-                if current_state == ControllerState.EXECUTE_ACTION:
-                    self.increment_step_count()
 
                 # 5. Each loop ends, handle rules and update states
                 self.state_machine.process_rules_and_update_states()
@@ -540,7 +547,9 @@ class MainController:
 
     def get_counters(self) -> Dict[str, int]:
         """Get current counters status"""
-        return {"step_count": self.step_count, "turn_count": self.turn_count} 
+        task = self.global_state.get_task()
+        step_count = task.step_num if task else 0
+        return {"step_count": step_count, "turn_count": self.turn_count} 
 
     # ========= Snapshot Management Methods =========
     def create_manual_snapshot(self, description: str = "") -> Optional[str]:
@@ -550,8 +559,11 @@ class MainController:
                 logger.warning("Snapshots are disabled")
                 return None
             
+            task = self.global_state.get_task()
+            current_step = task.step_num if task else 0
+            
             if not description:
-                description = f"Manual snapshot at step {self.step_count}"
+                description = f"Manual snapshot at step {current_step}"
             
             # Prepare configuration parameters
             config_params = self._base_snapshot_config()

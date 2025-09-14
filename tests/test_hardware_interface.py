@@ -49,8 +49,8 @@ plan = [
 ]
 
 # 2. 创建硬件接口
-# hwi = HardwareInterface(backend="lybic", **backend_kwargs)
-hwi = HardwareInterface(backend="pyautogui", **backend_kwargs)
+hwi = HardwareInterface(backend="lybic_sdk", **backend_kwargs)
+# hwi = HardwareInterface(backend="pyautogui", **backend_kwargs)
 
 # 3. 执行
 if dry_run:

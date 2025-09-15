@@ -165,7 +165,7 @@ This will show a user query prompt where you can enter your instructions and int
 
 ### Options
 
-- `--backend [lybic|lybic_sdk|pyautogui|pyautogui_vmware]`: Specifies the backend to use for controlling the GUI. Defaults to `lybic`.
+- `--backend [lybic|pyautogui|pyautogui_vmware]`: Specifies the backend to use for controlling the GUI. Defaults to `lybic`.
 
 - `--query "YOUR_QUERY"`: Optional, can be input during the runtime; if provided, the agent will execute the query and then exit. 
 - `--max-steps NUMBER`: Sets the maximum number of steps the agent can take. Defaults to `50`.
@@ -180,11 +180,6 @@ Run in interactive mode with the `lybic` backend:
 python gui_agents/cli_app.py --backend lybic
 ```
 
-
-Run in interactive mode with the `lybic_sdk` backend:
-```sh
-python gui_agents/cli_app.py --backend lybic_sdk
-```
 
 Run a single query with the `pyautogui` backend and a maximum of 20 steps:
 ```sh

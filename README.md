@@ -64,7 +64,7 @@ Lybic GUI Agent is an open-source framework that enables developers and business
     <tr>
       <td>OSWorld Verified (50 step)</td>
       <td><b>57.1%</b></td>
-      <td>53.1%</td>
+      <td>54.2%</td>
     </tr>
   </table>
 </div>
@@ -180,6 +180,7 @@ Run in interactive mode with the `lybic` backend:
 python gui_agents/cli_app.py --backend lybic
 ```
 
+
 Run a single query with the `pyautogui` backend and a maximum of 20 steps:
 ```sh
 python gui_agents/cli_app.py --backend pyautogui --query "Find the result of 8 × 7 on a calculator" --max-steps 20
@@ -261,6 +262,7 @@ USE_PRECREATE_VM=Ubuntu
   ```bash
   uv sync
   uv pip install -e .
+  # uv pip install -e . -i  https://pypi.tuna.tsinghua.edu.cn/simple
   ```
 
 #### 3. Lybic Sandbox Connection Issues

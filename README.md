@@ -12,6 +12,19 @@
   Lybic GUI Agent: <small>An open-source agentic framework for Computer Use Agents</small> 
 </h1>
 
+<p align="center">
+    Supported OS:
+    <img src="https://img.shields.io/badge/OS-Windows-blue?logo=windows&logoColor=white" alt="Windows">
+    <img src="https://img.shields.io/badge/OS-macOS-black?logo=apple&logoColor=white" alt="macOS">
+    <img src="https://img.shields.io/badge/OS-Linux-yellow?logo=linux&logoColor=black" alt="Linux">
+    <br/>
+    <a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
+    &nbsp;
+    <a href="https://github.com/lybic/agent/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/pypi/l/lybic-guiagents"></a>
+    &nbsp;
+    <a href="https://github.com/lybic/agent"><img alt="Stars" src="https://img.shields.io/github/stars/lybic/agent?style=social"></a>
+</p>
+
 ## What is Lybic GUI Agent?
 
 Lybic platform placeholder - comprehensive AI platform for building and deploying intelligent agents

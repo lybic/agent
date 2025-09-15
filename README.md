@@ -64,7 +64,7 @@ Lybic GUI Agent is an open-source framework that enables developers and business
     <tr>
       <td>OSWorld Verified (50 step)</td>
       <td><b>57.1%</b></td>
-      <td>53.1%</td>
+      <td>54.2%</td>
     </tr>
   </table>
 </div>
@@ -165,7 +165,7 @@ This will show a user query prompt where you can enter your instructions and int
 
 ### Options
 
-- `--backend [lybic|pyautogui|pyautogui_vmware]`: Specifies the backend to use for controlling the GUI. Defaults to `lybic`.
+- `--backend [lybic|lybic_sdk|pyautogui|pyautogui_vmware]`: Specifies the backend to use for controlling the GUI. Defaults to `lybic`.
 
 - `--query "YOUR_QUERY"`: Optional, can be input during the runtime; if provided, the agent will execute the query and then exit. 
 - `--max-steps NUMBER`: Sets the maximum number of steps the agent can take. Defaults to `50`.
@@ -178,6 +178,12 @@ This will show a user query prompt where you can enter your instructions and int
 Run in interactive mode with the `lybic` backend:
 ```sh
 python gui_agents/cli_app.py --backend lybic
+```
+
+
+Run in interactive mode with the `lybic_sdk` backend:
+```sh
+python gui_agents/cli_app.py --backend lybic_sdk
 ```
 
 Run a single query with the `pyautogui` backend and a maximum of 20 steps:
@@ -261,6 +267,7 @@ USE_PRECREATE_VM=Ubuntu
   ```bash
   uv sync
   uv pip install -e .
+  # uv pip install -e . -i  https://pypi.tuna.tsinghua.edu.cn/simple
   ```
 
 #### 3. Lybic Sandbox Connection Issues

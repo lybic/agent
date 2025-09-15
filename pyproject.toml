@@ -100,3 +100,7 @@ dependencies = [
     'pywinauto; platform_system == "Windows"',
     'pywin32; platform_system == "Windows"',
 ]
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]

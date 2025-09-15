@@ -37,7 +37,11 @@ from .agents.hardware_interface import HardwareInterface
 from .store.registry import Registry
 from .agents.global_state import GlobalState
 
-__version__ = "0.2.0"
+try:
+    from importlib.metadata import version
+    __version__ = version("lybic-guiagents")
+except Exception:  # during editable installs or missing meta
+    __version__ = "0.0.0+dev"
 
 # Primary exports (what users should typically use)
 __all__ = [

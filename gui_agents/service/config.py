@@ -146,11 +146,11 @@ class ServiceConfig:
                     setattr(config, key, value)
             
             return config
-            
+
         except json.JSONDecodeError as e:
-            raise ConfigurationError(f"Invalid JSON in config file: {e}")
-        except Exception as e:
-            raise ConfigurationError(f"Error loading config file: {e}")
+            raise ConfigurationError("Invalid JSON in config file") from e
+        except OSError as e:
+            raise ConfigurationError("Error loading config file") from e
     
     def save_to_file(self, config_file: Union[str, Path]):
         """Save configuration to JSON file"""

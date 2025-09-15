@@ -134,6 +134,8 @@ class LybicBackend(Backend):
         """
         if not self.supports(type(action)):
             raise NotImplementedError(f"{type(action).__name__} unsupported")
+        if not self.sandbox_id:
+            raise RuntimeError("Sandbox ID is empty; create a sandbox first (precreate_sid or auto-create).")
 
         if isinstance(action, Click):
             return self._click(action)

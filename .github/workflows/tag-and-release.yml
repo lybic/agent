@@ -1,4 +1,4 @@
-name: Tag
+name: Tag and Release
 
 on:
   pull_request:
@@ -41,3 +41,38 @@ jobs:
           gh release create ${{ steps.extract_tag.outputs.tag_name }} \
             --title "Release ${{ steps.extract_tag.outputs.tag_name }}" \
             --notes-file "CHANGELOGS/${{ steps.extract_tag.outputs.tag_name }}-release.md"
+
+  publish-to-pypi:
+    name: Publish Python Package to PyPI
+    needs: tag-and-release
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/lybic
+    permissions:
+      id-token: write # Required for trusted publishing with OIDC
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: |
+        make install-uv
+        make create-venv
+
+    - name: Build package
+      run: |
+        source .venv/bin/activate
+        make build
+
+    - name: Publish package to PyPI
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.LYBIC_PYPI_KEY }}
+      run: make publish

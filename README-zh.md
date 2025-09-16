@@ -96,7 +96,15 @@ Lybic GUI Agent 是一个开源框架，使开发人员和企业能够创建能�
 > [!WARNING]
 > 为了充分发挥Lybic GUI Agent的潜力，我们支持包括OpenAI、Anthropic、Gemini和Doubao在内的多家模型供应商。为获得最佳的视觉定位性能，我们建议使用UI-TARS模型。
 
-### 安装
+### 安装(从PyPI安装)
+
+在您的终端中运行以下命令：
+
+```bash
+pip install lybic-guiagents
+```
+
+### 安装(从源代码安装)
 
 您可以使用 [UV](https://docs.astral.sh/uv/getting-started/installation/) (一个现代化的Python包管理器) 0.8.5版本进行安装：
 
@@ -227,6 +235,25 @@ LYBIC_MAX_LIFE_SECONDS=3600
 > ```bash
 > LYBIC_PRECREATE_SID=SBX-XXXXXXXXXXXXXXX
 > ```
+
+### 以服务形式使用
+
+在安装了lybic-aguiagents后，你可以以服务方式运行。
+
+主要组件:
+- AgentService: 高层服务接口 (推荐大多数用户使用)
+- AgentS2, AgentSFast: 核心agent实现
+- HardwareInterface: 硬件抽象层
+- ServiceConfig: 配置管理器
+
+Quick Start:
+
+```python
+from gui_agents import AgentService 
+service = AgentService()
+result = service.execute_task("Take a screenshot")
+print(f"Task completed: {result.status}")
+```
 
 ### VMware配置
 

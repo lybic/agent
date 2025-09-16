@@ -75,5 +75,5 @@ jobs:
           gh pr create \
             --title "build: bump Agentic-Lybic to ${NEW_TAG}" \
             --body "build: bump Agentic-Lybic to ${NEW_TAG}" \
-            --base master \
+            --base main \
             --head changelog_${{ github.event.inputs.new_tag }}

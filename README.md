@@ -18,7 +18,7 @@
     <img src="https://img.shields.io/badge/OS-macOS-black?logo=apple&logoColor=white" alt="macOS">
     <img src="https://img.shields.io/badge/OS-Linux-yellow?logo=linux&logoColor=black" alt="Linux">
     <br/>
-    <small>LatestVersion:</small><a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
+    <small>Latest Version:</small><a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
     &nbsp;
     <a href="https://github.com/lybic/agent/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/pypi/l/lybic-guiagents"></a>
     &nbsp;
@@ -50,7 +50,7 @@ Lybic GUI Agent is an open-source framework that enables developers and business
 2. [🛠️ Installation & Setup](#%EF%B8%8F-installation--setup) 
 3. [🚀 Usage](#-usage)
 4. [🔧 Troubleshooting](#-troubleshooting)
-4. [💬 Citations](#-citations)
+5. [💬 Citations](#-citations)
 
 ## 💡 Introduction
 
@@ -101,7 +101,7 @@ You can install Lybic GUI Agent by using pip:
 
 ```bash
 pip install lybic-guiagents
-````
+```
 
 ### Installation(from source code)
 
@@ -238,7 +238,7 @@ LYBIC_MAX_LIFE_SECONDS=3600
 
 ### Use as a service
 
-After installing lybic-aguiagents, you can run it as a service.
+After installing lybic-guiagents, you can run it as a service.
 
 Main Components:
 - AgentService: High-level service interface (recommended for most users)

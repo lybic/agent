@@ -14,7 +14,7 @@
 </h1>
 
 <p align="center">
-    <small>支持的OS:</small>
+    <small>支持的操作系统:</small>
     <img src="https://img.shields.io/badge/OS-Windows-blue?logo=windows&logoColor=white" alt="Windows">
     <img src="https://img.shields.io/badge/OS-macOS-black?logo=apple&logoColor=white" alt="macOS">
     <img src="https://img.shields.io/badge/OS-Linux-yellow?logo=linux&logoColor=black" alt="Linux">
@@ -51,7 +51,7 @@ Lybic GUI Agent 是一个开源框架，使开发人员和企业能够创建能�
 2. [🛠️ 安装与设置](#️-安装与设置) 
 3. [🚀 使用方法](#-使用方法)
 4. [🔧 问题排查](#-问题排查)
-4. [💬 Citations](#-citations)
+5. [💬 Citations](#-citations)
 
 ## 💡 介绍
 
@@ -238,7 +238,7 @@ LYBIC_MAX_LIFE_SECONDS=3600
 
 ### 以服务形式使用
 
-在安装了lybic-aguiagents后，你可以以服务方式运行。
+在安装了lybic-guiagents后，你可以以服务方式运行。
 
 主要组件:
 - AgentService: 高层服务接口 (推荐大多数用户使用)

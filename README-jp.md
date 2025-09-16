@@ -14,7 +14,7 @@
 </h1>
 
 <p align="center">
-    <small>対象:</small>
+    <small>対応OS:</small>
     <img src="https://img.shields.io/badge/OS-Windows-blue?logo=windows&logoColor=white" alt="Windows">
     <img src="https://img.shields.io/badge/OS-macOS-black?logo=apple&logoColor=white" alt="macOS">
     <img src="https://img.shields.io/badge/OS-Linux-yellow?logo=linux&logoColor=black" alt="Linux">
@@ -41,7 +41,7 @@ Lybic GUI Agentは、開発者や企業がインテリジェントなコンピ�
 </div>
 
 ## 🥳 更新情報
-- [x] **2025/09/14**: この論文は現在[arxiv](https://arxiv.org/abs/2509.11067)で公開されている。
+- [x] **2025/09/14**: この論文は現在[arXiv](https://arxiv.org/abs/2509.11067)で公開されている。
 - [x] **2025/09/09**: [OS-world](https://os-world.github.io/)の50ステップ長で世界第1位を達成しました！
 - [x] **2025/08/08**: Windows、Mac、Ubuntu、Lybic APIをサポートする[Lybic GUI Agent](https://github.com/lybic/agent)ライブラリのv0.1.0をリリースしました！
 
@@ -51,7 +51,7 @@ Lybic GUI Agentは、開発者や企業がインテリジェントなコンピ�
 2. [🛠️ インストールとセットアップ](#️-インストールとセットアップ) 
 3. [🚀 使い方](#-使い方)
 4. [🔧 トラブルシューティング](#-トラブルシューティング)
-4. [💬 Citations](#-citations)
+4. [💬 参考文献](#-参考文献)
 
 ## 💡 はじめに
 
@@ -325,8 +325,8 @@ USE_PRECREATE_VM=Ubuntu
    - Pythonのバージョンと環境の詳細
    - 完全なエラーメッセージ
    - 問題を再現する手順
-   - 
-## 💬 Citations
+
+## 💬 参考文献
 
 ```bibtex
 @misc{guo2025agenticlybicmultiagentexecution,

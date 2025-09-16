@@ -73,6 +73,6 @@ jobs:
 
     - name: Publish package to PyPI
       env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.LYBIC_PYPI_KEY }}
+        UV_PUBLISH_USERNAME: __token__
+        UV_PUBLISH_PASSWORD: ${{ secrets.LYBIC_PYPI_KEY }}
       run: make publish

@@ -52,7 +52,6 @@ create-venv:
 	@echo "Creating a virtual environment via uv..."
 	uv python install 3.12.11
 	uv venv -p 3.12.11
-	source .venv/bin/activate
 	uv sync
 
 install-uv:

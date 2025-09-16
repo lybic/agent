@@ -13,6 +13,19 @@
   Lybic GUI Agent: <small>コンピューター利用エージェントのためのオープンソースのエージェントフレームワーク</small> 
 </h1>
 
+<p align="center">
+    <small>対応OS:</small>
+    <img src="https://img.shields.io/badge/OS-Windows-blue?logo=windows&logoColor=white" alt="Windows">
+    <img src="https://img.shields.io/badge/OS-macOS-black?logo=apple&logoColor=white" alt="macOS">
+    <img src="https://img.shields.io/badge/OS-Linux-yellow?logo=linux&logoColor=black" alt="Linux">
+    <br/>
+    <small>バージョン:</small><a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
+    &nbsp;
+    <a href="https://github.com/lybic/agent/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/pypi/l/lybic-guiagents"></a>
+    &nbsp;
+    <a href="https://github.com/lybic/agent"><img alt="Stars" src="https://img.shields.io/github/stars/lybic/agent?style=social"></a>
+</p>
+
 ## Lybic GUI Agentとは?
 
 Lybicプラットフォームプレースホルダー - インテリジェントエージェントを構築および展開するための包括的なAIプラットフォーム
@@ -28,6 +41,7 @@ Lybic GUI Agentは、開発者や企業がインテリジェントなコンピ�
 </div>
 
 ## 🥳 更新情報
+- [x] **2025/09/14**: この論文は現在[arXiv](https://arxiv.org/abs/2509.11067)で公開されている。
 - [x] **2025/09/09**: [OS-world](https://os-world.github.io/)の50ステップ長で世界第1位を達成しました！
 - [x] **2025/08/08**: Windows、Mac、Ubuntu、Lybic APIをサポートする[Lybic GUI Agent](https://github.com/lybic/agent)ライブラリのv0.1.0をリリースしました！
 
@@ -36,6 +50,8 @@ Lybic GUI Agentは、開発者や企業がインテリジェントなコンピ�
 1. [💡 はじめに](#-はじめに)
 2. [🛠️ インストールとセットアップ](#️-インストールとセットアップ) 
 3. [🚀 使い方](#-使い方)
+4. [🔧 トラブルシューティング](#-トラブルシューティング)
+4. [💬 参考文献](#-参考文献)
 
 ## 💡 はじめに
 
@@ -309,6 +325,20 @@ USE_PRECREATE_VM=Ubuntu
    - Pythonのバージョンと環境の詳細
    - 完全なエラーメッセージ
    - 問題を再現する手順
+
+## 💬 参考文献
+
+```bibtex
+@misc{guo2025agenticlybicmultiagentexecution,
+      title={Agentic Lybic: Multi-Agent Execution System with Tiered Reasoning and Orchestration}, 
+      author={Liangxuan Guo and Bin Zhu and Qingqian Tao and Kangning Liu and Xun Zhao and Xianzhe Qin and Jin Gao and Guangfu Hao},
+      year={2025},
+      eprint={2509.11067},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2509.11067}, 
+}
+```
 
 ## Stargazers over time
 

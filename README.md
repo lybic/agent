@@ -12,6 +12,19 @@
   Lybic GUI Agent: <small>An open-source agentic framework for Computer Use Agents</small> 
 </h1>
 
+<p align="center">
+    <small>Supported OS:</small>
+    <img src="https://img.shields.io/badge/OS-Windows-blue?logo=windows&logoColor=white" alt="Windows">
+    <img src="https://img.shields.io/badge/OS-macOS-black?logo=apple&logoColor=white" alt="macOS">
+    <img src="https://img.shields.io/badge/OS-Linux-yellow?logo=linux&logoColor=black" alt="Linux">
+    <br/>
+    <small>Latest Version:</small><a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
+    &nbsp;
+    <a href="https://github.com/lybic/agent/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/pypi/l/lybic-guiagents"></a>
+    &nbsp;
+    <a href="https://github.com/lybic/agent"><img alt="Stars" src="https://img.shields.io/github/stars/lybic/agent?style=social"></a>
+</p>
+
 ## What is Lybic GUI Agent?
 
 Lybic platform placeholder - comprehensive AI platform for building and deploying intelligent agents
@@ -27,6 +40,7 @@ Lybic GUI Agent is an open-source framework that enables developers and business
 </div>
 
 ## 🥳 Updates
+- [x] **2025/09/14**: The paper has been accepted by [arxiv](https://arxiv.org/abs/2509.11067)
 - [x] **2025/09/09**: We achieved the world's first place in the 50-step length of [OS-world](https://os-world.github.io/)!
 - [x] **2025/08/08**: Released v0.1.0 of [Lybic GUI Agent](https://github.com/lybic/agent) library, with support for Windows, Mac, Ubuntu and Lybic API!
 
@@ -35,6 +49,8 @@ Lybic GUI Agent is an open-source framework that enables developers and business
 1. [💡 Introduction](#-introduction)
 2. [🛠️ Installation & Setup](#%EF%B8%8F-installation--setup) 
 3. [🚀 Usage](#-usage)
+4. [🔧 Troubleshooting](#-troubleshooting)
+5. [💬 Citations](#-citations)
 
 ## 💡 Introduction
 
@@ -79,7 +95,15 @@ Lybic GUI Agent is an open-source framework that enables developers and business
 > [!WARNING]
 > To leverage the full potential of Lybic GUI Agent, we support multiple model providers including OpenAI, Anthropic, Gemini, and Doubao. For the best visual grounding performance, we recommend using UI-TARS models.
 
-### Installation
+### Installation(from pip)
+
+You can install Lybic GUI Agent by using pip:
+
+```bash
+pip install lybic-guiagents
+```
+
+### Installation(from source code)
 
 You can use [UV](https://docs.astral.sh/uv/getting-started/installation/) (a modern Python package manager) version 0.8.5 for installation:
 
@@ -212,6 +236,25 @@ LYBIC_MAX_LIFE_SECONDS=3600
 > LYBIC_PRECREATE_SID=SBX-XXXXXXXXXXXXXXX
 > ```
 
+### Use as a service
+
+After installing lybic-guiagents, you can run it as a service.
+
+Main Components:
+- AgentService: High-level service interface (recommended for most users)
+- AgentS2, AgentSFast: Core agent implementations  
+- HardwareInterface: Hardware abstraction layer
+- ServiceConfig: Configuration management
+
+Quick Start:
+
+```python
+from gui_agents import AgentService
+service = AgentService()
+result = service.execute_task("Take a screenshot")
+print(f"Task completed: {result.status}")
+```
+
 ### VMware Configuration
 
 To use PyAutoGUI with VMware, you need to install [VMware Workstation Pro](https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion) (on Windows) and create a virtual machine. 
@@ -310,6 +353,23 @@ If you encounter issues not covered here:
    - Python version and environment details
    - Complete error messages
    - Steps to reproduce the issue
+
+## 💬 Citations
+
+If you find this codebase useful, please cite:
+
+```bibtex
+@misc{guo2025agenticlybicmultiagentexecution,
+      title={Agentic Lybic: Multi-Agent Execution System with Tiered Reasoning and Orchestration}, 
+      author={Liangxuan Guo and Bin Zhu and Qingqian Tao and Kangning Liu and Xun Zhao and Xianzhe Qin and Jin Gao and Guangfu Hao},
+      year={2025},
+      eprint={2509.11067},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2509.11067}, 
+}
+```
+
 
 ## Stargazers over time
 

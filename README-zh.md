@@ -13,6 +13,19 @@
   Lybic GUI Agent: <small>一个用于计算机操作的开源智能体框架</small> 
 </h1>
 
+<p align="center">
+    <small>支持的操作系统:</small>
+    <img src="https://img.shields.io/badge/OS-Windows-blue?logo=windows&logoColor=white" alt="Windows">
+    <img src="https://img.shields.io/badge/OS-macOS-black?logo=apple&logoColor=white" alt="macOS">
+    <img src="https://img.shields.io/badge/OS-Linux-yellow?logo=linux&logoColor=black" alt="Linux">
+    <br/>
+    <small>版本:</small><a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
+    &nbsp;
+    <a href="https://github.com/lybic/agent/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/pypi/l/lybic-guiagents"></a>
+    &nbsp;
+    <a href="https://github.com/lybic/agent"><img alt="Stars" src="https://img.shields.io/github/stars/lybic/agent?style=social"></a>
+</p>
+
 ## Lybic GUI Agent是什么?
 
 Lybic平台 —— 一个用于构建和部署智能代理的综合性AI平台。
@@ -28,6 +41,7 @@ Lybic GUI Agent 是一个开源框架，使开发人员和企业能够创建能�
 </div>
 
 ## 🥳 最新动态
+- [x] **2025/09/14**: 论文已经在[arxiv](https://arxiv.org/abs/2509.11067)上可以浏览
 - [x] **2025/09/09**: 我们在[OS-world](https://os-world.github.io/) 50步任务中取得了世界第一的成绩！
 - [x] **2025/08/08**: 发布了[Lybic GUI Agent](https://github.com/lybic/agent) v0.1.0版本，支持Windows、Mac、Ubuntu和Lybic API！
 
@@ -36,6 +50,8 @@ Lybic GUI Agent 是一个开源框架，使开发人员和企业能够创建能�
 1. [💡 介绍](#-介绍)
 2. [🛠️ 安装与设置](#️-安装与设置) 
 3. [🚀 使用方法](#-使用方法)
+4. [🔧 问题排查](#-问题排查)
+5. [💬 Citations](#-citations)
 
 ## 💡 介绍
 
@@ -80,7 +96,15 @@ Lybic GUI Agent 是一个开源框架，使开发人员和企业能够创建能�
 > [!WARNING]
 > 为了充分发挥Lybic GUI Agent的潜力，我们支持包括OpenAI、Anthropic、Gemini和Doubao在内的多家模型供应商。为获得最佳的视觉定位性能，我们建议使用UI-TARS模型。
 
-### 安装
+### 安装(从PyPI安装)
+
+在您的终端中运行以下命令：
+
+```bash
+pip install lybic-guiagents
+```
+
+### 安装(从源代码安装)
 
 您可以使用 [UV](https://docs.astral.sh/uv/getting-started/installation/) (一个现代化的Python包管理器) 0.8.5版本进行安装：
 
@@ -212,6 +236,25 @@ LYBIC_MAX_LIFE_SECONDS=3600
 > LYBIC_PRECREATE_SID=SBX-XXXXXXXXXXXXXXX
 > ```
 
+### 以服务形式使用
+
+在安装了lybic-guiagents后，你可以以服务方式运行。
+
+主要组件:
+- AgentService: 高层服务接口 (推荐大多数用户使用)
+- AgentS2, AgentSFast: 核心agent实现
+- HardwareInterface: 硬件抽象层
+- ServiceConfig: 配置管理器
+
+Quick Start:
+
+```python
+from gui_agents import AgentService 
+service = AgentService()
+result = service.execute_task("Take a screenshot")
+print(f"Task completed: {result.status}")
+```
+
 ### VMware配置
 
 要将PyAutoGUI与VMware一起使用，您需要安装[VMware Workstation Pro](https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion)（在Windows上）并创建一个虚拟机。
@@ -309,6 +352,22 @@ USE_PRECREATE_VM=Ubuntu
    - Python版本和环境详细信息
    - 完整的错误消息
    - 重现问题的步骤
+
+## 💬 Citations
+
+我们的论文引用：
+
+```bibtex
+@misc{guo2025agenticlybicmultiagentexecution,
+      title={Agentic Lybic: Multi-Agent Execution System with Tiered Reasoning and Orchestration}, 
+      author={Liangxuan Guo and Bin Zhu and Qingqian Tao and Kangning Liu and Xun Zhao and Xianzhe Qin and Jin Gao and Guangfu Hao},
+      year={2025},
+      eprint={2509.11067},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2509.11067}, 
+}
+```
 
 ## Stargazers over time
 

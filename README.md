@@ -49,6 +49,7 @@ Lybic GUI Agent is an open-source framework that enables developers and business
 1. [💡 Introduction](#-introduction)
 2. [🛠️ Installation & Setup](#%EF%B8%8F-installation--setup) 
 3. [🚀 Usage](#-usage)
+4. [🔧 Troubleshooting](#-troubleshooting)
 4. [💬 Citations](#-citations)
 
 ## 💡 Introduction

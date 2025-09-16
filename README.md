@@ -13,12 +13,12 @@
 </h1>
 
 <p align="center">
-    Supported OS:
+    <small>Supported OS:</small>
     <img src="https://img.shields.io/badge/OS-Windows-blue?logo=windows&logoColor=white" alt="Windows">
     <img src="https://img.shields.io/badge/OS-macOS-black?logo=apple&logoColor=white" alt="macOS">
     <img src="https://img.shields.io/badge/OS-Linux-yellow?logo=linux&logoColor=black" alt="Linux">
     <br/>
-    <a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
+    <small>LatestVersion:</small><a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
     &nbsp;
     <a href="https://github.com/lybic/agent/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/pypi/l/lybic-guiagents"></a>
     &nbsp;
@@ -40,6 +40,7 @@ Lybic GUI Agent is an open-source framework that enables developers and business
 </div>
 
 ## 🥳 Updates
+- [x] **2025/09/14**: The paper has been accepted by [arxiv](https://arxiv.org/abs/2509.11067)
 - [x] **2025/09/09**: We achieved the world's first place in the 50-step length of [OS-world](https://os-world.github.io/)!
 - [x] **2025/08/08**: Released v0.1.0 of [Lybic GUI Agent](https://github.com/lybic/agent) library, with support for Windows, Mac, Ubuntu and Lybic API!
 
@@ -48,6 +49,7 @@ Lybic GUI Agent is an open-source framework that enables developers and business
 1. [💡 Introduction](#-introduction)
 2. [🛠️ Installation & Setup](#%EF%B8%8F-installation--setup) 
 3. [🚀 Usage](#-usage)
+4. [💬 Citations](#-citations)
 
 ## 💡 Introduction
 
@@ -323,6 +325,23 @@ If you encounter issues not covered here:
    - Python version and environment details
    - Complete error messages
    - Steps to reproduce the issue
+
+## 💬 Citations
+
+If you find this codebase useful, please cite:
+
+```bibtex
+@misc{guo2025agenticlybicmultiagentexecution,
+      title={Agentic Lybic: Multi-Agent Execution System with Tiered Reasoning and Orchestration}, 
+      author={Liangxuan Guo and Bin Zhu and Qingqian Tao and Kangning Liu and Xun Zhao and Xianzhe Qin and Jin Gao and Guangfu Hao},
+      year={2025},
+      eprint={2509.11067},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2509.11067}, 
+}
+```
+
 
 ## Stargazers over time
 

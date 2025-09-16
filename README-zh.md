@@ -14,12 +14,12 @@
 </h1>
 
 <p align="center">
-    支持的OS:
+    <small>支持的OS:</small>
     <img src="https://img.shields.io/badge/OS-Windows-blue?logo=windows&logoColor=white" alt="Windows">
     <img src="https://img.shields.io/badge/OS-macOS-black?logo=apple&logoColor=white" alt="macOS">
     <img src="https://img.shields.io/badge/OS-Linux-yellow?logo=linux&logoColor=black" alt="Linux">
     <br/>
-    <a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
+    <small>版本:</small><a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
     &nbsp;
     <a href="https://github.com/lybic/agent/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/pypi/l/lybic-guiagents"></a>
     &nbsp;
@@ -41,6 +41,7 @@ Lybic GUI Agent 是一个开源框架，使开发人员和企业能够创建能�
 </div>
 
 ## 🥳 最新动态
+- [x] **2025/09/14**: 论文已经在[arxiv](https://arxiv.org/abs/2509.11067)上可以浏览
 - [x] **2025/09/09**: 我们在[OS-world](https://os-world.github.io/) 50步任务中取得了世界第一的成绩！
 - [x] **2025/08/08**: 发布了[Lybic GUI Agent](https://github.com/lybic/agent) v0.1.0版本，支持Windows、Mac、Ubuntu和Lybic API！
 
@@ -49,6 +50,7 @@ Lybic GUI Agent 是一个开源框架，使开发人员和企业能够创建能�
 1. [💡 介绍](#-介绍)
 2. [🛠️ 安装与设置](#️-安装与设置) 
 3. [🚀 使用方法](#-使用方法)
+4. [💬 Citations](#-citations)
 
 ## 💡 介绍
 
@@ -322,6 +324,22 @@ USE_PRECREATE_VM=Ubuntu
    - Python版本和环境详细信息
    - 完整的错误消息
    - 重现问题的步骤
+
+## 💬 Citations
+
+我们的论文引用：
+
+```bibtex
+@misc{guo2025agenticlybicmultiagentexecution,
+      title={Agentic Lybic: Multi-Agent Execution System with Tiered Reasoning and Orchestration}, 
+      author={Liangxuan Guo and Bin Zhu and Qingqian Tao and Kangning Liu and Xun Zhao and Xianzhe Qin and Jin Gao and Guangfu Hao},
+      year={2025},
+      eprint={2509.11067},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2509.11067}, 
+}
+```
 
 ## Stargazers over time
 

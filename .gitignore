@@ -173,3 +173,4 @@ vmware_vm_data*/
 results/
 webui/*
 tests/local_tests/
+.specstory/**

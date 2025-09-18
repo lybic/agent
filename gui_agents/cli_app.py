@@ -4,13 +4,11 @@ import io
 import logging
 import os
 import platform
-import pyautogui
 import sys
 import time
 import datetime
 from pathlib import Path
 from dotenv import load_dotenv
-from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
 
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
 if env_path.exists():
@@ -36,6 +34,80 @@ from gui_agents.agents.hardware_interface import HardwareInterface
 from gui_agents.utils.analyze_display import analyze_display_json, aggregate_results, format_output_line
 
 current_platform = platform.system().lower()
+
+# Display environment detection and backend compatibility validation
+def check_display_environment():
+    """
+    Check if the current environment supports GUI operations.
+    Returns (has_display, pyautogui_available, error_message)
+    """
+    has_display = False
+    pyautogui_available = False
+    error_message = None
+    
+    # Check DISPLAY environment variable (Linux/Unix)
+    if current_platform == "linux":
+        display_env = os.environ.get('DISPLAY')
+        if display_env:
+            has_display = True
+        else:
+            error_message = "No DISPLAY environment variable found. Running in headless/containerized environment."
+    elif current_platform == "darwin":
+        # macOS typically has display available unless running in special contexts
+        has_display = True
+    elif current_platform == "windows":
+        # Windows typically has display available
+        has_display = True
+    
+    # Try to import and initialize pyautogui if display is available
+    if has_display:
+        try:
+            import pyautogui
+            # Test if pyautogui can actually work
+            pyautogui.size()  # This will fail if no display is available
+            pyautogui_available = True
+        except Exception as e:
+            pyautogui_available = False
+            error_message = f"PyAutoGUI not available: {str(e)}"
+    
+    return has_display, pyautogui_available, error_message
+
+def get_compatible_backends(has_display, pyautogui_available):
+    """
+    Get list of backends compatible with current environment.
+    """
+    compatible_backends = []
+    incompatible_backends = []
+    
+    # Lybic backend works in headless environments (cloud-based)
+    compatible_backends.append("lybic")
+    
+    # ADB backend works without display (for Android devices)
+    compatible_backends.append("adb")
+    
+    # PyAutoGUI-based backends require display
+    if has_display and pyautogui_available:
+        compatible_backends.extend(["pyautogui", "pyautogui_vmware"])
+    else:
+        incompatible_backends.extend(["pyautogui", "pyautogui_vmware"])
+    
+    return compatible_backends, incompatible_backends
+
+def validate_backend_compatibility(backend, compatible_backends, incompatible_backends):
+    """
+    Validate if the requested backend is compatible with current environment.
+    Returns (is_compatible, recommended_backend, warning_message)
+    """
+    if backend in compatible_backends:
+        return True, backend, None
+    elif backend in incompatible_backends:
+        # Recommend lybic as the primary fallback for headless environments
+        recommended = "lybic"
+        warning = f"Backend '{backend}' is not compatible with current environment (no display/GUI). Recommending '{recommended}' backend instead."
+        return False, recommended, warning
+    else:
+        # Unknown backend, let it fail naturally
+        return True, backend, f"Unknown backend '{backend}', compatibility cannot be determined."
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -174,10 +246,18 @@ def show_permission_dialog(code: str, action_description: str):
 def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInterface):
     screenshot_high = screenshot.height
     screenshot_width = screenshot.width
-    if isinstance(hwi_para.backend, PyAutoGUIBackend):
-        screen_width, screen_height = pyautogui.size()
-        if screen_width != screenshot_width or screen_height != screenshot_high:
-            screenshot = screenshot.resize((screen_width, screen_height), Image.Resampling.LANCZOS)
+    
+    # Only try to scale if we have a PyAutoGUI backend and pyautogui is available
+    try:
+        from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
+        if isinstance(hwi_para.backend, PyAutoGUIBackend):
+            import pyautogui
+            screen_width, screen_height = pyautogui.size()
+            if screen_width != screenshot_width or screen_height != screenshot_high:
+                screenshot = screenshot.resize((screen_width, screen_height), Image.Resampling.LANCZOS)
+    except Exception as e:
+        # Any error (e.g., no display, import error), skip scaling
+        logger.warning(f"Could not scale screenshot dimensions: {e}")
 
     return screenshot
 
@@ -514,7 +594,36 @@ def main():
         type=str,
         default=None,
         help='Lybic precreated sandbox ID (if not provided, will use LYBIC_PRECREATE_SID environment variable)')
+    parser.add_argument(
+        '--force-backend',
+        action='store_true',
+        help='Force the use of specified backend even if incompatible with current environment')
     args = parser.parse_args()
+
+    # Check environment compatibility
+    has_display, pyautogui_available, env_error = check_display_environment()
+    compatible_backends, incompatible_backends = get_compatible_backends(has_display, pyautogui_available)
+    
+    # Log environment status
+    logger.info(f"Environment check: Display available={has_display}, PyAutoGUI available={pyautogui_available}")
+    if env_error:
+        logger.info(f"Environment note: {env_error}")
+    logger.info(f"Compatible backends: {compatible_backends}")
+    if incompatible_backends:
+        logger.info(f"Incompatible backends: {incompatible_backends}")
+    
+    # Validate backend compatibility
+    is_compatible, recommended_backend, warning = validate_backend_compatibility(
+        args.backend, compatible_backends, incompatible_backends)
+    
+    if not is_compatible and not args.force_backend:
+        logger.warning(warning)
+        logger.info(f"Switching from '{args.backend}' to '{recommended_backend}' backend")
+        args.backend = recommended_backend
+    elif not is_compatible and args.force_backend:
+        logger.warning(f"Forcing incompatible backend '{args.backend}' - this may cause errors")
+    elif warning:
+        logger.info(warning)
 
     # Ensure necessary directory structure exists
     timestamp_dir = os.path.join(log_dir, datetime_str)
@@ -579,7 +688,7 @@ def main():
     # Smart reflection is always enabled by default
     logger.info("Smart reflection functionality is ENABLED")
 
-    # Initialize hardware interface
+    # Initialize hardware interface with error handling
     backend_kwargs = {"platform": platform_os}
     if args.lybic_sid is not None:
         backend_kwargs["precreate_sid"] = args.lybic_sid
@@ -587,7 +696,25 @@ def main():
     else:
         logger.info("Using Lybic SID from environment variable LYBIC_PRECREATE_SID")
     
-    hwi = HardwareInterface(backend=args.backend, **backend_kwargs)
+    try:
+        hwi = HardwareInterface(backend=args.backend, **backend_kwargs)
+        logger.info(f"Successfully initialized hardware interface with backend: {args.backend}")
+    except Exception as e:
+        logger.error(f"Failed to initialize hardware interface with backend '{args.backend}': {e}")
+        
+        # If the backend failed and it's a GUI-dependent backend, suggest alternatives
+        if args.backend in incompatible_backends and not args.force_backend:
+            logger.info("Attempting to initialize with lybic backend as fallback...")
+            try:
+                hwi = HardwareInterface(backend="lybic", **backend_kwargs)
+                logger.info("Successfully initialized with lybic backend")
+                args.backend = "lybic"
+            except Exception as fallback_error:
+                logger.error(f"Fallback to lybic backend also failed: {fallback_error}")
+                sys.exit(1)
+        else:
+            logger.error("Hardware interface initialization failed. Please check your environment and backend configuration.")
+            sys.exit(1)
 
     # if query is provided, run the agent on the query
     if args.query:
@@ -611,6 +738,13 @@ def main():
 
 if __name__ == "__main__":
     """
+    GUI Agent CLI Application with environment compatibility checking.
+    
+    The application automatically detects the current environment and recommends compatible backends:
+    - In headless/containerized environments: uses 'lybic' or 'adb' backends
+    - In GUI environments: supports all backends including 'pyautogui' and 'pyautogui_vmware'
+    
+    Examples:
     python gui_agents/cli_app.py --backend lybic
     python gui_agents/cli_app.py --backend pyautogui --mode fast
     python gui_agents/cli_app.py --backend pyautogui_vmware
@@ -620,5 +754,6 @@ if __name__ == "__main__":
     python gui_agents/cli_app.py --backend pyautogui --mode fast --disable-search
     python gui_agents/cli_app.py --backend lybic --lybic-sid SBX-01K1X6ZKAERXAN73KTJ1XXJXAF
     python gui_agents/cli_app.py --backend lybic --mode fast --lybic-sid SBX-01K1X6ZKAERXAN73KTJ1XXJXAF
+    python gui_agents/cli_app.py --backend pyautogui --force-backend  # Force incompatible backend
     """
     main()

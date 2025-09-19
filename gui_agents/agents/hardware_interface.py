@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pyautogui
 from gui_agents.agents.Backend.Backend import Backend
 from gui_agents.agents.Backend.ADBBackend import ADBBackend
 from gui_agents.agents.Backend.LybicBackend import LybicBackend
@@ -81,6 +80,17 @@ class HardwareInterface:
             key = backend.lower()
             if key not in self.BACKEND_MAP:
                 raise ValueError(f"Unsupported backend '{backend}'. Available: {list(self.BACKEND_MAP)}")
+            
+            # For GUI backends, provide helpful error message in headless environments
+            if key in ["pyautogui", "pyautogui_vmware"]:
+                import os
+                if os.name == 'posix' and not os.environ.get('DISPLAY'):
+                    raise RuntimeError(
+                        f"Cannot create '{backend}' backend: No DISPLAY environment variable found. "
+                        f"This typically occurs in headless/containerized environments. "
+                        f"Consider using 'lybic' or 'adb' backend instead."
+                    )
+            
             self.backend = self.BACKEND_MAP[key](**backend_kwargs)
 
     # ------------------------------------------------------------------

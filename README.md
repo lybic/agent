@@ -375,9 +375,9 @@ If you find this codebase useful, please cite:
 ## ❤️ Touch us:
 
 <div align="center" style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
-  <img src="assets/feishu.png" alt="飞书群" style="width: 350px; height: auto;"/>
-  <img src="assets/wechat.jpg" alt="微信群" style="width: 300px; height: auto;"/>
-  <img src="assets/qq.jpg" alt="QQ群" style="width: 300px; height: auto;"/>
+  <img src="assets/feishu.png" alt="Lark Group" style="width: 250px; height: auto;"/>
+  <img src="assets/wechat.jpg" alt="WeChat Group" style="width: 200px; height: auto;"/>
+  <img src="assets/qq.jpg" alt="QQ Group" style="width: 200px; height: auto;"/>
 </div>
 
 ## Stargazers over time

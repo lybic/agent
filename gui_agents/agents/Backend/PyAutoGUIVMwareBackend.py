@@ -77,7 +77,7 @@ class PyAutoGUIVMwareBackend(Backend):
 
 
     # ------------------------------------------------------------------
-    def execute(self, action: Action) -> str:
+    def execute(self, action: Action) -> str | None:
         if not self.supports(type(action)):
             raise NotImplementedError(f"{type(action).__name__} not supported by PyAutoGUIBackend")
         

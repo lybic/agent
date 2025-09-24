@@ -6,10 +6,6 @@ context fusion, subtask planning, trajectory reflection, memory retrieval, groun
 evaluation, and action generation.
 """
 
-import os
-import json
-import base64
-import requests
 import time
 from typing import Dict, Any, Optional, List, Union, Tuple
 from abc import ABC, abstractmethod

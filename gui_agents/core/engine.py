@@ -22,7 +22,6 @@ from google.genai import types
 from zhipuai import ZhipuAI
 from groq import Groq
 import boto3
-import exa_py
 from typing import List, Dict, Any, Optional, Union, Tuple
 
 class ModelPricing:

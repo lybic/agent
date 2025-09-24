@@ -3,7 +3,11 @@ from __future__ import annotations
 from gui_agents.agents.Backend.Backend import Backend
 from gui_agents.agents.Backend.ADBBackend import ADBBackend
 from gui_agents.agents.Backend.LybicBackend import LybicBackend
-from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
+try:
+    from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
+except ImportError:
+    PyAutoGUIBackend = None
+    pass
 # from gui_agents.agents.Backend.PyAutoGUIVMwareBackend import PyAutoGUIVMwareBackend
 """hardware_interface.py  ▸  Execute Action objects on real devices / emulators
 ===============================================================================
@@ -71,8 +75,9 @@ class HardwareInterface:
         "pyautogui": PyAutoGUIBackend,
         "adb": ADBBackend,
         "lybic": LybicBackend,
-        #"pyautogui_vmware": PyAutoGUIVMwareBackend,
     }
+    if PyAutoGUIBackend is not None:
+        BACKEND_MAP["pyautogui_vmware"] = PyAutoGUIBackend
 
     # ------------------------------------------------------------------
     def __init__(self, backend: str | Backend = "pyautogui", **backend_kwargs):

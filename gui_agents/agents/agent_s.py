@@ -1,12 +1,10 @@
 import json
 import logging
-from math import log
 import os
 import platform
 import textwrap
 from typing import Dict, List, Optional, Tuple
 
-from gui_agents.agents.grounding import ACI
 from gui_agents.agents.worker import Worker
 from gui_agents.agents.manager import Manager
 from gui_agents.agents.grounding import Grounding, FastGrounding

@@ -3,9 +3,7 @@ import os
 import json
 import logging
 import sys
-from unittest.mock import MagicMock, patch
 from io import BytesIO
-from PIL import Image
 
 from gui_agents.agents.worker import Worker
 from gui_agents.utils.common_utils import Node

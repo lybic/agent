@@ -8,7 +8,7 @@ import json
 import os
 import glob
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 
 def extract_cost_value(cost_str: str) -> tuple:

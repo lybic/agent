@@ -1,12 +1,9 @@
 # ---------------------------------------------------------------------------
 # 1) Desktop automation backend (PyAutoGUI)
 # ---------------------------------------------------------------------------
-import os
-import subprocess, difflib
+import subprocess
 import sys
 import pyperclip
-from PIL import Image
-from numpy import imag
 from gui_agents.agents.Action import (
     Action,
     Click,

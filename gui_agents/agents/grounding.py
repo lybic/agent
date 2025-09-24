@@ -1,13 +1,8 @@
 import ast
 import re
 import logging
-from collections import defaultdict
-from io import BytesIO
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List
 import time
-import pytesseract
-from PIL import Image
-from pytesseract import Output
 
 from gui_agents.tools.tools import Tools
 from gui_agents.utils.common_utils import parse_single_code_from_string

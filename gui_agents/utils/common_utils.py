@@ -1,7 +1,5 @@
 import json
 import re
-from typing import List
-import time
 import tiktoken
 import numpy as np
 

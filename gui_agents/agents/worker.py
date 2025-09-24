@@ -1,12 +1,11 @@
 import logging
 import re
 import textwrap
-from typing import Dict, List, Tuple
+from typing import Dict, List
 import platform
 import os
 import json
 
-from gui_agents.agents.grounding import ACI
 from gui_agents.core.knowledge import KnowledgeBase
 from gui_agents.utils.common_utils import (
     Node,

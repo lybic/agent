@@ -2,7 +2,6 @@ import os
 import json
 import backoff
 import requests
-from typing import List, Dict, Any, Optional, Union
 import numpy as np
 from anthropic import Anthropic
 from openai import (
@@ -18,7 +17,6 @@ from google.genai import types
 from zhipuai import ZhipuAI
 from groq import Groq
 import boto3
-import exa_py
 from typing import List, Dict, Any, Optional, Union, Tuple
 
 class ModelPricing:

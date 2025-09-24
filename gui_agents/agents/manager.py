@@ -4,7 +4,6 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 import platform
 
-from gui_agents.agents.grounding import ACI
 from gui_agents.core.knowledge import KnowledgeBase
 from gui_agents.agents.global_state import GlobalState
 from gui_agents.store.registry import Registry
@@ -15,8 +14,6 @@ from gui_agents.utils.common_utils import (
     agent_log_to_string,
 )
 from gui_agents.tools.tools import Tools
-from PIL import Image
-import io
 
 logger = logging.getLogger("desktopenv.agent")
 

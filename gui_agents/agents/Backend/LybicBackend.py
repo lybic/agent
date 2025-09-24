@@ -6,8 +6,7 @@ import asyncio
 import logging
 import time
 import os
-from typing import Dict, Any, Optional, Union
-from io import BytesIO
+from typing import Dict, Any, Optional
 from PIL import Image
 
 from gui_agents.agents.Action import (

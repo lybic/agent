@@ -9,7 +9,7 @@ authors = [
 ]
 description = "An open-source agentic framework that enables AI to use computers like humans and can provide a multi-agent runtime environment as an infrastructure capability"
 readme = "README.md"
-requires-python = ">=3.12,<=3.13"
+requires-python = ">=3.12,<3.14"
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
@@ -23,9 +23,7 @@ dependencies = [
     "numpy",
     "anthropic",
     "openai",
-    "google",
     "google-genai",
-    "google-generativeai",
     "zhipuai",
     "groq",
     "boto3",
@@ -51,14 +49,13 @@ vmware-and-evaluation = [
     "filelock",
     "xmltodict",
     "opencv-python-headless",
-    "Pillow",
-    "imagehash",
+
     "rapidfuzz",
-    "fitz",
+
     "imagehash",
     "odfpy",
     "pdfplumber",
-    "PyYaml",
+    "PyYAML",
     "mutagen",
     "pypdf",
     "PyMuPDF",

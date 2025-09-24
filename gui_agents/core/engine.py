@@ -12,10 +12,8 @@ from openai import (
     OpenAI,
     RateLimitError,
 )
-
-import google.generativeai as genai
-from google.generativeai import types
-
+from google import genai
+from google.genai import types
 from zhipuai import ZhipuAI
 from groq import Groq
 import boto3

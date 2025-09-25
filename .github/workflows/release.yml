@@ -52,16 +52,19 @@ jobs:
           # Remove 'v' prefix from tag if present (e.g., v0.4.0 -> 0.4.0)
           VERSION=${{ github.event.inputs.new_tag }}
           VERSION=${VERSION#v}
-
+          echo "Initial pyproject.toml:"                                                                                            │
+          cat pyproject.toml
           # Update version in pyproject.toml
           sed -i -E "s/^(version\s*=\s*)\".*\"/\1\"$VERSION\"/" pyproject.toml
-
+          echo "Updated pyproject.toml:"                                                                                            │
+          cat pyproject.toml
+          git status
           # Commit the version update
-          git add pyproject.toml
-          git commit -m "build: bump Agentic-Lybic version to $VERSION"
 
+          git add pyproject.toml
           git add CHANGELOGS/${{ github.event.inputs.new_tag }}-release.md
           git commit -m "docs(changelog): Generate changelog for ${{ github.event.inputs.new_tag }}"
+
           git push --set-upstream origin changelog_${{ github.event.inputs.new_tag }}
 
       - name: Create Changelog Pull Request

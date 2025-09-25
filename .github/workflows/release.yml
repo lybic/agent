@@ -59,13 +59,12 @@ jobs:
           # Commit the version update
           git add pyproject.toml
           git commit -m "build: bump Agentic-Lybic version to $VERSION"
-          git push --set-upstream origin changelog_${{ github.event.inputs.new_tag }}
 
       - name: Commit and push changelog
         run: |
           git add CHANGELOGS/${{ github.event.inputs.new_tag }}-release.md
           git commit -m "docs(changelog): Generate changelog for ${{ github.event.inputs.new_tag }}"
-          git push origin changelog_${{ github.event.inputs.new_tag }}
+          git push --set-upstream origin changelog_${{ github.event.inputs.new_tag }}
 
       - name: Create Changelog Pull Request
         env:

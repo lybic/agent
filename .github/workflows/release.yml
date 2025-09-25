@@ -43,15 +43,14 @@ jobs:
           echo "" >> changelog.md
           echo "Release timestamp: $(date +%Y-%m-%d)" >> changelog.md
           echo "" >> changelog.md
-          gh api repos/${{ github.repository }}/compare/${PREVIOUS_TAG}...HEAD --jq '.commits[] | "- \(.commit.message | split("\n")[0]) (by @\(.author.login // .commit.author.name) in `\(.sha | tostring | .[0:7])`) "' >> changelog.md
+          gh api repos/${{ github.repository }}/compare/$(echo "$PREVIOUS_TAG" | tr '[:upper:]' '[:lower:]')...HEAD --jq '.commits[] | "- \(.commit.message | split("\n")[0]) (by @(.author.login // .commit.author.name) in `\(.sha | tostring | .[0:7])`) "' >> changelog.md
           mkdir -p CHANGELOGS
           mv changelog.md CHANGELOGS/${NEW_TAG}-release.md
 
       - name: Update version and commit changelog
         run: |
-          # Remove 'v' prefix from tag if present (e.g., v0.4.0 -> 0.4.0)
-          VERSION=${{ github.event.inputs.new_tag }}
-          VERSION=${VERSION#v}
+          # Remove 'v' or 'V' prefix from tag if present (e.g., v0.4.0 -> 0.4.0)
+          VERSION=$(echo "${{ github.event.inputs.new_tag }}" | sed 's/^[vV]//')
           echo "Initial pyproject.toml:"
           cat pyproject.toml
           # Update version in pyproject.toml

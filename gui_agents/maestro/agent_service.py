@@ -6,7 +6,7 @@ import logging
 # This assumes you have generated pb2 and pb2_grpc files from agent.proto
 # You might need to adjust the import paths based on your project structure.
 # For example: from .. import agent_pb2
-from ..proto import agent_pb2, agent_pb2_grpc
+from gui_agents.proto import agent_pb2, agent_pb2_grpc
 
 from .stream_manager import stream_manager, StreamMessage
 

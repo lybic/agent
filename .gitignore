@@ -182,3 +182,6 @@ tests/local_tests/
 gui_agents/tools/new_tools_config*.json
 .cursorindexingignore
 .specstory
+
+# generated files
+gui_agents/proto/pb/agent*

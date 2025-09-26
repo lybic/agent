@@ -185,7 +185,7 @@ class LybicBackend(Backend):
             type="mouse:click",
             x=dto.PixelLength(type="px", value=act.x),
             y=dto.PixelLength(type="px", value=act.y),
-            button=1 if act.button == 0 else 2,  # 0=左键, 1=右键 -> 1=左键, 2=右键
+            button=act.button,
             holdKey=" ".join(act.holdKey) if act.holdKey else ""
         )
         
@@ -203,7 +203,7 @@ class LybicBackend(Backend):
             type="mouse:doubleClick",
             x=dto.PixelLength(type="px", value=act.x),
             y=dto.PixelLength(type="px", value=act.y),
-            button=1 if act.button == 0 else 2,
+            button=act.button,
             holdKey=" ".join(act.holdKey) if act.holdKey else ""
         )
         

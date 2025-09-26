@@ -4,7 +4,7 @@ from gui_agents.agents.Backend.Backend import Backend
 from gui_agents.agents.Backend.ADBBackend import ADBBackend
 from gui_agents.agents.Backend.LybicBackend import LybicBackend
 from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
-# from gui_agents.agents.Backend.PyAutoGUIVMwareBackend import PyAutoGUIVMwareBackend
+from gui_agents.agents.Backend.PyAutoGUIVMwareBackend import PyAutoGUIVMwareBackend
 """hardware_interface.py  ▸  Execute Action objects on real devices / emulators
 ==============================================================================
 This module is the *single entry point* that upper‑layer planners / executors
@@ -15,8 +15,8 @@ use to perform UI operations.  It is deliberately thin:
     into platform‑specific calls (PyAutoGUI, ADB, Lybic cloud device, …).
 *   Performs minimal capability checks + error propagation.
 
-The default backend implemented here is **PyAutoGUIBackend**.  
-Available backends: **ADBBackend**, **LybicBackend**, and **PyAutoGUIVMwareBackend**.
+The default backend implemented here is **PyAutoGUIBackend**.  Stubs for
+**ADBBackend** and **LybicBackend** show how to extend the system.
 
 --------------------------------------------------------------------------
 Quick usage
@@ -56,7 +56,7 @@ __all__ = [
     "PyAutoGUIBackend",
     "ADBBackend",
     "LybicBackend",
-   # "PyAutoGUIVMwareBackend",
+    "PyAutoGUIVMwareBackend",
 ]
 
 
@@ -71,6 +71,7 @@ class HardwareInterface:
         "pyautogui": PyAutoGUIBackend,
         "adb": ADBBackend,
         "lybic": LybicBackend,
+        "pyautogui_vmware": PyAutoGUIVMwareBackend,
     }
 
     # ------------------------------------------------------------------

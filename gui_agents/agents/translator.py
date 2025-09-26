@@ -5,7 +5,7 @@ format strictly follows computer-use schema.
 """
 
 from __future__ import annotations
-import ast
+import ast, json
 from typing import List, Dict
 
 

@@ -43,6 +43,7 @@ def generate_grpc_stubs():
         "grpc_tools.protoc",
         "--python_out=.",
         "--grpc_python_out=.",
+        "--pyi_out=.",
         "agent.proto",
     ]
 

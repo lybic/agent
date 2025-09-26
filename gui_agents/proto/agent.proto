@@ -2,6 +2,7 @@
 python -m grpc_tools.protoc -Igui_agents/proto \
   --python_out=gui_agents/proto/pb  \
   --grpc_python_out=gui_agents/proto/pb \
+  --pyi_out=gui_agents/proto/pb \
   gui_agents/proto/agent.proto
 */
 

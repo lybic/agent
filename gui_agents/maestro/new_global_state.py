@@ -36,6 +36,7 @@ from .data_models import (
 
 # ========= Import Simple Snapshot System =========
 from .simple_snapshot import SimpleSnapshot
+from .stream_manager import stream_manager
 
 # ========= New GlobalState =========
 class NewGlobalState:
@@ -766,7 +767,26 @@ class NewGlobalState:
         events.append(event)
         safe_write_json(self.events_path, events)
 
+        if details:
+            self.add_stream_message(stage=f"{actor}:{action}", message=details)
+
         return event_id
+
+    def add_stream_message(self, stage: str, message: str):
+        """Add a message to the task's stream and the persistent message list."""
+        # Add to in-memory stream for gRPC
+        stream_manager.add_message(self.task_id, stage, message)
+
+        # Add to persistent list in TaskData
+        task = self.get_task()
+        msg_data = {"stage": stage, "message": message, "timestamp": datetime.now().isoformat()}
+        if not hasattr(task, 'stream_messages'):
+            task.stream_messages = []
+        task.stream_messages.append(msg_data)
+        # Optional: cap the list size
+        if len(task.stream_messages) > 200: # Keep a bit more than what's snapshotted
+            task.stream_messages = task.stream_messages[-200:]
+        self.set_task(task)
 
     # ========= Role-based Access Methods =========
     # Controller methods
@@ -989,6 +1009,11 @@ class NewGlobalState:
         # Also record to event system
         self.add_event(module, f"{operation}_llm_call", 
                       f"LLM call with {len(str_input) if str_input else 0} chars text and screenshot {screenshot_id}")
+
+        # New: Add to stream
+        llm_output = data.get("llm_output", data.get("content", ""))
+        if llm_output:
+            self.add_stream_message(stage=f"{module}:{operation}", message=str(llm_output))
 
     # ========= Controller State Management =========
     def get_controller_state(self) -> Dict[str, Any]:

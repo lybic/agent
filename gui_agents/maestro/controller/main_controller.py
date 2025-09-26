@@ -19,6 +19,7 @@ from PIL import Image
 
 from ..utils.screenShot import scale_screenshot_dimensions
 from ...store.registry import Registry
+from ..stream_manager import stream_manager
 
 from ..new_global_state import NewGlobalState
 from ..new_manager import NewManager
@@ -69,6 +70,8 @@ class MainController:
             self.global_state = global_state
         else:
             self.global_state = self._registry_global_state(log_dir, datetime_str)
+
+        stream_manager.register_task(self.global_state.task_id)
         
         # Basic configuration
         self.platform = platform
@@ -403,6 +406,7 @@ class MainController:
                 # 1. Check if should exit loop
                 if self.state_machine.should_exit_loop():
                     logger.info("Task fulfilled or rejected, breaking main loop")
+                    stream_manager.unregister_task(self.global_state.task_id)
                     break
 
                 # 2. Get current state

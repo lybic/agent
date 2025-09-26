@@ -784,8 +784,8 @@ class NewGlobalState:
             task.stream_messages = []
         task.stream_messages.append(msg_data)
         # Optional: cap the list size
-        if len(task.stream_messages) > 200: # Keep a bit more than what's snapshotted
-            task.stream_messages = task.stream_messages[-200:]
+        if len(task.stream_messages) > 100: # Keep a bit more than what's snapshotted
+            task.stream_messages = task.stream_messages[-100:]
         self.set_task(task)
 
     # ========= Role-based Access Methods =========

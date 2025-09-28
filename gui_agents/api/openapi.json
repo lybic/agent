@@ -1,0 +1,697 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Agentic Lybic",
+    "description": "Agentic Lybic Restful",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/agent/info": {
+      "get": {
+        "summary": "Get Agent Info",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getAgentInfo",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Agent information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInfo"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/agent/config/global": {
+      "get": {
+        "summary": "Get Global Common Config",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getGlobalCommonConfig",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Global common configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonConfig"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      },
+      "post": {
+        "summary": "Set Global Common Config",
+        "deprecated": false,
+        "description": "",
+        "operationId": "setGlobalCommonConfig",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommonConfig"
+              },
+              "example": ""
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration set response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetCommonConfigResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/agent/config/{id}": {
+      "get": {
+        "summary": "Get Common Config by ID",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getCommonConfig",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Common configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonConfig"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/agent/config/global/llm": {
+      "post": {
+        "summary": "Set Global Common LLM Config",
+        "deprecated": false,
+        "description": "",
+        "operationId": "setGlobalCommonLLMConfig",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LLMConfig"
+              },
+              "example": ""
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated LLM configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LLMConfig"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/agent/config/global/grounding-llm": {
+      "get": {
+        "summary": "Get Global Grounding LLM Config",
+        "deprecated": false,
+        "description": "New endpoint",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "New response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": ""
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      },
+      "post": {
+        "summary": "Set Global Grounding LLM Config",
+        "deprecated": false,
+        "description": "",
+        "operationId": "setGlobalGroundingLLMConfig",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LLMConfig"
+              },
+              "example": ""
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated LLM configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LLMConfig"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/agent/config/global/embedding-llm": {
+      "post": {
+        "summary": "Set Global Embedding LLM Config",
+        "deprecated": false,
+        "description": "",
+        "operationId": "setGlobalEmbeddingLLMConfig",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LLMConfig"
+              },
+              "example": ""
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated LLM configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LLMConfig"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/agent/run": {
+      "post": {
+        "summary": "Run Agent Instruction",
+        "deprecated": false,
+        "description": "",
+        "operationId": "runAgentInstruction",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunAgentInstructionRequest"
+              },
+              "example": ""
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task stream as Server-Sent Events",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskStream"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/agent/run-async": {
+      "post": {
+        "summary": "Run Agent Instruction Asynchronously",
+        "deprecated": false,
+        "description": "",
+        "operationId": "runAgentInstructionAsync",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunAgentInstructionRequest"
+              },
+              "example": ""
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Async task response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunAgentInstructionAsyncResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/agent/tasks/{taskId}/stream": {
+      "get": {
+        "summary": "Get Agent Task Stream",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getAgentTaskStream",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task stream as Server-Sent Events",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskStream"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/agent/tasks/{taskId}/status": {
+      "get": {
+        "summary": "Query Task Status",
+        "deprecated": false,
+        "description": "",
+        "operationId": "queryTaskStatus",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryTaskStatusResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AgentInfo": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "maxConcurrentTasks": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "log_level": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "Sandbox": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "shapeName": {
+            "type": "string"
+          },
+          "hardwareAcceleratedEncoding": {
+            "type": "boolean"
+          },
+          "os": {
+            "$ref": "#/components/schemas/SandboxOS"
+          },
+          "virtualization": {
+            "type": "string"
+          },
+          "architecture": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "shapeName",
+          "hardwareAcceleratedEncoding",
+          "os",
+          "virtualization",
+          "architecture"
+        ]
+      },
+      "SandboxOS": {
+        "type": "string",
+        "enum": [
+          "OSUNDEFINED",
+          "WINDOWS",
+          "LINUX",
+          "ANDROID"
+        ]
+      },
+      "Authorization": {
+        "type": "object",
+        "properties": {
+          "orgID": {
+            "type": "string",
+            "nullable": true
+          },
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "apiEndpoint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "apiEndpoint"
+        ]
+      },
+      "LLMConfig": {
+        "type": "object",
+        "properties": {
+          "modelName": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "apiEndpoint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "modelName",
+          "provider",
+          "apiEndpoint"
+        ]
+      },
+      "StageModelConfig": {
+        "type": "object",
+        "properties": {
+          "webSearchEngine": {
+            "type": "string"
+          },
+          "contextFusionModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "subtaskPlannerModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "trajReflectorModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "memoryRetrivalModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "groundingModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "taskEvaluatorModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "actionGeneratorModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "actionGeneratorWithTakeoverModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "fastActionGeneratorModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "fastActionGeneratorWithTakeoverModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "dagTranslatorModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "embeddingModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "queryFormulatorModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "narrativeSummarizationModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "textSpanModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          },
+          "episodeSummarizationModel": {
+            "$ref": "#/components/schemas/LLMConfig"
+          }
+        }
+      },
+      "CommonConfig": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "backend": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/InstanceMode"
+          },
+          "steps": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taskTimeout": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "authorizationInfo": {
+            "$ref": "#/components/schemas/Authorization"
+          },
+          "stageModelConfig": {
+            "$ref": "#/components/schemas/StageModelConfig"
+          }
+        },
+        "required": [
+          "backend",
+          "id"
+        ]
+      },
+      "InstanceMode": {
+        "type": "string",
+        "enum": [
+          "MODEUNDEFINED",
+          "NORMAL",
+          "FAST"
+        ]
+      },
+      "RunAgentInstructionRequest": {
+        "type": "object",
+        "properties": {
+          "instruction": {
+            "type": "string"
+          },
+          "sandbox": {
+            "$ref": "#/components/schemas/Sandbox"
+          },
+          "runningConfig": {
+            "$ref": "#/components/schemas/CommonConfig"
+          }
+        },
+        "required": [
+          "instruction"
+        ]
+      },
+      "RunAgentInstructionAsyncResponse": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskId"
+        ]
+      },
+      "TaskStatus": {
+        "type": "string",
+        "enum": [
+          "TASKSTATUSUNDEFINED",
+          "PENDING",
+          "RUNNING",
+          "SUCCESS",
+          "FAILURE",
+          "NOT_FOUND"
+        ]
+      },
+      "QueryTaskStatusResponse": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskStatus"
+          },
+          "message": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string"
+          },
+          "sandbox": {
+            "$ref": "#/components/schemas/Sandbox"
+          }
+        },
+        "required": [
+          "status",
+          "taskId"
+        ]
+      },
+      "TaskStream": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskId",
+          "stage",
+          "message"
+        ]
+      },
+      "SetCommonConfigResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "id"
+        ]
+      }
+    },
+    "securitySchemes": {}
+  },
+  "servers": [],
+  "security": []
+}

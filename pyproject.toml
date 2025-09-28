@@ -107,5 +107,5 @@ dev = [
 ]
 apiserver = [
     "uvicorn",
-    "flask~=3.0.0",
+    "flask[async]~=3.0.0",
 ]

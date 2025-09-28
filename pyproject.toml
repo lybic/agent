@@ -105,3 +105,7 @@ dependencies = [
 dev = [
     "pytest",
 ]
+apiserver = [
+    "uvicorn",
+    "flask~=3.0.0",
+]

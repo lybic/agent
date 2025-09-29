@@ -57,7 +57,8 @@ class MainController:
         snapshot_interval: int = 10,  # Automatically create snapshot every N steps
         create_checkpoint_snapshots: bool = True,  # Whether to create checkpoint snapshots at key states
         global_state: Optional[NewGlobalState] = None,  # New: Allow injection of existing global state (for snapshot recovery)
-        initialize_controller: bool = True  # New: Whether to execute initialization process (skip when recovering from snapshot)
+        initialize_controller: bool = True,  # New: Whether to execute initialization process (skip when recovering from snapshot)
+        tools_dict: Optional[Dict[str, Any]] = None
     ):
         # Snapshot configuration
         self.enable_snapshots = enable_snapshots
@@ -86,7 +87,10 @@ class MainController:
         
         # Initialize configuration manager
         self.config_manager = ConfigManager(memory_root_path, memory_folder_name)
-        self.tools_dict = self.config_manager.load_tools_configuration()
+        if tools_dict:
+            self.tools_dict = tools_dict
+        else:
+            self.tools_dict = self.config_manager.load_tools_configuration()
         self.local_kb_path = self.config_manager.setup_knowledge_base(platform)
         # New: Load flow configuration and override default parameters
         self.flow_config = self.config_manager.get_flow_config()

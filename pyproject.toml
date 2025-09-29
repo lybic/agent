@@ -82,7 +82,7 @@ dependencies = [
     "azure-mgmt-network",
     "docker",
     "dotenv",
-    "lybic>=0.7.0",
+    "lybic>=0.8.0b1",
     'pyobjc; platform_system == "Darwin"',
     'pywinauto; platform_system == "Windows"',
     'pywin32; platform_system == "Windows"',

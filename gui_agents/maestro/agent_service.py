@@ -11,12 +11,15 @@ logging.basicConfig(
 )
 logger.info("Initializing Agent server")
 
+import asyncio
 import platform
 from concurrent import futures
 import grpc
 import threading
 import uuid
+from typing import Coroutine
 
+from lybic import LybicClient, LybicAuth, Sandbox
 from gui_agents.proto import agent_pb2, agent_pb2_grpc
 from .stream_manager import stream_manager, StreamMessage
 from gui_agents.maestro.controller.main_controller import MainController
@@ -35,6 +38,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         self.config_manager.load_flow_configuration()
         self.global_common_config = agent_pb2.CommonConfig(id="global")
         self.task_lock = threading.Lock()
+        self.lybic_client: LybicClient | None = None
+        self.sandbox: Sandbox | None = None
+        self._loop = asyncio.new_event_loop()
+        self._thread = threading.Thread(target=self._loop.run_forever, daemon=True)
+        self._thread.start()
 
     def GetAgentTaskStream(self, request, context):
         """
@@ -79,6 +87,17 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             log_level=level,
             domain=platform.node(),
         )
+
+    def _run_sync(self, coro: Coroutine):
+        """Runs a coroutine in the background event loop and waits for the result."""
+        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        return future.result()
+
+    def close(self):
+        """Stops the background event loop and thread."""
+        if self._thread.is_alive():
+            self._loop.call_soon_threadsafe(self._loop.stop)
+            self._thread.join()
 
     def _run_task(self, task_id: str, controller: MainController):
         """Helper to run a task's main loop and handle state."""
@@ -230,6 +249,15 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
     def SetGlobalCommonConfig(self, request, context):
         logger.info("Setting new global common config.")
         self.global_common_config = request.commonConfig
+
+        if self.global_common_config.HasField("authorizationInfo"): # lybic
+            if self.lybic_client:  self._run_sync(self.lybic_client.close())
+            self.lybic_client = LybicClient(LybicAuth(
+                org_id=self.global_common_config.authorizationInfo.orgId,
+                api_key=self.global_common_config.authorizationInfo.apiKey,
+                endpoint=self.global_common_config.authorizationInfo.endpoint
+            ))
+
         return agent_pb2.SetCommonConfigResponse(success=True, id=self.global_common_config.id)
 
     def SetGlobalCommonLLMConfig(self, request, context):
@@ -253,6 +281,16 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         logger.info(f"Global embedding LLM config updated to: {request.llmConfig.modelName}")
         return request.llmConfig
 
+    def _create_sandbox(self):
+        # todo: add shape args
+        if not self.lybic_client:
+            raise Exception("Lybic client not initialized. Please call SetGlobalCommonConfig before")
+        if not self.sandbox:
+            self.sandbox = Sandbox(self.lybic_client)
+        coro = self.sandbox.create()
+        result = self._run_sync(coro)
+        return result.sandbox.id, result.sandbox.shape.os
+
     def _create_controller_from_request(self, request, task_id):
         datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         log_dir = os.path.join("runtime", f"grpc_task_{task_id}_{datetime_str}")
@@ -262,15 +300,67 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             agent_pb2.SandboxOS.WINDOWS: "Windows",
             agent_pb2.SandboxOS.LINUX: "Ubuntu",
         }
-        platform_str = platform_map.get(request.sandbox.os, platform.system())
 
         backend = "pyautogui"
         if request.HasField("runningConfig") and request.runningConfig.backend:
             backend = request.runningConfig.backend
-        
+
+        backend_kwargs:dict
+        platform_str = platform.system()
+        sid = ''
+        if backend == 'lybic':
+            if request.HasField("sandbox"):
+                if request.sandbox.HasField('os'):
+                    # todo: add shape args
+                    platform_str = platform_map.get(request.sandbox.os, platform.system())
+                else:
+                    sid,platform_str=self._create_sandbox()
+            else:
+                sid,platform_str=self._create_sandbox()
+
+        else:
+            platform_str = platform_map.get(request.sandbox.os, platform.system())
+        backend_kwargs = {"platform": platform_str,"sid":sid}
+
         max_steps = 50
         if request.HasField("runningConfig") and request.runningConfig.steps:
             max_steps = request.runningConfig.steps
+
+        # Dynamically build tools_dict based on global config
+        temp_config_manager = ConfigManager()
+        tools_dict = temp_config_manager.load_tools_configuration()
+
+        if self.global_common_config.HasField("stageModelConfig"):
+            stage_config = self.global_common_config.stageModelConfig
+            logger.info("Applying global model configurations to this task.")
+
+            def apply_config(tool_name, llm_config):
+                if tool_name in tools_dict and llm_config.modelName:
+                    tool_config = tools_dict[tool_name]
+                    tool_config['provider'] = llm_config.provider
+                    tool_config['model_name'] = llm_config.modelName
+                    tool_config['model'] = llm_config.modelName
+
+                    # IMPORTANT Override api key and endpoint
+                    if llm_config.apiKey:
+                        tool_config['api_key'] = llm_config.apiKey
+                    if llm_config.apiEndpoint:
+                        tool_config['base_url'] = llm_config.apiEndpoint
+
+                    logger.info(f"Override tool '{tool_name}' with model '{llm_config.modelName}'.")
+
+            if stage_config.HasField("embeddingModel"):
+                apply_config('embedding', stage_config.embeddingModel)
+
+            if stage_config.HasField("groundingModel"):
+                apply_config('grounding', stage_config.groundingModel)
+
+            if stage_config.HasField("actionGeneratorModel"):
+                common_llm_config = stage_config.actionGeneratorModel
+                # Apply common config to all other LLM-based tools
+                for tool_name, config in tools_dict.items():
+                    if config.get("is_llm_tool") and tool_name not in ['embedding', 'grounding']:
+                        apply_config(tool_name, common_llm_config)
 
         try:
             controller = MainController(
@@ -280,7 +370,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 max_steps=max_steps,
                 env=None,
                 log_dir=log_dir,
-                datetime_str=datetime_str
+                datetime_str=datetime_str,
+                tools_dict=tools_dict
             )
             with self.task_lock:
                 self.tasks[task_id] = {
@@ -298,9 +389,9 @@ def serve():
     port = os.environ.get("GRPC_PORT", 50051)
     max_workers = int(os.environ.get("GRPC_MAX_WORKER_THREADS", 100))
     task_num = int(os.environ.get("TASK_MAX_TASKS", 5))
-
+    servicer = AgentServicer(task_num)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers))
-    agent_pb2_grpc.add_AgentServicer_to_server(AgentServicer(task_num), server)
+    agent_pb2_grpc.add_AgentServicer_to_server(servicer, server)
     server.add_insecure_port(f'[::]:{port}')
     server.start()
     logger.info(f"Agent gRPC server started on port {port}")

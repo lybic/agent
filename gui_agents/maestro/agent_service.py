@@ -255,7 +255,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             self.lybic_client = LybicClient(LybicAuth(
                 org_id=self.global_common_config.authorizationInfo.orgId,
                 api_key=self.global_common_config.authorizationInfo.apiKey,
-                endpoint=self.global_common_config.authorizationInfo.endpoint
+                endpoint=self.global_common_config.authorizationInfo.endpoint | "https://api.lybic.cn/"
             ))
 
         return agent_pb2.SetCommonConfigResponse(success=True, id=self.global_common_config.id)

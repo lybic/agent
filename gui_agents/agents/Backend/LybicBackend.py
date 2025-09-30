@@ -2,7 +2,6 @@
 # 3) Cloud desktop / custom device backend (Lybic)
 # https://lybic.ai/docs/api/executeComputerUseAction
 # ---------------------------------------------------------------------------
-from typing import Dict
 from gui_agents.agents.Action import (
     Action,
     Click,
@@ -54,9 +53,12 @@ class LybicBackend(Backend):
                  sandbox_opts: Optional[Dict[str, Any]] = None,
                  max_retries: int = 2,
                  precreate_sid: str | None = None,
+                 loop: asyncio.AbstractEventLoop | None = None,
                  **kwargs
                  ):
-        self.loop = asyncio.new_event_loop()
+        if not loop:
+            loop = asyncio.new_event_loop()
+        self.loop = loop
         asyncio.set_event_loop(self.loop)
         self.api_key = api_key or os.getenv("LYBIC_API_KEY")
         self.org_id = org_id or os.getenv("LYBIC_ORG_ID")

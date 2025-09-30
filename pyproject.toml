@@ -167,3 +167,6 @@ all=[
     'pywinauto; platform_system == "Windows"',
     'pywin32; platform_system == "Windows"',
 ]
+
+[project.scripts]
+lybic-guiagent = "gui_agents.cli_app:main"

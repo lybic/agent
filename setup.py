@@ -9,6 +9,9 @@ setup(
     author="Lybic Development Team",
     author_email="lybic@tingyutech.com",
     packages=find_packages(),
+    package_data={
+        "gui_agents": ["tools/**/*.json", "tools/**/*.md"],
+    },
     extras_require={"dev": ["black"]},  # Code formatter for linting
     entry_points={
         "console_scripts": [

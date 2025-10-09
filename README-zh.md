@@ -218,6 +218,13 @@ python gui_agents/cli_app.py --backend pyautogui --mode fast
 > [!WARNING]
 > 使用 `--backend pyautogui` 时，智能体将直接控制您的计算机。请谨慎使用。
 
+### Docker
+您也可以使用Docker来运行Lybic GUI Agent。这是一个使用`lybic`后端的运行示例：
+```sh
+docker run --rm -it --env-file gui_agents/.env agenticlybic/guiagent --backend lybic
+```
+> **注意**: 此命令以交互模式启动智能体。`--env-file`标志指向环境文件，请确保路径正确。
+
 ### Lybic沙盒配置
 
 配置Lybic沙盒的最简单方法仍然是编辑 `.env` 文件并添加您的API密钥，如[API密钥配置](#api密钥配置)部分所述。

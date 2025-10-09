@@ -210,6 +210,13 @@ python gui_agents/cli_app.py --backend pyautogui --mode fast
 > [!WARNING]
 > エージェントは`--backend pyautogui`でコンピューターを直接制御します。注意して使用してください。
 
+### Docker
+Dockerを使用してLybic GUI Agentを実行することもできます。以下に`lybic`バックエンドを使用した実行例を示します。
+```sh
+docker run --rm -it --env-file gui_agents/.env agenticlybic/guiagent --backend lybic
+```
+> **注**: このコマンドは、エージェントを対話モードで起動します。`--env-file`フラグは環境ファイルを指します。パスが正しいことを確認してください。
+
 ### Lybicサンドボックスの設定
 
 Lybicサンドボックスを設定する最も簡単な方法は、[APIキーの設定](#apiキーの設定)セクションで説明したように、`.env`ファイルを編集してAPIキーを追加することです。

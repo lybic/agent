@@ -100,7 +100,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: lybic/lybic-guiagent
+          images: agenticlybic/guiagent
           tags: |
             type=raw,value=latest
             type=raw,value=${{ needs.tag-and-release.outputs.tag_name }}

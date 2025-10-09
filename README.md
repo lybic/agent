@@ -218,6 +218,13 @@ python gui_agents/cli_app.py --backend pyautogui --mode fast
 > [!WARNING]
 > The agent will directly control your computer with `--backend pyautogui`. Please use with care.
 
+### Docker
+You can also run Lybic GUI Agent using Docker. This is an example of how to run it with the `lybic` backend:
+```sh
+docker run --rm -it --env-file gui_agents/.env agenticlybic/guiagent --backend lybic
+```
+> **Note**: This command starts the agent in interactive mode. The `--env-file` flag points to the environment file. Please ensure the path is correct.
+
 ### Lybic Sandbox Configuration
 
 The simplest way to configure Lybic Sandbox is still to edit the `.env` file and add your API keys, as mentioned in the [API Key Configuration](#api-key-configuration) section.

@@ -35,7 +35,7 @@ import grpc
 import uuid
 
 import gui_agents.cli_app as app
-from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface
+from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface, __version__
 # from gui_agents.rag import RagManager
 
 has_display, pyautogui_available, env_error = app.check_display_environment()
@@ -126,13 +126,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         """
         Returns information about the agent.
         """
-        from importlib.metadata import version, PackageNotFoundError
-        try:
-            v = version("gui_agents")
-        except PackageNotFoundError:
-            v = "unknown"
         return agent_pb2.AgentInfo(
-            version=v,
+            version=__version__,
             maxConcurrentTasks=self.max_concurrent_task_num,
             log_level=level,
             domain=platform.node(),

@@ -1,0 +1,201 @@
+/*
+python -m grpc_tools.protoc -Igui_agents/proto \
+  --python_out=gui_agents/proto/pb  \
+  --grpc_python_out=gui_agents/proto/pb \
+  --pyi_out=gui_agents/proto/pb \
+  gui_agents/proto/agent.proto
+*/
+
+syntax = "proto3";
+
+package lybic.agent;
+
+option go_package = "github.com/lybic/lybic-sdk-go/agent";
+option java_package = "com.lybic.agent";
+option java_multiple_files = true;
+option java_outer_classname = "AgentProto";
+option py_generic_services = true;
+
+service Agent {
+  // get agent info
+  rpc GetAgentInfo(GetAgentInfoRequest) returns (AgentInfo);
+
+  // get agent config
+  rpc GetGlobalCommonConfig(GetGlobalCommonConfigRequest) returns (CommonConfig);
+  rpc GetCommonConfig(GetCommonConfigRequest) returns (CommonConfig);
+  // set agent config
+  rpc SetGlobalCommonConfig(SetGlobalCommonConfigRequest) returns (SetCommonConfigResponse);
+  rpc SetGlobalCommonLLMConfig(SetGlobalCommonLLMConfigRequest) returns (LLMConfig);
+  rpc SetGlobalGroundingLLMConfig(SetGlobalGroundingLLMConfigRequest) returns (LLMConfig);
+  // set agent embedding
+  rpc SetGlobalEmbeddingLLMConfig(SetGlobalEmbeddingLLMConfigRequest) returns (LLMConfig);
+
+  // run agent sync
+  rpc RunAgentInstruction(RunAgentInstructionRequest) returns (stream TaskStream);
+  // run agent async
+  rpc RunAgentInstructionAsync(RunAgentInstructionRequest) returns (RunAgentInstructionAsyncResponse);
+  // get agent task stream
+  rpc GetAgentTaskStream(GetAgentTaskStreamRequest) returns (stream GetAgentTaskStreamResponse);
+  // query task status
+  rpc QueryTaskStatus(QueryTaskStatusRequest)returns (QueryTaskStatusResponse);
+}
+
+message SetGlobalCommonLLMConfigRequest {
+  LLMConfig llmConfig = 1;
+}
+
+message SetGlobalEmbeddingLLMConfigRequest {
+  LLMConfig llmConfig = 1;
+}
+
+message SetGlobalGroundingLLMConfigRequest {
+  LLMConfig llmConfig = 1;
+}
+
+message SetGlobalCommonConfigRequest {
+  CommonConfig commonConfig = 1;
+}
+
+message SetCommonConfigResponse {
+  bool success = 1;
+  string id = 2;
+}
+
+message GetAgentInfoRequest {
+}
+message GetGlobalCommonConfigRequest {
+}
+
+message GetCommonConfigRequest {
+  string id = 1;
+}
+
+message AgentInfo {
+  string version = 1;
+  int32 maxConcurrentTasks = 2; // default 5
+  string log_level = 3;
+  optional string domain = 4;
+}
+
+message Sandbox {
+  // sandbox id
+  string id = 1;
+  // sandbox name
+  string name = 2;
+  // sandbox description
+  string description = 3;
+  // sandbox shape
+  optional string shapeName = 4;
+  // is hardware accelerated encoding
+  bool hardwareAcceleratedEncoding = 5;
+  // sandbox os type
+  SandboxOS os = 6;
+  // virtualization
+  string virtualization = 7; // KVM or Container
+  // architecture
+  string architecture = 8; // x86_64 or aarch64
+}
+
+enum SandboxOS {
+  OSUNDEFINED = 0;
+  WINDOWS = 1;
+  LINUX = 2;
+  ANDROID = 3;
+}
+
+message Authorization {
+    string orgID = 1;
+    string apiKey = 2;
+    optional string apiEndpoint = 3; // default https://api.lybic.cn
+}
+
+message LLMConfig {
+  string modelName = 1;
+  optional string provider = 2; // if not specified, agent will automatically find the provider form the model name (support doubao,gemini,deepseek)
+  optional string apiKey = 3;
+  optional string apiEndpoint = 4;
+}
+
+message StageModelConfig{
+  optional string webSearchEngine = 1;
+  optional LLMConfig contextFusionModel = 2;
+  optional LLMConfig subtaskPlannerModel = 3;
+  optional LLMConfig trajReflectorModel = 4;
+  optional LLMConfig memoryRetrivalModel = 5;
+  optional LLMConfig groundingModel = 6;
+  optional LLMConfig taskEvaluatorModel = 7;
+  optional LLMConfig actionGeneratorModel = 8;
+  optional LLMConfig actionGeneratorWithTakeoverModel = 9;
+  optional LLMConfig fastActionGeneratorModel = 10;
+  optional LLMConfig fastActionGeneratorWithTakeoverModel = 11;
+  optional LLMConfig dagTranslatorModel = 12;
+  optional LLMConfig embeddingModel = 13;
+  optional LLMConfig queryFormulatorModel = 14;
+  optional LLMConfig narrativeSummarizationModel = 15;
+  optional LLMConfig textSpanModel = 16;
+  optional LLMConfig episodeSummarizationModel = 17;
+}
+
+message CommonConfig {
+  string id = 1;
+
+  optional string backend = 2; // only `lybic` backend supported yet
+  InstanceMode mode = 3;
+  optional int32 steps = 4; // default max steps is 50
+  string platform = 5; // agent target plat。 this is not used now
+  optional int32 taskTimeout = 6; // default 3600 (s)(1 hour)
+  optional Authorization authorizationInfo = 7; // lybic authorization info
+  optional StageModelConfig stageModelConfig = 8; // agent stage model config
+}
+
+enum InstanceMode {
+  MODEUNDEFINED = 0;
+  NORMAL = 1;
+  FAST = 2;
+}
+
+message RunAgentInstructionRequest {
+  //  natural language instruction
+  string instruction = 1;
+
+  optional Sandbox sandbox = 2; // if sandbox is not specified, agent will create a sandbox to execute the instruction
+  optional CommonConfig runningConfig = 3; // if runningConfig is not specified, agent will use the default global config
+}
+
+message RunAgentInstructionAsyncResponse {
+  string taskId = 1;
+}
+
+enum TaskStatus {
+  TASKSTATUSUNDEFINED = 0;
+  PENDING = 1;
+  RUNNING = 2;
+  SUCCESS = 3;
+  FAILURE = 4;
+  NOT_FOUND = 5;
+}
+
+message QueryTaskStatusRequest {
+  string taskId = 1;
+}
+
+message QueryTaskStatusResponse {
+  string taskId = 1;
+  TaskStatus status = 2;
+  string message = 3;
+  string result = 4;
+  optional Sandbox sandbox = 5;
+}
+
+message GetAgentTaskStreamRequest {
+  string taskId = 1;
+}
+
+message GetAgentTaskStreamResponse {
+  TaskStream taskStream = 1;
+}
+message TaskStream{
+  string taskId = 1;
+  string stage = 2;
+  string message = 3;
+}

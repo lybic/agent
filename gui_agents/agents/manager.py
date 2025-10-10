@@ -14,6 +14,7 @@ from gui_agents.utils.common_utils import (
     agent_log_to_string,
 )
 from gui_agents.tools.tools import Tools
+from gui_agents.agents.stream_manager import stream_manager
 
 logger = logging.getLogger("desktopenv.agent")
 
@@ -69,7 +70,8 @@ class Manager:
         self.planner_history = []
 
         self.turn_count = 0
-        
+        self.task_id = None  # Will be set by agent
+
         # Initialize search engine based on enable_search parameter
         if enable_search:
             self.search_engine = Tools()
@@ -98,6 +100,15 @@ class Manager:
                 "content": subtask_summarization
             }
         )
+
+        if self.task_id:
+            try:
+                import asyncio
+                asyncio.create_task(stream_manager.add_message(
+                    self.task_id, "summarization", f"Episode summarization: {subtask_summarization}"
+                ))
+            except RuntimeError:
+                pass
 
         return subtask_summarization
 
@@ -275,6 +286,17 @@ class Manager:
         logger.info("GENERATING HIGH LEVEL PLAN")
 
         subtask_planner_start = time.time()
+
+        # Stream subtask planning message
+        if self.task_id:
+            try:
+                import asyncio
+                asyncio.create_task(stream_manager.add_message(
+                    self.task_id, "planning", "正在分析任务并生成子任务规划..."
+                ))
+            except RuntimeError:
+                pass
+
         plan, total_tokens, cost_string = self.generator_agent.execute_tool("subtask_planner", {"str_input": generator_message, "img_input": observation.get("screenshot", None)})
         logger.info(f"Subtask planner tokens: {total_tokens}, cost: {cost_string}")
         subtask_planner_time = time.time() - subtask_planner_start
@@ -289,6 +311,16 @@ class Manager:
                 "duration": subtask_planner_time
             }
         )
+
+        # Stream planning completion message
+        if self.task_id:
+            try:
+                plan_preview = plan[:150] + "..." if len(plan) > 150 else plan
+                asyncio.create_task(stream_manager.add_message(
+                    self.task_id, "planning", f"子任务规划完成: {plan_preview}"
+                ))
+            except RuntimeError:
+                pass
         
         step_time = time.time() - step_start
         logger.info(f"[Timing] Manager._generate_step_by_step_plan execution time: {step_time:.2f} seconds")

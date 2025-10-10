@@ -17,6 +17,7 @@ from gui_agents.utils.common_utils import (
 from gui_agents.tools.tools import Tools
 from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
+from gui_agents.agents.stream_manager import stream_manager
 
 logger = logging.getLogger("desktopenv.agent")
 
@@ -150,6 +151,7 @@ class Worker:
         self.planner_history = []
         self.latest_action = None
         self.max_trajector_length = 8
+        self.task_id = None  # Will be set by agent
 
     def generate_next_action(
         self,

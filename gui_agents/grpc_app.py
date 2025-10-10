@@ -7,7 +7,7 @@ import datetime
 from dotenv import load_dotenv
 
 from gui_agents.agents.agent_s import load_config
-from gui_agents.proto.pb.agent_pb2 import LLMConfig
+from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig
 
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
 if env_path.exists():
@@ -391,14 +391,45 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             sandbox=task_info["request"].sandbox
         )
 
+    def _mask_config_secrets(self, config: CommonConfig) -> CommonConfig:
+        """Creates a copy of a CommonConfig and masks sensitive fields."""
+        config_copy = CommonConfig()
+        config_copy.CopyFrom(config)
+
+        # Mask authorizationInfo.apiKey
+        if config_copy.HasField("authorizationInfo") and config_copy.authorizationInfo.apiKey:
+            config_copy.authorizationInfo.apiKey = "********"
+
+        # Mask stageModelConfig API keys
+        if config_copy.HasField("stageModelConfig"):
+            stage_config = config_copy.stageModelConfig
+            for field_name in StageModelConfig.__slots__:
+                llm_config = getattr(stage_config, field_name)
+                if isinstance(llm_config, LLMConfig) and hasattr(llm_config,'apiKey'):
+                    setattr(llm_config, 'apiKey', "********")
+
+        
+        return config_copy
+
+    def _mask_llm_config_secrets(self, llm_config: LLMConfig) -> LLMConfig:
+        """Creates a copy of an LLMConfig and masks sensitive fields."""
+        config_copy = LLMConfig()
+        config_copy.CopyFrom(llm_config)
+
+        if config_copy.apiKey:
+            config_copy.apiKey = "********"
+        
+        return config_copy
+
     async def GetGlobalCommonConfig(self, request, context):
-        return self.global_common_config
+        return self._mask_config_secrets(self.global_common_config)
 
     async def GetCommonConfig(self, request, context):
         async with self.task_lock:
             task_info = self.tasks.get(request.id)
         if task_info and task_info.get("request"):
-            return task_info["request"].runningConfig
+            original_config = task_info["request"].runningConfig
+            return self._mask_config_secrets(original_config)
         context.set_code(grpc.StatusCode.NOT_FOUND)
         context.set_details(f"Config for task {request.id} not found.")
         return agent_pb2.CommonConfig()

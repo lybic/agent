@@ -42,5 +42,8 @@ FROM python-base AS final
 # Copy the environment, but not the source code
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
-# Set the entrypoint to a script that activates the venv and runs the app.
-ENTRYPOINT ["/app/.venv/bin/lybic-guiagent"]
+# Expose the gRPC port
+EXPOSE 50051
+
+# Set the CMD to run the CLI app by default. This can be overridden to run the gRPC server.
+CMD ["/app/.venv/bin/lybic-guiagent"]

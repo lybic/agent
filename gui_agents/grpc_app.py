@@ -466,6 +466,9 @@ async def serve():
     await server.start()
     await server.wait_for_termination()
 
+def main():
+    """Entry point for the gRPC server."""
+    asyncio.run(serve())
 
 if __name__ == '__main__':
-    asyncio.run(serve())
+    main()

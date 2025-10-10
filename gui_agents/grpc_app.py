@@ -35,7 +35,7 @@ import gui_agents.cli_app as app
 from gui_agents.proto import agent_pb2, agent_pb2_grpc
 from gui_agents.agents.stream_manager import stream_manager, StreamMessage
 from gui_agents.agents.agent_s import load_config
-from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig
+from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig, Authorization
 from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface, __version__
 # from gui_agents.rag import RagManager
 
@@ -180,7 +180,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         if request.HasField("runningConfig"):
             if request.runningConfig.backend:
                 backend = request.runningConfig.backend
-        backend_kwargs: dict
+
         platform_str = platform.system()
         sid = ''
         if backend == 'lybic':
@@ -199,7 +199,24 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
         else:
             platform_str = platform_map.get(request.sandbox.os, platform.system())
+
         backend_kwargs = {"platform": platform_str, "precreate_sid": sid}
+
+        # Add Lybic authorization info if available
+        if backend == 'lybic':
+            auth_info: Authorization
+            if request.HasField("runningConfig") and request.runningConfig.HasField("authorizationInfo"):
+                auth_info = request.runningConfig.authorizationInfo
+            else:
+                auth_info = self.global_common_config.authorizationInfo
+
+            if auth_info.orgID:
+                backend_kwargs['org_id'] = auth_info.orgID
+            if auth_info.apiKey:
+                backend_kwargs['api_key'] = auth_info.apiKey
+            if auth_info.apiEndpoint:
+                backend_kwargs['endpoint'] = auth_info.apiEndpoint
+
         return backend_kwargs
 
     async def _make_agent(self,request):

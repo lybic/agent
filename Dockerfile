@@ -31,6 +31,14 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Copy the project into the intermediate image
 COPY . /app
 
+# Build proto
+RUN .venv/bin/python -m grpc_tools.protoc -Igui_agents/proto \
+  --python_out=gui_agents/proto/pb  \
+  --grpc_python_out=gui_agents/proto/pb \
+  --pyi_out=gui_agents/proto/pb \
+  gui_agents/proto/agent.proto && \
+    sed -i 's/^import agent_pb2 as agent__pb2/from . import agent_pb2 as agent__pb2/' /app/gui_agents/proto/pb/agent_pb2_grpc.py
+
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-editable
 

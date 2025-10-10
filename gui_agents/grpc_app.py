@@ -157,15 +157,17 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             # Run the blocking function in a separate thread to avoid blocking the event loop
             await asyncio.to_thread(app.run_agent_normal,(agent,query, hwi,steps,False))
 
-            final_state = Registry.get("GlobalStateStore").get_running_state()
+            global_state: GlobalState = Registry.get("GlobalStateStore")  # type: ignore
+            final_state = global_state.get_running_state()
+
             async with self.task_lock:
                 self.tasks[task_id]["final_state"] = final_state
                 self.tasks[task_id]["status"] = "finished"
 
-            if final_state and final_state.status == "completed":
+            if final_state and final_state == "completed":
                 await stream_manager.add_message(task_id, "finished", "Task completed successfully")
             else:
-                status = final_state.status if final_state else 'unknown'
+                status = final_state if final_state else 'unknown'
                 await stream_manager.add_message(task_id, "finished", f"Task finished with status: {status}")
 
         except Exception as e:
@@ -408,6 +410,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
     async def SetGlobalCommonConfig(self, request, context):
         logger.info("Setting new global common config.")
+        request.commonConfig.id = "global"
         self.global_common_config = request.commonConfig
 
         if self.global_common_config.HasField("authorizationInfo"):  # lybic

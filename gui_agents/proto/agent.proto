@@ -1,9 +1,13 @@
 /*
+1. generate protobuf code
 python -m grpc_tools.protoc -Igui_agents/proto \
   --python_out=gui_agents/proto/pb  \
   --grpc_python_out=gui_agents/proto/pb \
   --pyi_out=gui_agents/proto/pb \
   gui_agents/proto/agent.proto
+
+2. resolve import path error:
+sed -i 's/^import agent_pb2 as agent__pb2/from . import agent_pb2 as agent__pb2/' gui_agents/proto/pb/agent_pb2_grpc.py
 */
 
 syntax = "proto3";

@@ -147,7 +147,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             agent.reset()
 
             # Run the blocking function in a separate thread to avoid blocking the event loop
-            await asyncio.to_thread(app.run_agent_normal,(agent,query, hwi,steps,False))
+            await asyncio.to_thread(app.run_agent_normal,agent,query, hwi,steps,False)
 
             global_state: GlobalState = Registry.get("GlobalStateStore")  # type: ignore
             final_state = global_state.get_running_state()
@@ -192,7 +192,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 else:
                     sid, platform_str = await self._create_sandbox(shape)
 
-                if request.sandbox.HasField('os'):
+                if request.sandbox.os != agent_pb2.SandboxOS.OSUNDEFINED:
                     platform_str = platform_map.get(request.sandbox.os, platform.system())
             else:
                 sid, platform_str = await self._create_sandbox(shape)
@@ -304,7 +304,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             }
 
         try:
-            for msg in stream_manager.get_message_stream(task_id):
+            async for msg in stream_manager.get_message_stream(task_id):
                 yield agent_pb2.TaskStream(
                     taskId=task_id,
                     stage=msg.stage,
@@ -511,7 +511,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         if not self.sandbox:
             self.sandbox = Sandbox(self.lybic_client)
         result = await self.sandbox.create(shape=shape)
-        return result.id, result.shape.os
+        sandbox = await self.sandbox.get(result.id)
+        return sandbox.sandbox.id, sandbox.sandbox.shape.os
 
 async def serve():
     port = os.environ.get("GRPC_PORT", 50051)

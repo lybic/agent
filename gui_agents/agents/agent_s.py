@@ -134,8 +134,15 @@ class AgentS2(UIAgent):
         self.task_id = None  # Will be set when task starts
 
         if tools_config is not None:
-            self.Tools_dict = tools_config["tools"]
             self.tools_config = tools_config
+            # Create the dictionary mapping from the list-based config
+            self.Tools_dict = {}
+            for tool in self.tools_config["tools"]:
+                tool_name = tool["tool_name"]
+                self.Tools_dict[tool_name] = {
+                    "provider": tool["provider"],
+                    "model": tool["model_name"]
+                }
         else:
             self.tools_config, self.Tools_dict = load_config()
 

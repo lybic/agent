@@ -2,12 +2,8 @@
 import os
 from pathlib import Path
 import logging
-import datetime
 
 from dotenv import load_dotenv
-
-from gui_agents.agents.agent_s import load_config
-from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig
 
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
 if env_path.exists():
@@ -34,7 +30,12 @@ from concurrent import futures
 import grpc
 import uuid
 
+from lybic import LybicClient, LybicAuth, Sandbox
 import gui_agents.cli_app as app
+from gui_agents.proto import agent_pb2, agent_pb2_grpc
+from gui_agents.agents.stream_manager import stream_manager, StreamMessage
+from gui_agents.agents.agent_s import load_config
+from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig
 from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface, __version__
 # from gui_agents.rag import RagManager
 
@@ -48,10 +49,6 @@ state_dir = os.path.join(timestamp_dir, "state")
 
 os.makedirs(cache_dir, exist_ok=True)
 os.makedirs(state_dir, exist_ok=True)
-
-from lybic import LybicClient, LybicAuth, Sandbox
-from gui_agents.proto import agent_pb2, agent_pb2_grpc
-from gui_agents.agents.stream_manager import stream_manager, StreamMessage
 
 Registry.register(
     "GlobalStateStore",
@@ -179,20 +176,26 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             agent_pb2.SandboxOS.LINUX: "Ubuntu",
         }
         backend = "lybic"
-        if request.HasField("runningConfig") and request.runningConfig.backend:
-            backend = request.runningConfig.backend
+        shape = "beijing-2c-4g-cpu" # default shape
+        if request.HasField("runningConfig"):
+            if request.runningConfig.backend:
+                backend = request.runningConfig.backend
         backend_kwargs: dict
         platform_str = platform.system()
         sid = ''
         if backend == 'lybic':
             if request.HasField("sandbox"):
-                if request.sandbox.HasField('os'):
-                    # todo: add shape args
-                    platform_str = platform_map.get(request.sandbox.os, platform.system())
+                shape = request.sandbox.shapeName
+                sid = request.sandbox.id
+                if sid:
+                    logger.info(f"Using existing sandbox with id: {sid}")
                 else:
-                    sid, platform_str = await self._create_sandbox()
+                    sid, platform_str = await self._create_sandbox(shape)
+
+                if request.sandbox.HasField('os'):
+                    platform_str = platform_map.get(request.sandbox.os, platform.system())
             else:
-                sid, platform_str = await self._create_sandbox()
+                sid, platform_str = await self._create_sandbox(shape)
 
         else:
             platform_str = platform_map.get(request.sandbox.os, platform.system())
@@ -205,7 +208,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             max_steps = request.runningConfig.steps
 
         # Dynamically build tools_dict based on global config
-        _ , tools_dict = load_config()
+        tools_config, tools_dict = load_config()
 
         if self.global_common_config.HasField("stageModelConfig"):
             stage_config = self.global_common_config.stageModelConfig
@@ -213,16 +216,16 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
             def apply_config(tool_name, llm_config:LLMConfig):
                 if tool_name in tools_dict and llm_config.modelName:
-                    tool_config = tools_dict[tool_name]
-                    tool_config['provider'] = llm_config.provider
-                    tool_config['model_name'] = llm_config.modelName
-                    tool_config['model'] = llm_config.modelName
+                    tool_cfg = tools_dict[tool_name]
+                    tool_cfg['provider'] = llm_config.provider
+                    tool_cfg['model_name'] = llm_config.modelName
+                    tool_cfg['model'] = llm_config.modelName
 
                     # IMPORTANT Override api key and endpoint
                     if llm_config.apiKey:
-                        tool_config['api_key'] = llm_config.apiKey
+                        tool_cfg['api_key'] = llm_config.apiKey
                     if llm_config.apiEndpoint:
-                        tool_config['base_url'] = llm_config.apiEndpoint
+                        tool_cfg['base_url'] = llm_config.apiEndpoint
 
                     logger.info(f"Override tool '{tool_name}' with model '{llm_config.modelName}'.")
 
@@ -236,15 +239,29 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 common_llm_config = stage_config.actionGeneratorModel
                 # Apply common config to all other LLM-based tools
                 for tool_name, config in tools_dict.items():
-                    if config.get("is_llm_tool") and tool_name not in ['embedding', 'grounding']:
+                    if tool_name not in ['embedding', 'grounding']:
                         apply_config(tool_name, common_llm_config)
+        
+        # After modifications, merge changes from tools_dict back into tools_config
+        for tool_entry in tools_config['tools']:
+            tool_name = tool_entry['tool_name']
+            if tool_name in tools_dict:
+                modified_data = tools_dict[tool_name]
+                if 'provider' in modified_data:
+                    tool_entry['provider'] = modified_data['provider']
+                if 'model_name' in modified_data:
+                    tool_entry['model_name'] = modified_data['model_name']
+                if 'api_key' in modified_data:
+                    tool_entry['api_key'] = modified_data['api_key']
+                if 'base_url' in modified_data:
+                    tool_entry['base_url'] = modified_data['base_url']
 
         return AgentS2(
             platform="windows",  # 沙盒中的系统
             screen_size=[1280, 720],
             enable_takeover=False,
             enable_search=False,
-            tools_config={"tools": tools_dict},
+            tools_config=tools_config,
         )
 
 
@@ -403,12 +420,24 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         # Mask stageModelConfig API keys
         if config_copy.HasField("stageModelConfig"):
             stage_config = config_copy.stageModelConfig
-            for field_name in StageModelConfig.__slots__:
-                llm_config = getattr(stage_config, field_name)
-                if isinstance(llm_config, LLMConfig) and hasattr(llm_config,'apiKey'):
-                    setattr(llm_config, 'apiKey', "********")
 
-        
+            # List of all LLMConfig fields in StageModelConfig
+            llm_config_fields = [
+                "contextFusionModel", "subtaskPlannerModel", "trajReflectorModel",
+                "memoryRetrivalModel", "groundingModel", "taskEvaluatorModel",
+                "actionGeneratorModel", "actionGeneratorWithTakeoverModel",
+                "fastActionGeneratorModel", "fastActionGeneratorWithTakeoverModel",
+                "dagTranslatorModel", "embeddingModel", "queryFormulatorModel",
+                "narrativeSummarizationModel", "textSpanModel", "episodeSummarizationModel"
+            ]
+
+            # Check all LLMConfig fields and mask their API keys
+            for field_name in llm_config_fields:
+                if stage_config.HasField(field_name):
+                    llm_config = getattr(stage_config, field_name)
+                    if llm_config and llm_config.apiKey:
+                        llm_config.apiKey = "********"
+
         return config_copy
 
     def _mask_llm_config_secrets(self, llm_config: LLMConfig) -> LLMConfig:
@@ -418,18 +447,22 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
         if config_copy.apiKey:
             config_copy.apiKey = "********"
-        
+
         return config_copy
 
     async def GetGlobalCommonConfig(self, request, context):
-        return self._mask_config_secrets(self.global_common_config)
+        masked_config = self._mask_config_secrets(self.global_common_config)
+        logger.debug("Returned masked global common config")
+        return masked_config
 
     async def GetCommonConfig(self, request, context):
         async with self.task_lock:
             task_info = self.tasks.get(request.id)
         if task_info and task_info.get("request"):
             original_config = task_info["request"].runningConfig
-            return self._mask_config_secrets(original_config)
+            masked_config = self._mask_config_secrets(original_config)
+            logger.debug(f"Returned masked config for task {request.id}")
+            return masked_config
         context.set_code(grpc.StatusCode.NOT_FOUND)
         context.set_details(f"Config for task {request.id} not found.")
         return agent_pb2.CommonConfig()
@@ -443,9 +476,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             if self.lybic_client:
                 await self.lybic_client.close()
             self.lybic_client = LybicClient(LybicAuth(
-                org_id=self.global_common_config.authorizationInfo.orgId,
+                org_id=self.global_common_config.authorizationInfo.orgID,
                 api_key=self.global_common_config.authorizationInfo.apiKey,
-                endpoint=self.global_common_config.authorizationInfo.endpoint or "https://api.lybic.cn/"
+                endpoint=self.global_common_config.authorizationInfo.apiEndpoint or "https://api.lybic.cn/"
             ))
 
         return agent_pb2.SetCommonConfigResponse(success=True, id=self.global_common_config.id)
@@ -471,16 +504,14 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         logger.info(f"Global embedding LLM config updated to: {request.llmConfig.modelName}")
         return request.llmConfig
 
-    async def _create_sandbox(self):
+    async def _create_sandbox(self,shape:str):
         # todo: add shape args
         if not self.lybic_client:
             raise Exception("Lybic client not initialized. Please call SetGlobalCommonConfig before")
         if not self.sandbox:
             self.sandbox = Sandbox(self.lybic_client)
-        result = await self.sandbox.create()
-        return result.sandbox.id, result.sandbox.shape.os
-
-
+        result = await self.sandbox.create(shape=shape)
+        return result.id, result.shape.os
 
 async def serve():
     port = os.environ.get("GRPC_PORT", 50051)

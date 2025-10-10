@@ -89,7 +89,7 @@ message Sandbox {
   // sandbox description
   string description = 3;
   // sandbox shape
-  optional string shapeName = 4;
+  string shapeName = 4;
   // is hardware accelerated encoding
   bool hardwareAcceleratedEncoding = 5;
   // sandbox os type

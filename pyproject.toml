@@ -30,7 +30,7 @@ dependencies = [
     "scikit-learn",
     "tiktoken",
     "pydantic",
-    "lybic>=0.8.0b1,<1.0.0",
+    "lybic>=0.8.0b2,<1.0.0",
     "grpcio",
     "grpcio-tools>=1.71.2",
     'pyobjc; platform_system == "Darwin"',

@@ -138,6 +138,11 @@ class Manager:
                 # No event loop at all
                 pass
 
+            # No event loop available, try to create a new one
+            try:
+                asyncio.run(stream_manager.add_message(task_id, stage, message))
+            except Exception as e:
+                logger.warning(f"Failed to send stream message for task {task_id}: {e}")
         except Exception as e:
             # Catch any other exceptions and log without failing
             logger.warning(f"Unexpected error sending stream message for task {task_id}: {e}")

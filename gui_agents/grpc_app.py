@@ -78,6 +78,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
     """
 
     def __init__(self, max_concurrent_task_num = 1):
+        self.lybic_auth: LybicAuth | None = None
         self.max_concurrent_task_num = max_concurrent_task_num
         self.tasks = {}
         self.global_common_config = agent_pb2.CommonConfig(id="global")
@@ -174,8 +175,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         finally:
             logger.info(f"Task {task_id} processing finished.")
             await stream_manager.unregister_task(task_id)
-            async with self.task_lock:
-                del self.tasks[task_id]
 
     async def _make_backend_kwargs(self, request):
         platform_map = {
@@ -187,6 +186,12 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         if request.HasField("runningConfig"):
             if request.runningConfig.backend:
                 backend = request.runningConfig.backend
+            if request.runningConfig.HasField("authorizationInfo"):
+                self.lybic_auth = LybicAuth(
+                    org_id=request.runningConfig.authorizationInfo.orgID,
+                    api_key=request.runningConfig.authorizationInfo.apiKey,
+                    endpoint=request.runningConfig.authorizationInfo.apiEndpoint or "https://api.lybic.cn/"
+                )
 
         platform_str = platform.system()
         sid = ''
@@ -295,7 +300,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         task_future = None
 
         async with self.task_lock:
-            if len(self.tasks) >= self.max_concurrent_task_num:
+            active_tasks = sum(1 for t in self.tasks.values() if t['status'] in ['pending', 'running'])
+            if active_tasks >= self.max_concurrent_task_num:
                 context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
                 context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
                 return
@@ -345,7 +351,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         logger.info(f"Received RunAgentInstructionAsync request, assigning taskId: {task_id}")
 
         async with self.task_lock:
-            if len(self.tasks) >= self.max_concurrent_task_num:
+            active_tasks = sum(1 for t in self.tasks.values() if t['status'] in ['pending', 'running'])
+            if active_tasks >= self.max_concurrent_task_num:
                 context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
                 context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
                 return
@@ -484,19 +491,22 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         context.set_details(f"Config for task {request.id} not found.")
         return agent_pb2.CommonConfig()
 
+    async def _new_lybic_client(self):
+        if self.lybic_client:
+            await self.lybic_client.close()
+        self.lybic_client = LybicClient(self.lybic_auth)
+
     async def SetGlobalCommonConfig(self, request, context):
         logger.info("Setting new global common config.")
         request.commonConfig.id = "global"
         self.global_common_config = request.commonConfig
 
         if self.global_common_config.HasField("authorizationInfo"):  # lybic
-            if self.lybic_client:
-                await self.lybic_client.close()
-            self.lybic_client = LybicClient(LybicAuth(
+            self.lybic_auth = LybicAuth(
                 org_id=self.global_common_config.authorizationInfo.orgID,
                 api_key=self.global_common_config.authorizationInfo.apiKey,
                 endpoint=self.global_common_config.authorizationInfo.apiEndpoint or "https://api.lybic.cn/"
-            ))
+            )
 
         return agent_pb2.SetCommonConfigResponse(success=True, id=self.global_common_config.id)
 
@@ -522,9 +532,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return request.llmConfig
 
     async def _create_sandbox(self,shape:str):
-        # todo: add shape args
-        if not self.lybic_client:
+        if not self.lybic_auth:
             raise Exception("Lybic client not initialized. Please call SetGlobalCommonConfig before")
+
+        await self._new_lybic_client()
         if not self.sandbox:
             self.sandbox = Sandbox(self.lybic_client)
         result = await self.sandbox.create(shape=shape)

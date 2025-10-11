@@ -68,42 +68,11 @@ class UIAgent:
     def _send_stream_message(self, task_id: str, stage: str, message: str) -> None:
         """
         Safely send stream message to task stream.
-        Handles both async and sync contexts, including multi-threaded environments.
         """
         if not task_id:
             return
 
-        try:
-            # Try to get the current event loop
-            try:
-                loop = asyncio.get_running_loop()
-                # We're in an async context with a running loop
-                asyncio.create_task(stream_manager.add_message(task_id, stage, message))
-                return
-            except RuntimeError:
-                # No running loop in this thread
-                pass
-
-            # Try to get the main event loop (might be in another thread)
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Loop is running in another thread, use run_coroutine_threadsafe
-                    asyncio.run_coroutine_threadsafe(
-                        stream_manager.add_message(task_id, stage, message),
-                        loop
-                    )
-                    return
-                else:
-                    # Loop exists but not running
-                    loop.run_until_complete(stream_manager.add_message(task_id, stage, message))
-                    return
-            except RuntimeError:
-                # No event loop at all
-                pass
-        except Exception as e:
-            # Catch any other exceptions and log without failing
-            logger.warning(f"Unexpected error sending stream message for task {task_id}: {e}")
+        stream_manager.add_message_threadsafe(task_id, stage, message)
 
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]|None:
         """Generate next action prediction

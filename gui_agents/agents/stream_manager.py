@@ -25,6 +25,22 @@ class StreamManager:
         self.task_queues: Dict[str, asyncio.Queue[Optional[StreamMessage]]] = {}
         self.max_queue_size = max_queue_size
         self._lock = asyncio.Lock()
+        self.loop: Optional[asyncio.AbstractEventLoop] = None
+
+    def set_loop(self, loop: asyncio.AbstractEventLoop):
+        """Sets the event loop for thread-safe operations."""
+        self.loop = loop
+
+    def add_message_threadsafe(self, task_id: str, stage: str, message: str):
+        """Adds a message to a task's queue from a different thread."""
+        if not self.loop:
+            logger.error("StreamManager event loop not set. Cannot send message from thread.")
+            return
+
+        asyncio.run_coroutine_threadsafe(
+            self.add_message(task_id, stage, message),
+            self.loop
+        )
 
     async def add_message(self, task_id: str, stage: str, message: str):
         """Adds a message to a task's queue. Non-blocking."""

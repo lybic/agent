@@ -142,6 +142,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             # Send message through stream manager
             await stream_manager.add_message(task_id, "starting", "Task starting")
 
+            # Set task_id for the agent to enable streaming from within the agent
+            if hasattr(agent, 'set_task_id'):
+                agent.set_task_id(task_id)
+
             hwi = HardwareInterface(backend='lybic', **backend_kwargs)
 
             agent.reset()
@@ -169,6 +173,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             await stream_manager.add_message(task_id, "error", f"An error occurred: {e}")
         finally:
             logger.info(f"Task {task_id} processing finished.")
+            await stream_manager.unregister_task(task_id)
+            async with self.task_lock:
+                del self.tasks[task_id]
 
     async def _make_backend_kwargs(self, request):
         platform_map = {
@@ -241,8 +248,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                     # IMPORTANT Override api key and endpoint
                     if llm_config.apiKey:
                         tool_cfg['api_key'] = llm_config.apiKey
+                        logger.info(f"Override api_key for tool '{tool_name}'")
                     if llm_config.apiEndpoint:
                         tool_cfg['base_url'] = llm_config.apiEndpoint
+                        tool_cfg['endpoint_url'] = llm_config.apiEndpoint  # for some engines that use endpoint_url
+                        logger.info(f"Override base_url for tool '{tool_name}': {llm_config.apiEndpoint}")
 
                     logger.info(f"Override tool '{tool_name}' with model '{llm_config.modelName}'.")
 
@@ -264,14 +274,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             tool_name = tool_entry['tool_name']
             if tool_name in tools_dict:
                 modified_data = tools_dict[tool_name]
-                if 'provider' in modified_data:
-                    tool_entry['provider'] = modified_data['provider']
-                if 'model_name' in modified_data:
-                    tool_entry['model_name'] = modified_data['model_name']
-                if 'api_key' in modified_data:
-                    tool_entry['api_key'] = modified_data['api_key']
-                if 'base_url' in modified_data:
-                    tool_entry['base_url'] = modified_data['base_url']
+                # 确保所有修改的字段都同步回 tools_config
+                for key, value in modified_data.items():
+                    if key in ['provider', 'model_name', 'api_key', 'base_url', 'model']:
+                        tool_entry[key] = value
 
         return AgentS2(
             platform="windows",  # 沙盒中的系统
@@ -286,14 +292,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         task_id = str(uuid.uuid4())
         logger.info(f"Received RunAgentInstruction request, assigning taskId: {task_id}")
 
-        async with self.task_lock:
-            if len(self.tasks) >= self.max_concurrent_task_num:
-                context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
-                context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
-                return
-
-
-        queue = asyncio.Queue()
         task_future = None
 
         async with self.task_lock:
@@ -302,6 +300,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
                 return
 
+            queue = asyncio.Queue()
             agent = await self._make_agent(request=request)
             backend_kwargs = await self._make_backend_kwargs(request)
             max_steps = 50
@@ -325,7 +324,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 yield agent_pb2.TaskStream(
                     taskId=task_id,
                     stage=msg.stage,
-                    message=msg.message
+                    message=msg.message,
+                    timestamp=msg.timestamp
                 )
         except asyncio.CancelledError:
             logger.info(f"RunAgentInstruction stream for {task_id} cancelled by client.")

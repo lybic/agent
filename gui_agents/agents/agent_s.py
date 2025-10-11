@@ -65,6 +65,46 @@ class UIAgent:
         """Reset agent state"""
         pass
 
+    def _send_stream_message(self, task_id: str, stage: str, message: str) -> None:
+        """
+        Safely send stream message to task stream.
+        Handles both async and sync contexts, including multi-threaded environments.
+        """
+        if not task_id:
+            return
+
+        try:
+            # Try to get the current event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # We're in an async context with a running loop
+                asyncio.create_task(stream_manager.add_message(task_id, stage, message))
+                return
+            except RuntimeError:
+                # No running loop in this thread
+                pass
+
+            # Try to get the main event loop (might be in another thread)
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Loop is running in another thread, use run_coroutine_threadsafe
+                    asyncio.run_coroutine_threadsafe(
+                        stream_manager.add_message(task_id, stage, message),
+                        loop
+                    )
+                    return
+                else:
+                    # Loop exists but not running
+                    loop.run_until_complete(stream_manager.add_message(task_id, stage, message))
+                    return
+            except RuntimeError:
+                # No event loop at all
+                pass
+        except Exception as e:
+            # Catch any other exceptions and log without failing
+            logger.warning(f"Unexpected error sending stream message for task {task_id}: {e}")
+
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]|None:
         """Generate next action prediction
 
@@ -255,15 +295,7 @@ class AgentS2(UIAgent):
                 logger.info("(RE)PLANNING...")
 
                 # Stream planning start message
-                if self.task_id:
-                    import asyncio
-                    try:
-                        asyncio.create_task(stream_manager.add_message(
-                            self.task_id, "planning", f"开始规划任务步骤 (步骤 {self.step_count + 1})..."
-                        ))
-                    except RuntimeError:
-                        # No event loop running, use sync approach
-                        pass
+                self._send_stream_message(self.task_id, "planning", f"开始规划任务步骤 (步骤 {self.step_count + 1})...")
 
                 Manager_info, self.subtasks = self.manager.get_action_queue(
                     Tu=self.global_state.get_Tu(),
@@ -282,13 +314,7 @@ class AgentS2(UIAgent):
                     self.search_query = ""
 
                 # Stream planning completion message
-                if self.task_id:
-                    try:
-                        asyncio.create_task(stream_manager.add_message(
-                            self.task_id, "planning", f"规划完成，生成了 {len(self.subtasks)} 个子任务"
-                        ))
-                    except RuntimeError:
-                        pass
+                self._send_stream_message(self.task_id, "planning", f"规划完成，生成了 {len(self.subtasks)} 个子任务")
             get_action_queue_time = time.time() - manager_start
             logger.info(f"[Timing] manager.get_action_queue execution time: {get_action_queue_time:.2f} seconds")
             self.global_state.log_operation(
@@ -320,13 +346,7 @@ class AgentS2(UIAgent):
                     actions = [{"type": "DONE"}]
 
                     # Stream task completion message
-                    if self.task_id:
-                        try:
-                            asyncio.create_task(stream_manager.add_message(
-                                self.task_id, "completion", "🎉 任务完成！所有子任务已成功执行"
-                            ))
-                        except RuntimeError:
-                            pass
+                    self._send_stream_message(self.task_id, "completion", "🎉 任务完成！所有子任务已成功执行")
 
                     # 记录任务完成
                     self.global_state.log_operation(
@@ -348,13 +368,7 @@ class AgentS2(UIAgent):
                 self.subtask_status = "Start"
 
                 # Stream current subtask message
-                if self.task_id:
-                    try:
-                        asyncio.create_task(stream_manager.add_message(
-                            self.task_id, "subtask", f"开始执行子任务: {self.current_subtask.name}"
-                        ))
-                    except RuntimeError:
-                        pass
+                self._send_stream_message(self.task_id, "subtask", f"开始执行子任务: {self.current_subtask.name}")
 
                 self.global_state.log_operation(
                     module="agent",
@@ -368,13 +382,7 @@ class AgentS2(UIAgent):
             worker_start_time = time.time()
 
             # Stream action generation start message
-            if self.task_id:
-                try:
-                    asyncio.create_task(stream_manager.add_message(
-                        self.task_id, "thinking", f"正在生成执行动作..."
-                    ))
-                except RuntimeError:
-                    pass
+            self._send_stream_message(self.task_id, "thinking", f"正在生成执行动作...")
 
             # get the next action from the worker
             executor_info = self.worker.generate_next_action(
@@ -400,13 +408,8 @@ class AgentS2(UIAgent):
 
             # Stream action plan message
             if self.task_id and "executor_plan" in executor_info:
-                try:
-                    plan_preview = executor_info["executor_plan"][:100] + "..." if len(executor_info["executor_plan"]) > 100 else executor_info["executor_plan"]
-                    asyncio.create_task(stream_manager.add_message(
-                        self.task_id, "action_plan", f"生成执行计划: {plan_preview}"
-                    ))
-                except RuntimeError:
-                    pass
+                plan_preview = executor_info["executor_plan"][:100] + "..." if len(executor_info["executor_plan"]) > 100 else executor_info["executor_plan"]
+                self._send_stream_message(self.task_id, "action_plan", f"生成执行计划: {plan_preview}")
 
             try:
                 grounding_start_time = time.time()
@@ -448,14 +451,9 @@ class AgentS2(UIAgent):
             actions = [exec_code]
 
             # Stream action execution message
-            if self.task_id and actions:
+            if actions:
                 action_type = actions[0].get("type", "unknown")
-                try:
-                    asyncio.create_task(stream_manager.add_message(
-                        self.task_id, "action", f"执行动作: {action_type}"
-                    ))
-                except RuntimeError:
-                    pass
+                self._send_stream_message(self.task_id, "action", f"执行动作: {action_type}")
 
             self.step_count += 1
 
@@ -472,13 +470,7 @@ class AgentS2(UIAgent):
                 self.failure_subtask = self.global_state.get_latest_failed_subtask()
 
                 # Stream failure message
-                if self.task_id:
-                    try:
-                        asyncio.create_task(stream_manager.add_message(
-                            self.task_id, "error", f"子任务执行失败: {self.current_subtask.name}，将重新规划"
-                        ))
-                    except RuntimeError:
-                        pass
+                self._send_stream_message(self.task_id, "error", f"子任务执行失败: {self.current_subtask.name}，将重新规划")
 
                 # 记录失败的子任务
                 self.global_state.log_operation(
@@ -505,13 +497,7 @@ class AgentS2(UIAgent):
                 self.global_state.add_completed_subtask(self.current_subtask) # type: ignore
 
                 # Stream subtask completion message
-                if self.task_id:
-                    try:
-                        asyncio.create_task(stream_manager.add_message(
-                            self.task_id, "subtask_complete", f"✅ 子任务完成: {self.current_subtask.name}"
-                        ))
-                    except RuntimeError:
-                        pass
+                self._send_stream_message(self.task_id, "subtask_complete", f"✅ 子任务完成: {self.current_subtask.name}")
 
                 # 记录完成的子任务
                 self.global_state.log_operation(
@@ -749,12 +735,25 @@ class AgentSFast(UIAgent):
 
                 logger.info(f"Configuring {self.fast_action_generator_tool} with search enabled: {enable_search} (from config)")
 
-        # Register the tool with parameters
+        # Get base config from Tools_dict
+        tool_config = self.Tools_dict[self.fast_action_generator_tool].copy()
+        provider = tool_config.get("provider")
+        model = tool_config.get("model")
+
+        # Merge with search-related parameters
+        all_params = {**tool_config, **tool_params}
+
+        auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+        for key in auth_keys:
+            if key in all_params:
+                logger.info(f"AgentSFast.reset: Setting {key} for fast_action_generator_tool")
+
+        # Register the tool with all parameters
         self.fast_action_generator.register_tool(
             self.fast_action_generator_tool,
-            self.Tools_dict[self.fast_action_generator_tool]["provider"],
-            self.Tools_dict[self.fast_action_generator_tool]["model"],
-            **tool_params
+            provider,
+            model,
+            **all_params
         )
 
         if self.enable_reflection:
@@ -870,13 +869,7 @@ class AgentSFast(UIAgent):
         fast_action_start_time = time.time()
 
         # Stream action generation start message
-        if self.task_id:
-            try:
-                asyncio.create_task(stream_manager.add_message(
-                    self.task_id, "thinking", f"正在快速生成执行动作..."
-                ))
-            except RuntimeError:
-                pass
+        self._send_stream_message(self.task_id, "thinking", f"正在快速生成执行动作...")
 
         plan, total_tokens, cost_string = self.fast_action_generator.execute_tool(
             self.fast_action_generator_tool,
@@ -901,13 +894,8 @@ class AgentSFast(UIAgent):
 
         # Stream action plan message
         if self.task_id:
-            try:
-                plan_preview = plan[:100] + "..." if len(plan) > 100 else plan
-                asyncio.create_task(stream_manager.add_message(
-                    self.task_id, "action_plan", f"快速生成执行计划: {plan_preview}"
-                ))
-            except RuntimeError:
-                pass
+            plan_preview = plan[:100] + "..." if len(plan) > 100 else plan
+            self._send_stream_message(self.task_id, "action_plan", f"快速生成执行计划: {plan_preview}")
 
         logger.info("Fast Action Plan: %s", plan)
 
@@ -969,14 +957,9 @@ class AgentSFast(UIAgent):
         self.turn_count += 1
 
         # Stream action execution message
-        if self.task_id and actions:
+        if actions:
             action_type = actions[0].get("type", "unknown")
-            try:
-                asyncio.create_task(stream_manager.add_message(
-                    self.task_id, "action", f"执行动作: {action_type}"
-                ))
-            except RuntimeError:
-                pass
+            self._send_stream_message(self.task_id, "action", f"执行动作: {action_type}")
 
         executor_info = {
             "executor_plan": plan,

@@ -37,6 +37,9 @@ dependencies = [
     'oa_atomacos; platform_system == "Darwin"',
     'pywinauto; platform_system == "Windows"',
     'pywin32; platform_system == "Windows"',
+    "pytest>=8.4.2",
+    "protobuf>=5.29.5",
+    "googleapis-common-protos>=1.70.0",
 ]
 [project.optional-dependencies]
 dev = [

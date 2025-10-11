@@ -51,7 +51,17 @@ class BaseTool(ABC):
             "engine_type": provider,
             "model": model_name,
         }
-        self.engine_params.update(kwargs)
+
+        auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+        for key in auth_keys:
+            if key in kwargs:
+                self.engine_params[key] = kwargs[key]
+                logger.info(f"Setting {key} for tool '{tool_name}' with provider '{provider}'")
+
+        for key, value in kwargs.items():
+            if key not in auth_keys:
+                self.engine_params[key] = value
+
         self.llm_agent = LLMAgent(engine_params=self.engine_params, system_prompt=self._prompt_template)
 
     def _get_prompt_template(self) -> str:

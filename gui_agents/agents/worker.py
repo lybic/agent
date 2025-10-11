@@ -17,7 +17,6 @@ from gui_agents.utils.common_utils import (
 from gui_agents.tools.tools import Tools
 from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
-from gui_agents.agents.stream_manager import stream_manager
 
 logger = logging.getLogger("desktopenv.agent")
 
@@ -73,11 +72,6 @@ class Worker:
         else:
             self.tools_config = tools_config
 
-        self.embedding_engine = Tools()
-        self.embedding_engine.register_tool(
-            "embedding", self.Tools_dict["embedding"]["provider"],
-            self.Tools_dict["embedding"]["model"])
-
         self.enable_reflection = enable_reflection
         self.use_subtask_experience = use_subtask_experience
         self.global_state: GlobalState = Registry.get(
@@ -90,11 +84,21 @@ class Worker:
             config = self.Tools_dict.get(tool_name, {}).copy()
             provider = config.pop("provider", None)
             model = config.pop("model", None)
-            
+
             # Merge with any explicit overrides
             config.update(override_kwargs)
-            
-            tools_instance.register_tool(tool_name, provider, model, **config)
+
+            auth_params = {}
+            auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+            for key in auth_keys:
+                if key in config:
+                    auth_params[key] = config[key]
+                    logger.info(f"Worker._register: Setting {key} for tool '{tool_name}'")
+
+            all_params = {**config, **auth_params}
+
+            logger.info(f"Worker._register: Registering tool '{tool_name}' with provider '{provider}', model '{model}'")
+            tools_instance.register_tool(tool_name, provider, model, **all_params)
 
         self.generator_agent = Tools()
         self.action_generator_tool = "action_generator_with_takeover" if self.enable_takeover else "action_generator"

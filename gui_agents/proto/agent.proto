@@ -20,6 +20,8 @@ option java_multiple_files = true;
 option java_outer_classname = "AgentProto";
 option py_generic_services = true;
 
+import "google/protobuf/timestamp.proto";
+
 service Agent {
   // get agent info
   rpc GetAgentInfo(GetAgentInfoRequest) returns (AgentInfo);
@@ -202,4 +204,5 @@ message TaskStream{
   string taskId = 1;
   string stage = 2;
   string message = 3;
+  google.protobuf.Timestamp timestamp = 4;
 }

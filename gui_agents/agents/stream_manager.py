@@ -1,4 +1,6 @@
 import asyncio
+from datetime import datetime, timezone
+from google.protobuf.timestamp_pb2 import Timestamp
 from typing import Dict, Optional, AsyncGenerator
 from dataclasses import dataclass
 import logging
@@ -10,6 +12,7 @@ logger = logging.getLogger(__name__)
 class StreamMessage:
     stage: str
     message: str
+    timestamp: Timestamp = Timestamp().FromDatetime(datetime.now(timezone.utc))
 
 
 class StreamManager:

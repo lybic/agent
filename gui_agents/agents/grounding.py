@@ -43,7 +43,19 @@ class Grounding(ACI):
             config = Tools_dict.get(tool_name, {}).copy()
             provider = config.pop("provider", None)
             model = config.pop("model", None)
-            tools_instance.register_tool(tool_name, provider, model, **config)
+
+            auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+            auth_params = {}
+            for key in auth_keys:
+                if key in config:
+                    auth_params[key] = config[key]
+                    logger.info(f"Grounding._register: Setting {key} for tool '{tool_name}'")
+
+            # 合并所有参数
+            all_params = {**config, **auth_params}
+
+            logger.info(f"Grounding._register: Registering tool '{tool_name}' with provider '{provider}', model '{model}'")
+            tools_instance.register_tool(tool_name, provider, model, **all_params)
 
         self.grounding_model = Tools()
         _register(self.grounding_model, "grounding")

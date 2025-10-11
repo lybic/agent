@@ -1,14 +1,13 @@
 import argparse
-import datetime
-import io
 import logging
 import os
 import platform
 import sys
-import time
 import datetime
 from pathlib import Path
 from dotenv import load_dotenv
+
+from gui_agents.agents.Backend.LybicBackend import LybicBackend
 
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
 if env_path.exists():
@@ -302,7 +301,7 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
                 os.system(
                     f'osascript -e \'display dialog "Task Completed" with title "OpenACI Agent" buttons "OK" default button "OK"\''
                 )
-            elif platform.system() == "Linux":
+            elif platform.system() == "Linux" and not (hwi_para.backend== "lybic" or isinstance(hwi_para.backend, LybicBackend)):
                 os.system(
                     f'zenity --info --title="OpenACI Agent" --text="Task Completed" --width=200 --height=100'
                 )

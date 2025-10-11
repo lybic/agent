@@ -232,47 +232,55 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return backend_kwargs
 
     async def _make_agent(self,request):
-        max_steps = 50
-        if request.HasField("runningConfig") and request.runningConfig.steps:
-            max_steps = request.runningConfig.steps
+        # todo: add max_steps support
+        # max_steps = 50
+        # if request.HasField("runningConfig") and request.runningConfig.steps:
+        #     max_steps = request.runningConfig.steps
 
         # Dynamically build tools_dict based on global config
         tools_config, tools_dict = load_config()
 
-        if self.global_common_config.HasField("stageModelConfig"):
+        stage_config: StageModelConfig
+        if request.HasField("runningConfig") and request.runningConfig.HasField("stageModelConfig"):
+            stage_config = request.runningConfig.stageModelConfig
+            logger.info("Applying task model configurations to this task.")
+        elif self.global_common_config.HasField("stageModelConfig"):
             stage_config = self.global_common_config.stageModelConfig
-            logger.info("Applying global model configurations to this task.")
+        else:
+            raise Exception("No model configurations found.")
 
-            def apply_config(tool_name, llm_config:LLMConfig):
-                if tool_name in tools_dict and llm_config.modelName:
-                    tool_cfg = tools_dict[tool_name]
-                    tool_cfg['provider'] = llm_config.provider
-                    tool_cfg['model_name'] = llm_config.modelName
-                    tool_cfg['model'] = llm_config.modelName
+        logger.info("Applying global model configurations to this task.")
 
-                    # IMPORTANT Override api key and endpoint
-                    if llm_config.apiKey:
-                        tool_cfg['api_key'] = llm_config.apiKey
-                        logger.info(f"Override api_key for tool '{tool_name}'")
-                    if llm_config.apiEndpoint:
-                        tool_cfg['base_url'] = llm_config.apiEndpoint
-                        tool_cfg['endpoint_url'] = llm_config.apiEndpoint  # for some engines that use endpoint_url
-                        logger.info(f"Override base_url for tool '{tool_name}': {llm_config.apiEndpoint}")
+        def apply_config(tool_name, llm_config:LLMConfig):
+            if tool_name in tools_dict and llm_config.modelName:
+                tool_cfg = tools_dict[tool_name]
+                tool_cfg['provider'] = llm_config.provider
+                tool_cfg['model_name'] = llm_config.modelName
+                tool_cfg['model'] = llm_config.modelName
 
-                    logger.info(f"Override tool '{tool_name}' with model '{llm_config.modelName}'.")
+                # IMPORTANT Override api key and endpoint
+                if llm_config.apiKey:
+                    tool_cfg['api_key'] = llm_config.apiKey
+                    logger.info(f"Override api_key for tool '{tool_name}'")
+                if llm_config.apiEndpoint:
+                    tool_cfg['base_url'] = llm_config.apiEndpoint
+                    tool_cfg['endpoint_url'] = llm_config.apiEndpoint  # for some engines that use endpoint_url
+                    logger.info(f"Override base_url for tool '{tool_name}': {llm_config.apiEndpoint}")
 
-            if stage_config.HasField("embeddingModel"):
-                apply_config('embedding', stage_config.embeddingModel)
+                logger.info(f"Override tool '{tool_name}' with model '{llm_config.modelName}'.")
 
-            if stage_config.HasField("groundingModel"):
-                apply_config('grounding', stage_config.groundingModel)
+        if stage_config.HasField("embeddingModel"):
+            apply_config('embedding', stage_config.embeddingModel)
 
-            if stage_config.HasField("actionGeneratorModel"):
-                common_llm_config = stage_config.actionGeneratorModel
-                # Apply common config to all other LLM-based tools
-                for tool_name, config in tools_dict.items():
-                    if tool_name not in ['embedding', 'grounding']:
-                        apply_config(tool_name, common_llm_config)
+        if stage_config.HasField("groundingModel"):
+            apply_config('grounding', stage_config.groundingModel)
+
+        if stage_config.HasField("actionGeneratorModel"):
+            common_llm_config = stage_config.actionGeneratorModel
+            # Apply common config to all other LLM-based tools
+            for tool_name, config in tools_dict.items():
+                if tool_name not in ['embedding', 'grounding']:
+                    apply_config(tool_name, common_llm_config)
         
         # After modifications, merge changes from tools_dict back into tools_config
         for tool_entry in tools_config['tools']:
@@ -307,7 +315,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 return
 
             queue = asyncio.Queue()
-            agent = await self._make_agent(request=request)
+            agent = await self._make_agent(request)
             backend_kwargs = await self._make_backend_kwargs(request)
             max_steps = 50
             if request.HasField("runningConfig") and request.runningConfig.steps:
@@ -409,10 +417,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         }
 
         if status == "finished":
-            task_status = status_map.get(final_state.status,
-                                         agent_pb2.TaskStatus.SUCCESS) if final_state else agent_pb2.TaskStatus.SUCCESS
-            message = f"Task finished with status: {final_state.status}" if final_state else "Task finished."
-            result = final_state.result if final_state and hasattr(final_state, 'result') else ""
+            task_status = agent_pb2.TaskStatus.SUCCESS
+            message = f"Task finished with status: {final_state}" if final_state else "Task finished."
+            result = ""
         elif status == "error":
             task_status = agent_pb2.TaskStatus.FAILURE
             message = "Task failed with an exception."
@@ -492,8 +499,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return agent_pb2.CommonConfig()
 
     async def _new_lybic_client(self):
-        if self.lybic_client:
-            await self.lybic_client.close()
+        # if self.lybic_client:
+        #     await self.lybic_client.close()
         self.lybic_client = LybicClient(self.lybic_auth)
 
     async def SetGlobalCommonConfig(self, request, context):
@@ -551,6 +558,8 @@ async def serve():
     agent_pb2_grpc.add_AgentServicer_to_server(servicer, server)
     server.add_insecure_port(f'[::]:{port}')
     logger.info(f"Agent gRPC server started on port {port}")
+
+    stream_manager.set_loop(asyncio.get_running_loop())
 
     await server.start()
     await server.wait_for_termination()

@@ -30,15 +30,24 @@ dependencies = [
     "scikit-learn",
     "tiktoken",
     "pydantic",
-    "lybic>=0.7.3,<1.0.0",
+    "lybic>=0.8.0b2,<1.0.0",
+    "grpcio",
+    "grpcio-tools>=1.71.2",
     'pyobjc; platform_system == "Darwin"',
     'oa_atomacos; platform_system == "Darwin"',
     'pywinauto; platform_system == "Windows"',
     'pywin32; platform_system == "Windows"',
+    "pytest>=8.4.2",
+    "protobuf>=5.29.5",
+    "googleapis-common-protos>=1.70.0",
 ]
 [project.optional-dependencies]
 dev = [
     "pytest",
+]
+grpc = [
+    "grpcio",
+    "grpcio-tools>=1.71.2",
 ]
 vmware-and-evaluation = [
     "python-pptx",
@@ -166,7 +175,10 @@ all=[
     'oa_atomacos; platform_system == "Darwin"',
     'pywinauto; platform_system == "Windows"',
     'pywin32; platform_system == "Windows"',
+    "grpcio",
+    "grpcio-tools>=1.71.2",
 ]
 
 [project.scripts]
 lybic-guiagent = "gui_agents.cli_app:main"
+lybic-guiagent-grpc = "gui_agents.grpc_app:main"

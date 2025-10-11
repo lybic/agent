@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -19,8 +20,32 @@ from gui_agents.utils.common_utils import (
     agent_log_to_string,
 )
 from gui_agents.tools.tools import Tools
+from gui_agents.agents.stream_manager import stream_manager
 
 logger = logging.getLogger("desktopenv.agent")
+
+def load_config():
+    """
+    Load tools configuration from tools_config.json
+    Returns:
+
+    dict: full Tools configuration
+    dict: dictionary of tools
+    """
+    # Load tools configuration from tools_config.json
+    tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
+    with open(tools_config_path, "r") as f:
+        tools_config = json.load(f)
+        print(f"Loaded tools configuration from: {tools_config_path}")
+        tools_dict = {}
+        for tool in tools_config["tools"]:
+            tool_name = tool["tool_name"]
+            tools_dict[tool_name] = {
+                "provider": tool["provider"],
+                "model": tool["model_name"]
+            }
+        print(f"Tools configuration: {tools_dict}")
+        return tools_config,tools_dict
 
 class UIAgent:
     """Base class for UI automation agents"""
@@ -39,6 +64,15 @@ class UIAgent:
     def reset(self) -> None:
         """Reset agent state"""
         pass
+
+    def _send_stream_message(self, task_id: str, stage: str, message: str) -> None:
+        """
+        Safely send stream message to task stream.
+        """
+        if not task_id:
+            return
+
+        stream_manager.add_message_threadsafe(task_id, stage, message)
 
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]|None:
         """Generate next action prediction
@@ -84,6 +118,7 @@ class AgentS2(UIAgent):
         kb_release_tag: str = "v0.2.2",
         enable_takeover: bool = False,
         enable_search: bool = True,
+        tools_config: dict | None = None,
     ):
         """Initialize AgentS2
 
@@ -105,20 +140,24 @@ class AgentS2(UIAgent):
         self.screen_size = screen_size
         self.enable_takeover = enable_takeover
         self.enable_search = enable_search
+        self.task_id = None  # Will be set when task starts
 
-        # Load tools configuration from tools_config.json
-        tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
-        with open(tools_config_path, "r") as f:
-            self.tools_config = json.load(f)
-            print(f"Loaded tools configuration from: {tools_config_path}")
+        if tools_config is not None:
+            self.tools_config = tools_config
+            # Create the dictionary mapping from the list-based config
             self.Tools_dict = {}
             for tool in self.tools_config["tools"]:
                 tool_name = tool["tool_name"]
-                self.Tools_dict[tool_name] = {
-                    "provider": tool["provider"],
-                    "model": tool["model_name"]
-                }
-            print(f"Tools configuration: {self.Tools_dict}")
+                # Create a copy of the tool's config to avoid modifying the original
+                config_copy = tool.copy()
+                # Rename 'model_name' to 'model' for consistency in downstream use
+                if 'model_name' in config_copy:
+                    config_copy['model'] = config_copy.pop('model_name')
+                # Remove tool_name as it's now the key
+                config_copy.pop('tool_name', None)
+                self.Tools_dict[tool_name] = config_copy
+        else:
+            self.tools_config, self.Tools_dict = load_config()
 
         # Initialize agent's knowledge base path
         self.local_kb_path = os.path.join(
@@ -140,14 +179,14 @@ class AgentS2(UIAgent):
     def reset(self) -> None:
         """Reset agent state and initialize components"""
         # Initialize core components
-        
+
         self.manager = Manager(
             Tools_dict=self.Tools_dict,
             local_kb_path=self.local_kb_path,
             platform=self.platform,
             enable_search=self.enable_search,  # Pass global switch to Manager
         )
-        
+
         self.worker = Worker(
             Tools_dict=self.Tools_dict,
             local_kb_path=self.local_kb_path,
@@ -177,6 +216,20 @@ class AgentS2(UIAgent):
         self.search_query: str = ""
         self.subtask_status: str = "Start"
         self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
+
+        # Pass task_id to components
+        if self.task_id:
+            self.manager.task_id = self.task_id
+            self.worker.task_id = self.task_id
+
+    def set_task_id(self, task_id: str) -> None:
+        """Set the task ID for streaming purposes"""
+        self.task_id = task_id
+        # Also set task_id for components if they exist
+        if hasattr(self, 'manager') and self.manager:
+            self.manager.task_id = task_id
+        if hasattr(self, 'worker') and self.worker:
+            self.worker.task_id = task_id
 
     def reset_executor_state(self) -> None:
         """Reset executor and step counter"""
@@ -209,6 +262,10 @@ class AgentS2(UIAgent):
             # If replan is true, generate a new plan. True at start, after a failed plan, or after subtask completion
             if self.requires_replan:
                 logger.info("(RE)PLANNING...")
+
+                # Stream planning start message
+                self._send_stream_message(self.task_id, "planning", f"开始规划任务步骤 (步骤 {self.step_count + 1})...")
+
                 Manager_info, self.subtasks = self.manager.get_action_queue(
                     Tu=self.global_state.get_Tu(),
                     observation=self.global_state.get_obs_for_manager(),
@@ -224,6 +281,9 @@ class AgentS2(UIAgent):
                     self.search_query = Manager_info["search_query"]
                 else:
                     self.search_query = ""
+
+                # Stream planning completion message
+                self._send_stream_message(self.task_id, "planning", f"规划完成，生成了 {len(self.subtasks)} 个子任务")
             get_action_queue_time = time.time() - manager_start
             logger.info(f"[Timing] manager.get_action_queue execution time: {get_action_queue_time:.2f} seconds")
             self.global_state.log_operation(
@@ -253,7 +313,10 @@ class AgentS2(UIAgent):
                         "reflection": "agent.done()",
                     }
                     actions = [{"type": "DONE"}]
-                    
+
+                    # Stream task completion message
+                    self._send_stream_message(self.task_id, "completion", "🎉 任务完成！所有子任务已成功执行")
+
                     # 记录任务完成
                     self.global_state.log_operation(
                         module="agent",
@@ -272,7 +335,10 @@ class AgentS2(UIAgent):
                 logger.info(f"REMAINING SUBTASKS FROM GLOBAL STATE: {self.global_state.get_remaining_subtasks()}")
                 self.needs_next_subtask = False
                 self.subtask_status = "Start"
-                
+
+                # Stream current subtask message
+                self._send_stream_message(self.task_id, "subtask", f"开始执行子任务: {self.current_subtask.name}")
+
                 self.global_state.log_operation(
                     module="agent",
                     operation="current_subtask",
@@ -283,7 +349,10 @@ class AgentS2(UIAgent):
                 )
 
             worker_start_time = time.time()
-            
+
+            # Stream action generation start message
+            self._send_stream_message(self.task_id, "thinking", f"正在生成执行动作...")
+
             # get the next action from the worker
             executor_info = self.worker.generate_next_action(
                 Tu=instruction,
@@ -294,9 +363,9 @@ class AgentS2(UIAgent):
                 done_task=self.global_state.get_completed_subtasks(),
                 obs=self.global_state.get_obs_for_manager(),
             )
-            
+
             worker_execution_time = time.time() - worker_start_time
-            
+
             self.global_state.log_operation(
                 module="agent",
                 operation="worker_execution",
@@ -305,6 +374,11 @@ class AgentS2(UIAgent):
                     "subtask": self.current_subtask.name # type: ignore
                 }
             )
+
+            # Stream action plan message
+            if self.task_id and "executor_plan" in executor_info:
+                plan_preview = executor_info["executor_plan"][:100] + "..." if len(executor_info["executor_plan"]) > 100 else executor_info["executor_plan"]
+                self._send_stream_message(self.task_id, "action_plan", f"生成执行计划: {plan_preview}")
 
             try:
                 grounding_start_time = time.time()
@@ -345,6 +419,11 @@ class AgentS2(UIAgent):
 
             actions = [exec_code]
 
+            # Stream action execution message
+            if actions:
+                action_type = actions[0].get("type", "unknown")
+                self._send_stream_message(self.task_id, "action", f"执行动作: {action_type}")
+
             self.step_count += 1
 
             # set the should_send_action flag to True if the executor returns an action
@@ -358,7 +437,10 @@ class AgentS2(UIAgent):
                 # assign the failed subtask
                 self.global_state.add_failed_subtask(self.current_subtask) # type: ignore
                 self.failure_subtask = self.global_state.get_latest_failed_subtask()
-                
+
+                # Stream failure message
+                self._send_stream_message(self.task_id, "error", f"子任务执行失败: {self.current_subtask.name}，将重新规划")
+
                 # 记录失败的子任务
                 self.global_state.log_operation(
                     module="agent",
@@ -382,7 +464,10 @@ class AgentS2(UIAgent):
                 self.needs_next_subtask = True
                 self.failure_subtask = None
                 self.global_state.add_completed_subtask(self.current_subtask) # type: ignore
-                
+
+                # Stream subtask completion message
+                self._send_stream_message(self.task_id, "subtask_complete", f"✅ 子任务完成: {self.current_subtask.name}")
+
                 # 记录完成的子任务
                 self.global_state.log_operation(
                     module="agent",
@@ -538,6 +623,7 @@ class AgentSFast(UIAgent):
         enable_takeover: bool = False,
         enable_search: bool = True,
         enable_reflection: bool = True,
+        tools_config:dict|None = None,
         # enable_reflection: bool = False,
     ):
         """Initialize AgentSFast
@@ -562,20 +648,13 @@ class AgentSFast(UIAgent):
         self.enable_takeover = enable_takeover
         self.enable_search = enable_search
         self.enable_reflection = enable_reflection
+        self.task_id = None  # Will be set when task starts
 
-        # Load tools configuration from tools_config.json
-        tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
-        with open(tools_config_path, "r") as f:
-            self.tools_config = json.load(f)
-            print(f"Loaded tools configuration from: {tools_config_path}")
-            self.Tools_dict = {}
-            for tool in self.tools_config["tools"]:
-                tool_name = tool["tool_name"]
-                self.Tools_dict[tool_name] = {
-                    "provider": tool["provider"],
-                    "model": tool["model_name"]
-                }
-            print(f"Tools configuration: {self.Tools_dict}")
+        if not tools_config:
+            self.tools_config, self.Tools_dict = load_config()
+        else:
+            self.Tools_dict = tools_config["tools"]
+            self.tools_config = tools_config
 
         # Initialize agent's knowledge base path
         self.local_kb_path = os.path.join(
@@ -598,17 +677,17 @@ class AgentSFast(UIAgent):
         # Initialize the fast action generator tool
         self.fast_action_generator = Tools()
         self.fast_action_generator_tool = "fast_action_generator_with_takeover" if self.enable_takeover else "fast_action_generator"
-        
+
         # Get tool configuration from tools_config
         tool_config = None
         for tool in self.tools_config["tools"]:
             if tool["tool_name"] == self.fast_action_generator_tool:
                 tool_config = tool
                 break
-        
+
         # Prepare tool parameters
         tool_params = {}
-        
+
         # First check global search switch
         if not self.enable_search:
             # If global search is disabled, force disable search for this tool
@@ -622,15 +701,28 @@ class AgentSFast(UIAgent):
                 tool_params["enable_search"] = enable_search
                 tool_params["search_provider"] = tool_config.get("search_provider", "bocha")
                 tool_params["search_model"] = tool_config.get("search_model", "")
-                
+
                 logger.info(f"Configuring {self.fast_action_generator_tool} with search enabled: {enable_search} (from config)")
-        
-        # Register the tool with parameters
+
+        # Get base config from Tools_dict
+        tool_config = self.Tools_dict[self.fast_action_generator_tool].copy()
+        provider = tool_config.get("provider")
+        model = tool_config.get("model")
+
+        # Merge with search-related parameters
+        all_params = {**tool_config, **tool_params}
+
+        auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+        for key in auth_keys:
+            if key in all_params:
+                logger.info(f"AgentSFast.reset: Setting {key} for fast_action_generator_tool")
+
+        # Register the tool with all parameters
         self.fast_action_generator.register_tool(
-            self.fast_action_generator_tool, 
-            self.Tools_dict[self.fast_action_generator_tool]["provider"], 
-            self.Tools_dict[self.fast_action_generator_tool]["model"],
-            **tool_params
+            self.fast_action_generator_tool,
+            provider,
+            model,
+            **all_params
         )
 
         if self.enable_reflection:
@@ -659,6 +751,21 @@ class AgentSFast(UIAgent):
         self.turn_count: int = 0
         self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
         self.latest_action = None
+
+        # Pass task_id to tools if available
+        if self.task_id:
+            self.fast_action_generator.task_id = self.task_id
+            if self.enable_reflection and hasattr(self, 'reflection_agent'):
+                self.reflection_agent.task_id = self.task_id
+
+    def set_task_id(self, task_id: str) -> None:
+        """Set the task ID for streaming purposes"""
+        self.task_id = task_id
+        # Also set task_id for components if they exist
+        if hasattr(self, 'fast_action_generator') and self.fast_action_generator:
+            self.fast_action_generator.task_id = task_id
+        if hasattr(self, 'reflection_agent') and self.reflection_agent:
+            self.reflection_agent.task_id = task_id
 
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:
         """Generate next action prediction using only the fast_action_generator tool
@@ -725,11 +832,14 @@ class AgentSFast(UIAgent):
         generator_message = textwrap.dedent(f"""
             Task Description: {instruction}
         """)
-        
+
         generator_message += f"\n\nPlease refer to the agent log to understand the progress and context of the task so far.\n{agent_log}"
 
         fast_action_start_time = time.time()
-        
+
+        # Stream action generation start message
+        self._send_stream_message(self.task_id, "thinking", f"正在快速生成执行动作...")
+
         plan, total_tokens, cost_string = self.fast_action_generator.execute_tool(
             self.fast_action_generator_tool,
             {
@@ -738,9 +848,9 @@ class AgentSFast(UIAgent):
             }
         )
         self.fast_action_generator.reset(self.fast_action_generator_tool)
-        
+
         fast_action_execution_time = time.time() - fast_action_start_time
-        
+
         self.global_state.log_operation(
             module="agent",
             operation="fast_action_execution",
@@ -750,7 +860,12 @@ class AgentSFast(UIAgent):
                 "cost": cost_string
             }
         )
-        
+
+        # Stream action plan message
+        if self.task_id:
+            plan_preview = plan[:100] + "..." if len(plan) > 100 else plan
+            self._send_stream_message(self.task_id, "action_plan", f"快速生成执行计划: {plan_preview}")
+
         logger.info("Fast Action Plan: %s", plan)
 
         current_width, current_height = self.global_state.get_screen_size()
@@ -809,13 +924,18 @@ class AgentSFast(UIAgent):
 
         self.step_count += 1
         self.turn_count += 1
-        
+
+        # Stream action execution message
+        if actions:
+            action_type = actions[0].get("type", "unknown")
+            self._send_stream_message(self.task_id, "action", f"执行动作: {action_type}")
+
         executor_info = {
             "executor_plan": plan,
             "reflection": reflection or "",
             "plan_code": self.latest_action
         }
-        
+
         predict_total_time = time.time() - predict_start_time
         self.global_state.log_operation(
             module="agent",

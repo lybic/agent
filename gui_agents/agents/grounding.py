@@ -39,10 +39,26 @@ class Grounding(ACI):
         self.coords1 = None
         self.coords2 = None
 
+        def _register(tools_instance, tool_name):
+            config = Tools_dict.get(tool_name, {}).copy()
+            provider = config.pop("provider", None)
+            model = config.pop("model", None)
+
+            auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+            auth_params = {}
+            for key in auth_keys:
+                if key in config:
+                    auth_params[key] = config[key]
+                    logger.info(f"Grounding._register: Setting {key} for tool '{tool_name}'")
+
+            # 合并所有参数
+            all_params = {**config, **auth_params}
+
+            logger.info(f"Grounding._register: Registering tool '{tool_name}' with provider '{provider}', model '{model}'")
+            tools_instance.register_tool(tool_name, provider, model, **all_params)
+
         self.grounding_model = Tools()
-        self.grounding_model.register_tool(
-            "grounding", self.Tools_dict["grounding"]["provider"],
-            self.Tools_dict["grounding"]["model"])
+        _register(self.grounding_model, "grounding")
 
         self.grounding_width, self.grounding_height = self.grounding_model.tools[
             "grounding"].get_grounding_wh()
@@ -51,9 +67,7 @@ class Grounding(ACI):
             self.grounding_height = self.height
 
         self.text_span_agent = Tools()
-        self.text_span_agent.register_tool(
-            "text_span", self.Tools_dict["text_span"]["provider"],
-            self.Tools_dict["text_span"]["model"])
+        _register(self.text_span_agent, "text_span")
 
         self.global_state: GlobalState = Registry.get(
             "GlobalStateStore")  # type: ignore

@@ -75,17 +75,24 @@ class KnowledgeBase:
         self.current_subtask_trajectory = ""
         self.current_search_query = ""
         
+        def _register(tools_instance, tool_name):
+            config = Tools_dict.get(tool_name, {}).copy()
+            provider = config.pop("provider", None)
+            model = config.pop("model", None)
+            # Pass all other config items as kwargs
+            tools_instance.register_tool(tool_name, provider, model, **config)
+
         self.query_formulator = Tools()
-        self.query_formulator.register_tool("query_formulator", Tools_dict["query_formulator"]["provider"], Tools_dict["query_formulator"]["model"])
-        
+        _register(self.query_formulator, "query_formulator")
+
         self.knowledge_fusion_agent = Tools()
-        self.knowledge_fusion_agent.register_tool("context_fusion", Tools_dict["context_fusion"]["provider"], Tools_dict["context_fusion"]["model"])
+        _register(self.knowledge_fusion_agent, "context_fusion")
 
         self.narrative_summarization_agent = Tools()
-        self.narrative_summarization_agent.register_tool("narrative_summarization", Tools_dict["narrative_summarization"]["provider"], Tools_dict["narrative_summarization"]["model"])
+        _register(self.narrative_summarization_agent, "narrative_summarization")
 
         self.episode_summarization_agent = Tools()
-        self.episode_summarization_agent.register_tool("episode_summarization", Tools_dict["episode_summarization"]["provider"], Tools_dict["episode_summarization"]["model"])
+        _register(self.episode_summarization_agent, "episode_summarization")
 
         self.save_knowledge = save_knowledge
 

@@ -176,3 +176,6 @@ results/
 webui/*
 tests/local_tests/
 .specstory/**
+
+# generated files
+gui_agents/proto/pb/agent*

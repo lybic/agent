@@ -27,7 +27,7 @@ from gui_agents.agents.Backend.Backend import Backend
 
 # 导入官方Lybic SDK
 try:
-    from lybic import LybicClient, Sandbox, ComputerUse, dto
+    from lybic import LybicClient, Sandbox, ComputerUse, dto, LybicAuth
 except ImportError:
     raise ImportError(
         "Lybic Python SDK not found. Please install it with: pip install --upgrade lybic"
@@ -84,11 +84,13 @@ class LybicBackend(Backend):
         # 初始化SDK客户端（仅在有必要参数时）
         if self.api_key and self.org_id:
             self.client = LybicClient(
-                org_id=self.org_id,
-                api_key=self.api_key,
-                endpoint=self.endpoint,
+                LybicAuth(
+                    org_id=self.org_id,
+                    api_key=self.api_key,
+                    endpoint=self.endpoint,
+                    extra_headers=self.extra_headers or {}
+                ),
                 timeout=self.timeout,
-                extra_headers=self.extra_headers or {}
             )
         else:
             raise ValueError("LYBIC_API_KEY and LYBIC_ORG_ID are required. Please set them as environment variables or pass them as arguments.")

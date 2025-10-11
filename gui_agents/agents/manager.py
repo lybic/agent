@@ -14,6 +14,7 @@ from gui_agents.utils.common_utils import (
     agent_log_to_string,
 )
 from gui_agents.tools.tools import Tools
+from gui_agents.agents.stream_manager import stream_manager
 
 logger = logging.getLogger("desktopenv.agent")
 
@@ -32,28 +33,46 @@ class Manager:
         self.platform = platform
         self.Tools_dict = Tools_dict
 
+        def _register(tools_instance, tool_name):
+            config = Tools_dict.get(tool_name, {}).copy()
+            provider = config.pop("provider", None)
+            model = config.pop("model", None)
+
+            auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+            auth_params = {}
+            for key in auth_keys:
+                if key in config:
+                    auth_params[key] = config[key]
+                    logger.info(f"Manager._register: Setting {key} for tool '{tool_name}'")
+
+            all_params = {**config, **auth_params}
+
+            logger.info(f"Manager._register: Registering tool '{tool_name}' with provider '{provider}', model '{model}'")
+            tools_instance.register_tool(tool_name, provider, model, **all_params)
+
         self.generator_agent = Tools()
-        self.generator_agent.register_tool("subtask_planner", Tools_dict["subtask_planner"]["provider"], Tools_dict["subtask_planner"]["model"])
+        _register(self.generator_agent, "subtask_planner")
 
         self.dag_translator_agent = Tools()
-        self.dag_translator_agent.register_tool("dag_translator", self.Tools_dict["dag_translator"]["provider"], self.Tools_dict["dag_translator"]["model"])
+        _register(self.dag_translator_agent, "dag_translator")
 
         self.narrative_summarization_agent = Tools()
-        self.narrative_summarization_agent.register_tool("narrative_summarization", self.Tools_dict["narrative_summarization"]["provider"], self.Tools_dict["narrative_summarization"]["model"])
+        _register(self.narrative_summarization_agent, "narrative_summarization")
 
         self.episode_summarization_agent = Tools()
-        self.episode_summarization_agent.register_tool("episode_summarization", self.Tools_dict["episode_summarization"]["provider"], self.Tools_dict["episode_summarization"]["model"])
+        _register(self.episode_summarization_agent, "episode_summarization")
 
         self.local_kb_path = local_kb_path
 
         self.embedding_engine = Tools()
-        self.embedding_engine.register_tool("embedding", self.Tools_dict["embedding"]["provider"], self.Tools_dict["embedding"]["model"])
+        _register(self.embedding_engine, "embedding")
+        
         KB_Tools_dict = {
-            "embedding": self.Tools_dict["embedding"],
-            "query_formulator": self.Tools_dict["query_formulator"],
-            "context_fusion": self.Tools_dict["context_fusion"],
-            "narrative_summarization": self.Tools_dict["narrative_summarization"],
-            "episode_summarization": self.Tools_dict["episode_summarization"],
+            "embedding": self.Tools_dict.get("embedding"),
+            "query_formulator": self.Tools_dict.get("query_formulator"),
+            "context_fusion": self.Tools_dict.get("context_fusion"),
+            "narrative_summarization": self.Tools_dict.get("narrative_summarization"),
+            "episode_summarization": self.Tools_dict.get("episode_summarization"),
         }
 
 
@@ -69,15 +88,25 @@ class Manager:
         self.planner_history = []
 
         self.turn_count = 0
-        
+        self.task_id = None  # Will be set by agent
+
         # Initialize search engine based on enable_search parameter
         if enable_search:
             self.search_engine = Tools()
-            self.search_engine.register_tool("websearch", self.Tools_dict["websearch"]["provider"], self.Tools_dict["websearch"]["model"])
+            _register(self.search_engine, "websearch")
         else:
             self.search_engine = None
 
         self.multi_round = multi_round
+
+    def _send_stream_message(self, task_id: str, stage: str, message: str) -> None:
+        """
+        Safely send stream message to task stream.
+        """
+        if not task_id:
+            return
+
+        stream_manager.add_message_threadsafe(task_id, stage, message)
 
     def summarize_episode(self, trajectory):
         """Summarize the episode experience for lifelong learning reflection
@@ -98,6 +127,8 @@ class Manager:
                 "content": subtask_summarization
             }
         )
+
+        self._send_stream_message(self.task_id, "summarization", f"Episode summarization: {subtask_summarization}")
 
         return subtask_summarization
 
@@ -275,6 +306,10 @@ class Manager:
         logger.info("GENERATING HIGH LEVEL PLAN")
 
         subtask_planner_start = time.time()
+
+        # Stream subtask planning message
+        self._send_stream_message(self.task_id, "planning", "正在分析任务并生成子任务规划...")
+
         plan, total_tokens, cost_string = self.generator_agent.execute_tool("subtask_planner", {"str_input": generator_message, "img_input": observation.get("screenshot", None)})
         logger.info(f"Subtask planner tokens: {total_tokens}, cost: {cost_string}")
         subtask_planner_time = time.time() - subtask_planner_start
@@ -289,6 +324,11 @@ class Manager:
                 "duration": subtask_planner_time
             }
         )
+
+        # Stream planning completion message
+        if self.task_id:
+            plan_preview = plan[:150] + "..." if len(plan) > 150 else plan
+            self._send_stream_message(self.task_id, "planning", f"子任务规划完成: {plan_preview}")
         
         step_time = time.time() - step_start
         logger.info(f"[Timing] Manager._generate_step_by_step_plan execution time: {step_time:.2f} seconds")

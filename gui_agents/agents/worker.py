@@ -72,11 +72,6 @@ class Worker:
         else:
             self.tools_config = tools_config
 
-        self.embedding_engine = Tools()
-        self.embedding_engine.register_tool(
-            "embedding", self.Tools_dict["embedding"]["provider"],
-            self.Tools_dict["embedding"]["model"])
-
         self.enable_reflection = enable_reflection
         self.use_subtask_experience = use_subtask_experience
         self.global_state: GlobalState = Registry.get(
@@ -84,6 +79,26 @@ class Worker:
         self.reset()
 
     def reset(self):
+
+        def _register(tools_instance, tool_name, **override_kwargs):
+            config = self.Tools_dict.get(tool_name, {}).copy()
+            provider = config.pop("provider", None)
+            model = config.pop("model", None)
+
+            # Merge with any explicit overrides
+            config.update(override_kwargs)
+
+            auth_params = {}
+            auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+            for key in auth_keys:
+                if key in config:
+                    auth_params[key] = config[key]
+                    logger.info(f"Worker._register: Setting {key} for tool '{tool_name}'")
+
+            all_params = {**config, **auth_params}
+
+            logger.info(f"Worker._register: Registering tool '{tool_name}' with provider '{provider}', model '{model}'")
+            tools_instance.register_tool(tool_name, provider, model, **all_params)
 
         self.generator_agent = Tools()
         self.action_generator_tool = "action_generator_with_takeover" if self.enable_takeover else "action_generator"
@@ -121,20 +136,14 @@ class Worker:
                 )
 
         # Register the tool with parameters
-        self.generator_agent.register_tool(
-            self.action_generator_tool,
-            self.Tools_dict[self.action_generator_tool]["provider"],
-            self.Tools_dict[self.action_generator_tool]["model"], **tool_params)
+        _register(self.generator_agent, self.action_generator_tool, **tool_params)
 
         self.reflection_agent = Tools()
-        self.reflection_agent.register_tool(
-            "traj_reflector", self.Tools_dict["traj_reflector"]["provider"],
-            self.Tools_dict["traj_reflector"]["model"])
+        _register(self.reflection_agent, "traj_reflector")
 
         self.embedding_engine = Tools()
-        self.embedding_engine.register_tool(
-            "embedding", self.Tools_dict["embedding"]["provider"],
-            self.Tools_dict["embedding"]["model"])
+        _register(self.embedding_engine, "embedding")
+
         self.knowledge_base = KnowledgeBase(
             embedding_engine=self.embedding_engine,
             Tools_dict=self.Tools_dict,
@@ -150,6 +159,7 @@ class Worker:
         self.planner_history = []
         self.latest_action = None
         self.max_trajector_length = 8
+        self.task_id = None  # Will be set by agent
 
     def generate_next_action(
         self,

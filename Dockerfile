@@ -31,6 +31,14 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Copy the project into the intermediate image
 COPY . /app
 
+# Build proto
+RUN .venv/bin/python -m grpc_tools.protoc -Igui_agents/proto \
+  --python_out=gui_agents/proto/pb  \
+  --grpc_python_out=gui_agents/proto/pb \
+  --pyi_out=gui_agents/proto/pb \
+  gui_agents/proto/agent.proto && \
+    sed -i 's/^import agent_pb2 as agent__pb2/from . import agent_pb2 as agent__pb2/' /app/gui_agents/proto/pb/agent_pb2_grpc.py
+
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-editable
 
@@ -42,5 +50,8 @@ FROM python-base AS final
 # Copy the environment, but not the source code
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
-# Set the entrypoint to a script that activates the venv and runs the app.
-ENTRYPOINT ["/app/.venv/bin/lybic-guiagent"]
+# Expose the gRPC port
+EXPOSE 50051
+
+# Set the CMD to run the CLI app by default. This can be overridden to run the gRPC server.
+CMD ["/app/.venv/bin/lybic-guiagent"]

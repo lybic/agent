@@ -33,28 +33,35 @@ class Manager:
         self.platform = platform
         self.Tools_dict = Tools_dict
 
+        def _register(tools_instance, tool_name):
+            config = Tools_dict.get(tool_name, {}).copy()
+            provider = config.pop("provider", None)
+            model = config.pop("model", None)
+            tools_instance.register_tool(tool_name, provider, model, **config)
+
         self.generator_agent = Tools()
-        self.generator_agent.register_tool("subtask_planner", Tools_dict["subtask_planner"]["provider"], Tools_dict["subtask_planner"]["model"])
+        _register(self.generator_agent, "subtask_planner")
 
         self.dag_translator_agent = Tools()
-        self.dag_translator_agent.register_tool("dag_translator", self.Tools_dict["dag_translator"]["provider"], self.Tools_dict["dag_translator"]["model"])
+        _register(self.dag_translator_agent, "dag_translator")
 
         self.narrative_summarization_agent = Tools()
-        self.narrative_summarization_agent.register_tool("narrative_summarization", self.Tools_dict["narrative_summarization"]["provider"], self.Tools_dict["narrative_summarization"]["model"])
+        _register(self.narrative_summarization_agent, "narrative_summarization")
 
         self.episode_summarization_agent = Tools()
-        self.episode_summarization_agent.register_tool("episode_summarization", self.Tools_dict["episode_summarization"]["provider"], self.Tools_dict["episode_summarization"]["model"])
+        _register(self.episode_summarization_agent, "episode_summarization")
 
         self.local_kb_path = local_kb_path
 
         self.embedding_engine = Tools()
-        self.embedding_engine.register_tool("embedding", self.Tools_dict["embedding"]["provider"], self.Tools_dict["embedding"]["model"])
+        _register(self.embedding_engine, "embedding")
+        
         KB_Tools_dict = {
-            "embedding": self.Tools_dict["embedding"],
-            "query_formulator": self.Tools_dict["query_formulator"],
-            "context_fusion": self.Tools_dict["context_fusion"],
-            "narrative_summarization": self.Tools_dict["narrative_summarization"],
-            "episode_summarization": self.Tools_dict["episode_summarization"],
+            "embedding": self.Tools_dict.get("embedding"),
+            "query_formulator": self.Tools_dict.get("query_formulator"),
+            "context_fusion": self.Tools_dict.get("context_fusion"),
+            "narrative_summarization": self.Tools_dict.get("narrative_summarization"),
+            "episode_summarization": self.Tools_dict.get("episode_summarization"),
         }
 
 
@@ -75,7 +82,7 @@ class Manager:
         # Initialize search engine based on enable_search parameter
         if enable_search:
             self.search_engine = Tools()
-            self.search_engine.register_tool("websearch", self.Tools_dict["websearch"]["provider"], self.Tools_dict["websearch"]["model"])
+            _register(self.search_engine, "websearch")
         else:
             self.search_engine = None
 

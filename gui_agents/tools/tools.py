@@ -33,7 +33,7 @@ class BaseTool(ABC):
                         logger.error(f"Failed to load prompts from prompts.py: {e}")
                         cls._prompts_dict = {}
 
-    def __init__(self, provider: str, model_name: str, tool_name: str):
+    def __init__(self, provider: str, model_name: str, tool_name: str, **kwargs):
         """
         Initialize the base tool.
         Args:
@@ -49,8 +49,9 @@ class BaseTool(ABC):
         # Create LLMAgent instance for tool usage
         self.engine_params = {
             "engine_type": provider,
-            "model": model_name
+            "model": model_name,
         }
+        self.engine_params.update(kwargs)
         self.llm_agent = LLMAgent(engine_params=self.engine_params, system_prompt=self._prompt_template)
 
     def _get_prompt_template(self) -> str:
@@ -170,7 +171,7 @@ class ToolFactory:
 class WebSearchTool(BaseTool):
     """Tool for performing web searches."""
     
-    def __init__(self, provider: str, model_name: str, tool_name: str):
+    def __init__(self, provider: str, model_name: str, tool_name: str, base_url='', api_key=''):
         """
         Initialize the web search tool.
         
@@ -456,7 +457,7 @@ class ActionGeneratorTool(BaseTool):
                 search_provider: Provider for web search (defaults to "bocha")
                 search_model: Model for web search (defaults to "")
         """
-        super().__init__(provider, model_name, tool_name)
+        super().__init__(provider, model_name, tool_name, **kwargs)
         
         # Extract search-related parameters
         self.enable_search = kwargs.get("enable_search", False)
@@ -522,7 +523,7 @@ class FastActionGeneratorTool(BaseTool):
                 search_provider: Provider for web search (defaults to "bocha")
                 search_model: Model for web search (defaults to "")
         """
-        super().__init__(provider, model_name, tool_name)
+        super().__init__(provider, model_name, tool_name, **kwargs)
         
         # Extract search-related parameters
         self.enable_search = kwargs.get("enable_search", False)
@@ -592,7 +593,7 @@ class FastActionGeneratorTool(BaseTool):
 class EmbeddingTool(BaseTool):
     """Tool for generating text embeddings."""
     
-    def __init__(self, provider: str, model_name: str, tool_name: str):
+    def __init__(self, provider: str, model_name: str, tool_name: str, base_url='', api_key=''):
         """
         Initialize the embedding tool.
         
@@ -608,7 +609,9 @@ class EmbeddingTool(BaseTool):
         # Create EmbeddingAgent instance
         self.engine_params = {
             "engine_type": provider,
-            "embedding_model": model_name
+            "embedding_model": model_name,
+            "base_url": base_url,
+            "api_key": api_key
         }
         
         # Initialize EmbeddingAgent

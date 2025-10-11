@@ -139,10 +139,14 @@ class AgentS2(UIAgent):
             self.Tools_dict = {}
             for tool in self.tools_config["tools"]:
                 tool_name = tool["tool_name"]
-                self.Tools_dict[tool_name] = {
-                    "provider": tool["provider"],
-                    "model": tool["model_name"]
-                }
+                # Create a copy of the tool's config to avoid modifying the original
+                config_copy = tool.copy()
+                # Rename 'model_name' to 'model' for consistency in downstream use
+                if 'model_name' in config_copy:
+                    config_copy['model'] = config_copy.pop('model_name')
+                # Remove tool_name as it's now the key
+                config_copy.pop('tool_name', None)
+                self.Tools_dict[tool_name] = config_copy
         else:
             self.tools_config, self.Tools_dict = load_config()
 

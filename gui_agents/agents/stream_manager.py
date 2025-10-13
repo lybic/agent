@@ -1,3 +1,11 @@
+"""
+Stream manager for per-task progress messaging.
+
+This module provides a global `stream_manager` singleton that manages
+async message queues for task-based streaming. The singleton is async-safe
+and should have its event loop configured via `set_loop()` during application
+startup.
+"""
 import asyncio
 from google.protobuf.timestamp_pb2 import Timestamp
 from typing import Dict, Optional, AsyncGenerator

@@ -134,7 +134,6 @@ class StreamManager:
             if task_id in self.task_queues:
                 q = self.task_queues.pop(task_id)
                 logger.info(f"Unregistered message queue for task {task_id}")
-
         if q:
             try:
                 # Put a sentinel value to unblock any consumers
@@ -143,9 +142,13 @@ class StreamManager:
                 # If full, make space for sentinel
                 try:
                     q.get_nowait()
-                    q.put_nowait(None)
                 except asyncio.QueueEmpty:
                     pass
+                # Retry put after making space or if queue became empty
+                try:
+                    q.put_nowait(None)
+                except asyncio.QueueFull:
+                    logger.error(f"Could not send sentinel for task {task_id}: queue still full after retry")
 
 
 # Global instance to be used across the application

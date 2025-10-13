@@ -37,39 +37,6 @@ from gui_agents.agents.stream_manager import stream_manager, StreamMessage
 from gui_agents.agents.agent_s import load_config
 from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig, Authorization
 from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface, __version__
-# from gui_agents.rag import RagManager
-
-has_display, pyautogui_available, env_error = app.check_display_environment()
-compatible_backends, incompatible_backends = app.get_compatible_backends(has_display, pyautogui_available)
-is_compatible, recommended_backend, warning = app.validate_backend_compatibility(
-        'lybic', compatible_backends, incompatible_backends)
-timestamp_dir = os.path.join(app.log_dir, app.datetime_str)
-cache_dir = os.path.join(timestamp_dir, "cache", "screens")
-state_dir = os.path.join(timestamp_dir, "state")
-
-os.makedirs(cache_dir, exist_ok=True)
-os.makedirs(state_dir, exist_ok=True)
-
-Registry.register(
-    "GlobalStateStore",
-    GlobalState(
-        screenshot_dir=cache_dir,
-        tu_path=os.path.join(state_dir, "tu.json"),
-        search_query_path=os.path.join(state_dir, "search_query.json"),
-        completed_subtasks_path=os.path.join(state_dir,
-                                             "completed_subtasks.json"),
-        failed_subtasks_path=os.path.join(state_dir,
-                                          "failed_subtasks.json"),
-        remaining_subtasks_path=os.path.join(state_dir,
-                                             "remaining_subtasks.json"),
-        termination_flag_path=os.path.join(state_dir,
-                                           "termination_flag.json"),
-        running_state_path=os.path.join(state_dir, "running_state.json"),
-        display_info_path=os.path.join(timestamp_dir, "display.json"),
-        agent_log_path=os.path.join(timestamp_dir, "agent_log.json")
-    )
-)
-
 
 
 class AgentServicer(agent_pb2_grpc.AgentServicer):
@@ -125,12 +92,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         except asyncio.CancelledError:
             logger.info(f"GetAgentTaskStream for {task_id} cancelled by client.")
         except Exception as e:
-            logger.error(f"Error in GetAgentTaskStream for task {task_id}: {e}")
+            logger.exception(f"Error in GetAgentTaskStream for task {task_id}: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"An error occurred during streaming: {e}")
-        finally:
-            # Clean up the task and stream when done
-            await stream_manager.unregister_task(task_id)
 
     async def GetAgentInfo(self, request, context):
         """
@@ -197,7 +161,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 await stream_manager.add_message(task_id, "finished", f"Task finished with status: {status}")
 
         except Exception as e:
-            logger.error(f"Error during task execution for {task_id}: {e}", exc_info=True)
+            logger.exception(f"Error during task execution for {task_id}: {e}")
             async with self.task_lock:
                 self.tasks[task_id]["status"] = "error"
             await stream_manager.add_message(task_id, "error", f"An error occurred: {e}")
@@ -264,12 +228,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
         # Add Lybic authorization info if available
         if backend == 'lybic':
-            auth_info: Authorization
-            if request.HasField("runningConfig") and request.runningConfig.HasField("authorizationInfo"):
-                auth_info = request.runningConfig.authorizationInfo
-            else:
-                auth_info = self.global_common_config.authorizationInfo
-
+            auth_info = (request.runningConfig.authorizationInfo
+                         if request.HasField("runningConfig") and request.runningConfig.HasField("authorizationInfo")
+                         else self.global_common_config.authorizationInfo)
+            if not auth_info or not auth_info.orgID or not auth_info.apiKey:
+                raise ValueError("Lybic backend requires valid authorization (orgID and apiKey)")
             if auth_info.orgID:
                 backend_kwargs['org_id'] = auth_info.orgID
             if auth_info.apiKey:
@@ -362,13 +325,13 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             tool_name = tool_entry['tool_name']
             if tool_name in tools_dict:
                 modified_data = tools_dict[tool_name]
-                # 确保所有修改的字段都同步回 tools_config
+                # Ensure all modified fields are synced back to tools_config
                 for key, value in modified_data.items():
                     if key in ['provider', 'model_name', 'api_key', 'base_url', 'model']:
                         tool_entry[key] = value
 
         return AgentS2(
-            platform="windows",  # 沙盒中的系统
+            platform="windows",  # Sandbox system
             screen_size=[1280, 720],
             enable_takeover=False,
             enable_search=False,
@@ -469,19 +432,21 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             # Create queue for this task
             queue = asyncio.Queue()
 
-            # Start the task in background
-            task_future = asyncio.create_task(self._run_task(task_id, backend_kwargs))
-
             self.tasks[task_id] = {
                 "request": request,
                 "status": "pending",
                 "final_state": None,
                 "queue": queue,
-                "future": task_future,
+                "future": None,
                 "query": request.instruction,
                 "agent": agent,
                 "max_steps": max_steps,
             }
+
+            # Start the task in background
+            task_future = asyncio.create_task(self._run_task(task_id, backend_kwargs))
+
+            self.tasks[task_id]["future"] = task_future
 
         return agent_pb2.RunAgentInstructionAsyncResponse(taskId=task_id)
 
@@ -531,8 +496,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         else:  # pending or running
             task_status = status_map.get(status, agent_pb2.TaskStatus.TASKSTATUSUNDEFINED)
             message = "Task is running."
-            if controller and controller.global_state.thoughts:
-                message = controller.global_state.thoughts[-1]
             result = ""
 
         return agent_pb2.QueryTaskStatusResponse(
@@ -633,8 +596,12 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             else:
                 task_info = self.tasks.get(request.id)
         if task_info and task_info.get("request"):
-            original_config = task_info["request"].runningConfig
-            masked_config = self._mask_config_secrets(original_config)
+            if task_info["request"].HasField("runningConfig"):
+                original_config = task_info["request"].runningConfig
+                masked_config = self._mask_config_secrets(original_config)
+            else:
+                masked_config = agent_pb2.CommonConfig(id=request.id)
+
             logger.debug(f"Returned masked config for task {request.id}")
             return masked_config
         context.set_code(grpc.StatusCode.NOT_FOUND)
@@ -775,6 +742,35 @@ async def serve():
 
 def main():
     """Entry point for the gRPC server."""
+    has_display, pyautogui_available, env_error = app.check_display_environment()
+    compatible_backends, incompatible_backends = app.get_compatible_backends(has_display, pyautogui_available)
+    app.validate_backend_compatibility('lybic', compatible_backends, incompatible_backends)
+    timestamp_dir = os.path.join(app.log_dir, app.datetime_str)
+    cache_dir = os.path.join(timestamp_dir, "cache", "screens")
+    state_dir = os.path.join(timestamp_dir, "state")
+
+    os.makedirs(cache_dir, exist_ok=True)
+    os.makedirs(state_dir, exist_ok=True)
+
+    Registry.register(
+        "GlobalStateStore",
+        GlobalState(
+            screenshot_dir=cache_dir,
+            tu_path=os.path.join(state_dir, "tu.json"),
+            search_query_path=os.path.join(state_dir, "search_query.json"),
+            completed_subtasks_path=os.path.join(state_dir,
+                                                 "completed_subtasks.json"),
+            failed_subtasks_path=os.path.join(state_dir,
+                                              "failed_subtasks.json"),
+            remaining_subtasks_path=os.path.join(state_dir,
+                                                 "remaining_subtasks.json"),
+            termination_flag_path=os.path.join(state_dir,
+                                               "termination_flag.json"),
+            running_state_path=os.path.join(state_dir, "running_state.json"),
+            display_info_path=os.path.join(timestamp_dir, "display.json"),
+            agent_log_path=os.path.join(timestamp_dir, "agent_log.json")
+        )
+    )
     asyncio.run(serve())
 
 if __name__ == '__main__':

@@ -164,6 +164,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             steps = self.tasks[task_id]["max_steps"]
             query = self.tasks[task_id]["query"]
 
+            # Register task with stream manager
+            await stream_manager.register_task(task_id)
+
         try:
             # Send message through stream manager
             await stream_manager.add_message(task_id, "starting", "Task starting")
@@ -464,9 +467,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
             # Create queue for this task
             queue = asyncio.Queue()
-
-            # Register task with stream manager
-            await stream_manager.register_task(task_id)
 
             # Start the task in background
             task_future = asyncio.create_task(self._run_task(task_id, backend_kwargs))

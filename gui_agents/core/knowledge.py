@@ -98,8 +98,13 @@ class KnowledgeBase:
             config = Tools_dict.get(tool_name, {}).copy()
             provider = config.pop("provider", None)
             model = config.pop("model", None)
-            # Pass all other config items as kwargs
-            tools_instance.register_tool(tool_name, provider, model, **config)
+            auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+            auth_params = {}
+            for key in auth_keys:
+                if key in config:
+                    auth_params[key] = config[key]
+            all_params = {**config, **auth_params}
+            tools_instance.register_tool(tool_name, provider, model, **all_params)
 
         self.query_formulator = Tools()
         _register(self.query_formulator, "query_formulator")

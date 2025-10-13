@@ -349,7 +349,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         if stage_config.HasField("actionGeneratorModel"):
             common_llm_config = stage_config.actionGeneratorModel
             # Apply common config to all other LLM-based tools
-            for tool_name, config in tools_dict.items():
+            for tool_name, _ in tools_dict.items():
                 if tool_name not in ['embedding', 'grounding']:
                     apply_config(tool_name, common_llm_config)
         

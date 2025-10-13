@@ -305,7 +305,7 @@ class AgentS2(UIAgent):
                     self.search_query = ""
 
                 # Stream planning completion message
-                self._send_stream_message(self.task_id, "planning", f"规划完成，生成了 {len(self.subtasks)} 个子任务")
+                self._send_stream_message(self.task_id, "planning", f"规划完成, 生成了 {len(self.subtasks)} 个子任务")
             get_action_queue_time = time.time() - manager_start
             logger.info(f"[Timing] manager.get_action_queue execution time: {get_action_queue_time:.2f} seconds")
             self.global_state.log_operation(
@@ -373,7 +373,7 @@ class AgentS2(UIAgent):
             worker_start_time = time.time()
 
             # Stream action generation start message
-            self._send_stream_message(self.task_id, "thinking", f"正在生成执行动作...")
+            self._send_stream_message(self.task_id, "thinking", "正在生成执行动作...")
 
             # get the next action from the worker
             executor_info = self.worker.generate_next_action(
@@ -461,7 +461,7 @@ class AgentS2(UIAgent):
                 self.failure_subtask = self.global_state.get_latest_failed_subtask()
 
                 # Stream failure message
-                self._send_stream_message(self.task_id, "error", f"子任务执行失败: {self.current_subtask.name}，将重新规划")
+                self._send_stream_message(self.task_id, "error", f"子任务执行失败: {self.current_subtask.name}, 将重新规划")
 
                 # 记录失败的子任务
                 self.global_state.log_operation(
@@ -645,7 +645,7 @@ class AgentSFast(UIAgent):
         enable_takeover: bool = False,
         enable_search: bool = True,
         enable_reflection: bool = True,
-        tools_config:dict|None = None,
+        tools_config: dict | None = None,
         # enable_reflection: bool = False,
     ):
         """
@@ -676,11 +676,22 @@ class AgentSFast(UIAgent):
         self.enable_reflection = enable_reflection
         self.task_id = None  # Will be set when task starts
 
-        if not tools_config:
-            self.tools_config, self.Tools_dict = load_config()
-        else:
-            self.Tools_dict = tools_config["tools"]
+        if tools_config is not None:
             self.tools_config = tools_config
+            # Create the dictionary mapping from the list-based config
+            self.Tools_dict = {}
+            for tool in self.tools_config["tools"]:
+                tool_name = tool["tool_name"]
+                # Create a copy of the tool's config to avoid modifying the original
+                config_copy = tool.copy()
+                # Rename 'model_name' to 'model' for consistency in downstream use
+                if 'model_name' in config_copy:
+                    config_copy['model'] = config_copy.pop('model_name')
+                # Remove tool_name as it's now the key
+                config_copy.pop('tool_name', None)
+                self.Tools_dict[tool_name] = config_copy
+        else:
+            self.tools_config, self.Tools_dict = load_config()
 
         # Initialize agent's knowledge base path
         self.local_kb_path = os.path.join(
@@ -876,7 +887,7 @@ class AgentSFast(UIAgent):
         fast_action_start_time = time.time()
 
         # Stream action generation start message
-        self._send_stream_message(self.task_id, "thinking", f"正在快速生成执行动作...")
+        self._send_stream_message(self.task_id, "thinking", "正在快速生成执行动作...")
 
         plan, total_tokens, cost_string = self.fast_action_generator.execute_tool(
             self.fast_action_generator_tool,

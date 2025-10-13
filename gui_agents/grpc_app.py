@@ -92,7 +92,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         except asyncio.CancelledError:
             logger.info(f"GetAgentTaskStream for {task_id} cancelled by client.")
         except Exception as e:
-            logger.exception(f"Error in GetAgentTaskStream for task {task_id}: {e}")
+            logger.exception(f"Error in GetAgentTaskStream for task {task_id}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"An error occurred during streaming: {e}")
 
@@ -400,7 +400,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             if task_future:
                 task_future.cancel()
         except Exception as e:
-            logger.error(f"Error in RunAgentInstruction stream for task {task_id}: {e}")
+            logger.exception(f"Error in RunAgentInstruction stream for task {task_id}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"An error occurred during streaming: {e}")
 
@@ -476,7 +476,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             )
 
         status = task_info["status"]
-        controller = task_info.get("controller")
         final_state = task_info.get("final_state")
 
         status_map = {
@@ -743,7 +742,7 @@ async def serve():
 
 def main():
     """Entry point for the gRPC server."""
-    has_display, pyautogui_available, env_error = app.check_display_environment()
+    has_display, pyautogui_available, _ = app.check_display_environment()
     compatible_backends, incompatible_backends = app.get_compatible_backends(has_display, pyautogui_available)
     app.validate_backend_compatibility('lybic', compatible_backends, incompatible_backends)
     timestamp_dir = os.path.join(app.log_dir, app.datetime_str)

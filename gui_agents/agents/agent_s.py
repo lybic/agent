@@ -26,11 +26,10 @@ logger = logging.getLogger("desktopenv.agent")
 
 def load_config():
     """
-    Load tools configuration from tools_config.json
+    Load tool configurations from the repository's tools/tools_config.json and produce a mapping keyed by tool name.
+    
     Returns:
-
-    dict: full Tools configuration
-    dict: dictionary of tools
+        tuple: (tools_config, tools_dict) where `tools_config` is the parsed JSON object from tools_config.json, and `tools_dict` is a dict mapping each tool's `tool_name` to a dict with `provider` and `model`.
     """
     # Load tools configuration from tools_config.json
     tools_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "tools_config.json")
@@ -62,7 +61,11 @@ class UIAgent:
         self.platform = platform
 
     def reset(self) -> None:
-        """Reset agent state"""
+        """
+        Reset the agent to its initial internal state.
+        
+        Performs any subclass-specific reinitialization needed so the agent is ready to start a new task or episode.
+        """
         pass
 
     def _send_stream_message(self, task_id: str, stage: str, message: str) -> None:
@@ -75,14 +78,11 @@ class UIAgent:
         stream_manager.add_message_threadsafe(task_id, stage, message)
 
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]|None:
-        """Generate next action prediction
-
-        Args:
-            instruction: Natural language instruction
-            observation: Current UI state observation
-
+        """
+        Produce the next agent information and action sequence for the given instruction and current observation.
+        
         Returns:
-            Tuple containing agent info dictionary and list of actions
+            (info, actions) where `info` is a dictionary containing planner, executor and evaluator metadata (including subtask metadata and statuses) and `actions` is a list of action strings to execute; returns `None` if no prediction is available.
         """
         pass
 
@@ -120,15 +120,13 @@ class AgentS2(UIAgent):
         enable_search: bool = True,
         tools_config: dict | None = None,
     ):
-        """Initialize AgentS2
-
-        Args:
-            platform: Operating system platform (darwin, linux, windows)
-            memory_root_path: Path to memory directory. Defaults to current working directory.
-            memory_folder_name: Name of memory folder. Defaults to "kb_s2".
-            kb_release_tag: Release tag for knowledge base. Defaults to "v0.2.2".
-            enable_takeover: Whether to enable user takeover functionality. Defaults to False.
-            enable_search: Whether to enable web search functionality. Defaults to True.
+        """
+        Initialize an AgentS2 instance and prepare its tools and local knowledge base.
+        
+        If `tools_config` is provided, build `Tools_dict` mapping each `tool_name` to its config (renaming `model_name` to `model` and removing `tool_name`). If `tools_config` is not provided, load configuration via `load_config()`. Ensure a platform-specific knowledge base directory exists under `memory_root_path/memory_folder_name` (creating it if missing). Sets initial attributes (platform, screen_size, memory paths, flags) and initializes internal state via `reset()`.
+        
+        Parameters:
+            tools_config (dict | None): Optional pre-loaded tools configuration; when present it is transformed into `Tools_dict`. Omit to load configuration from disk.
         """
         super().__init__(
             platform,
@@ -177,7 +175,13 @@ class AgentS2(UIAgent):
         self.reset()
 
     def reset(self) -> None:
-        """Reset agent state and initialize components"""
+        """
+        Reinitialize core components and reset the agent's runtime state.
+        
+        Recreates the Manager, Worker, and Grounding components using the agent's current configuration,
+        resets planning/execution flags and counters, clears subtask-related state, reloads the shared
+        global state from the registry, and propagates the agent's task_id to the components when present.
+        """
         # Initialize core components
 
         self.manager = Manager(
@@ -223,7 +227,12 @@ class AgentS2(UIAgent):
             self.worker.task_id = self.task_id
 
     def set_task_id(self, task_id: str) -> None:
-        """Set the task ID for streaming purposes"""
+        """
+        Set the task identifier and propagate it to internal components used for streaming.
+        
+        Parameters:
+            task_id (str): Identifier for the current task; assigned to this agent and, if present, to its manager and worker so stream messages are tagged consistently.
+        """
         self.task_id = task_id
         # Also set task_id for components if they exist
         if hasattr(self, 'manager') and self.manager:
@@ -238,6 +247,19 @@ class AgentS2(UIAgent):
 
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:
         # Initialize the three info dictionaries
+        """
+        Produce the next executor actions and diagnostic information for the current task step.
+        
+        This method coordinates planning, subtask selection, action generation, grounding (code extraction and execution), and status updates. It may trigger replanning, advance to the next subtask, mark subtasks as completed or failed, and emit stream messages and logs. The returned info merges planner, executor, and evaluator metadata and includes current subtask details.
+        
+        Parameters:
+            instruction (str): The user or system instruction describing the task to accomplish; forwarded to the manager/worker as the task utterance.
+            observation (Dict): Current environment observation/state used for grounding and coordinate assignment.
+        
+        Returns:
+            info (Dict): A merged dictionary containing planner_info, executor_info, evaluator_info and the keys `subtask`, `subtask_info`, and `subtask_status`.
+            actions (List[Dict]): List of action dictionaries produced for execution (may include actions with type "DONE", failure indicators, or other executor-generated actions).
+        """
         planner_info = {}
         executor_info = {}
         evaluator_info = {
@@ -626,16 +648,20 @@ class AgentSFast(UIAgent):
         tools_config:dict|None = None,
         # enable_reflection: bool = False,
     ):
-        """Initialize AgentSFast
-
-        Args:
-            platform: Operating system platform (darwin, linux, windows)
-            memory_root_path: Path to memory directory. Defaults to current working directory.
-            memory_folder_name: Name of memory folder. Defaults to "kb_s2".
-            kb_release_tag: Release tag for knowledge base. Defaults to "v0.2.2".
-            enable_takeover: Whether to enable user takeover functionality. Defaults to False.
-            enable_search: Whether to enable web search functionality. Defaults to True.
-            enable_reflection: Whether to enable reflection functionality. Defaults to True.
+        """
+        Create and initialize an AgentSFast instance, configuring tools, memory paths, and optional features.
+        
+        Parameters:
+            platform (str): Operating system platform identifier (e.g., "darwin", "linux", "windows"); used to scope platform-specific knowledge base.
+            screen_size (List[int]): Screen width and height used for grounding calculations.
+            memory_root_path (str): Root directory for agent memory storage.
+            memory_folder_name (str): Subfolder name under memory_root_path for this agent's knowledge base.
+            kb_release_tag (str): Knowledge base release tag used for bookkeeping or compatibility.
+            enable_takeover (bool): If True, enable user takeover capabilities in the fast action generator.
+            enable_search (bool): If True, enable web/search-related features when registering tools.
+            enable_reflection (bool): If True, enable trajectory reflection and a reflection agent to summarize agent behavior.
+            tools_config (dict | None): Optional pre-loaded tools configuration; if omitted, configuration is loaded from disk.
+        
         """
         super().__init__(
             platform,
@@ -673,7 +699,11 @@ class AgentSFast(UIAgent):
         self.reset()
 
     def reset(self) -> None:
-        """Reset agent state and initialize components"""
+        """
+        Reinitialize the fast-agent components and reset internal runtime state.
+        
+        Initializes and registers the fast action generator tool (and traj_reflector if reflection is enabled), configures search/auth parameters from tool configuration, creates or updates the grounding subsystem with resolved grounding dimensions, resets counters and runtime references (step_count, turn_count, latest_action, global_state), and propagates the current task_id to any registered tools.
+        """
         # Initialize the fast action generator tool
         self.fast_action_generator = Tools()
         self.fast_action_generator_tool = "fast_action_generator_with_takeover" if self.enable_takeover else "fast_action_generator"
@@ -759,7 +789,13 @@ class AgentSFast(UIAgent):
                 self.reflection_agent.task_id = self.task_id
 
     def set_task_id(self, task_id: str) -> None:
-        """Set the task ID for streaming purposes"""
+        """
+        Store the task identifier on the agent and propagate it to subcomponents that use it.
+        
+        Parameters:
+            task_id (str): Identifier for the active task; assigned to this agent and, if present, to
+                `fast_action_generator` and `reflection_agent`.
+        """
         self.task_id = task_id
         # Also set task_id for components if they exist
         if hasattr(self, 'fast_action_generator') and self.fast_action_generator:
@@ -768,14 +804,16 @@ class AgentSFast(UIAgent):
             self.reflection_agent.task_id = task_id
 
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:
-        """Generate next action prediction using only the fast_action_generator tool
-
-        Args:
-            instruction: Natural language instruction
-            observation: Current UI state observation
-
+        """
+        Generate the next executor plan and corresponding actions using the configured fast action generator.
+        
+        Parameters:
+        	instruction (str): Natural language task description.
+        	observation (Dict): Current UI state; must include a "screenshot" entry with the screen image.
+        
         Returns:
-            Tuple containing agent info dictionary and list of actions
+        	executor_info (dict): Contains at least the keys `executor_plan` (raw plan text), `reflection` (reflection text or empty string), and `plan_code` (the latest extracted/used action code).
+        	actions (List[dict]): List of action dictionaries produced by grounding execution; typically a single action dict describing the operation to perform.
         """
         import time
         predict_start_time = time.time()

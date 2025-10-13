@@ -259,6 +259,18 @@ def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInter
     return screenshot
 
 def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50, enable_takeover: bool = False):
+    """
+    Run an agent in normal mode to iteratively observe, plan, and execute actions for a given instruction.
+    
+    Runs up to `max_steps` iterations: captures screenshots, obtains observations, asks the agent for a plan, executes hardware actions, and updates trajectory and memories until the agent signals completion or failure. The function also supports pausing for user takeover and performs post-run timing logging and automatic analysis.
+    
+    Parameters:
+        agent: The agent instance used to generate plans and reflections (expects an object exposing `predict`, `update_episodic_memory`, and `update_narrative_memory`).
+        instruction (str): The high-level task description provided to the agent.
+        hwi_para (HardwareInterface): Hardware interface used to capture screenshots and dispatch actions.
+        max_steps (int): Maximum number of agent prediction/execute cycles to run.
+        enable_takeover (bool): If True, the agent may request a user takeover that pauses execution until the user resumes.
+    """
     import time
     obs = {}
     traj = "Task:\n" + instruction

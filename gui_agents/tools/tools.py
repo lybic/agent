@@ -23,6 +23,11 @@ class BaseTool(ABC):
 
     @classmethod
     def _load_prompts_dict(cls):
+        """
+        Lazily load and cache the prompts dictionary on the class using thread-safe double-checked locking.
+        
+        If the prompts module cannot be loaded, sets `_prompts_dict` to an empty dict and logs an error.
+        """
         if cls._prompts_dict is None:
             with cls._prompts_dict_lock:
                 if cls._prompts_dict is None:
@@ -35,11 +40,20 @@ class BaseTool(ABC):
 
     def __init__(self, provider: str, model_name: str, tool_name: str, **kwargs):
         """
-        Initialize the base tool.
-        Args:
-            provider: API provider name (e.g., "gemini", "openai")
-            model_name: Model name to use (e.g., "gemini-2.5-pro")
-            tool_name: Name of the tool (used as key in prompts.py)
+        Initialize the base tool, populate engine parameters from provided arguments, load the tool prompt, and create the LLMAgent instance used for LLM calls.
+        
+        Parameters:
+            provider (str): API provider identifier (e.g., "gemini", "openai"); used as the engine_type in engine parameters.
+            model_name (str): Model identifier to use (e.g., "gemini-2.5-pro"); stored as the model in engine parameters.
+            tool_name (str): Tool key used to look up the system prompt template.
+        
+        Keyword Arguments:
+            api_key, base_url, endpoint_url, azure_endpoint, api_version: If present, each is copied into engine parameters and logged as set for the tool.
+            Any other kwargs: Forwarded into engine parameters as-is.
+        
+        Notes:
+            - Loads the prompt template for the tool and stores it on the instance.
+            - Constructs self.engine_params and instantiates self.llm_agent with the system prompt.
         """
         self.provider = provider
         self.model_name = model_name
@@ -65,6 +79,12 @@ class BaseTool(ABC):
         self.llm_agent = LLMAgent(engine_params=self.engine_params, system_prompt=self._prompt_template)
 
     def _get_prompt_template(self) -> str:
+        """
+        Return the prompt template associated with this tool from the class-level prompts cache.
+        
+        Returns:
+        	(prompt_template (str)): The prompt template for this tool's name, or an empty string if the tool has no name or no template is available.
+        """
         if self.tool_name is None:
             return ""
         prompts = self.__class__._prompts_dict
@@ -183,12 +203,14 @@ class WebSearchTool(BaseTool):
     
     def __init__(self, provider: str, model_name: str, tool_name: str, base_url='', api_key=''):
         """
-        Initialize the web search tool.
+        Initialize the WebSearchTool and configure its WebSearchAgent.
         
-        Args:
-            provider: API provider name (e.g., "bocha", "exa")
-            model_name: Model name to use (not used for WebSearchAgent)
-            tool_name: Name of the tool (used as key in prompts.json)
+        Parameters:
+            provider (str): Identifier of the search API provider (e.g., "bocha", "exa").
+            model_name (str): Model identifier to include in engine configuration.
+            tool_name (str): Tool name or prompt key associated with this tool.
+            base_url (str, optional): Custom endpoint URL for the search service.
+            api_key (str, optional): API key or credential for authenticating with the search service.
         """
         self.provider = provider
         
@@ -456,16 +478,19 @@ class ActionGeneratorTool(BaseTool):
     
     def __init__(self, provider: str, model_name: str, tool_name: str, **kwargs):
         """
-        Initialize the action generator tool.
+        Create an ActionGeneratorTool and configure optional web search support.
         
-        Args:
-            provider: API provider name
-            model_name: Model name to use
-            tool_name: Name of the tool (used as key in prompts.json)
-            **kwargs: Additional parameters, including:
-                enable_search: Whether to enable web search functionality
-                search_provider: Provider for web search (defaults to "bocha")
-                search_model: Model for web search (defaults to "")
+        Parameters:
+            provider (str): Name of the API provider to use for the tool.
+            model_name (str): Model identifier used by the underlying LLM engine.
+            tool_name (str): Tool key used to select the prompt template.
+            **kwargs: Additional configuration options:
+                enable_search (bool): If True, a WebSearchTool will be created and attached to the tool as `self.search_tool`. Defaults to False.
+                search_provider (str): Provider to use for the optional web search. Defaults to "bocha".
+                search_model (str): Model identifier to use for the optional web search. Defaults to an empty string.
+        
+        Side effects:
+            Sets `self.enable_search` and, when `enable_search` is True, initializes `self.search_tool` with a WebSearchTool instance and logs the enabling of web search.
         """
         super().__init__(provider, model_name, tool_name, **kwargs)
         
@@ -522,16 +547,17 @@ class FastActionGeneratorTool(BaseTool):
     
     def __init__(self, provider: str, model_name: str, tool_name: str, **kwargs):
         """
-        Initialize the fast action generator tool.
+        Initialize the FastActionGeneratorTool and optionally enable web search augmentation.
         
-        Args:
-            provider: API provider name
-            model_name: Model name to use
-            tool_name: Name of the tool (used as key in prompts.json)
-            **kwargs: Additional parameters, including:
-                enable_search: Whether to enable web search functionality
-                search_provider: Provider for web search (defaults to "bocha")
-                search_model: Model for web search (defaults to "")
+        Parameters:
+            provider (str): API provider name used to configure the underlying LLM/engine.
+            model_name (str): Model identifier to use for generation.
+            tool_name (str): Tool key used to select the prompt template.
+            **kwargs: Additional keyword arguments. Recognized keys:
+                enable_search (bool): If true, instantiate a WebSearchTool to augment requests with search results.
+                search_provider (str): Provider name for the optional web search (default "bocha").
+                search_model (str): Model name for the optional web search (default "").
+                Any other kwargs are forwarded to BaseTool for engine/auth configuration.
         """
         super().__init__(provider, model_name, tool_name, **kwargs)
         
@@ -605,12 +631,14 @@ class EmbeddingTool(BaseTool):
     
     def __init__(self, provider: str, model_name: str, tool_name: str, base_url='', api_key=''):
         """
-        Initialize the embedding tool.
+        Create and configure an EmbeddingTool backed by an EmbeddingAgent.
         
-        Args:
-            provider: API provider name (e.g., "openai", "gemini")
-            model_name: Model name to use
-            tool_name: Name of the tool (used as key in prompts.json)
+        Parameters:
+            provider (str): Name of the embedding service provider (e.g., "openai", "gemini").
+            model_name (str): Embedding model identifier to use.
+            tool_name (str): Tool key used to look up prompts or register the tool.
+            base_url (str, optional): Custom endpoint URL for the provider; defaults to ''.
+            api_key (str, optional): API key or credential for authenticating with the provider; defaults to ''.
         """
         self.provider = provider
         self.model_name = model_name

@@ -10,7 +10,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def test_config_flow():
-    """测试配置从 gRPC 到 LLM Engine 的传递流程"""
+    """
+    Verifies that a gRPC-provided LLM configuration is propagated into a registered tool's engine parameters.
+    
+    Simulates a gRPC configuration, applies it to the "action_generator" tool configuration loaded from the application's config, registers the tool, and asserts that the resulting engine parameters contain the expected api_key, base_url, and model values. Prints progress and diagnostic information; on failure, prints the exception and stack trace.
+    """
 
     print("=" * 80)
     print("测试 LLM 配置传递流程")
@@ -77,6 +81,11 @@ def test_config_flow():
         traceback.print_exc()
 
 def test_different_providers():
+    """
+    Runs registration checks for multiple LLM providers and prints per-provider pass/fail results.
+    
+    For each predefined provider case, registers a tool using the provider's configuration and prints a masked API key indicator and the resolved base URL; any exceptions encountered during registration or inspection are printed as failures.
+    """
     print("\n" + "=" * 80)
     print("测试不同提供商的配置传递")
     print("=" * 80)

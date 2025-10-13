@@ -10,7 +10,11 @@ from gui_agents.proto.pb import agent_pb2
 from gui_agents.grpc_app import AgentServicer
 
 def test_api_key_masking():
-    """Test that API keys are properly masked in configurations"""
+    """
+    Verify that API keys in CommonConfig and LLMConfig objects are replaced with "********" while non-sensitive fields remain unchanged.
+    
+    Constructs a CommonConfig populated with multiple sensitive apiKey fields and an LLMConfig with an apiKey, invokes AgentServicer._mask_config_secrets and _mask_llm_config_secrets, and asserts that every apiKey is replaced with "********" and that non-sensitive fields (e.g., id, orgID, modelName, provider) are preserved.
+    """
     print("Testing API key masking functionality...")
 
     # Create a test servicer

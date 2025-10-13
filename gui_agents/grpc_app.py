@@ -78,6 +78,12 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
     """
 
     def __init__(self, max_concurrent_task_num = 1):
+        """
+        Initialize the AgentServicer with concurrency and runtime state.
+        
+        Parameters:
+            max_concurrent_task_num (int): Maximum number of agent tasks allowed to run concurrently; defaults to 1.
+        """
         self.lybic_auth: LybicAuth | None = None
         self.max_concurrent_task_num = max_concurrent_task_num
         self.tasks = {}
@@ -88,7 +94,12 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
     async def GetAgentTaskStream(self, request, context):
         """
-        Streams messages for a given task ID.
+        Stream TaskStream messages for the given task ID to the client.
+        
+        If the task ID does not exist, sets gRPC `NOT_FOUND` on the context and returns. Yields GetAgentTaskStreamResponse messages containing the taskId, stage, and message produced by the stream manager. Stops when the client cancels the stream; on internal errors sets gRPC `INTERNAL` on the context. Unregisters the task from the stream manager when streaming ends.
+         
+        Returns:
+            GetAgentTaskStreamResponse: Streamed responses carrying TaskStream payloads with `taskId`, `stage`, and `message`.
         """
         task_id = request.taskId
         logger.info(f"Received GetAgentTaskStream request for taskId: {task_id}")
@@ -122,7 +133,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
     async def GetAgentInfo(self, request, context):
         """
-        Returns information about the agent.
+        Provide agent server metadata.
+        
+        Returns:
+            agent_pb2.AgentInfo: An AgentInfo message containing the server version, the configured maximum concurrent task count (`maxConcurrentTasks`), the current log level (`log_level`), and the host name (`domain`).
         """
         return agent_pb2.AgentInfo(
             version=__version__,
@@ -132,7 +146,18 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         )
 
     async def _run_task(self, task_id: str, backend_kwargs):
-        """Helper to run a task's main loop and handle state."""
+        """
+        Run the lifecycle of a single agent task: mark it running, execute the agent, record final state, emit stream messages, and unregister the task.
+        
+        Parameters:
+        	task_id (str): Identifier of the task to run.
+        	backend_kwargs (dict): Backend configuration passed to the HardwareInterface (e.g., platform, org/api fields, sandbox id).
+        
+        Notes:
+        	- Updates the task entry in self.tasks (status and final_state).
+        	- Emits task lifecycle messages via stream_manager and unregisters the task when finished.
+        	- Exceptions are caught, the task status is set to "error", and an error message is emitted.
+        """
         async with self.task_lock:
             self.tasks[task_id]["status"] = "running"
             agent = self.tasks[task_id]["agent"]
@@ -177,6 +202,25 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             await stream_manager.unregister_task(task_id)
 
     async def _make_backend_kwargs(self, request):
+        """
+        Builds the backend keyword arguments required to provision or select a compute sandbox for the task, based on the provided request and the service's global configuration.
+        
+        Parameters:
+            request: The incoming gRPC request containing optional `runningConfig` and `sandbox` fields. If `runningConfig.authorizationInfo` is present, it will be used to set Lybic authorization for this servicer instance.
+        
+        Returns:
+            dict: A mapping with at least:
+                - "platform": platform identifier (e.g., "Windows" or "Ubuntu").
+                - "precreate_sid": sandbox id to use or an empty string if none.
+            When the backend is "lybic", the dict may also include:
+                - "org_id": organization id for Lybic.
+                - "api_key": API key for Lybic.
+                - "endpoint": Lybic API endpoint.
+        
+        Side effects:
+            - May initialize or replace self.lybic_auth from request.runningConfig.authorizationInfo.
+            - May call self._create_sandbox(...) to create or retrieve a sandbox and determine the platform.
+        """
         platform_map = {
             agent_pb2.SandboxOS.WINDOWS: "Windows",
             agent_pb2.SandboxOS.LINUX: "Ubuntu",
@@ -238,6 +282,18 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         #     max_steps = request.runningConfig.steps
 
         # Dynamically build tools_dict based on global config
+        """
+        Builds and returns an AgentS2 configured for the incoming request by applying model and provider overrides to the tool configurations.
+        
+        Parameters:
+            request: gRPC request message that may contain a runningConfig with a stageModelConfig. If present, stageModelConfig values take precedence over the global common config.
+        
+        Returns:
+            AgentS2: An agent instance with platform set to "windows", screen_size [1280, 720], takeover and search disabled, and a tools_config where tool entries have been updated with provider, model_name/model, and optionally overridden api_key and base_url/endpoint based on the stage model configuration.
+        
+        Raises:
+            Exception: If neither the request nor the global common config contains a StageModelConfig.
+        """
         tools_config, tools_dict = load_config()
 
         stage_config: StageModelConfig
@@ -252,6 +308,21 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         logger.info("Applying global model configurations to this task.")
 
         def apply_config(tool_name, llm_config:LLMConfig):
+            """
+            Apply an LLM configuration to an existing tool entry in the local tools_dict.
+            
+            If a tool with the given name exists in tools_dict and the LLM config specifies a modelName,
+            this function updates the tool's provider, model_name, and model fields. It also overrides
+            sensitive connection fields when present: apiKey is copied to the tool's api_key, and
+            apiEndpoint is copied to base_url and endpoint_url. Actions are logged for any overrides.
+            
+            Parameters:
+                tool_name (str): Name of the tool to update in tools_dict.
+                llm_config (LLMConfig): LLM configuration containing provider, modelName, apiKey, and apiEndpoint.
+            
+            Returns:
+                None
+            """
             if tool_name in tools_dict and llm_config.modelName:
                 tool_cfg = tools_dict[tool_name]
                 tool_cfg['provider'] = llm_config.provider
@@ -302,6 +373,21 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
 
     async def RunAgentInstruction(self, request, context):
+        """
+        Stream task progress for a newly created instruction-run agent while managing task lifecycle and concurrency.
+        
+        Parameters:
+            request: The RunAgentInstruction request proto containing the instruction and runtime configuration.
+            context: gRPC context used to set status codes and details on error or resource exhaustion.
+        
+        Returns:
+            An iterator that yields TaskStream messages with fields: taskId, stage, message, and timestamp.
+        
+        Notes:
+            - Enforces the servicer's max concurrent task limit and sets gRPC StatusCode.RESOURCE_EXHAUSTED if exceeded.
+            - Registers and starts a background task to execute the agent; cancels that background task if the client cancels the stream.
+            - On internal streaming errors, sets gRPC StatusCode.INTERNAL with an explanatory detail.
+        """
         task_id = str(uuid.uuid4())
         logger.info(f"Received RunAgentInstruction request, assigning taskId: {task_id}")
 
@@ -352,8 +438,13 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
     async def RunAgentInstructionAsync(self, request, context):
         """
-        Starts a task asynchronously and returns immediately with a task ID.
-        The task can be monitored via GetAgentTaskStream.
+        Start a new agent task in the background and return a task identifier immediately.
+        
+        If the server has reached its configured maximum concurrent tasks, the RPC sets
+        gRPC status RESOURCE_EXHAUSTED and returns no response.
+        
+        Returns:
+            agent_pb2.RunAgentInstructionAsyncResponse: Response containing the generated `taskId`.
         """
         task_id = str(uuid.uuid4())
         logger.info(f"Received RunAgentInstructionAsync request, assigning taskId: {task_id}")
@@ -394,6 +485,18 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return agent_pb2.RunAgentInstructionAsyncResponse(taskId=task_id)
 
     async def QueryTaskStatus(self, request, context):
+        """
+        Retrieve the current status and a human-readable message for the task identified by `request.taskId`.
+        
+        If the task is not found, the response uses `TaskStatus.NOT_FOUND` and a descriptive message. Internal task states are mapped to protobuf `TaskStatus` values: finished maps to `SUCCESS` (message includes `final_state` when available), error maps to `FAILURE`, and pending/running map to the corresponding statuses; when a controller is present and has recorded thoughts, the latest thought is used as the message.
+        
+        Parameters:
+            request: RPC request containing `taskId` (the ID of the task to query).
+            context: gRPC context (not used for parameter descriptions).
+        
+        Returns:
+            QueryTaskStatusResponse: the task ID, mapped `status`, a short `message` describing the current state, a `result` string (empty if none), and the `sandbox` value echoed from the original request.
+        """
         task_id = request.taskId
         async with self.task_lock:
             task_info = self.tasks.get(task_id)
@@ -440,7 +543,17 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         )
 
     def _mask_config_secrets(self, config: CommonConfig) -> CommonConfig:
-        """Creates a copy of a CommonConfig and masks sensitive fields."""
+        """
+        Return a deep copy of a CommonConfig with sensitive API keys replaced by "********".
+        
+        Creates a copy of the provided CommonConfig and masks secrets to avoid leaking credentials. Specifically, it masks authorizationInfo.apiKey and any LLMConfig.apiKey fields present inside stageModelConfig (for example: embeddingModel, groundingModel, actionGeneratorModel, and other stage LLM fields).
+        
+        Parameters:
+            config (CommonConfig): The original configuration that may contain sensitive API keys.
+        
+        Returns:
+            CommonConfig: A copy of `config` where discovered API keys have been replaced with "********".
+        """
         config_copy = CommonConfig()
         config_copy.CopyFrom(config)
 
@@ -472,7 +585,15 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return config_copy
 
     def _mask_llm_config_secrets(self, llm_config: LLMConfig) -> LLMConfig:
-        """Creates a copy of an LLMConfig and masks sensitive fields."""
+        """
+        Return a copy of the given LLMConfig with sensitive fields masked.
+        
+        Parameters:
+            llm_config (LLMConfig): The original LLM configuration to mask.
+        
+        Returns:
+            LLMConfig: A copy of `llm_config` where the `apiKey` (if present) is replaced with `"********"`.
+        """
         config_copy = LLMConfig()
         config_copy.CopyFrom(llm_config)
 
@@ -482,11 +603,29 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return config_copy
 
     async def GetGlobalCommonConfig(self, request, context):
+        """
+        Return a masked copy of the global common configuration to avoid exposing secrets.
+        
+        The returned configuration is a deep copy of the server's global common config with sensitive fields (such as API keys) replaced by asterisks.
+        
+        Returns:
+            CommonConfig: A copy of the global common configuration with sensitive values masked.
+        """
         masked_config = self._mask_config_secrets(self.global_common_config)
         logger.debug("Returned masked global common config")
         return masked_config
 
     async def GetCommonConfig(self, request, context):
+        """
+        Return a masked copy of the saved CommonConfig for the task identified by request.id.
+        
+        Parameters:
+            request: RPC request containing `id` (the task identifier) whose configuration is being fetched.
+            context: gRPC context used to report NOT_FOUND when no configuration exists for the given task id.
+        
+        Returns:
+            agent_pb2.CommonConfig: A copy of the task's CommonConfig with sensitive fields masked, or an empty CommonConfig if no task with the given id exists (in which case the gRPC context is set to NOT_FOUND).
+        """
         async with self.task_lock:
             task_info = self.tasks.get(request.id)
         if task_info and task_info.get("request"):
@@ -501,9 +640,26 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
     async def _new_lybic_client(self):
         # if self.lybic_client:
         #     await self.lybic_client.close()
+        """
+        Create and store a new LybicClient using the servicer's current LybicAuth.
+        
+        This replaces the servicer's `lybic_client` attribute with a newly constructed
+        LybicClient initialized from `self.lybic_auth`.
+        """
         self.lybic_client = LybicClient(self.lybic_auth)
 
     async def SetGlobalCommonConfig(self, request, context):
+        """
+        Set the server's global common configuration and initialize Lybic authorization if provided.
+        
+        Sets request.commonConfig.id to "global" and stores it as the servicer's global_common_config. If the provided config contains authorizationInfo, initializes or updates self.lybic_auth with the org ID, API key, and API endpoint (defaulting to "https://api.lybic.cn/" when endpoint is empty).
+        
+        Parameters:
+            request: gRPC request containing `commonConfig` to apply.
+        
+        Returns:
+            agent_pb2.SetCommonConfigResponse: Response with `success=True` and the configuration `id`.
+        """
         logger.info("Setting new global common config.")
         request.commonConfig.id = "global"
         self.global_common_config = request.commonConfig
@@ -518,6 +674,14 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return agent_pb2.SetCommonConfigResponse(success=True, id=self.global_common_config.id)
 
     async def SetGlobalCommonLLMConfig(self, request, context):
+        """
+        Update the global stage action-generator LLM configuration.
+        
+        If the global common config lacks a stageModelConfig, one is created. The request's `llmConfig` is copied into global_common_config.stageModelConfig.actionGeneratorModel and returned.
+        
+        Returns:
+            llmConfig: The `LLMConfig` message that was stored in the global configuration.
+        """
         if not self.global_common_config.HasField("stageModelConfig"):
             self.global_common_config.stageModelConfig.SetInParent()
         self.global_common_config.stageModelConfig.actionGeneratorModel.CopyFrom(request.llmConfig)
@@ -525,6 +689,19 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return request.llmConfig
 
     async def SetGlobalGroundingLLMConfig(self, request, context):
+        """
+        Update the global grounding LLM configuration used by the agent.
+        
+        Ensures the global common config has a stageModelConfig, copies the provided `llmConfig` into
+        `global_common_config.stageModelConfig.groundingModel`, and logs the update.
+        
+        Parameters:
+        	request (SetGlobalGroundingLLMConfigRequest): Request containing `llmConfig` to apply.
+        	context: gRPC context (not documented).
+        
+        Returns:
+        	LLMConfig: The `llmConfig` that was applied.
+        """
         if not self.global_common_config.HasField("stageModelConfig"):
             self.global_common_config.stageModelConfig.SetInParent()
         self.global_common_config.stageModelConfig.groundingModel.CopyFrom(request.llmConfig)
@@ -532,6 +709,15 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return request.llmConfig
 
     async def SetGlobalEmbeddingLLMConfig(self, request, context):
+        """
+        Ensure the global common config has a stage model config and set its embedding model to the provided LLM configuration.
+        
+        Parameters:
+            request: RPC request containing `llmConfig` to apply as the global embedding model.
+        
+        Returns:
+            The `llmConfig` that was set as the global embedding model.
+        """
         if not self.global_common_config.HasField("stageModelConfig"):
             self.global_common_config.stageModelConfig.SetInParent()
         self.global_common_config.stageModelConfig.embeddingModel.CopyFrom(request.llmConfig)
@@ -539,6 +725,18 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return request.llmConfig
 
     async def _create_sandbox(self,shape:str):
+        """
+        Create a sandbox with the given shape via the Lybic service and return its identifier and operating system.
+        
+        Parameters:
+            shape (str): The sandbox shape to create (provider-specific size/OS configuration).
+        
+        Returns:
+            tuple: A pair (sandbox_id, platform_os) where `sandbox_id` is the created sandbox identifier and `platform_os` is the sandbox operating system string.
+        
+        Raises:
+            Exception: If Lybic authorization is not initialized (call SetGlobalCommonConfig first).
+        """
         if not self.lybic_auth:
             raise Exception("Lybic client not initialized. Please call SetGlobalCommonConfig before")
 
@@ -550,6 +748,15 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return sandbox.sandbox.id, sandbox.sandbox.shape.os
 
 async def serve():
+    """
+    Start and run the Agent gRPC server and block until it terminates.
+    
+    This coroutine initializes and starts an aio gRPC server that serves the AgentServicer and remains running until server shutdown. It reads the following environment variables to control behavior:
+    - GRPC_PORT: port to listen on (default "50051")
+    - GRPC_MAX_WORKER_THREADS: maximum thread pool workers for the server (default "100")
+    
+    The function also registers the servicer with the server, configures the stream_manager to use the current asyncio event loop, and then starts and awaits server termination.
+    """
     port = os.environ.get("GRPC_PORT", 50051)
     max_workers = int(os.environ.get("GRPC_MAX_WORKER_THREADS", 100))
     # task_num = int(os.environ.get("TASK_MAX_TASKS", 5))

@@ -30,10 +30,29 @@ class Manager:
         platform: str = platform.system().lower(),
         enable_search: bool = True,
     ):
+        """
+        Initialize the Manager which orchestrates planning, knowledge retrieval/fusion, DAG generation, topological sorting, and action queue creation for task-driven agents.
+        
+        Parameters:
+            Tools_dict (Dict): Mapping of tool names to their configuration dictionaries; used to register and configure internal Tools instances (e.g., 'subtask_planner', 'dag_translator', 'embedding', 'websearch').
+            local_kb_path (str): Filesystem path to the local knowledge base storage used by the KnowledgeBase.
+            multi_round (bool): When True, enable multi-round interaction/stateful planning behavior across turns.
+            platform (str): Target platform identifier (defaults to current system name); forwarded to KnowledgeBase and tools where applicable.
+            enable_search (bool): When True, register and enable a web search tool ('websearch'); otherwise search functionality is disabled.
+        """
         self.platform = platform
         self.Tools_dict = Tools_dict
 
         def _register(tools_instance, tool_name):
+            """
+            Register a tool with the provided tools manager using settings from Tools_dict.
+            
+            Parameters:
+                tools_instance: An object exposing register_tool(name, provider, model, **kwargs) used to register the tool.
+                tool_name (str): Key to look up the tool's configuration in Tools_dict; provider, model, and supported authentication keys
+                    (e.g., 'api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version') will be extracted and passed to register_tool.
+            
+            """
             config = Tools_dict.get(tool_name, {}).copy()
             provider = config.pop("provider", None)
             model = config.pop("model", None)
@@ -101,7 +120,12 @@ class Manager:
 
     def _send_stream_message(self, task_id: str, stage: str, message: str) -> None:
         """
-        Safely send stream message to task stream.
+        Enqueue a stream message for the given task if a task ID is provided.
+        
+        Parameters:
+            task_id (str): Identifier of the task stream; no message is sent if empty.
+            stage (str): Stage label for the message.
+            message (str): Message content to enqueue.
         """
         if not task_id:
             return
@@ -109,9 +133,14 @@ class Manager:
         stream_manager.add_message_threadsafe(task_id, stage, message)
 
     def summarize_episode(self, trajectory):
-        """Summarize the episode experience for lifelong learning reflection
-        Args:
-            trajectory: str: The episode experience to be summarized
+        """
+        Create a concise summary of the provided episode trajectory for lifelong learning and reflection.
+        
+        Parameters:
+            trajectory (str): Serialized episode experience or trajectory to summarize.
+        
+        Returns:
+            subtask_summarization (str): A short summary highlighting key subtasks, lessons, or reflections from the episode.
         """
 
         # Create Reflection on whole trajectories for next round trial, keep earlier messages as exemplars
@@ -133,9 +162,14 @@ class Manager:
         return subtask_summarization
 
     def summarize_narrative(self, trajectory):
-        """Summarize the narrative experience for lifelong learning reflection
-        Args:
-            trajectory: str: The narrative experience to be summarized
+        """
+        Produce a concise reflective summary of a narrative trajectory to inform lifelong learning.
+        
+        Parameters:
+            trajectory: Narrative content (e.g., episode transcript or sequence of subtasks) to be summarized.
+        
+        Returns:
+            A string containing a reflective summary that captures key insights, lessons learned, and recommendations for future rounds.
         """
         # Create Reflection on whole trajectories for next round trial
         lifelong_learning_reflection, total_tokens, cost_string = self.narrative_summarization_agent.execute_tool("narrative_summarization", {"str_input": trajectory})
@@ -162,6 +196,27 @@ class Manager:
         remaining_subtasks_list: List[Node] = [],
     ) -> Tuple[Dict, str]:
 
+        """
+        Generate a high-level, step-by-step plan for the given task, optionally incorporating retrieved knowledge and the current subtask state.
+        
+        Parameters:
+            observation (Dict): Current environment/desktop state; may include a 'screenshot' key with image data used for planning.
+            instruction (str): Natural-language task description to plan for.
+            failed_subtask (Optional[Node]): If provided, indicates a subtask that failed and triggers replanning for the remainder.
+            completed_subtasks_list (List[Node]): Ordered list of subtasks already completed; used to inform replanning.
+            remaining_subtasks_list (List[Node]): Ordered list of subtasks still expected; used to inform replanning.
+        
+        Returns:
+            planner_info (Dict): Metadata about the planning step (includes at least 'search_query' and 'goal_plan').
+            plan (str): The generated high-level plan as a human-readable string.
+        
+        Side effects:
+            - May perform retrieval and knowledge fusion on the first planning turn.
+            - Records operations to global_state, appends the plan to self.planner_history, increments self.turn_count, and sends stream messages when self.task_id is set.
+        
+        Raises:
+            Exception: If plan generation produces an empty plan.
+        """
         import time
         step_start = time.time()
         # Converts a list of DAG Nodes into a natural langauge list

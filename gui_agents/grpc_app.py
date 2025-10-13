@@ -374,18 +374,19 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             if request.HasField("runningConfig") and request.runningConfig.steps:
                 max_steps = request.runningConfig.steps
 
-            task_future = asyncio.create_task(self._run_task(task_id, backend_kwargs))
             self.tasks[task_id] = {
                 "request": request,
                 "status": "pending",
                 "final_state": None,
                 "queue": queue,
-                "future": task_future,
+                "future": None,
                 "query": request.instruction,
                 "agent": agent,
                 "max_steps": max_steps,
             }
 
+            task_future = asyncio.create_task(self._run_task(task_id, backend_kwargs))
+            self.tasks[task_id]["future"] = task_future
         try:
             async for msg in stream_manager.get_message_stream(task_id):
                 yield agent_pb2.TaskStream(

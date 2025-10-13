@@ -35,24 +35,17 @@ class Worker:
         tools_config: Dict = {},
     ):
         """
-        Worker receives a subtask list and active subtask and generates the next action for the to execute.
-        Args:
-            engine_params: Dict
-                Parameters for the multimodal engine
-            local_kb_path: str
-                Path to knowledge base
-            platform: str
-                OS platform the agent runs on (darwin, linux, windows)
-            enable_reflection: bool
-                Whether to enable reflection
-            use_subtask_experience: bool
-                Whether to use subtask experience
-            enable_takeover: bool
-                Whether to enable user takeover functionality
-            enable_search: bool
-                Global switch for search functionality (overrides config)
-            tools_config: Dict
-                Complete tools configuration from tools_config.json
+        Initialize a Worker that generates executor actions using the provided tools, local knowledge base, and optional reflection, episodic experience, takeover, and search features.
+        
+        Parameters:
+            Tools_dict (Dict): Mapping of tool names to tool instances/configurations used by the Worker.
+            local_kb_path (str): Filesystem path to the local knowledge base to use for retrieval.
+            platform (str): Operating system identifier the agent runs on (e.g., 'darwin', 'linux', 'windows').
+            enable_reflection (bool): If True, enable trajectory reflection generation and use its output when producing actions.
+            use_subtask_experience (bool): If True, attempt to retrieve and incorporate episodic/subtask experience on the first turn.
+            enable_takeover (bool): If True, use the takeover-capable action generator tool when producing actions.
+            enable_search (bool): Global switch that forces search-enabled tools to run with search disabled when False.
+            tools_config (Dict): Tools configuration mapping; if None, the Worker loads tools_config.json from the package tools directory.
         """
         # super().__init__(engine_params, platform)
         self.platform = platform
@@ -80,6 +73,11 @@ class Worker:
 
     def reset(self):
 
+        """
+        Initialize the worker's tool agents, knowledge base, and internal state for a new task session.
+        
+        This method registers the action generator (with optional takeover variant), trajectory reflector, and embedding engine using a local helper that merges tool configuration with any overrides and propagates authentication parameters; it initializes the KnowledgeBase with the embedding engine and toolkit, configures search-related parameters for the action generator according to global and per-tool settings, and resets runtime state fields (turn count, histories, reflections, cost tracking, screenshot inputs, planner history, latest action, trajectory length limit, and task_id).
+        """
         def _register(tools_instance, tool_name, **override_kwargs):
             config = self.Tools_dict.get(tool_name, {}).copy()
             provider = config.pop("provider", None)
@@ -173,7 +171,24 @@ class Worker:
         running_state: str = "running",
     ) -> Dict:
         """
-        Predict the next action(s) based on the current observation.
+        Generate the next executor action plan and related metadata for the current subtask given the observation and context.
+        
+        Parameters:
+            Tu (str): Full task description or task context.
+            search_query (str): Search string used for retrieving episodic/subtask experience.
+            subtask (str): Current subtask instruction/description to complete.
+            subtask_info (str): Additional information or constraints for the current subtask.
+            future_tasks (List[Node]): List of upcoming task nodes (used for context in planning).
+            done_task (List[Node]): List of completed task nodes.
+            obs (Dict): Current observation dictionary; must include a "screenshot" key with the current screen image.
+            running_state (str): Current executor running state (default "running").
+        
+        Returns:
+            Dict: Executor information containing:
+                - "current_subtask" (str): The provided subtask.
+                - "current_subtask_info" (str): The provided subtask_info.
+                - "executor_plan" (str): The raw plan produced by the action generator.
+                - "reflection" (str|None): Reflection text produced by the trajectory reflector, or None if reflection is disabled.
         """
         import time
         action_start = time.time()

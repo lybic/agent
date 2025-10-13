@@ -1,8 +1,7 @@
 import asyncio
-from datetime import datetime, timezone
 from google.protobuf.timestamp_pb2 import Timestamp
 from typing import Dict, Optional, AsyncGenerator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,7 +11,7 @@ logger = logging.getLogger(__name__)
 class StreamMessage:
     stage: str
     message: str
-    timestamp: Timestamp = field(default_factory=lambda: Timestamp().FromDatetime(datetime.now(timezone.utc)))
+    timestamp: Timestamp
 
 
 class StreamManager:
@@ -75,7 +74,9 @@ class StreamManager:
             q = self.task_queues.get(task_id)
 
         if q:
-            msg = StreamMessage(stage=stage, message=message)
+            timestamp = Timestamp()
+            timestamp.GetCurrentTime()
+            msg = StreamMessage(stage=stage, message=message, timestamp=timestamp)
             try:
                 q.put_nowait(msg)
             except asyncio.QueueFull:

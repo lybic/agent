@@ -13,7 +13,7 @@ else:
     if parent_env_path.exists():
         load_dotenv(dotenv_path=parent_env_path)
     else:
-        print("No .env file found")
+        print("Warning: no .env file found")
 
 logger = logging.getLogger(__name__)
 level = os.environ.get("LOG_LEVEL", "INFO")
@@ -118,7 +118,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                     taskStream=agent_pb2.TaskStream(
                         taskId=task_id,
                         stage=msg.stage,
-                        message=msg.message
+                        message=msg.message,
+                        timestamp=msg.timestamp
                     )
                 )
         except asyncio.CancelledError:
@@ -229,7 +230,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             agent_pb2.SandboxOS.LINUX: "Ubuntu",
         }
         backend = "lybic"
-        shape = "beijing-2c-4g-cpu" # default shape
+        shape = "beijing-2c-4g-cpu" # default shape # todo: check shape exist by using lybic sdk >=0.8.0b3
         if request.HasField("runningConfig"):
             if request.runningConfig.backend:
                 backend = request.runningConfig.backend
@@ -627,7 +628,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             agent_pb2.CommonConfig: A copy of the task's CommonConfig with sensitive fields masked, or an empty CommonConfig if no task with the given id exists (in which case the gRPC context is set to NOT_FOUND).
         """
         async with self.task_lock:
-            task_info = self.tasks.get(request.id)
+            if request.id == "global":
+                return self._mask_config_secrets(self.global_common_config)
+            else:
+                task_info = self.tasks.get(request.id)
         if task_info and task_info.get("request"):
             original_config = task_info["request"].runningConfig
             masked_config = self._mask_config_secrets(original_config)
@@ -638,8 +642,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return agent_pb2.CommonConfig()
 
     async def _new_lybic_client(self):
-        # if self.lybic_client:
-        #     await self.lybic_client.close()
         """
         Create and store a new LybicClient using the servicer's current LybicAuth.
         

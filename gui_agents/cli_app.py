@@ -1,14 +1,13 @@
 import argparse
-import datetime
-import io
 import logging
 import os
 import platform
 import sys
-import time
 import datetime
 from pathlib import Path
 from dotenv import load_dotenv
+
+from gui_agents.agents.Backend.LybicBackend import LybicBackend
 
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
 if env_path.exists():
@@ -260,6 +259,18 @@ def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInter
     return screenshot
 
 def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50, enable_takeover: bool = False):
+    """
+    Run an agent in normal mode to iteratively observe, plan, and execute actions for a given instruction.
+    
+    Runs up to `max_steps` iterations: captures screenshots, obtains observations, asks the agent for a plan, executes hardware actions, and updates trajectory and memories until the agent signals completion or failure. The function also supports pausing for user takeover and performs post-run timing logging and automatic analysis.
+    
+    Parameters:
+        agent: The agent instance used to generate plans and reflections (expects an object exposing `predict`, `update_episodic_memory`, and `update_narrative_memory`).
+        instruction (str): The high-level task description provided to the agent.
+        hwi_para (HardwareInterface): Hardware interface used to capture screenshots and dispatch actions.
+        max_steps (int): Maximum number of agent prediction/execute cycles to run.
+        enable_takeover (bool): If True, the agent may request a user takeover that pauses execution until the user resumes.
+    """
     import time
     obs = {}
     traj = "Task:\n" + instruction
@@ -302,7 +313,7 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
                 os.system(
                     f'osascript -e \'display dialog "Task Completed" with title "OpenACI Agent" buttons "OK" default button "OK"\''
                 )
-            elif platform.system() == "Linux":
+            elif platform.system() == "Linux" and not (hwi_para.backend== "lybic" or isinstance(hwi_para.backend, LybicBackend)):
                 os.system(
                     f'zenity --info --title="OpenACI Agent" --text="Task Completed" --width=200 --height=100'
                 )
@@ -434,7 +445,7 @@ def run_agent_fast(agent,
                 os.system(
                     f'osascript -e \'display dialog "Task Completed" with title "OpenACI Agent (Fast)" buttons "OK" default button "OK"\''
                 )
-            elif platform.system() == "Linux":
+            elif platform.system() == "Linux" and not (hwi_para.backend== "lybic" or isinstance(hwi_para.backend, LybicBackend)):
                 os.system(
                     f'zenity --info --title="OpenACI Agent (Fast)" --text="Task Completed" --width=200 --height=100'
                 )

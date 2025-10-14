@@ -245,21 +245,82 @@ LYBIC_MAX_LIFE_SECONDS=3600
 
 ### Use as a service
 
-After installing lybic-guiagents, you can run it as a service.
+You can interact with the agent programmatically either by importing it as a Python library or by running it as a gRPC service.
+
+#### As a Python Library
+
+After installing `lybic-guiagents`, you can import and use its components directly in your Python code.
 
 Main Components:
-- AgentService: High-level service interface (recommended for most users)
-- AgentS2, AgentSFast: Core agent implementations  
-- HardwareInterface: Hardware abstraction layer
-- ServiceConfig: Configuration management
+- `AgentService`: High-level service interface (recommended for most users).
+- `AgentS2`, `AgentSFast`: Core agent implementations.
+- `HardwareInterface`: Hardware abstraction layer for controlling the GUI.
+- `ServiceConfig`: Configuration management.
 
-Quick Start:
+**Quick Start:**
 
 ```python
 from gui_agents import AgentService
 service = AgentService()
 result = service.execute_task("Take a screenshot")
 print(f"Task completed: {result.status}")
+```
+
+#### As a gRPC Service
+
+You can also run the agent as a standalone gRPC service, which is ideal for distributed architectures or integrating with applications written in other languages.
+
+**1. Running the gRPC Server**
+
+First, run the gRPC server using Docker. This command overrides the default CLI entrypoint and starts the gRPC service on port 50051.
+
+```sh
+docker run --rm -it -p 50051:50051 --env-file gui_agents/.env agenticlybic/guiagent /app/.venv/bin/lybic-guiagent-grpc
+```
+> **Note**: The `-p 50051:50051` flag maps the container's gRPC port to your host machine.
+
+**2. Python Client Example**
+
+Once the service is running, you can interact with it using a gRPC client. Here is a Python example of how to send an instruction to the agent and stream its progress.
+
+First, ensure you have the necessary gRPC libraries and generated protobuf stubs:
+```sh
+# Install gRPC tools
+pip install grpcio grpcio-tools
+
+# Generate stubs from the .proto file
+python -m grpc_tools.protoc -Igui_agents/proto --python_out=gui_agents/proto/pb --grpc_python_out=gui_agents/proto/pb --pyi_out=gui_agents/proto/pb gui_agents/proto/agent.proto
+```
+
+Then, you can use the following script to communicate with the agent:
+
+```python
+import asyncio
+import grpc
+from gui_agents.proto.pb import agent_pb2, agent_pb2_grpc
+
+async def run_agent_instruction():
+    # Connect to the gRPC server
+    async with grpc.aio.insecure_channel('localhost:50051') as channel:
+        # Create a stub for the Agent service
+        stub = agent_pb2_grpc.AgentStub(channel)
+
+        # Create a request to run an instruction
+        request = agent_pb2.RunAgentInstructionRequest(
+            instruction="Open a calculator and compute 1 + 1"
+        )
+
+        print(f"Sending instruction: '{request.instruction}'")
+
+        # Call the RunAgentInstruction RPC and iterate over the stream of responses
+        try:
+            async for response in stub.RunAgentInstruction(request):
+                print(f"[{response.stage}] {response.message}")
+        except grpc.aio.AioRpcError as e:
+            print(f"An error occurred: {e.details()}")
+
+if __name__ == '__main__':
+    asyncio.run(run_agent_instruction())
 ```
 
 ### VMware Configuration

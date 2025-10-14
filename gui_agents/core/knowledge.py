@@ -46,6 +46,16 @@ class KnowledgeBase:
         Tools_dict: Dict,
         save_knowledge: bool = True,
     ):
+        """
+        Initialize the KnowledgeBase, configuring storage paths, embedding metadata, tool agents, and in-memory trajectory state.
+        
+        Parameters:
+            embedding_engine (Tools): Embedding provider instance used to compute or retrieve embeddings.
+            local_kb_path (str): Root filesystem path where memory and embedding files are persisted.
+            platform (str): Platform identifier used to namespace stored files (subdirectory under local_kb_path).
+            Tools_dict (Dict): Configuration mapping for available tools; entries may include provider, model, and other tool-specific kwargs used to register agents.
+            save_knowledge (bool): Whether new episodic and narrative memories should be persisted to disk.
+        """
         self.platform = platform
 
         self.local_kb_path = local_kb_path
@@ -75,17 +85,38 @@ class KnowledgeBase:
         self.current_subtask_trajectory = ""
         self.current_search_query = ""
         
+        def _register(tools_instance, tool_name):
+            """
+            Register a tool on the given tools instance using the tool's configuration from Tools_dict.
+            
+            Reads the configuration for `tool_name` from the module-level Tools_dict, extracts optional `provider` and `model` values if present, and registers the tool on `tools_instance`, forwarding any remaining configuration items as keyword arguments.
+            
+            Parameters:
+                tools_instance: The Tools manager or registry object that exposes a `register_tool(name, provider, model, **kwargs)` method.
+                tool_name (str): The key identifying the tool in Tools_dict whose configuration will be used for registration.
+            """
+            config = Tools_dict.get(tool_name, {}).copy()
+            provider = config.pop("provider", None)
+            model = config.pop("model", None)
+            auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+            auth_params = {}
+            for key in auth_keys:
+                if key in config:
+                    auth_params[key] = config[key]
+            all_params = {**config, **auth_params}
+            tools_instance.register_tool(tool_name, provider, model, **all_params)
+
         self.query_formulator = Tools()
-        self.query_formulator.register_tool("query_formulator", Tools_dict["query_formulator"]["provider"], Tools_dict["query_formulator"]["model"])
-        
+        _register(self.query_formulator, "query_formulator")
+
         self.knowledge_fusion_agent = Tools()
-        self.knowledge_fusion_agent.register_tool("context_fusion", Tools_dict["context_fusion"]["provider"], Tools_dict["context_fusion"]["model"])
+        _register(self.knowledge_fusion_agent, "context_fusion")
 
         self.narrative_summarization_agent = Tools()
-        self.narrative_summarization_agent.register_tool("narrative_summarization", Tools_dict["narrative_summarization"]["provider"], Tools_dict["narrative_summarization"]["model"])
+        _register(self.narrative_summarization_agent, "narrative_summarization")
 
         self.episode_summarization_agent = Tools()
-        self.episode_summarization_agent.register_tool("episode_summarization", Tools_dict["episode_summarization"]["provider"], Tools_dict["episode_summarization"]["model"])
+        _register(self.episode_summarization_agent, "episode_summarization")
 
         self.save_knowledge = save_knowledge
 

@@ -245,21 +245,82 @@ LYBIC_MAX_LIFE_SECONDS=3600
 
 ### 以服务形式使用
 
-在安装了lybic-guiagents后，你可以以服务方式运行。
+您可以通过两种方式以编程方式与智能体交互：将其作为Python库导入，或将其作为gRPC服务运行。
+
+#### 作为Python库
+
+安装 `lybic-guiagents` 后，您可以直接在Python代码中导入和使用其组件。
 
 主要组件:
-- AgentService: 高层服务接口 (推荐大多数用户使用)
-- AgentS2, AgentSFast: 核心agent实现
-- HardwareInterface: 硬件抽象层
-- ServiceConfig: 配置管理器
+- `AgentService`: 高层服务接口 (推荐大多数用户使用)。
+- `AgentS2`, `AgentSFast`: 核心agent实现。
+- `HardwareInterface`: 用于控制GUI的硬件抽象层。
+- `ServiceConfig`: 配置管理器。
 
-Quick Start:
+**快速开始:**
 
 ```python
 from gui_agents import AgentService 
 service = AgentService()
 result = service.execute_task("Take a screenshot")
 print(f"Task completed: {result.status}")
+```
+
+#### 作为gRPC服务
+
+您还可以将智能体作为独立的gRPC服务运行，这对于分布式架构或与用其他语言编写的应用程序集成非常理想。
+
+**1. 运行gRPC服务器**
+
+首先，使用Docker运行gRPC服务器。此命令会覆盖默认的CLI入口点，并在50051端口上启动gRPC服务。
+
+```sh
+docker run --rm -it -p 50051:50051 --env-file gui_agents/.env agenticlybic/guiagent /app/.venv/bin/lybic-guiagent-grpc
+```
+> **注意**: `-p 50051:50051` 标志将容器的gRPC端口映射到您的主机。
+
+**2. Python客户端示例**
+
+服务运行后，您可以使用gRPC客户端与其交互。以下是一个Python示例，演示如何向智能体发送指令并流式传输其进度。
+
+首先，确保您已安装必要的gRPC库并生成了protobuf存根：
+```sh
+# 安装gRPC工具
+pip install grpcio grpcio-tools
+
+# 从.proto文件生成存根
+python -m grpc_tools.protoc -Igui_agents/proto --python_out=gui_agents/proto/pb --grpc_python_out=gui_agents/proto/pb --pyi_out=gui_agents/proto/pb gui_agents/proto/agent.proto
+```
+
+然后，您可以使用以下脚本与智能体通信：
+
+```python
+import asyncio
+import grpc
+from gui_agents.proto.pb import agent_pb2, agent_pb2_grpc
+
+async def run_agent_instruction():
+    # 连接到gRPC服务器
+    async with grpc.aio.insecure_channel('localhost:50051') as channel:
+        # 为Agent服务创建存根
+        stub = agent_pb2_grpc.AgentStub(channel)
+
+        # 创建一个运行指令的请求
+        request = agent_pb2.RunAgentInstructionRequest(
+            instruction="打开计算器并计算 1 + 1"
+        )
+
+        print(f"发送指令: '{request.instruction}'")
+
+        # 调用RunAgentInstruction RPC并遍历响应流
+        try:
+            async for response in stub.RunAgentInstruction(request):
+                print(f"[{response.stage}] {response.message}")
+        except grpc.aio.AioRpcError as e:
+            print(f"发生错误: {e.details()}")
+
+if __name__ == '__main__':
+    asyncio.run(run_agent_instruction())
 ```
 
 ### VMware配置

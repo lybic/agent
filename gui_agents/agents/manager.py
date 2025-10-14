@@ -14,6 +14,7 @@ from gui_agents.utils.common_utils import (
     agent_log_to_string,
 )
 from gui_agents.tools.tools import Tools
+from gui_agents.agents.stream_manager import stream_manager
 
 logger = logging.getLogger("desktopenv.agent")
 
@@ -29,31 +30,68 @@ class Manager:
         platform: str = platform.system().lower(),
         enable_search: bool = True,
     ):
+        """
+        Initialize the Manager which orchestrates planning, knowledge retrieval/fusion, DAG generation, topological sorting, and action queue creation for task-driven agents.
+        
+        Parameters:
+            Tools_dict (Dict): Mapping of tool names to their configuration dictionaries; used to register and configure internal Tools instances (e.g., 'subtask_planner', 'dag_translator', 'embedding', 'websearch').
+            local_kb_path (str): Filesystem path to the local knowledge base storage used by the KnowledgeBase.
+            multi_round (bool): When True, enable multi-round interaction/stateful planning behavior across turns.
+            platform (str): Target platform identifier (defaults to current system name); forwarded to KnowledgeBase and tools where applicable.
+            enable_search (bool): When True, register and enable a web search tool ('websearch'); otherwise search functionality is disabled.
+        """
         self.platform = platform
         self.Tools_dict = Tools_dict
 
+        def _register(tools_instance, tool_name):
+            """
+            Register a tool with the provided tools manager using settings from Tools_dict.
+            
+            Parameters:
+                tools_instance: An object exposing register_tool(name, provider, model, **kwargs) used to register the tool.
+                tool_name (str): Key to look up the tool's configuration in Tools_dict; provider, model, and supported authentication keys
+                    (e.g., 'api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version') will be extracted and passed to register_tool.
+            
+            """
+            config = Tools_dict.get(tool_name, {}).copy()
+            provider = config.pop("provider", None)
+            model = config.pop("model", None)
+
+            auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+            auth_params = {}
+            for key in auth_keys:
+                if key in config:
+                    auth_params[key] = config[key]
+                    logger.info(f"Manager._register: Setting {key} for tool '{tool_name}'")
+
+            all_params = {**config, **auth_params}
+
+            logger.info(f"Manager._register: Registering tool '{tool_name}' with provider '{provider}', model '{model}'")
+            tools_instance.register_tool(tool_name, provider, model, **all_params)
+
         self.generator_agent = Tools()
-        self.generator_agent.register_tool("subtask_planner", Tools_dict["subtask_planner"]["provider"], Tools_dict["subtask_planner"]["model"])
+        _register(self.generator_agent, "subtask_planner")
 
         self.dag_translator_agent = Tools()
-        self.dag_translator_agent.register_tool("dag_translator", self.Tools_dict["dag_translator"]["provider"], self.Tools_dict["dag_translator"]["model"])
+        _register(self.dag_translator_agent, "dag_translator")
 
         self.narrative_summarization_agent = Tools()
-        self.narrative_summarization_agent.register_tool("narrative_summarization", self.Tools_dict["narrative_summarization"]["provider"], self.Tools_dict["narrative_summarization"]["model"])
+        _register(self.narrative_summarization_agent, "narrative_summarization")
 
         self.episode_summarization_agent = Tools()
-        self.episode_summarization_agent.register_tool("episode_summarization", self.Tools_dict["episode_summarization"]["provider"], self.Tools_dict["episode_summarization"]["model"])
+        _register(self.episode_summarization_agent, "episode_summarization")
 
         self.local_kb_path = local_kb_path
 
         self.embedding_engine = Tools()
-        self.embedding_engine.register_tool("embedding", self.Tools_dict["embedding"]["provider"], self.Tools_dict["embedding"]["model"])
+        _register(self.embedding_engine, "embedding")
+        
         KB_Tools_dict = {
-            "embedding": self.Tools_dict["embedding"],
-            "query_formulator": self.Tools_dict["query_formulator"],
-            "context_fusion": self.Tools_dict["context_fusion"],
-            "narrative_summarization": self.Tools_dict["narrative_summarization"],
-            "episode_summarization": self.Tools_dict["episode_summarization"],
+            "embedding": self.Tools_dict.get("embedding"),
+            "query_formulator": self.Tools_dict.get("query_formulator"),
+            "context_fusion": self.Tools_dict.get("context_fusion"),
+            "narrative_summarization": self.Tools_dict.get("narrative_summarization"),
+            "episode_summarization": self.Tools_dict.get("episode_summarization"),
         }
 
 
@@ -69,20 +107,40 @@ class Manager:
         self.planner_history = []
 
         self.turn_count = 0
-        
+        self.task_id = None  # Will be set by agent
+
         # Initialize search engine based on enable_search parameter
         if enable_search:
             self.search_engine = Tools()
-            self.search_engine.register_tool("websearch", self.Tools_dict["websearch"]["provider"], self.Tools_dict["websearch"]["model"])
+            _register(self.search_engine, "websearch")
         else:
             self.search_engine = None
 
         self.multi_round = multi_round
 
+    def _send_stream_message(self, task_id: str, stage: str, message: str) -> None:
+        """
+        Enqueue a stream message for the given task if a task ID is provided.
+        
+        Parameters:
+            task_id (str): Identifier of the task stream; no message is sent if empty.
+            stage (str): Stage label for the message.
+            message (str): Message content to enqueue.
+        """
+        if not task_id:
+            return
+
+        stream_manager.add_message_threadsafe(task_id, stage, message)
+
     def summarize_episode(self, trajectory):
-        """Summarize the episode experience for lifelong learning reflection
-        Args:
-            trajectory: str: The episode experience to be summarized
+        """
+        Create a concise summary of the provided episode trajectory for lifelong learning and reflection.
+        
+        Parameters:
+            trajectory (str): Serialized episode experience or trajectory to summarize.
+        
+        Returns:
+            subtask_summarization (str): A short summary highlighting key subtasks, lessons, or reflections from the episode.
         """
 
         # Create Reflection on whole trajectories for next round trial, keep earlier messages as exemplars
@@ -99,12 +157,19 @@ class Manager:
             }
         )
 
+        self._send_stream_message(self.task_id, "summarization", f"Episode summarization: {subtask_summarization}")
+
         return subtask_summarization
 
     def summarize_narrative(self, trajectory):
-        """Summarize the narrative experience for lifelong learning reflection
-        Args:
-            trajectory: str: The narrative experience to be summarized
+        """
+        Produce a concise reflective summary of a narrative trajectory to inform lifelong learning.
+        
+        Parameters:
+            trajectory: Narrative content (e.g., episode transcript or sequence of subtasks) to be summarized.
+        
+        Returns:
+            A string containing a reflective summary that captures key insights, lessons learned, and recommendations for future rounds.
         """
         # Create Reflection on whole trajectories for next round trial
         lifelong_learning_reflection, total_tokens, cost_string = self.narrative_summarization_agent.execute_tool("narrative_summarization", {"str_input": trajectory})
@@ -131,6 +196,27 @@ class Manager:
         remaining_subtasks_list: List[Node] = [],
     ) -> Tuple[Dict, str]:
 
+        """
+        Generate a high-level, step-by-step plan for the given task, optionally incorporating retrieved knowledge and the current subtask state.
+        
+        Parameters:
+            observation (Dict): Current environment/desktop state; may include a 'screenshot' key with image data used for planning.
+            instruction (str): Natural-language task description to plan for.
+            failed_subtask (Optional[Node]): If provided, indicates a subtask that failed and triggers replanning for the remainder.
+            completed_subtasks_list (List[Node]): Ordered list of subtasks already completed; used to inform replanning.
+            remaining_subtasks_list (List[Node]): Ordered list of subtasks still expected; used to inform replanning.
+        
+        Returns:
+            planner_info (Dict): Metadata about the planning step (includes at least 'search_query' and 'goal_plan').
+            plan (str): The generated high-level plan as a human-readable string.
+        
+        Side effects:
+            - May perform retrieval and knowledge fusion on the first planning turn.
+            - Records operations to global_state, appends the plan to self.planner_history, increments self.turn_count, and sends stream messages when self.task_id is set.
+        
+        Raises:
+            Exception: If plan generation produces an empty plan.
+        """
         import time
         step_start = time.time()
         # Converts a list of DAG Nodes into a natural langauge list
@@ -275,6 +361,10 @@ class Manager:
         logger.info("GENERATING HIGH LEVEL PLAN")
 
         subtask_planner_start = time.time()
+
+        # Stream subtask planning message
+        self._send_stream_message(self.task_id, "planning", "Analyzing tasks and generating subtask plans...")
+
         plan, total_tokens, cost_string = self.generator_agent.execute_tool("subtask_planner", {"str_input": generator_message, "img_input": observation.get("screenshot", None)})
         logger.info(f"Subtask planner tokens: {total_tokens}, cost: {cost_string}")
         subtask_planner_time = time.time() - subtask_planner_start
@@ -289,6 +379,11 @@ class Manager:
                 "duration": subtask_planner_time
             }
         )
+
+        # Stream planning completion message
+        if self.task_id:
+            plan_preview = plan[:150] + "..." if len(plan) > 150 else plan
+            self._send_stream_message(self.task_id, "planning", f"Subtask planning completed: {plan_preview}")
         
         step_time = time.time() - step_start
         logger.info(f"[Timing] Manager._generate_step_by_step_plan execution time: {step_time:.2f} seconds")

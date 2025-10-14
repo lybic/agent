@@ -217,6 +217,63 @@ docker run --rm -it --env-file gui_agents/.env agenticlybic/guiagent --backend l
 ```
 > **注**: このコマンドは、エージェントを対話モードで起動します。`--env-file`フラグは環境ファイルを指します。パスが正しいことを確認してください。
 
+### gRPCサービスとしての利用
+
+エージェントをプログラムで操作するには、Pythonライブラリとしてインポートするか、gRPCサービスとして実行するかの2つの方法があります。
+
+#### gRPCサービスの実行
+
+まず、Dockerを使用してgRPCサーバーを実行します。このコマンドは、デフォルトのCLIエントリポイントをオーバーライドし、ポート50051でgRPCサービスを起動します。
+
+```sh
+docker run --rm -it -p 50051:50051 --env-file gui_agents/.env agenticlybic/guiagent /app/.venv/bin/lybic-guiagent-grpc
+```
+> **注**: `-p 50051:50051` フラグは、コンテナのgRPCポートをホストマシンにマッピングします。
+
+#### Pythonクライアントの例
+
+サービスが実行されたら、gRPCクライアントを使用して対話できます。以下は、エージェントに指示を送信し、その進行状況をストリーミングする方法を示すPythonの例です。
+
+まず、必要なgRPCライブラリがインストールされ、protobufスタブが生成されていることを確認してください。
+```sh
+# gRPCツールをインストール
+pip install grpcio grpcio-tools
+
+# .protoファイルからスタブを生成
+python -m grpc_tools.protoc -Igui_agents/proto --python_out=gui_agents/proto/pb --grpc_python_out=gui_agents/proto/pb --pyi_out=gui_agents/proto/pb gui_agents/proto/agent.proto
+```
+
+次に、以下のスクリプトを使用してエージェントと通信できます。
+
+```python
+import asyncio
+import grpc
+from gui_agents.proto.pb import agent_pb2, agent_pb2_grpc
+
+async def run_agent_instruction():
+    # gRPCサーバーに接続
+    async with grpc.aio.insecure_channel('localhost:50051') as channel:
+        # Agentサービスのスタブを作成
+        stub = agent_pb2_grpc.AgentStub(channel)
+
+        # 指示を実行するリクエストを作成
+        request = agent_pb2.RunAgentInstructionRequest(
+            instruction="電卓を開いて 1 + 1 を計算してください"
+        )
+
+        print(f"指示を送信: '{request.instruction}'")
+
+        # RunAgentInstruction RPCを呼び出し、応答のストリームを反復処理
+        try:
+            async for response in stub.RunAgentInstruction(request):
+                print(f"[{response.stage}] {response.message}")
+        except grpc.aio.AioRpcError as e:
+            print(f"エラーが発生しました: {e.details()}")
+
+if __name__ == '__main__':
+    asyncio.run(run_agent_instruction())
+```
+
 ### Lybicサンドボックスの設定
 
 Lybicサンドボックスを設定する最も簡単な方法は、[APIキーの設定](#apiキーの設定)セクションで説明したように、`.env`ファイルを編集してAPIキーを追加することです。

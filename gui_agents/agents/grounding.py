@@ -32,6 +32,20 @@ class Grounding(ACI):
         width: int = 1920,
         height: int = 1080,
     ):
+        """
+        Initialize a Grounding instance: configure screen dimensions, prepare tool instances, and load global state.
+        
+        Parameters:
+            Tools_dict (Dict): Mapping of tool names to their configuration dictionaries used to register tools.
+            platform (str): Target platform identifier (e.g., "windows", "macos") used by the grounding agents.
+            width (int): Current screen width in pixels.
+            height (int): Current screen height in pixels.
+        
+        Detailed behavior:
+            - Creates and registers two Tools instances ("grounding" and "text_span") using entries from Tools_dict; registration will include any authentication-related parameters present in the tool configuration.
+            - Obtains grounding tool dimensions (grounding_width, grounding_height) and falls back to the provided width and height when the grounding tool does not supply them.
+            - Initializes coordinate placeholders (coords1, coords2) and stores a reference to the global state store.
+        """
         self.platform = platform
         self.Tools_dict = Tools_dict
         self.width = width
@@ -39,10 +53,35 @@ class Grounding(ACI):
         self.coords1 = None
         self.coords2 = None
 
+        def _register(tools_instance, tool_name):
+            """
+            Register a tool into the provided tools instance using configuration from Tools_dict.
+            
+            Reads the tool configuration for `tool_name` from the surrounding `Tools_dict`, extracts optional `provider` and `model`, collects common authentication parameters (api_key, base_url, endpoint_url, azure_endpoint, api_version), merges them with any remaining configuration, logs the registration, and calls tools_instance.register_tool with the assembled parameters.
+            
+            Parameters:
+                tools_instance: The tools manager/registry instance that exposes register_tool(tool_name, provider, model, **params).
+                tool_name (str): Key name of the tool in Tools_dict whose configuration will be used to register the tool.
+            """
+            config = Tools_dict.get(tool_name, {}).copy()
+            provider = config.pop("provider", None)
+            model = config.pop("model", None)
+
+            auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+            auth_params = {}
+            for key in auth_keys:
+                if key in config:
+                    auth_params[key] = config[key]
+                    logger.info(f"Grounding._register: Setting {key} for tool '{tool_name}'")
+
+            # 合并所有参数
+            all_params = {**config, **auth_params}
+
+            logger.info(f"Grounding._register: Registering tool '{tool_name}' with provider '{provider}', model '{model}'")
+            tools_instance.register_tool(tool_name, provider, model, **all_params)
+
         self.grounding_model = Tools()
-        self.grounding_model.register_tool(
-            "grounding", self.Tools_dict["grounding"]["provider"],
-            self.Tools_dict["grounding"]["model"])
+        _register(self.grounding_model, "grounding")
 
         self.grounding_width, self.grounding_height = self.grounding_model.tools[
             "grounding"].get_grounding_wh()
@@ -51,9 +90,7 @@ class Grounding(ACI):
             self.grounding_height = self.height
 
         self.text_span_agent = Tools()
-        self.text_span_agent.register_tool(
-            "text_span", self.Tools_dict["text_span"]["provider"],
-            self.Tools_dict["text_span"]["model"])
+        _register(self.text_span_agent, "text_span")
 
         self.global_state: GlobalState = Registry.get(
             "GlobalStateStore")  # type: ignore

@@ -27,7 +27,7 @@ from gui_agents.agents.Backend.Backend import Backend
 
 # 导入官方Lybic SDK
 try:
-    from lybic import LybicClient, Sandbox, ComputerUse, dto
+    from lybic import LybicClient, Sandbox, ComputerUse, dto, LybicAuth
 except ImportError:
     raise ImportError(
         "Lybic Python SDK not found. Please install it with: pip install --upgrade lybic"
@@ -57,18 +57,22 @@ class LybicBackend(Backend):
                  precreate_sid: str = '',
                  **kwargs):
         """
-        初始化LybicBackend
-        
-        Args:
-            api_key: Lybic API密钥，如果为None则从环境变量LYBIC_API_KEY获取
-            org_id: Lybic组织ID，如果为None则从环境变量LYBIC_ORG_ID获取
-            endpoint: API端点，如果为None则从环境变量LYBIC_API_ENDPOINT获取
-            timeout: API请求超时时间
-            extra_headers: 额外的HTTP头
-            sandbox_opts: 创建沙盒时的额外选项
-            max_retries: 最大重试次数
-            precreate_sid: 预创建的沙盒ID，如果提供则不会创建新沙盒
-        """
+                 Initialize the LybicBackend, create and configure the Lybic SDK client, and ensure a sandbox is available.
+                 
+                 Parameters:
+                     api_key (Optional[str]): Lybic API key; if None the value is read from the LYBIC_API_KEY environment variable.
+                     org_id (Optional[str]): Lybic organization ID; if None the value is read from the LYBIC_ORG_ID environment variable.
+                     endpoint (Optional[str]): API endpoint; if None the value is read from LYBIC_API_ENDPOINT (default "https://api.lybic.cn").
+                     timeout (int): Request timeout in seconds for the SDK client.
+                     extra_headers (Optional[Dict[str, str]]): Additional HTTP headers to pass to the SDK via LybicAuth.
+                     sandbox_opts (Optional[Dict[str, Any]]): Options used when creating a new sandbox; LYBIC_MAX_LIFE_SECONDS is applied as the default for `maxLifeSeconds` if not provided.
+                     max_retries (int): Maximum number of retry attempts for action execution.
+                     precreate_sid (str): Pre-created sandbox ID to use; if empty, a new sandbox will be created.
+                 
+                 Raises:
+                     ValueError: If neither api_key nor org_id are provided (and not present in the corresponding environment variables).
+                     RuntimeError: If sandbox creation completes but no sandbox ID can be obtained from the SDK response.
+                 """
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         
@@ -84,11 +88,13 @@ class LybicBackend(Backend):
         # 初始化SDK客户端（仅在有必要参数时）
         if self.api_key and self.org_id:
             self.client = LybicClient(
-                org_id=self.org_id,
-                api_key=self.api_key,
-                endpoint=self.endpoint,
+                LybicAuth(
+                    org_id=self.org_id,
+                    api_key=self.api_key,
+                    endpoint=self.endpoint,
+                    extra_headers=self.extra_headers or {}
+                ),
                 timeout=self.timeout,
-                extra_headers=self.extra_headers or {}
             )
         else:
             raise ValueError("LYBIC_API_KEY and LYBIC_ORG_ID are required. Please set them as environment variables or pass them as arguments.")

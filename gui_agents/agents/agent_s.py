@@ -286,7 +286,7 @@ class AgentS2(UIAgent):
                 logger.info("(RE)PLANNING...")
 
                 # Stream planning start message
-                self._send_stream_message(self.task_id, "planning", f"开始规划任务步骤 (步骤 {self.step_count + 1})...")
+                self._send_stream_message(self.task_id, "planning", f"Start planning task steps (Step {self.step_count + 1})...")
 
                 Manager_info, self.subtasks = self.manager.get_action_queue(
                     Tu=self.global_state.get_Tu(),
@@ -305,7 +305,7 @@ class AgentS2(UIAgent):
                     self.search_query = ""
 
                 # Stream planning completion message
-                self._send_stream_message(self.task_id, "planning", f"规划完成, 生成了 {len(self.subtasks)} 个子任务")
+                self._send_stream_message(self.task_id, "planning", f"Planning completed, {len(self.subtasks)} subtasks generated")
             get_action_queue_time = time.time() - manager_start
             logger.info(f"[Timing] manager.get_action_queue execution time: {get_action_queue_time:.2f} seconds")
             self.global_state.log_operation(
@@ -337,9 +337,8 @@ class AgentS2(UIAgent):
                     actions = [{"type": "DONE"}]
 
                     # Stream task completion message
-                    self._send_stream_message(self.task_id, "completion", "🎉 任务完成！所有子任务已成功执行")
+                    self._send_stream_message(self.task_id, "completion", "🎉 Mission Completed! All subtasks have been successfully executed")
 
-                    # 记录任务完成
                     self.global_state.log_operation(
                         module="agent",
                         operation="task_complete",
@@ -360,9 +359,9 @@ class AgentS2(UIAgent):
 
                 # Stream current subtask message
                 if self.current_subtask is not None:
-                    self._send_stream_message(self.task_id, "subtask", f"开始执行子任务: {self.current_subtask.name}")
+                    self._send_stream_message(self.task_id, "subtask", f"Start executing subtasks: {self.current_subtask.name}")
                 else:
-                    self._send_stream_message(self.task_id, "subtask", "开始执行新的子任务")
+                    self._send_stream_message(self.task_id, "subtask", "Start executing a new subtask")
 
                 self.global_state.log_operation(
                     module="agent",
@@ -376,7 +375,7 @@ class AgentS2(UIAgent):
             worker_start_time = time.time()
 
             # Stream action generation start message
-            self._send_stream_message(self.task_id, "thinking", "正在生成执行动作...")
+            self._send_stream_message(self.task_id, "thinking", "Generating execution actions...")
 
             # get the next action from the worker
             # Handle case where current_subtask might be None
@@ -407,7 +406,7 @@ class AgentS2(UIAgent):
             # Stream action plan message
             if self.task_id and "executor_plan" in executor_info:
                 plan_preview = executor_info["executor_plan"][:100] + "..." if len(executor_info["executor_plan"]) > 100 else executor_info["executor_plan"]
-                self._send_stream_message(self.task_id, "action_plan", f"生成执行计划: {plan_preview}")
+                self._send_stream_message(self.task_id, "action_plan", f"Generate an execution plan: {plan_preview}")
 
             try:
                 grounding_start_time = time.time()
@@ -451,7 +450,7 @@ class AgentS2(UIAgent):
             # Stream action execution message
             if actions:
                 action_type = actions[0].get("type", "unknown")
-                self._send_stream_message(self.task_id, "action", f"执行动作: {action_type}")
+                self._send_stream_message(self.task_id, "action", f"Execute an action: {action_type}")
 
             self.step_count += 1
 
@@ -470,9 +469,9 @@ class AgentS2(UIAgent):
 
                 # Stream failure message
                 if self.current_subtask is not None:
-                    self._send_stream_message(self.task_id, "error", f"子任务执行失败: {self.current_subtask.name}, 将重新规划")
+                    self._send_stream_message(self.task_id, "error", f"Subtask execution failed: {self.current_subtask.name}, will re-plan")
                 else:
-                    self._send_stream_message(self.task_id, "error", "子任务执行失败, 将重新规划")
+                    self._send_stream_message(self.task_id, "error", "Subtask execution failed and will be re-planned")
 
                 # 记录失败的子任务
                 self.global_state.log_operation(
@@ -502,9 +501,9 @@ class AgentS2(UIAgent):
 
                 # Stream subtask completion message
                 if self.current_subtask is not None:
-                    self._send_stream_message(self.task_id, "subtask_complete", f"✅ 子任务完成: {self.current_subtask.name}")
+                    self._send_stream_message(self.task_id, "subtask_complete", f"✅ Subtask completed: {self.current_subtask.name}")
                 else:
-                    self._send_stream_message(self.task_id, "subtask_complete", "✅ 子任务完成")
+                    self._send_stream_message(self.task_id, "subtask_complete", "✅ Subtask completed")
 
                 # 记录完成的子任务
                 self.global_state.log_operation(
@@ -914,7 +913,7 @@ class AgentSFast(UIAgent):
         fast_action_start_time = time.time()
 
         # Stream action generation start message
-        self._send_stream_message(self.task_id, "thinking", "正在快速生成执行动作...")
+        self._send_stream_message(self.task_id, "thinking", "Generating execution actions quickly...")
 
         plan, total_tokens, cost_string = self.fast_action_generator.execute_tool(
             self.fast_action_generator_tool,
@@ -940,7 +939,7 @@ class AgentSFast(UIAgent):
         # Stream action plan message
         if self.task_id:
             plan_preview = plan[:100] + "..." if len(plan) > 100 else plan
-            self._send_stream_message(self.task_id, "action_plan", f"快速生成执行计划: {plan_preview}")
+            self._send_stream_message(self.task_id, "action_plan", f"Quickly generate execution plans: {plan_preview}")
 
         logger.info("Fast Action Plan: %s", plan)
 
@@ -1004,7 +1003,7 @@ class AgentSFast(UIAgent):
         # Stream action execution message
         if actions:
             action_type = actions[0].get("type", "unknown")
-            self._send_stream_message(self.task_id, "action", f"执行动作: {action_type}")
+            self._send_stream_message(self.task_id, "action", f"Execute an action: {action_type}")
 
         executor_info = {
             "executor_plan": plan,

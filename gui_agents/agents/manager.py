@@ -363,7 +363,7 @@ class Manager:
         subtask_planner_start = time.time()
 
         # Stream subtask planning message
-        self._send_stream_message(self.task_id, "planning", "正在分析任务并生成子任务规划...")
+        self._send_stream_message(self.task_id, "planning", "Analyzing tasks and generating subtask plans...")
 
         plan, total_tokens, cost_string = self.generator_agent.execute_tool("subtask_planner", {"str_input": generator_message, "img_input": observation.get("screenshot", None)})
         logger.info(f"Subtask planner tokens: {total_tokens}, cost: {cost_string}")
@@ -383,7 +383,7 @@ class Manager:
         # Stream planning completion message
         if self.task_id:
             plan_preview = plan[:150] + "..." if len(plan) > 150 else plan
-            self._send_stream_message(self.task_id, "planning", f"子任务规划完成: {plan_preview}")
+            self._send_stream_message(self.task_id, "planning", f"Subtask planning completed: {plan_preview}")
         
         step_time = time.time() - step_start
         logger.info(f"[Timing] Manager._generate_step_by_step_plan execution time: {step_time:.2f} seconds")

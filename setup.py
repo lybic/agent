@@ -25,6 +25,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: POSIX :: Linux",
@@ -36,5 +37,5 @@ setup(
         "Source": "https://github.com/lybic/agent",
         "Bug Reports": "https://github.com/lybic/agent/issues",
     },
-    python_requires=">=3.12, <3.14",
+    python_requires=">=3.12, <3.15",
 )

@@ -359,13 +359,16 @@ class AgentS2(UIAgent):
                 self.subtask_status = "Start"
 
                 # Stream current subtask message
-                self._send_stream_message(self.task_id, "subtask", f"开始执行子任务: {self.current_subtask.name}")
+                if self.current_subtask is not None:
+                    self._send_stream_message(self.task_id, "subtask", f"开始执行子任务: {self.current_subtask.name}")
+                else:
+                    self._send_stream_message(self.task_id, "subtask", "开始执行新的子任务")
 
                 self.global_state.log_operation(
                     module="agent",
                     operation="current_subtask",
                     data={
-                        "content": str(self.current_subtask),
+                        "content": str(self.current_subtask) if self.current_subtask is not None else "No active subtask",
                         "status": "start"
                     }
                 )
@@ -376,11 +379,15 @@ class AgentS2(UIAgent):
             self._send_stream_message(self.task_id, "thinking", "正在生成执行动作...")
 
             # get the next action from the worker
+            # Handle case where current_subtask might be None
+            subtask_name = self.current_subtask.name if self.current_subtask is not None else "No active subtask"
+            subtask_info = self.current_subtask.info if self.current_subtask is not None else ""
+
             executor_info = self.worker.generate_next_action(
                 Tu=instruction,
                 search_query=self.search_query,
-                subtask=self.current_subtask.name, # type: ignore
-                subtask_info=self.current_subtask.info, # type: ignore
+                subtask=subtask_name,
+                subtask_info=subtask_info,
                 future_tasks=self.global_state.get_remaining_subtasks(),
                 done_task=self.global_state.get_completed_subtasks(),
                 obs=self.global_state.get_obs_for_manager(),
@@ -393,7 +400,7 @@ class AgentS2(UIAgent):
                 operation="worker_execution",
                 data={
                     "duration": worker_execution_time,
-                    "subtask": self.current_subtask.name # type: ignore
+                    "subtask": self.current_subtask.name if self.current_subtask is not None else "No active subtask" # type: ignore
                 }
             )
 
@@ -457,18 +464,22 @@ class AgentS2(UIAgent):
                 self.needs_next_subtask = True
 
                 # assign the failed subtask
-                self.global_state.add_failed_subtask(self.current_subtask) # type: ignore
+                if self.current_subtask is not None:
+                    self.global_state.add_failed_subtask(self.current_subtask) # type: ignore
                 self.failure_subtask = self.global_state.get_latest_failed_subtask()
 
                 # Stream failure message
-                self._send_stream_message(self.task_id, "error", f"子任务执行失败: {self.current_subtask.name}, 将重新规划")
+                if self.current_subtask is not None:
+                    self._send_stream_message(self.task_id, "error", f"子任务执行失败: {self.current_subtask.name}, 将重新规划")
+                else:
+                    self._send_stream_message(self.task_id, "error", "子任务执行失败, 将重新规划")
 
                 # 记录失败的子任务
                 self.global_state.log_operation(
                     module="agent",
                     operation="subtask_failed",
                     data={
-                        "content": str(self.current_subtask),
+                        "content": str(self.current_subtask) if self.current_subtask is not None else "Unknown subtask",
                         "status": "failed"
                     }
                 )
@@ -485,17 +496,22 @@ class AgentS2(UIAgent):
                 self.requires_replan = True
                 self.needs_next_subtask = True
                 self.failure_subtask = None
-                self.global_state.add_completed_subtask(self.current_subtask) # type: ignore
+                # add completed subtask only if it exists
+                if self.current_subtask is not None:
+                    self.global_state.add_completed_subtask(self.current_subtask) # type: ignore
 
                 # Stream subtask completion message
-                self._send_stream_message(self.task_id, "subtask_complete", f"✅ 子任务完成: {self.current_subtask.name}")
+                if self.current_subtask is not None:
+                    self._send_stream_message(self.task_id, "subtask_complete", f"✅ 子任务完成: {self.current_subtask.name}")
+                else:
+                    self._send_stream_message(self.task_id, "subtask_complete", "✅ 子任务完成")
 
                 # 记录完成的子任务
                 self.global_state.log_operation(
                     module="agent",
                     operation="subtask_completed",
                     data={
-                        "content": str(self.current_subtask),
+                        "content": str(self.current_subtask) if self.current_subtask is not None else "Unknown subtask",
                         "status": "completed"
                     }
                 )
@@ -521,13 +537,24 @@ class AgentS2(UIAgent):
                 for k, v in d.items()
             }
         }
-        info.update(
-            {
-                "subtask": self.current_subtask.name, # type: ignore
-                "subtask_info": self.current_subtask.info, # type: ignore
-                "subtask_status": self.subtask_status,
-            }
-        )
+        # Handle case where current_subtask might be None
+        if self.current_subtask is not None:
+            info.update(
+                {
+                    "subtask": self.current_subtask.name, # type: ignore
+                    "subtask_info": self.current_subtask.info, # type: ignore
+                    "subtask_status": self.subtask_status,
+                }
+            )
+        else:
+            # Handle None case - provide default values
+            info.update(
+                {
+                    "subtask": "No active subtask",
+                    "subtask_info": "",
+                    "subtask_status": "no_subtask",
+                }
+            )
         
         # 记录predict函数总执行时间
         predict_total_time = time.time() - predict_start_time

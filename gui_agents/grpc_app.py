@@ -35,7 +35,7 @@ import gui_agents.cli_app as app
 from gui_agents.proto import agent_pb2, agent_pb2_grpc
 from gui_agents.agents.stream_manager import stream_manager, StreamMessage
 from gui_agents.agents.agent_s import load_config
-from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig, Authorization
+from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig, Authorization, InstanceMode
 from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface, __version__
 
 
@@ -145,7 +145,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             agent.reset()
 
             # Run the blocking function in a separate thread to avoid blocking the event loop
-            await asyncio.to_thread(app.run_agent_normal,agent, query, hwi, steps, False)
+            mode: InstanceMode | None = backend_kwargs["mode"]
+            if mode and mode == InstanceMode.NORMAL:
+                await asyncio.to_thread(app.run_agent_normal,agent, query, hwi, steps, False)
+            else:
+                await asyncio.to_thread(app.run_agent_fast, agent, query, hwi, steps, False)
 
             global_state: GlobalState = Registry.get("GlobalStateStore")  # type: ignore
             final_state = global_state.get_running_state()
@@ -189,6 +193,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             - May initialize or replace self.lybic_auth from request.runningConfig.authorizationInfo.
             - May call self._create_sandbox(...) to create or retrieve a sandbox and determine the platform.
         """
+        backend_kwargs = {}
         platform_map = {
             agent_pb2.SandboxOS.WINDOWS: "Windows",
             agent_pb2.SandboxOS.LINUX: "Ubuntu",
@@ -204,6 +209,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                     api_key=request.runningConfig.authorizationInfo.apiKey,
                     endpoint=request.runningConfig.authorizationInfo.apiEndpoint or "https://api.lybic.cn/"
                 )
+            if request.runningConfig.HasField("mode"):
+                backend_kwargs["mode"] = request.runningConfig.mode
 
         platform_str = platform.system()
         sid = ''
@@ -224,7 +231,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         else:
             platform_str = platform_map.get(request.sandbox.os, platform.system())
 
-        backend_kwargs = {"platform": platform_str, "precreate_sid": sid}
+        backend_kwargs["platform"] = platform_str
+        backend_kwargs["precreate_sid"] = sid
 
         # Add Lybic authorization info if available
         if backend == 'lybic':

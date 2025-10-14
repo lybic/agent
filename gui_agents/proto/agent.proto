@@ -146,7 +146,7 @@ message CommonConfig {
   string id = 1;
 
   optional string backend = 2; // only `lybic` backend supported yet
-  InstanceMode mode = 3;
+  InstanceMode mode = 3; // agent mode default is FAST
   optional int32 steps = 4; // default max steps is 50
   string platform = 5; // agent target plat。 this is not used now
   optional int32 taskTimeout = 6; // default 3600 (s)(1 hour)

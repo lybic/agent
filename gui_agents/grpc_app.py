@@ -209,8 +209,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                     api_key=request.runningConfig.authorizationInfo.apiKey,
                     endpoint=request.runningConfig.authorizationInfo.apiEndpoint or "https://api.lybic.cn/"
                 )
-            if request.runningConfig.HasField("mode"):
-                backend_kwargs["mode"] = request.runningConfig.mode
+            backend_kwargs["mode"] = request.runningConfig.mode
 
         platform_str = platform.system()
         sid = ''

@@ -445,7 +445,7 @@ def run_agent_fast(agent,
                 os.system(
                     f'osascript -e \'display dialog "Task Completed" with title "OpenACI Agent (Fast)" buttons "OK" default button "OK"\''
                 )
-            elif platform.system() == "Linux":
+            elif platform.system() == "Linux" and not (hwi_para.backend== "lybic" or isinstance(hwi_para.backend, LybicBackend)):
                 os.system(
                     f'zenity --info --title="OpenACI Agent (Fast)" --text="Task Completed" --width=200 --height=100'
                 )

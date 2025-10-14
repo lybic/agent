@@ -63,7 +63,7 @@ class BaseTool(ABC):
         # Create LLMAgent instance for tool usage
         self.engine_params = {
             "engine_type": provider,
-            "model": model_name,
+            "model": model_name
         }
 
         auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']

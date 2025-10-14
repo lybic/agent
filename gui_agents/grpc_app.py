@@ -145,7 +145,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             agent.reset()
 
             # Run the blocking function in a separate thread to avoid blocking the event loop
-            await asyncio.to_thread(app.run_agent_normal,agent,query, hwi,steps,False)
+            await asyncio.to_thread(app.run_agent_normal,agent, query, hwi, steps, False)
 
             global_state: GlobalState = Registry.get("GlobalStateStore")  # type: ignore
             final_state = global_state.get_running_state()
@@ -592,7 +592,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         """
         async with self.task_lock:
             if request.id == "global":
-                return self._mask_config_secrets(self.global_common_config)
+                return await self.GetGlobalCommonConfig(request, context)
             else:
                 task_info = self.tasks.get(request.id)
         if task_info and task_info.get("request"):

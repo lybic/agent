@@ -43,7 +43,7 @@ jobs:
           echo "" >> changelog.md
           echo "Release timestamp: $(date +%Y-%m-%d)" >> changelog.md
           echo "" >> changelog.md
-          gh api repos/${{ github.repository }}/compare/$(echo "$PREVIOUS_TAG" | tr '[:upper:]' '[:lower:]')...HEAD --jq '.commits[] | "- \(.commit.message | split("\n")[0]) (by @(.author.login // .commit.author.name) in `\(.sha | tostring | .[0:7])`) "' >> changelog.md
+          gh api repos/${{ github.repository }}/compare/$(echo "$PREVIOUS_TAG" | tr '[:upper:]' '[:lower:]')...HEAD --jq '.commits[] | "- \(.commit.message | split("\n")[0]) (by @\(.author.login // .commit.author.name) in `\(.sha | tostring | .[0:7])`) "' >> changelog.md
           mkdir -p CHANGELOGS
           mv changelog.md CHANGELOGS/${NEW_TAG}-release.md
 
@@ -53,14 +53,24 @@ jobs:
           VERSION=$(echo "${{ github.event.inputs.new_tag }}" | sed 's/^[vV]//')
           echo "Initial pyproject.toml:"
           cat pyproject.toml
-          # Update version in pyproject.toml
+          # Update version in pyproject.toml and gui_agents/__init__.py
           sed -i -E "s/^(version\s*=\s*)\".*\"/\1\"$VERSION\"/" pyproject.toml
+          sed -i -E "s/^(__version__\s*=\s*)\".*\"/\1\"$VERSION\"/" gui_agents/__init__.py
           echo "Updated pyproject.toml:"
           cat pyproject.toml
+          echo "Updated gui_agents/__init__.py:"
+          cat gui_agents/__init__.py
+
+          # Install uv and update lock file
+          make install-uv
+          uv lock
+
           git status
           # Commit the version update
 
           git add pyproject.toml
+          git add gui_agents/__init__.py
+          git add uv.lock
           git add CHANGELOGS/${{ github.event.inputs.new_tag }}-release.md
           git commit -m "docs(changelog): Generate changelog for ${{ github.event.inputs.new_tag }}"
 

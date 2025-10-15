@@ -117,11 +117,11 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/0.8.5/install.ps
 # testing uv installation, version should be 0.8.5
 uv --version
 
-# 2. Install the python 3.12
-uv python install 3.12.11
+# 2. Install the python 3.14
+uv python install 3.14
 
 # 3. Create a virtual environment
-uv venv -p 3.12.11
+uv venv -p 3.14
 
 # 4. Activate the virtual environment
 # macOS and Linux
@@ -361,7 +361,7 @@ USE_PRECREATE_VM=Ubuntu
 **Problem**: `ModuleNotFoundError` or package import errors.
 
 **Solution**:
-- Ensure you're using Python 3.12.11 as specified
+- Ensure you're using Python >= 3.12
 - Activate the virtual environment:
   ```bash
   # macOS/Linux

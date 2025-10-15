@@ -118,11 +118,11 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/0.8.5/install.ps
 # 测试uv安装，版本应为0.8.5
 uv --version
 
-# 2. 安装 python 3.12
-uv python install 3.12.11
+# 2. 安装 python 3.14
+uv python install 3.14
 
 # 3. 创建虚拟环境
-uv venv -p 3.12.11
+uv venv -p 3.14
 
 # 4. 激活虚拟环境
 # macOS 和 Linux
@@ -361,7 +361,7 @@ USE_PRECREATE_VM=Ubuntu
 **问题**: `ModuleNotFoundError`或包导入错误。
 
 **解决方案**:
-- 确保您使用的是指定的Python 3.12.11
+- 确保您使用的是指定的Python >= 3.12
 - 激活虚拟环境：
   ```bash
   # macOS/Linux

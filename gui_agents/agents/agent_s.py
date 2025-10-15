@@ -219,7 +219,11 @@ class AgentS2(UIAgent):
         self.subtasks: List[Node] = []
         self.search_query: str = ""
         self.subtask_status: str = "Start"
-        self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
+        # Use task-specific registry if task_id is available, otherwise fall back to global registry
+        if self.task_id:
+            self.global_state: GlobalState = Registry.get_from_context("GlobalStateStore", self.task_id) # type: ignore
+        else:
+            self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
 
         # Pass task_id to components
         if self.task_id:
@@ -816,7 +820,11 @@ class AgentSFast(UIAgent):
         # Reset state variables
         self.step_count: int = 0
         self.turn_count: int = 0
-        self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
+        # Use task-specific registry if task_id is available, otherwise fall back to global registry
+        if self.task_id:
+            self.global_state: GlobalState = Registry.get_from_context("GlobalStateStore", self.task_id) # type: ignore
+        else:
+            self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
         self.latest_action = None
 
         # Pass task_id to tools if available

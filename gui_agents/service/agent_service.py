@@ -92,25 +92,34 @@ class AgentService:
         
         return logger
     
-    def _get_or_create_agent(self, mode: str, **kwargs) -> Union[AgentS2, AgentSFast]:
+    def _get_or_create_agent(self, mode: str, task_id: Optional[str] = None, **kwargs) -> Union[AgentS2, AgentSFast]:
         """Get or create agent instance based on mode"""
-        cache_key = f"{mode}_{hash(str(sorted(kwargs.items())))}"
-        
+        # Include task_id in cache key for task isolation when task_id is provided
+        if task_id:
+            cache_key = f"{mode}_{task_id}_{hash(str(sorted(kwargs.items())))}"
+        else:
+            cache_key = f"{mode}_{hash(str(sorted(kwargs.items())))}"
+
         if cache_key not in self._agents:
             agent_kwargs = {
                 'platform': kwargs.get('platform', self.config.default_platform),
                 'enable_takeover': kwargs.get('enable_takeover', self.config.enable_takeover),
                 'enable_search': kwargs.get('enable_search', self.config.enable_search),
             }
-            
+
             if mode == AgentMode.FAST.value:
                 self._agents[cache_key] = AgentSFast(**agent_kwargs)
             else:
                 self._agents[cache_key] = AgentS2(**agent_kwargs)
-            
+
             self.logger.debug(f"Created new agent: {mode} with kwargs: {agent_kwargs}")
-        
-        return self._agents[cache_key]
+
+        # Set task_id on the agent for task-specific operations
+        agent = self._agents[cache_key]
+        if task_id and hasattr(agent, 'set_task_id'):
+            agent.set_task_id(task_id)
+
+        return agent
     
     def _get_or_create_hwi(self, backend: str, **kwargs) -> HardwareInterface:
         """Get or create hardware interface instance"""
@@ -134,17 +143,20 @@ class AgentService:
         return self._hwi_instances[cache_key]
     
     def _setup_global_state(self, task_id: str) -> str:
-        """Setup global state for task execution"""
+        """Setup global state for task execution with task isolation"""
         # Create timestamp-based directory structure like cli_app.py
         datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        timestamp_dir = Path(self.config.log_dir) / datetime_str
+        timestamp_dir = Path(self.config.log_dir) / f"{datetime_str}_{task_id[:8]}"  # Include task_id prefix
         cache_dir = timestamp_dir / "cache" / "screens"
         state_dir = timestamp_dir / "state"
-        
+
         cache_dir.mkdir(parents=True, exist_ok=True)
         state_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Register global state for this task
+
+        # Create task-specific registry
+        task_registry = Registry()
+
+        # Register global state for this task in task-specific registry
         global_state = GlobalState(
             screenshot_dir=str(cache_dir),
             tu_path=str(state_dir / "tu.json"),
@@ -157,11 +169,16 @@ class AgentService:
             display_info_path=str(timestamp_dir / "display.json"),
             agent_log_path=str(timestamp_dir / "agent_log.json")
         )
-        
-        # Use task-specific registry key to avoid conflicts
+
+        # Register in task-specific registry
         registry_key = "GlobalStateStore"
-        Registry.register(registry_key, global_state)
-        
+        task_registry.register(registry_key, global_state)
+
+        # Set task registry in thread-local storage
+        Registry.set_task_registry(task_id, task_registry)
+
+        self.logger.info(f"Setup task-specific registry for task {task_id}")
+
         return str(timestamp_dir)
     
     def _execute_task_internal(self, request: TaskRequest, task_result: TaskResult) -> TaskResult:
@@ -173,19 +190,20 @@ class AgentService:
             # Setup global state
             task_dir = self._setup_global_state(task_result.task_id)
             
-            # Create agent and hardware interface
+            # Create agent and hardware interface with task_id
             agent = self._get_or_create_agent(
                 request.mode,
+                task_id=task_result.task_id,
                 platform=self.config.default_platform,
                 enable_takeover=request.enable_takeover,
                 enable_search=request.enable_search
             )
-            
+
             hwi = self._get_or_create_hwi(
                 request.backend,
                 **(request.config or {})
             )
-            
+
             # Reset agent state
             agent.reset()
             
@@ -259,22 +277,17 @@ class AgentService:
             task_result.mark_failed(error_msg)
             
         finally:
-            # Cleanup global state registry
-            registry_key = f"GlobalStateStore"
-            try:
-                # Registry doesn't have unregister method, we'll use clear or manual removal
-                if hasattr(Registry, '_services') and registry_key in Registry._services:
-                    del Registry._services[registry_key]
-            except:
-                pass
+            # Cleanup task-specific registry
+            Registry.remove_task_registry(task_result.task_id)
+            self.logger.info(f"Cleaned up task-specific registry for task {task_result.task_id}")
         
         return task_result
     
-    def _run_agent_normal_internal(self, agent, instruction: str, hwi, max_steps: int, 
+    def _run_agent_normal_internal(self, agent, instruction: str, hwi, max_steps: int,
                                  enable_takeover: bool, task_id: str):
         """Run agent in normal mode (adapted from cli_app.py)"""
         # This is a simplified version - you may want to adapt the full logic from cli_app.py
-        global_state: GlobalState = Registry.get(f"GlobalStateStore")  # type: ignore
+        global_state: GlobalState = Registry.get_from_context("GlobalStateStore", task_id)  # type: ignore
         global_state.set_Tu(instruction)
         global_state.set_running_state("running")
         
@@ -316,10 +329,10 @@ class AgentService:
             hwi.dispatchDict(code[0])
             time.sleep(1.0)
     
-    def _run_agent_fast_internal(self, agent, instruction: str, hwi, max_steps: int, 
-                               enable_takeover: bool, task_id: str):
+    def _run_agent_fast_internal(self, agent, instruction: str, hwi, max_steps: int,
+                              enable_takeover: bool, task_id: str):
         """Run agent in fast mode (adapted from cli_app.py)"""
-        global_state: GlobalState = Registry.get(f"GlobalStateStore")  # type: ignore
+        global_state: GlobalState = Registry.get_from_context("GlobalStateStore", task_id)  # type: ignore
         global_state.set_Tu(instruction)
         global_state.set_running_state("running")
         

@@ -92,8 +92,9 @@ class Grounding(ACI):
         self.text_span_agent = Tools()
         _register(self.text_span_agent, "text_span")
 
-        self.global_state: GlobalState = Registry.get(
-            "GlobalStateStore")  # type: ignore
+        # Use task-specific registry if task_id is available, otherwise fall back to global registry
+        self.global_state: GlobalState = Registry.get_from_context(
+            "GlobalStateStore", getattr(self, 'task_id', None))  # type: ignore
 
     def generate_coords(self, ref_expr: str, obs: Dict) -> List[int]:
         grounding_start_time = time.time()
@@ -453,8 +454,9 @@ class FastGrounding(ACI):
         self.height = height
         self.grounding_width = grounding_width
         self.grounding_height = grounding_height
-        self.global_state: GlobalState = Registry.get(
-            "GlobalStateStore")  # type: ignore
+        # Use task-specific registry if task_id is available, otherwise fall back to global registry
+        self.global_state: GlobalState = Registry.get_from_context(
+            "GlobalStateStore", getattr(self, 'task_id', None))  # type: ignore
 
     def reset_screen_size(self, width: int, height: int):
         self.width = width

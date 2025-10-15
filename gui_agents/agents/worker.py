@@ -67,8 +67,9 @@ class Worker:
 
         self.enable_reflection = enable_reflection
         self.use_subtask_experience = use_subtask_experience
-        self.global_state: GlobalState = Registry.get(
-            "GlobalStateStore")  # type: ignore
+        # Use task-specific registry if task_id is available, otherwise fall back to global registry
+        self.global_state: GlobalState = Registry.get_from_context(
+            "GlobalStateStore", getattr(self, 'task_id', None))  # type: ignore
         self.reset()
 
     def reset(self):

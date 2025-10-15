@@ -1,0 +1,23 @@
+name: Update Docker Hub Description
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'hub.README.md'
+
+jobs:
+  update-dockerhub-description:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Update Docker Hub description
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: agenticlybic
+          password: ${{ secrets.LYBIC_DOCKER_HUB_KEY }}
+          repository: agenticlybic/guiagent
+          readme-filepath: ./hub.README.md

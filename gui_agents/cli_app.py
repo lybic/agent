@@ -107,7 +107,7 @@ def validate_backend_compatibility(backend, compatible_backends, incompatible_ba
         return True, backend, f"Unknown backend '{backend}', compatibility cannot be determined."
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(os.environ.get("LOG_LEVEL", "INFO").upper())
 
 datetime_str: str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 

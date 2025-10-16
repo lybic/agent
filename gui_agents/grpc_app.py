@@ -152,7 +152,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
         return str(timestamp_dir)
 
-
     async def _run_task(self, task_id: str, backend_kwargs):
         """
         Run the lifecycle of a single agent task: mark it running, execute the agent, record final state, emit stream messages, and unregister the task.
@@ -393,7 +392,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             enable_search=False,
             tools_config=tools_config,
         )
-
 
     async def RunAgentInstruction(self, request, context):
         """
@@ -801,9 +799,6 @@ def main():
     has_display, pyautogui_available, _ = app.check_display_environment()
     compatible_backends, incompatible_backends = app.get_compatible_backends(has_display, pyautogui_available)
     app.validate_backend_compatibility('lybic', compatible_backends, incompatible_backends)
-
-    # Global state is now managed on a per-task basis within the AgentServicer
-    # to ensure isolation and prevent conflicts in a concurrent environment.
     asyncio.run(serve())
 
 if __name__ == '__main__':

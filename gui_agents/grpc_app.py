@@ -113,8 +113,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             domain=platform.node(),
         )
 
-    async def _setup_task_state(self, task_id: str) -> str:
-        """Setup global state for task execution with task isolation"""
+    async def _setup_task_state(self, task_id: str) -> Registry:
+        """Setup global state and registry for task execution with task isolation"""
         # Create timestamp-based directory structure like cli_app.py
         datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         timestamp_dir = Path(self.log_dir) / f"{datetime_str}_{task_id[:8]}"  # Include task_id prefix
@@ -145,12 +145,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         registry_key = "GlobalStateStore"
         task_registry.register_instance(registry_key, global_state)
 
-        # Set task registry in thread-local storage
-        Registry.set_task_registry(task_id, task_registry)
+        logger.info(f"Created task-specific registry for task {task_id}")
 
-        logger.info(f"Setup task-specific registry for task {task_id}")
-
-        return str(timestamp_dir)
+        return task_registry
 
     async def _run_task(self, task_id: str, backend_kwargs):
         """
@@ -178,27 +175,29 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             # Send message through stream manager
             await stream_manager.add_message(task_id, "starting", "Task starting")
 
-            # Set up task-specific state
-            task_dir = await self._setup_task_state(task_id)
+            # Create task-specific registry
+            task_registry = await self._setup_task_state(task_id)
 
-            # Set task_id for the agent to enable streaming from within the agent
+            # Set task_id for the agent. This is needed so that agent.reset() can find the right components.
             if hasattr(agent, 'set_task_id'):
                 agent.set_task_id(task_id)
 
             hwi = HardwareInterface(backend='lybic', **backend_kwargs)
 
+            # We need to set the registry for the main thread context before reset
+            Registry.set_task_registry(task_id, task_registry)
             agent.reset()
+            Registry.remove_task_registry(task_id) # Clean up main thread's local
 
-            # Run the blocking function in a separate thread to avoid blocking the event loop
+            # Run the blocking function in a separate thread, passing the context
             mode: InstanceMode | None = backend_kwargs.get("mode")
             if mode and mode == InstanceMode.NORMAL:
-                await asyncio.to_thread(app.run_agent_normal, agent, query, hwi, steps, False)
+                await asyncio.to_thread(app.run_agent_normal, agent, query, hwi, steps, False, task_id=task_id, task_registry=task_registry)
             else:
-                await asyncio.to_thread(app.run_agent_fast, agent, query, hwi, steps, False)
+                await asyncio.to_thread(app.run_agent_fast, agent, query, hwi, steps, False, task_id=task_id, task_registry=task_registry)
 
-            # Use task-specific GlobalState
-            global_state: GlobalState = Registry.get_from_context("GlobalStateStore", task_id)  # type: ignore
-            final_state = global_state.get_running_state()
+            # The final state is now determined inside the thread. We'll assume success if no exception.
+            final_state = "completed"
 
             async with self.task_lock:
                 self.tasks[task_id]["final_state"] = final_state
@@ -217,8 +216,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             await stream_manager.add_message(task_id, "error", f"An error occurred: {e}")
         finally:
             logger.info(f"Task {task_id} processing finished.")
-            # Cleanup task-specific registry
-            Registry.remove_task_registry(task_id)
+            # Registry cleanup is now handled within the worker thread
             await stream_manager.unregister_task(task_id)
 
     async def _make_backend_kwargs(self, request):

@@ -240,9 +240,9 @@ class AgentS2(UIAgent):
         self.task_id = task_id
         # Also set task_id for components if they exist
         if hasattr(self, 'manager') and self.manager:
-            self.manager.task_id = task_id
+            self.manager.set_task_id(task_id)
         if hasattr(self, 'worker') and self.worker:
-            self.worker.task_id = task_id
+            self.worker.set_task_id(task_id)
 
     def reset_executor_state(self) -> None:
         """Reset executor and step counter"""

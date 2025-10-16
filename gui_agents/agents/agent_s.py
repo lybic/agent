@@ -253,17 +253,28 @@ class AgentS2(UIAgent):
         # Initialize the three info dictionaries
         """
         Produce the next executor actions and diagnostic information for the current task step.
-        
+
         This method coordinates planning, subtask selection, action generation, grounding (code extraction and execution), and status updates. It may trigger replanning, advance to the next subtask, mark subtasks as completed or failed, and emit stream messages and logs. The returned info merges planner, executor, and evaluator metadata and includes current subtask details.
-        
+
         Parameters:
             instruction (str): The user or system instruction describing the task to accomplish; forwarded to the manager/worker as the task utterance.
             observation (Dict): Current environment observation/state used for grounding and coordinate assignment.
-        
+
         Returns:
             info (Dict): A merged dictionary containing planner_info, executor_info, evaluator_info and the keys `subtask`, `subtask_info`, and `subtask_status`.
             actions (List[Dict]): List of action dictionaries produced for execution (may include actions with type "DONE", failure indicators, or other executor-generated actions).
         """
+        # Check for cancellation before starting prediction
+        if self.global_state.is_cancelled():
+            logger.info("AgentS2 prediction cancelled by user request")
+            return {
+                "subtask": "cancelled",
+                "subtask_info": "",
+                "subtask_status": "cancelled",
+                "reflection": "Task was cancelled",
+                "executor_plan": "agent.done()"
+            }, [{"type": "DONE"}]
+
         planner_info = {}
         executor_info = {}
         evaluator_info = {
@@ -280,6 +291,16 @@ class AgentS2(UIAgent):
 
         # If the DONE response by the executor is for a subtask, then the agent should continue with the next subtask without sending the action to the environment
         while not self.should_send_action:
+            # Check for cancellation in each iteration
+            if self.global_state.is_cancelled():
+                logger.info("AgentS2 prediction loop cancelled by user request")
+                return {
+                    "subtask": "cancelled",
+                    "subtask_info": "",
+                    "subtask_status": "cancelled",
+                    "reflection": "Task was cancelled",
+                    "executor_plan": "agent.done()"
+                }, [{"type": "DONE"}]
             time.sleep(5.0)
             self.subtask_status = "In"
             # Always time get_action_queue, even if not called
@@ -854,18 +875,27 @@ class AgentSFast(UIAgent):
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:
         """
         Generate the next executor plan and corresponding actions using the configured fast action generator.
-        
+
         Parameters:
         	instruction (str): Natural language task description.
         	observation (Dict): Current UI state; must include a "screenshot" entry with the screen image.
-        
+
         Returns:
         	executor_info (dict): Contains at least the keys `executor_plan` (raw plan text), `reflection` (reflection text or empty string), and `plan_code` (the latest extracted/used action code).
         	actions (List[dict]): List of action dictionaries produced by grounding execution; typically a single action dict describing the operation to perform.
         """
+        # Check for cancellation before starting prediction
+        if self.global_state.is_cancelled():
+            logger.info("AgentSFast prediction cancelled by user request")
+            return {
+                "executor_plan": "agent.done()",
+                "reflection": "Task was cancelled",
+                "plan_code": "agent.done()"
+            }, [{"type": "DONE"}]
+
         import time
         predict_start_time = time.time()
-        
+
         fast_action_start_time = time.time()
 
         reflection = None

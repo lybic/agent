@@ -275,7 +275,7 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
     """
     if task_registry:
         Registry.set_task_registry(task_id, task_registry)
-    
+
     try:
         import time
         obs = {}
@@ -296,6 +296,11 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
                     logger.info("Agent execution resumed by user")
                     break
                 time.sleep(0.5)
+
+            # Check for cancellation
+            if global_state.is_cancelled():
+                logger.info("Agent execution cancelled by user request")
+                return
 
             screenshot: Image.Image = hwi.dispatch(Screenshot())  # type: ignore
             global_state.set_screenshot(
@@ -393,7 +398,7 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
         global_state.log_operation(module="other",
                                 operation="total_execution_time",
                                 data={"duration": total_duration})
-        
+
         # Auto-analyze execution statistics after task completion
         timestamp_dir = os.path.join(log_dir, datetime_str)
         auto_analyze_execution(timestamp_dir)
@@ -409,7 +414,7 @@ def run_agent_fast(agent,
                    enable_takeover: bool = False, task_id: str | None = None, task_registry: Registry | None = None):
     if task_registry:
         Registry.set_task_registry(task_id, task_registry)
-    
+
     try:
         import time
         obs = {}
@@ -428,6 +433,10 @@ def run_agent_fast(agent,
                     logger.info("[Fast Mode] Agent execution resumed by user")
                     break
                 time.sleep(0.5)
+            # Check for cancellation
+            if global_state.is_cancelled():
+                logger.info("[Fast Mode] Agent execution cancelled by user request")
+                return
 
             screenshot: Image.Image = hwi.dispatch(Screenshot())  # type: ignore
             global_state.set_screenshot(
@@ -519,7 +528,7 @@ def run_agent_fast(agent,
         global_state.log_operation(module="other",
                                 operation="total_execution_time_fast",
                                 data={"duration": total_duration})
-        
+
         # Auto-analyze execution statistics after task completion
         timestamp_dir = os.path.join(log_dir, datetime_str)
         auto_analyze_execution(timestamp_dir)

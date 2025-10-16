@@ -1,6 +1,6 @@
 /*
 1. generate protobuf code
-python -m grpc_tools.protoc -Igui_agents/proto \
+python3 -m grpc_tools.protoc -Igui_agents/proto \
   --python_out=gui_agents/proto/pb  \
   --grpc_python_out=gui_agents/proto/pb \
   --pyi_out=gui_agents/proto/pb \
@@ -44,6 +44,8 @@ service Agent {
   rpc GetAgentTaskStream(GetAgentTaskStreamRequest) returns (stream GetAgentTaskStreamResponse);
   // query task status
   rpc QueryTaskStatus(QueryTaskStatusRequest)returns (QueryTaskStatusResponse);
+  // cancel task
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
 }
 
 message SetGlobalCommonLLMConfigRequest {
@@ -179,6 +181,7 @@ enum TaskStatus {
   SUCCESS = 3;
   FAILURE = 4;
   NOT_FOUND = 5;
+  CANCELLED = 6;
 }
 
 message QueryTaskStatusRequest {
@@ -205,4 +208,14 @@ message TaskStream{
   string stage = 2;
   string message = 3;
   google.protobuf.Timestamp timestamp = 4;
+}
+
+message CancelTaskRequest {
+  string taskId = 1;
+}
+
+message CancelTaskResponse {
+  string taskId = 1;
+  bool success = 2;
+  string message = 3;
 }

@@ -149,15 +149,16 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
     async def _run_task(self, task_id: str, backend_kwargs):
         """
         Run the lifecycle of a single agent task: mark it running, execute the agent, record final state, emit stream messages, and unregister the task.
-        
+
         Parameters:
         	task_id (str): Identifier of the task to run.
         	backend_kwargs (dict): Backend configuration passed to the HardwareInterface (e.g., platform, org/api fields, sandbox id).
-        
+
         Notes:
         	- Updates the task entry in self.tasks (status and final_state).
         	- Emits task lifecycle messages via stream_manager and unregisters the task when finished.
         	- Exceptions are caught, the task status is set to "error", and an error message is emitted.
+        	- Supports task cancellation via asyncio.CancelledError.
         """
         async with self.task_lock:
             self.tasks[task_id]["status"] = "running"
@@ -206,6 +207,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 status = final_state if final_state else 'unknown'
                 await stream_manager.add_message(task_id, "finished", f"Task finished with status: {status}")
 
+        except asyncio.CancelledError:
+            logger.info(f"Task {task_id} was cancelled")
+            async with self.task_lock:
+                self.tasks[task_id]["status"] = "cancelled"
+            await stream_manager.add_message(task_id, "cancelled", "Task was cancelled by user request")
         except Exception as e:
             logger.exception(f"Error during task execution for {task_id}: {e}")
             async with self.task_lock:
@@ -547,6 +553,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             "running": agent_pb2.TaskStatus.RUNNING,
             "fulfilled": agent_pb2.TaskStatus.SUCCESS,
             "rejected": agent_pb2.TaskStatus.FAILURE,
+            "cancelled": agent_pb2.TaskStatus.CANCELLED,
         }
 
         if status == "finished":
@@ -556,6 +563,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         elif status == "error":
             task_status = agent_pb2.TaskStatus.FAILURE
             message = "Task failed with an exception."
+            result = ""
+        elif status == "cancelled":
+            task_status = agent_pb2.TaskStatus.CANCELLED
+            message = "Task was cancelled by user request."
             result = ""
         else:  # pending or running
             task_status = status_map.get(status, agent_pb2.TaskStatus.TASKSTATUSUNDEFINED)
@@ -569,6 +580,82 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             result=result,
             sandbox=task_info["sandbox"]
         )
+
+    async def CancelTask(self, request, context):
+        """
+        Cancel a running task by its taskId.
+
+        If the task exists and is running, it will be cancelled and a success response is returned.
+        If the task is not found or already completed, an appropriate response is returned.
+
+        Parameters:
+            request: CancelTaskRequest containing the taskId to cancel
+            context: gRPC context for setting status codes and details
+
+        Returns:
+            CancelTaskResponse: Response containing taskId, success status, and message
+        """
+        task_id = request.taskId
+        logger.info(f"Received CancelTask request for taskId: {task_id}")
+
+        async with self.task_lock:
+            task_info = self.tasks.get(task_id)
+
+        if not task_info:
+            return agent_pb2.CancelTaskResponse(
+                taskId=task_id,
+                success=False,
+                message=f"Task with ID {task_id} not found."
+            )
+
+        status = task_info["status"]
+        task_future = task_info.get("future")
+
+        # Check if task can be cancelled
+        if status in ["finished", "error"]:
+            return agent_pb2.CancelTaskResponse(
+                taskId=task_id,
+                success=False,
+                message=f"Task {task_id} is already {status} and cannot be cancelled."
+            )
+        elif status == "cancelled":
+            return agent_pb2.CancelTaskResponse(
+                taskId=task_id,
+                success=True,
+                message=f"Task {task_id} was already cancelled."
+            )
+        elif status in ["pending", "running"] and task_future:
+            try:
+                # Cancel the task future
+                task_future.cancel()
+                task_info["status"] = "cancelled"
+
+                # Set cancellation flag in global state for agents to check
+                global_state: GlobalState = Registry.get("GlobalStateStore")  # type: ignore
+                global_state.set_running_state("cancelled")
+
+                # Send cancellation message through stream manager
+                await stream_manager.add_message(task_id, "cancelled", "Task was cancelled by user request")
+
+                logger.info(f"Task {task_id} successfully cancelled")
+                return agent_pb2.CancelTaskResponse(
+                    taskId=task_id,
+                    success=True,
+                    message=f"Task {task_id} has been successfully cancelled."
+                )
+            except Exception as e:
+                logger.error(f"Failed to cancel task {task_id}: {e}")
+                return agent_pb2.CancelTaskResponse(
+                    taskId=task_id,
+                    success=False,
+                    message=f"Failed to cancel task {task_id}: {e}"
+                )
+        else:
+            return agent_pb2.CancelTaskResponse(
+                taskId=task_id,
+                success=False,
+                message=f"Task {task_id} is in state '{status}' and cannot be cancelled."
+            )
 
     def _mask_config_secrets(self, config: CommonConfig) -> CommonConfig:
         """

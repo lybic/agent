@@ -467,7 +467,7 @@ class GlobalState:
             return "stopped"
 
     def set_running_state(self, state: str) -> None:
-        assert state in {"running", "stopped"}
+        assert state in {"running", "stopped", "cancelled"}
         tmp = self.running_state_path.with_suffix(".tmp")
         try:
             with locked(tmp, "w") as f:
@@ -485,6 +485,16 @@ class GlobalState:
                 except Exception:
                     pass
             raise
+
+    def is_cancelled(self) -> bool:
+        """Check if the current execution has been cancelled"""
+        try:
+            with locked(self.running_state_path, "r") as f:
+                data = safe_json_load(f)
+            return data == "cancelled"
+        except Exception as e:
+            logger.warning(f"Failed to check cancellation state: {e}")
+            return False
 
     # ---------- High-level Wrappers ----------
     def get_obs_for_manager(self):

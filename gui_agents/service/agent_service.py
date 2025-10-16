@@ -121,9 +121,12 @@ class AgentService:
 
         return agent
     
-    def _get_or_create_hwi(self, backend: str, **kwargs) -> HardwareInterface:
+    def _get_or_create_hwi(self, backend: str, task_id: Optional[str] = None, **kwargs) -> HardwareInterface:
         """Get or create hardware interface instance"""
-        cache_key = f"{backend}_{hash(str(sorted(kwargs.items())))}"
+        if task_id:
+            cache_key = f"{backend}_{task_id}_{hash(str(sorted(kwargs.items())))}"
+        else:
+            cache_key = f"{backend}_{hash(str(sorted(kwargs.items())))}"
         
         if cache_key not in self._hwi_instances:
             # Get backend-specific config
@@ -170,9 +173,9 @@ class AgentService:
             agent_log_path=str(timestamp_dir / "agent_log.json")
         )
 
-        # Register in task-specific registry
+        # Register in task-specific registry using instance method
         registry_key = "GlobalStateStore"
-        task_registry.register(registry_key, global_state)
+        task_registry.register_instance(registry_key, global_state)
 
         # Set task registry in thread-local storage
         Registry.set_task_registry(task_id, task_registry)
@@ -201,6 +204,7 @@ class AgentService:
 
             hwi = self._get_or_create_hwi(
                 request.backend,
+                task_id=task_result.task_id,
                 **(request.config or {})
             )
 

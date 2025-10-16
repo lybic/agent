@@ -27,19 +27,19 @@ class Registry:
         self._lock = threading.RLock()
 
     # ========== Instance methods ==========
-    def register(self, name: str, obj: object):
+    def register_instance(self, name: str, obj: object):
         """Register an object in this registry instance"""
         with self._lock:
             self._services[name] = obj
 
-    def get(self, name: str) -> object:
+    def get_instance(self, name: str) -> object:
         """Get an object from this registry instance"""
         with self._lock:
             if name not in self._services:
                 raise KeyError(f"{name!r} not registered in Registry")
             return self._services[name]
 
-    def clear(self):
+    def clear_instance(self):
         """Clear all objects in this registry instance"""
         with self._lock:
             self._services.clear()
@@ -106,9 +106,23 @@ class Registry:
             task_registry = cls.get_task_registry(task_id)
             if task_registry:
                 try:
-                    return task_registry.get(name)
+                    return task_registry.get_instance(name)
                 except KeyError:
                     pass  # Fall back to global registry
 
         # Fall back to global registry
         return cls.get(name)
+
+    # ========== Backward compatibility aliases ==========
+    # Note: These aliases are commented out to avoid conflicts with class methods
+    # def register(self, name: str, obj: object):
+    #     """Alias for register_instance (backward compatibility)"""
+    #     self.register_instance(name, obj)
+
+    # def get(self, name: str) -> object:
+    #     """Alias for get_instance (backward compatibility)"""
+    #     return self.get_instance(name)
+
+    # def clear(self):
+    #     """Alias for clear_instance (backward compatibility)"""
+    #     self.clear_instance()

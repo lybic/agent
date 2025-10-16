@@ -29,6 +29,7 @@ import platform
 from concurrent import futures
 import grpc
 import uuid
+import datetime
 
 from lybic import LybicClient, LybicAuth, Sandbox
 import gui_agents.cli_app as app
@@ -44,12 +45,13 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
     Implements the Agent gRPC service.
     """
 
-    def __init__(self, max_concurrent_task_num = 1):
+    def __init__(self, max_concurrent_task_num: int = 1, log_dir: str = "runtime"):
         """
         Initialize the AgentServicer with concurrency and runtime state.
         
         Parameters:
             max_concurrent_task_num (int): Maximum number of agent tasks allowed to run concurrently; defaults to 1.
+            log_dir (str): Directory for logging and task-related files.
         """
         self.lybic_auth: LybicAuth | None = None
         self.max_concurrent_task_num = max_concurrent_task_num
@@ -58,6 +60,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         self.task_lock = asyncio.Lock()
         self.lybic_client: LybicClient | None = None
         self.sandbox: Sandbox | None = None
+        self.log_dir = log_dir
 
     async def GetAgentTaskStream(self, request, context):
         """
@@ -110,6 +113,46 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             domain=platform.node(),
         )
 
+    async def _setup_task_state(self, task_id: str) -> str:
+        """Setup global state for task execution with task isolation"""
+        # Create timestamp-based directory structure like cli_app.py
+        datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp_dir = Path(self.log_dir) / f"{datetime_str}_{task_id[:8]}"  # Include task_id prefix
+        cache_dir = timestamp_dir / "cache" / "screens"
+        state_dir = timestamp_dir / "state"
+
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        state_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create task-specific registry
+        task_registry = Registry()
+
+        # Register global state for this task in task-specific registry
+        global_state = GlobalState(
+            screenshot_dir=str(cache_dir),
+            tu_path=str(state_dir / "tu.json"),
+            search_query_path=str(state_dir / "search_query.json"),
+            completed_subtasks_path=str(state_dir / "completed_subtasks.json"),
+            failed_subtasks_path=str(state_dir / "failed_subtasks.json"),
+            remaining_subtasks_path=str(state_dir / "remaining_subtasks.json"),
+            termination_flag_path=str(state_dir / "termination_flag.json"),
+            running_state_path=str(state_dir / "running_state.json"),
+            display_info_path=str(timestamp_dir / "display.json"),
+            agent_log_path=str(timestamp_dir / "agent_log.json")
+        )
+
+        # Register in task-specific registry using instance method
+        registry_key = "GlobalStateStore"
+        task_registry.register_instance(registry_key, global_state)
+
+        # Set task registry in thread-local storage
+        Registry.set_task_registry(task_id, task_registry)
+
+        logger.info(f"Setup task-specific registry for task {task_id}")
+
+        return str(timestamp_dir)
+
+
     async def _run_task(self, task_id: str, backend_kwargs):
         """
         Run the lifecycle of a single agent task: mark it running, execute the agent, record final state, emit stream messages, and unregister the task.
@@ -136,6 +179,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             # Send message through stream manager
             await stream_manager.add_message(task_id, "starting", "Task starting")
 
+            # Set up task-specific state
+            task_dir = await self._setup_task_state(task_id)
+
             # Set task_id for the agent to enable streaming from within the agent
             if hasattr(agent, 'set_task_id'):
                 agent.set_task_id(task_id)
@@ -145,13 +191,14 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             agent.reset()
 
             # Run the blocking function in a separate thread to avoid blocking the event loop
-            mode: InstanceMode | None = backend_kwargs["mode"]
+            mode: InstanceMode | None = backend_kwargs.get("mode")
             if mode and mode == InstanceMode.NORMAL:
-                await asyncio.to_thread(app.run_agent_normal,agent, query, hwi, steps, False)
+                await asyncio.to_thread(app.run_agent_normal, agent, query, hwi, steps, False)
             else:
                 await asyncio.to_thread(app.run_agent_fast, agent, query, hwi, steps, False)
 
-            global_state: GlobalState = Registry.get("GlobalStateStore")  # type: ignore
+            # Use task-specific GlobalState
+            global_state: GlobalState = Registry.get_from_context("GlobalStateStore", task_id)  # type: ignore
             final_state = global_state.get_running_state()
 
             async with self.task_lock:
@@ -171,6 +218,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             await stream_manager.add_message(task_id, "error", f"An error occurred: {e}")
         finally:
             logger.info(f"Task {task_id} processing finished.")
+            # Cleanup task-specific registry
+            Registry.remove_task_registry(task_id)
             await stream_manager.unregister_task(task_id)
 
     async def _make_backend_kwargs(self, request):
@@ -736,7 +785,7 @@ async def serve():
     port = os.environ.get("GRPC_PORT", 50051)
     max_workers = int(os.environ.get("GRPC_MAX_WORKER_THREADS", 100))
     task_num = int(os.environ.get("TASK_MAX_TASKS", 5))
-    servicer = AgentServicer(max_concurrent_task_num=task_num)
+    servicer = AgentServicer(max_concurrent_task_num=task_num, log_dir=app.log_dir)
     server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers))
     agent_pb2_grpc.add_AgentServicer_to_server(servicer, server)
     server.add_insecure_port(f'[::]:{port}')
@@ -752,32 +801,9 @@ def main():
     has_display, pyautogui_available, _ = app.check_display_environment()
     compatible_backends, incompatible_backends = app.get_compatible_backends(has_display, pyautogui_available)
     app.validate_backend_compatibility('lybic', compatible_backends, incompatible_backends)
-    timestamp_dir = os.path.join(app.log_dir, app.datetime_str)
-    cache_dir = os.path.join(timestamp_dir, "cache", "screens")
-    state_dir = os.path.join(timestamp_dir, "state")
 
-    os.makedirs(cache_dir, exist_ok=True)
-    os.makedirs(state_dir, exist_ok=True)
-
-    Registry.register(
-        "GlobalStateStore",
-        GlobalState(
-            screenshot_dir=cache_dir,
-            tu_path=os.path.join(state_dir, "tu.json"),
-            search_query_path=os.path.join(state_dir, "search_query.json"),
-            completed_subtasks_path=os.path.join(state_dir,
-                                                 "completed_subtasks.json"),
-            failed_subtasks_path=os.path.join(state_dir,
-                                              "failed_subtasks.json"),
-            remaining_subtasks_path=os.path.join(state_dir,
-                                                 "remaining_subtasks.json"),
-            termination_flag_path=os.path.join(state_dir,
-                                               "termination_flag.json"),
-            running_state_path=os.path.join(state_dir, "running_state.json"),
-            display_info_path=os.path.join(timestamp_dir, "display.json"),
-            agent_log_path=os.path.join(timestamp_dir, "agent_log.json")
-        )
-    )
+    # Global state is now managed on a per-task basis within the AgentServicer
+    # to ensure isolation and prevent conflicts in a concurrent environment.
     asyncio.run(serve())
 
 if __name__ == '__main__':

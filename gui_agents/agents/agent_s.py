@@ -172,8 +172,6 @@ class AgentS2(UIAgent):
         else:
             print(f"Found local knowledge base path: {kb_platform_path}")
 
-        self.reset()
-
     def reset(self) -> None:
         """
         Reinitialize core components and reset the agent's runtime state.
@@ -739,8 +737,6 @@ class AgentSFast(UIAgent):
             print(f"Created directory: {kb_platform_path}")
         else:
             print(f"Found local knowledge base path: {kb_platform_path}")
-
-        self.reset()
 
     def reset(self) -> None:
         """

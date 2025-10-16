@@ -275,7 +275,7 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
     obs = {}
     traj = "Task:\n" + instruction
     subtask_traj = ""
-    global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
+    global_state: GlobalState = agent.global_state # type: ignore
     global_state.set_Tu(instruction)
     global_state.set_running_state("running")
     hwi = hwi_para
@@ -400,7 +400,7 @@ def run_agent_fast(agent,
                    enable_takeover: bool = False):
     import time
     obs = {}
-    global_state: GlobalState = Registry.get("GlobalStateStore")  # type: ignore
+    global_state: GlobalState = agent.global_state  # type: ignore
     global_state.set_Tu(instruction)
     global_state.set_running_state("running")
     hwi = hwi_para

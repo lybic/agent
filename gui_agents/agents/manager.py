@@ -102,8 +102,8 @@ class Manager:
             Tools_dict=KB_Tools_dict,
         )
 
-        # Use task-specific registry if task_id is available, otherwise fall back to global registry
-        self.global_state: GlobalState = Registry.get_from_context("GlobalStateStore", getattr(self, 'task_id', None)) # type: ignore
+        # GlobalState will be initialized in reset() method when task_id is available
+        self.global_state: GlobalState = None  # type: ignore
 
         self.planner_history = []
 
@@ -118,6 +118,12 @@ class Manager:
             self.search_engine = None
 
         self.multi_round = multi_round
+
+    def set_task_id(self, task_id: str) -> None:
+        """Set the task identifier and update global state reference"""
+        self.task_id = task_id
+        # Update global state reference with task-specific registry
+        self.global_state = Registry.get_from_context("GlobalStateStore", task_id)  # type: ignore
 
     def _send_stream_message(self, task_id: str, stage: str, message: str) -> None:
         """

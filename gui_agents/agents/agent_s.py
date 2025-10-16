@@ -227,8 +227,11 @@ class AgentS2(UIAgent):
 
         # Pass task_id to components
         if self.task_id:
-            self.manager.task_id = self.task_id
-            self.worker.task_id = self.task_id
+            self.manager.set_task_id(self.task_id)
+            self.worker.set_task_id(self.task_id)
+            # Grounding doesn't have task_id in normal mode, but we set it if available
+            if hasattr(self, 'grounding') and hasattr(self.grounding, 'set_task_id'):
+                self.grounding.set_task_id(self.task_id)
 
     def set_task_id(self, task_id: str) -> None:
         """
@@ -827,16 +830,19 @@ class AgentSFast(UIAgent):
             self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
         self.latest_action = None
 
-        # Pass task_id to tools if available
+        # Pass task_id to tools and components if available
         if self.task_id:
             self.fast_action_generator.task_id = self.task_id
             if self.enable_reflection and hasattr(self, 'reflection_agent'):
                 self.reflection_agent.task_id = self.task_id
+            # Set task_id for grounding component
+            if hasattr(self, 'grounding') and hasattr(self.grounding, 'set_task_id'):
+                self.grounding.set_task_id(self.task_id)
 
     def set_task_id(self, task_id: str) -> None:
         """
         Store the task identifier on the agent and propagate it to subcomponents that use it.
-        
+
         Parameters:
             task_id (str): Identifier for the active task; assigned to this agent and, if present, to
                 `fast_action_generator` and `reflection_agent`.
@@ -847,6 +853,9 @@ class AgentSFast(UIAgent):
             self.fast_action_generator.task_id = task_id
         if hasattr(self, 'reflection_agent') and self.reflection_agent:
             self.reflection_agent.task_id = task_id
+        # Set task_id for grounding component
+        if hasattr(self, 'grounding') and hasattr(self.grounding, 'set_task_id'):
+            self.grounding.set_task_id(task_id)
 
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:
         """

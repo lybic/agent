@@ -67,8 +67,8 @@ class Worker:
 
         self.enable_reflection = enable_reflection
         self.use_subtask_experience = use_subtask_experience
-        self.global_state: GlobalState = Registry.get(
-            "GlobalStateStore")  # type: ignore
+        # GlobalState will be initialized in reset() method when task_id is available
+        self.global_state: GlobalState = None  # type: ignore
         self.reset()
 
     def reset(self):
@@ -158,6 +158,12 @@ class Worker:
         self.latest_action = None
         self.max_trajector_length = 8
         self.task_id = None  # Will be set by agent
+
+    def set_task_id(self, task_id: str) -> None:
+        """Set the task identifier and update global state reference"""
+        self.task_id = task_id
+        # Update global state reference with task-specific registry
+        self.global_state = Registry.get_from_context("GlobalStateStore", task_id)  # type: ignore
 
     def generate_next_action(
         self,

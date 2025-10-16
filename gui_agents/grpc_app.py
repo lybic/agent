@@ -735,8 +735,8 @@ async def serve():
     """
     port = os.environ.get("GRPC_PORT", 50051)
     max_workers = int(os.environ.get("GRPC_MAX_WORKER_THREADS", 100))
-    # task_num = int(os.environ.get("TASK_MAX_TASKS", 5))
-    servicer = AgentServicer(max_concurrent_task_num=1)
+    task_num = int(os.environ.get("TASK_MAX_TASKS", 5))
+    servicer = AgentServicer(max_concurrent_task_num=task_num)
     server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers))
     agent_pb2_grpc.add_AgentServicer_to_server(servicer, server)
     server.add_insecure_port(f'[::]:{port}')

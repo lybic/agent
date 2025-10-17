@@ -270,16 +270,16 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 if sid:
                     logger.info(f"Using existing sandbox with id: {sid}")
                     sandbox_pb = await self._get_sandbox_pb(sid, lybic_auth)  # if not exist raise NotFound
-                    platform_str = sandbox_pb.os
+                    platform_str = platform_map.get(sandbox_pb.os, platform.system())
                 else:
                     sandbox_pb = await self._create_sandbox(shape, lybic_auth)
-                    sid, platform_str = sandbox_pb.id, sandbox_pb.os
+                    sid, platform_str = sandbox_pb.id, platform_map.get(sandbox_pb.os, platform.system())
 
                 if request.sandbox.os != agent_pb2.SandboxOS.OSUNDEFINED:
                     platform_str = platform_map.get(request.sandbox.os, platform.system())
             else:
                 sandbox_pb = await self._create_sandbox(shape, lybic_auth)
-                sid, platform_str = sandbox_pb.id, sandbox_pb.os
+                sid, platform_str = sandbox_pb.id, platform_map.get(sandbox_pb.os, platform.system())
         else:
             if request.HasField("sandbox") and request.sandbox.os != agent_pb2.SandboxOS.OSUNDEFINED:
                 platform_str = platform_map.get(request.sandbox.os, platform.system())
@@ -766,7 +766,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
         return agent_pb2.Sandbox(
             id=sandbox.sandbox.id,
-            os=self._lybic_sandbox_os_to_pb_enum(sandbox.sandbox.shape.os),
+            os=self._lybic_sandbox_os_to_pb_enum(sandbox.sandbox.shape),
             shapeName=sandbox.sandbox.shapeName,
             hardwareAcceleratedEncoding=sandbox.sandbox.shape.hardwareAcceleratedEncoding,
             virtualization=sandbox.sandbox.shape.virtualization,

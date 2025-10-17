@@ -631,7 +631,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 task_info["status"] = "cancelled"
 
                 # Set cancellation flag in global state for agents to check
-                global_state: GlobalState = Registry.get("GlobalStateStore")  # type: ignore
+                global_state: GlobalState = Registry.get_from_context("GlobalStateStore", task_id)  # type: ignore
                 global_state.set_running_state("cancelled")
 
                 # Send cancellation message through stream manager

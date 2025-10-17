@@ -267,7 +267,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 sid = request.sandbox.id
                 if sid:
                     logger.info(f"Using existing sandbox with id: {sid}")
-                    sandbox_pb = await self._get_sandbox_pb(sid)
+                    sandbox_pb = await self._get_sandbox_pb(sid) # if not exist raise NotFound
                     platform_str = sandbox_pb.os
                 else:
                     sandbox_pb = await self._create_sandbox(shape)
@@ -438,6 +438,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 "max_steps": max_steps,
                 "sandbox": backend_kwargs["sandbox"],
             }
+
+            # This property is used to pass sandbox information.
+            # It has now completed its mission and needs to be deleted, otherwise other backends may crash.
+            del backend_kwargs["sandbox"]
 
             task_future = asyncio.create_task(self._run_task(task_id, backend_kwargs))
             self.tasks[task_id]["future"] = task_future
@@ -784,7 +788,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         Retrieves sandbox details for a given sandbox ID and returns them as a protobuf message.
         """
         if not self.lybic_auth:
-            raise Exception("Lybic client not initialized. Please call SetGlobalCommonConfig before")
+            raise ValueError("Lybic client not initialized. Please call SetGlobalCommonConfig before")
 
         if not self.lybic_client:
             await self._new_lybic_client()
@@ -793,9 +797,20 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         
         sandbox_details = await self.sandbox.get(sid)
 
+        os_raw = getattr(sandbox_details.sandbox.shape, "os", "") or ""
+        os_upper = str(os_raw).upper()
+        if "WIN" in os_upper:
+            os_enum = agent_pb2.SandboxOS.WINDOWS
+        elif "LINUX" in os_upper or "UBUNTU" in os_upper:
+            os_enum = agent_pb2.SandboxOS.LINUX
+        elif "ANDROID" in os_upper:
+            os_enum = agent_pb2.SandboxOS.ANDROID
+        else:
+            os_enum = agent_pb2.SandboxOS.OSUNDEFINED
+
         return agent_pb2.Sandbox(
             id=sandbox_details.sandbox.id,
-            os=sandbox_details.sandbox.shape.os.upper(),
+            os=os_enum,
             shapeName=sandbox_details.sandbox.shapeName,
             hardwareAcceleratedEncoding=sandbox_details.sandbox.shape.hardwareAcceleratedEncoding,
             virtualization=sandbox_details.sandbox.shape.virtualization,

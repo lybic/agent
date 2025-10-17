@@ -298,7 +298,7 @@ class AgentS2(UIAgent):
                     "subtask_status": "cancelled",
                     "reflection": "Task was cancelled",
                     "executor_plan": "agent.done()"
-                }, ["DONE"]
+                }, [{"type": "DONE"}]
             time.sleep(5.0)
             self.subtask_status = "In"
             # Always time get_action_queue, even if not called

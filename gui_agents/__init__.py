@@ -37,7 +37,7 @@ from .agents.hardware_interface import HardwareInterface
 from .store.registry import Registry
 from .agents.global_state import GlobalState
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 # Primary exports (what users should typically use)
 __all__ = [

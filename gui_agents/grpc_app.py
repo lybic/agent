@@ -259,23 +259,30 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
         platform_str = platform.system()
         sid = ''
+        sandbox_pb = None
+
         if backend == 'lybic':
             if request.HasField("sandbox"):
                 shape = request.sandbox.shapeName
                 sid = request.sandbox.id
                 if sid:
                     logger.info(f"Using existing sandbox with id: {sid}")
+                    sandbox_pb = await self._get_sandbox_pb(sid) # if not exist raise NotFound
+                    platform_str = sandbox_pb.os
                 else:
-                    sid, platform_str = await self._create_sandbox(shape)
+                    sandbox_pb = await self._create_sandbox(shape)
+                    sid, platform_str = sandbox_pb.id, sandbox_pb.os
 
                 if request.sandbox.os != agent_pb2.SandboxOS.OSUNDEFINED:
                     platform_str = platform_map.get(request.sandbox.os, platform.system())
             else:
-                sid, platform_str = await self._create_sandbox(shape)
-
+                sandbox_pb = await self._create_sandbox(shape)
+                sid, platform_str = sandbox_pb.id, sandbox_pb.os
         else:
-            platform_str = platform_map.get(request.sandbox.os, platform.system())
+            if request.HasField("sandbox") and request.sandbox.os != agent_pb2.SandboxOS.OSUNDEFINED:
+                platform_str = platform_map.get(request.sandbox.os, platform.system())
 
+        backend_kwargs["sandbox"] = sandbox_pb
         backend_kwargs["platform"] = platform_str
         backend_kwargs["precreate_sid"] = sid
 
@@ -296,12 +303,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         return backend_kwargs
 
     async def _make_agent(self,request):
-        # todo: add max_steps support
-        # max_steps = 50
-        # if request.HasField("runningConfig") and request.runningConfig.steps:
-        #     max_steps = request.runningConfig.steps
-
-        # Dynamically build tools_dict based on global config
         """
         Builds and returns an AgentS2 configured for the incoming request by applying model and provider overrides to the tool configurations.
         
@@ -435,7 +436,12 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 "query": request.instruction,
                 "agent": agent,
                 "max_steps": max_steps,
+                "sandbox": backend_kwargs["sandbox"],
             }
+
+            # This property is used to pass sandbox information.
+            # It has now completed its mission and needs to be deleted, otherwise other backends may crash.
+            del backend_kwargs["sandbox"]
 
             task_future = asyncio.create_task(self._run_task(task_id, backend_kwargs))
             self.tasks[task_id]["future"] = task_future
@@ -494,6 +500,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 "query": request.instruction,
                 "agent": agent,
                 "max_steps": max_steps,
+                "sandbox": backend_kwargs["sandbox"],
             }
 
             # Start the task in background
@@ -555,7 +562,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             status=task_status,
             message=message,
             result=result,
-            sandbox=task_info["request"].sandbox
+            sandbox=task_info["sandbox"]
         )
 
     def _mask_config_secrets(self, config: CommonConfig) -> CommonConfig:
@@ -745,7 +752,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         logger.info(f"Global embedding LLM config updated to: {request.llmConfig.modelName}")
         return request.llmConfig
 
-    async def _create_sandbox(self,shape:str):
+    async def _create_sandbox(self,shape:str)->agent_pb2.Sandbox:
         """
         Create a sandbox with the given shape via the Lybic service and return its identifier and operating system.
         
@@ -766,7 +773,49 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             self.sandbox = Sandbox(self.lybic_client)
         result = await self.sandbox.create(shape=shape)
         sandbox = await self.sandbox.get(result.id)
-        return sandbox.sandbox.id, sandbox.sandbox.shape.os
+
+        return agent_pb2.Sandbox(
+            id=sandbox.sandbox.id,
+            os=sandbox.sandbox.shape.os.upper(),
+            shapeName=sandbox.sandbox.shapeName,
+            hardwareAcceleratedEncoding=sandbox.sandbox.shape.hardwareAcceleratedEncoding,
+            virtualization=sandbox.sandbox.shape.virtualization,
+            architecture=sandbox.sandbox.shape.architecture,
+        )
+
+    async def _get_sandbox_pb(self, sid: str) -> agent_pb2.Sandbox:
+        """
+        Retrieves sandbox details for a given sandbox ID and returns them as a protobuf message.
+        """
+        if not self.lybic_auth:
+            raise ValueError("Lybic client not initialized. Please call SetGlobalCommonConfig before")
+
+        if not self.lybic_client:
+            await self._new_lybic_client()
+        if not self.sandbox:
+            self.sandbox = Sandbox(self.lybic_client)
+        
+        sandbox_details = await self.sandbox.get(sid)
+
+        os_raw = getattr(sandbox_details.sandbox.shape, "os", "") or ""
+        os_upper = str(os_raw).upper()
+        if "WIN" in os_upper:
+            os_enum = agent_pb2.SandboxOS.WINDOWS
+        elif "LINUX" in os_upper or "UBUNTU" in os_upper:
+            os_enum = agent_pb2.SandboxOS.LINUX
+        elif "ANDROID" in os_upper:
+            os_enum = agent_pb2.SandboxOS.ANDROID
+        else:
+            os_enum = agent_pb2.SandboxOS.OSUNDEFINED
+
+        return agent_pb2.Sandbox(
+            id=sandbox_details.sandbox.id,
+            os=os_enum,
+            shapeName=sandbox_details.sandbox.shapeName,
+            hardwareAcceleratedEncoding=sandbox_details.sandbox.shape.hardwareAcceleratedEncoding,
+            virtualization=sandbox_details.sandbox.shape.virtualization,
+            architecture=sandbox_details.sandbox.shape.architecture,
+        )
 
 async def serve():
     """

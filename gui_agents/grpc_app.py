@@ -53,13 +53,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             max_concurrent_task_num (int): Maximum number of agent tasks allowed to run concurrently; defaults to 1.
             log_dir (str): Directory for logging and task-related files.
         """
-        self.lybic_auth: LybicAuth | None = None
         self.max_concurrent_task_num = max_concurrent_task_num
         self.tasks = {}
         self.global_common_config = agent_pb2.CommonConfig(id="global")
         self.task_lock = asyncio.Lock()
-        self.lybic_client: LybicClient | None = None
-        self.sandbox: Sandbox | None = None
         self.log_dir = log_dir
 
     async def GetAgentTaskStream(self, request, context):
@@ -236,7 +233,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 - "endpoint": Lybic API endpoint.
         
         Side effects:
-            - May initialize or replace self.lybic_auth from request.runningConfig.authorizationInfo.
             - May call self._create_sandbox(...) to create or retrieve a sandbox and determine the platform.
         """
         backend_kwargs = {}
@@ -249,12 +245,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         if request.HasField("runningConfig"):
             if request.runningConfig.backend:
                 backend = request.runningConfig.backend
-            if request.runningConfig.HasField("authorizationInfo"):
-                self.lybic_auth = LybicAuth(
-                    org_id=request.runningConfig.authorizationInfo.orgID,
-                    api_key=request.runningConfig.authorizationInfo.apiKey,
-                    endpoint=request.runningConfig.authorizationInfo.apiEndpoint or "https://api.lybic.cn/"
-                )
             backend_kwargs["mode"] = request.runningConfig.mode
 
         platform_str = platform.system()
@@ -262,22 +252,34 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         sandbox_pb = None
 
         if backend == 'lybic':
+            auth_info = (request.runningConfig.authorizationInfo
+                         if request.HasField("runningConfig") and request.runningConfig.HasField("authorizationInfo")
+                         else self.global_common_config.authorizationInfo)
+            if not auth_info or not auth_info.orgID or not auth_info.apiKey:
+                raise ValueError("Lybic backend requires valid authorization (orgID and apiKey)")
+
+            lybic_auth = LybicAuth(
+                org_id=auth_info.orgID,
+                api_key=auth_info.apiKey,
+                endpoint=auth_info.apiEndpoint or "https://api.lybic.cn/"
+            )
+
             if request.HasField("sandbox"):
                 shape = request.sandbox.shapeName
                 sid = request.sandbox.id
                 if sid:
                     logger.info(f"Using existing sandbox with id: {sid}")
-                    sandbox_pb = await self._get_sandbox_pb(sid) # if not exist raise NotFound
-                    platform_str = sandbox_pb.os
+                    sandbox_pb = await self._get_sandbox_pb(sid, lybic_auth)  # if not exist raise NotFound
+                    platform_str = platform_map.get(sandbox_pb.os, platform.system())
                 else:
-                    sandbox_pb = await self._create_sandbox(shape)
-                    sid, platform_str = sandbox_pb.id, sandbox_pb.os
+                    sandbox_pb = await self._create_sandbox(shape, lybic_auth)
+                    sid, platform_str = sandbox_pb.id, platform_map.get(sandbox_pb.os, platform.system())
 
                 if request.sandbox.os != agent_pb2.SandboxOS.OSUNDEFINED:
                     platform_str = platform_map.get(request.sandbox.os, platform.system())
             else:
-                sandbox_pb = await self._create_sandbox(shape)
-                sid, platform_str = sandbox_pb.id, sandbox_pb.os
+                sandbox_pb = await self._create_sandbox(shape, lybic_auth)
+                sid, platform_str = sandbox_pb.id, platform_map.get(sandbox_pb.os, platform.system())
         else:
             if request.HasField("sandbox") and request.sandbox.os != agent_pb2.SandboxOS.OSUNDEFINED:
                 platform_str = platform_map.get(request.sandbox.os, platform.system())
@@ -502,6 +504,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 "max_steps": max_steps,
                 "sandbox": backend_kwargs["sandbox"],
             }
+            # This property is used to pass sandbox information.
+            # It has now completed its mission and needs to be deleted, otherwise other backends may crash.
+            del backend_kwargs["sandbox"]
 
             # Start the task in background
             task_future = asyncio.create_task(self._run_task(task_id, backend_kwargs))
@@ -667,20 +672,17 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         context.set_details(f"Config for task {request.id} not found.")
         return agent_pb2.CommonConfig()
 
-    async def _new_lybic_client(self):
+    def _new_lybic_client(self, lybic_auth: LybicAuth) -> LybicClient:
         """
-        Create and store a new LybicClient using the servicer's current LybicAuth.
-        
-        This replaces the servicer's `lybic_client` attribute with a newly constructed
-        LybicClient initialized from `self.lybic_auth`.
+        Create and return a new LybicClient.
         """
-        self.lybic_client = LybicClient(self.lybic_auth)
+        return LybicClient(lybic_auth)
 
     async def SetGlobalCommonConfig(self, request, context):
         """
-        Set the server's global common configuration and initialize Lybic authorization if provided.
+        Set the server's global common configuration.
         
-        Sets request.commonConfig.id to "global" and stores it as the servicer's global_common_config. If the provided config contains authorizationInfo, initializes or updates self.lybic_auth with the org ID, API key, and API endpoint (defaulting to "https://api.lybic.cn/" when endpoint is empty).
+        Sets request.commonConfig.id to "global" and stores it as the servicer's global_common_config.
         
         Parameters:
             request: gRPC request containing `commonConfig` to apply.
@@ -691,13 +693,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         logger.info("Setting new global common config.")
         request.commonConfig.id = "global"
         self.global_common_config = request.commonConfig
-
-        if self.global_common_config.HasField("authorizationInfo"):  # lybic
-            self.lybic_auth = LybicAuth(
-                org_id=self.global_common_config.authorizationInfo.orgID,
-                api_key=self.global_common_config.authorizationInfo.apiKey,
-                endpoint=self.global_common_config.authorizationInfo.apiEndpoint or "https://api.lybic.cn/"
-            )
 
         return agent_pb2.SetCommonConfigResponse(success=True, id=self.global_common_config.id)
 
@@ -752,52 +747,38 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         logger.info(f"Global embedding LLM config updated to: {request.llmConfig.modelName}")
         return request.llmConfig
 
-    async def _create_sandbox(self,shape:str)->agent_pb2.Sandbox:
+    async def _create_sandbox(self, shape: str, lybic_auth: LybicAuth) -> agent_pb2.Sandbox:
         """
         Create a sandbox with the given shape via the Lybic service and return its identifier and operating system.
-        
+
         Parameters:
             shape (str): The sandbox shape to create (provider-specific size/OS configuration).
-        
-        Returns:
-            tuple: A pair (sandbox_id, platform_os) where `sandbox_id` is the created sandbox identifier and `platform_os` is the sandbox operating system string.
-        
-        Raises:
-            Exception: If Lybic authorization is not initialized (call SetGlobalCommonConfig first).
-        """
-        if not self.lybic_auth:
-            raise Exception("Lybic client not initialized. Please call SetGlobalCommonConfig before")
+            lybic_auth (LybicAuth): The authentication object for Lybic.
 
-        await self._new_lybic_client()
-        if not self.sandbox:
-            self.sandbox = Sandbox(self.lybic_client)
-        result = await self.sandbox.create(shape=shape)
-        sandbox = await self.sandbox.get(result.id)
+        Returns:
+            agent_pb2.Sandbox: A protobuf message containing sandbox details.
+        """
+        lybic_client = self._new_lybic_client(lybic_auth)
+        sandbox_service = Sandbox(lybic_client)
+        result = await sandbox_service.create(shape=shape)
+        sandbox = await sandbox_service.get(result.id)
+        await lybic_client.close()
 
         return agent_pb2.Sandbox(
             id=sandbox.sandbox.id,
-            os=sandbox.sandbox.shape.os.upper(),
+            os=self._lybic_sandbox_os_to_pb_enum(sandbox.sandbox.shape),
             shapeName=sandbox.sandbox.shapeName,
             hardwareAcceleratedEncoding=sandbox.sandbox.shape.hardwareAcceleratedEncoding,
             virtualization=sandbox.sandbox.shape.virtualization,
             architecture=sandbox.sandbox.shape.architecture,
         )
 
-    async def _get_sandbox_pb(self, sid: str) -> agent_pb2.Sandbox:
+    @staticmethod
+    def _lybic_sandbox_os_to_pb_enum(os) -> agent_pb2.SandboxOS:
         """
-        Retrieves sandbox details for a given sandbox ID and returns them as a protobuf message.
+        Converts a sandbox OS string to an enum value.
         """
-        if not self.lybic_auth:
-            raise ValueError("Lybic client not initialized. Please call SetGlobalCommonConfig before")
-
-        if not self.lybic_client:
-            await self._new_lybic_client()
-        if not self.sandbox:
-            self.sandbox = Sandbox(self.lybic_client)
-        
-        sandbox_details = await self.sandbox.get(sid)
-
-        os_raw = getattr(sandbox_details.sandbox.shape, "os", "") or ""
+        os_raw = getattr(os, "os", "") or ""
         os_upper = str(os_raw).upper()
         if "WIN" in os_upper:
             os_enum = agent_pb2.SandboxOS.WINDOWS
@@ -807,10 +788,23 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             os_enum = agent_pb2.SandboxOS.ANDROID
         else:
             os_enum = agent_pb2.SandboxOS.OSUNDEFINED
+        return os_enum
+
+    async def _get_sandbox_pb(self, sid: str, lybic_auth: LybicAuth) -> agent_pb2.Sandbox:
+        """
+        Retrieves sandbox details for a given sandbox ID and returns them as a protobuf message.
+        """
+        if not lybic_auth:
+            raise ValueError("Lybic client not initialized. Please call SetGlobalCommonConfig before")
+
+        lybic_client = self._new_lybic_client(lybic_auth)
+        sandbox_service = Sandbox(lybic_client)
+        sandbox_details = await sandbox_service.get(sid)
+        await lybic_client.close()
 
         return agent_pb2.Sandbox(
             id=sandbox_details.sandbox.id,
-            os=os_enum,
+            os=self._lybic_sandbox_os_to_pb_enum(sandbox_details.sandbox.shape),
             shapeName=sandbox_details.sandbox.shapeName,
             hardwareAcceleratedEncoding=sandbox_details.sandbox.shape.hardwareAcceleratedEncoding,
             virtualization=sandbox_details.sandbox.shape.virtualization,

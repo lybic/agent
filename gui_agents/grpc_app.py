@@ -465,6 +465,16 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             logger.info(f"RunAgentInstruction stream for {task_id} cancelled by client.")
             if task_future:
                 task_future.cancel()
+                # Set cancellation flag in global state for agents to check
+                try:
+                    global_state: GlobalState = Registry.get_from_context("GlobalStateStore", task_id)
+                    if global_state:
+                        global_state.set_running_state("cancelled")
+                        logger.info(f"Set running state to 'cancelled' for task {task_id} due to client disconnect.")
+                    else:
+                        logger.warning(f"Could not find GlobalState for task {task_id} to set cancellation flag on client disconnect.")
+                except Exception as e:
+                    logger.error(f"Error setting cancellation flag for task {task_id} on client disconnect: {e}")
         except Exception as e:
             logger.exception(f"Error in RunAgentInstruction stream for task {task_id}")
             context.set_code(grpc.StatusCode.INTERNAL)

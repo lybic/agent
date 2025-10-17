@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import os
@@ -13,7 +12,6 @@ from gui_agents.utils.common_utils import Node
 from gui_agents.agents.global_state import GlobalState
 from gui_agents.store.registry import Registry
 from gui_agents.utils.common_utils import (
-    # call_llm_safe,
     parse_single_code_from_string,
     sanitize_code,
     extract_first_agent_function,
@@ -273,7 +271,7 @@ class AgentS2(UIAgent):
                 "subtask_status": "cancelled",
                 "reflection": "Task was cancelled",
                 "executor_plan": "agent.done()"
-            }, [{"type": "DONE"}]
+            }, ["done"]
 
         planner_info = {}
         executor_info = {}
@@ -300,7 +298,7 @@ class AgentS2(UIAgent):
                     "subtask_status": "cancelled",
                     "reflection": "Task was cancelled",
                     "executor_plan": "agent.done()"
-                }, [{"type": "DONE"}]
+                }, ["DONE"]
             time.sleep(5.0)
             self.subtask_status = "In"
             # Always time get_action_queue, even if not called
@@ -455,6 +453,15 @@ class AgentS2(UIAgent):
                     }
                 )
             except Exception as e:
+                if "cancelled" in str(e).lower():
+                    logger.info("Cancelled during grounding; stopping without action")
+                    return {
+                        "subtask": "cancelled",
+                        "subtask_info": "",
+                        "subtask_status": "cancelled",
+                        "reflection": "Task was cancelled",
+                        "executor_plan": "agent.done()"
+                    }, [{"type": "DONE"}]
                 logger.error("Error in parsing plan code: %s", e)
                 plan_code = "agent.wait(1.0)"
                 agent: Grounding = self.grounding # this agent will be used in next code

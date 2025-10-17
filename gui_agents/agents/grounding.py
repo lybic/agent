@@ -104,7 +104,7 @@ class Grounding(ACI):
         # Check for cancellation before starting coordinate generation
         if self.global_state.is_cancelled():
             logger.info("Grounding coordinate generation cancelled by user request")
-            return [0, 0]  # Return default coordinates when cancelled
+            raise RuntimeError("cancelled")  # Return default coordinates when cancelled
 
         grounding_start_time = time.time()
         self.grounding_model.tools["grounding"].llm_agent.reset()

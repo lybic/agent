@@ -467,7 +467,9 @@ class GlobalState:
             return "stopped"
 
     def set_running_state(self, state: str) -> None:
-        assert state in {"running", "stopped", "cancelled"}
+        if state not in {"running", "stopped", "cancelled"}:
+            raise ValueError(f"Invalid running state: {state}")
+
         tmp = self.running_state_path.with_suffix(".tmp")
         try:
             with locked(tmp, "w") as f:

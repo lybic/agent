@@ -106,7 +106,7 @@ all=[
     "python-dotenv",
     "Pillow>=11.3.0",
     "gymnasium~=0.28.1",
-    "requests~=2.31.0",
+    "requests>=2.31,<2.33",
     "pytz~=2024.1",
     "psutil~=5.9.6",
     "tqdm~=4.65.0",

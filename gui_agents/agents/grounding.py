@@ -101,6 +101,11 @@ class Grounding(ACI):
         self.global_state = Registry.get_from_context("GlobalStateStore", task_id)  # type: ignore
 
     def generate_coords(self, ref_expr: str, obs: Dict) -> List[int]:
+        # Check for cancellation before starting coordinate generation
+        if self.global_state.is_cancelled():
+            logger.info("Grounding coordinate generation cancelled by user request")
+            raise RuntimeError("cancelled")  # Return default coordinates when cancelled
+
         grounding_start_time = time.time()
         self.grounding_model.tools["grounding"].llm_agent.reset()
         prompt = (

@@ -178,7 +178,7 @@ class Worker:
     ) -> Dict:
         """
         Generate the next executor action plan and related metadata for the current subtask given the observation and context.
-        
+
         Parameters:
             Tu (str): Full task description or task context.
             search_query (str): Search string used for retrieving episodic/subtask experience.
@@ -188,7 +188,7 @@ class Worker:
             done_task (List[Node]): List of completed task nodes.
             obs (Dict): Current observation dictionary; must include a "screenshot" key with the current screen image.
             running_state (str): Current executor running state (default "running").
-        
+
         Returns:
             Dict: Executor information containing:
                 - "current_subtask" (str): The provided subtask.
@@ -196,6 +196,16 @@ class Worker:
                 - "executor_plan" (str): The raw plan produced by the action generator.
                 - "reflection" (str|None): Reflection text produced by the trajectory reflector, or None if reflection is disabled.
         """
+        # Check for cancellation before starting action generation
+        if self.global_state.is_cancelled():
+            logger.info("Worker action generation cancelled by user request")
+            return {
+                "current_subtask": subtask,
+                "current_subtask_info": subtask_info,
+                "executor_plan": "agent.done()",
+                "reflection": "Task was cancelled"
+            }
+
         import time
         action_start = time.time()
 

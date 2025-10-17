@@ -576,6 +576,11 @@ class Manager:
         """Generate the action list based on the instruction
         instruction:str: Instruction for the task
         """
+        # Check for cancellation before starting action queue generation
+        if self.global_state.is_cancelled():
+            logger.info("Manager action queue generation cancelled by user request")
+            return {"cancelled": True}, []
+
         import time
         action_queue_start = time.time()
 

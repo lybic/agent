@@ -453,7 +453,7 @@ class AgentS2(UIAgent):
                     }
                 )
             except Exception as e:
-                if "cancelled" in str(e).lower():
+                if self.global_state.is_cancelled():
                     logger.info("Cancelled during grounding; stopping without action")
                     return {
                         "subtask": "cancelled",

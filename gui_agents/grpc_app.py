@@ -113,7 +113,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             domain=platform.node(),
         )
 
-    async def _setup_task_state(self, task_id: str) -> Registry:
+    def _setup_task_state(self, task_id: str) -> Registry:
         """Setup global state and registry for task execution with task isolation"""
         # Create timestamp-based directory structure like cli_app.py
         datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -176,7 +176,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             await stream_manager.add_message(task_id, "starting", "Task starting")
 
             # Create task-specific registry
-            task_registry = await self._setup_task_state(task_id)
+            task_registry = self._setup_task_state(task_id)
 
             # Set task_id for the agent. This is needed so that agent.reset() can find the right components.
             if hasattr(agent, 'set_task_id'):
@@ -688,6 +688,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         Returns:
             agent_pb2.SetCommonConfigResponse: Response with `success=True` and the configuration `id`.
         """
+        if os.environ.get("ALLOW_SET_GLOBAL_CONFIG", "0")=="0":
+            context.set_code(grpc.StatusCode.PERMISSION_DENIED)
+            context.set_details("Permission denied.")
+            return agent_pb2.SetCommonConfigResponse()
         logger.info("Setting new global common config.")
         request.commonConfig.id = "global"
         self.global_common_config = request.commonConfig
@@ -710,6 +714,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         Returns:
             llmConfig: The `LLMConfig` message that was stored in the global configuration.
         """
+        if os.environ.get("ALLOW_SET_GLOBAL_CONFIG", "0")=="0":
+            context.set_code(grpc.StatusCode.PERMISSION_DENIED)
+            context.set_details("Permission denied.")
+            return agent_pb2.LLMConfig()
         if not self.global_common_config.HasField("stageModelConfig"):
             self.global_common_config.stageModelConfig.SetInParent()
         self.global_common_config.stageModelConfig.actionGeneratorModel.CopyFrom(request.llmConfig)
@@ -730,6 +738,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         Returns:
         	LLMConfig: The `llmConfig` that was applied.
         """
+        if os.environ.get("ALLOW_SET_GLOBAL_CONFIG", "0")=="0":
+            context.set_code(grpc.StatusCode.PERMISSION_DENIED)
+            context.set_details("Permission denied.")
+            return agent_pb2.LLMConfig()
         if not self.global_common_config.HasField("stageModelConfig"):
             self.global_common_config.stageModelConfig.SetInParent()
         self.global_common_config.stageModelConfig.groundingModel.CopyFrom(request.llmConfig)
@@ -746,6 +758,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         Returns:
             The `llmConfig` that was set as the global embedding model.
         """
+        if os.environ.get("ALLOW_SET_GLOBAL_CONFIG", "0")=="0":
+            context.set_code(grpc.StatusCode.PERMISSION_DENIED)
+            context.set_details("Permission denied.")
+            return agent_pb2.LLMConfig()
         if not self.global_common_config.HasField("stageModelConfig"):
             self.global_common_config.stageModelConfig.SetInParent()
         self.global_common_config.stageModelConfig.embeddingModel.CopyFrom(request.llmConfig)

@@ -40,6 +40,7 @@ dependencies = [
     "pytest>=8.4.2",
     "protobuf>=5.29.5",
     "googleapis-common-protos>=1.70.0",
+    "filelock",
 ]
 [project.optional-dependencies]
 dev = [
@@ -55,7 +56,6 @@ vmware-and-evaluation = [
     "openpyxl",
     "pandas",
     "lxml",
-    "filelock",
     "xmltodict",
     "opencv-python-headless",
 
@@ -142,7 +142,6 @@ all=[
     "openpyxl",
     "pandas",
     "lxml",
-    "filelock",
     "xmltodict",
     "opencv-python-headless",
     "Pillow",

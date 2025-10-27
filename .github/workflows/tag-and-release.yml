@@ -63,15 +63,11 @@ jobs:
       with:
         python-version: '3.x'
 
-    - name: Install dependencies
-      run: |
-        make install-uv
-        make create-venv
+    - name: Install uv
+      run: make install-uv
 
     - name: Build package
-      run: |
-        source .venv/bin/activate
-        make build
+      run: make build
 
     - name: Publish package to PyPI
       env:
@@ -107,14 +103,6 @@ jobs:
             type=raw,value=latest
             type=raw,value=${{ needs.tag-and-release.outputs.tag_name }}
 
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -122,6 +110,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
+          cache-from: type=registry,ref=agenticlybic/guiagent:buildcache
+          cache-to: type=registry,ref=agenticlybic/guiagent:buildcache,mode=max
           platforms: linux/amd64,linux/arm64

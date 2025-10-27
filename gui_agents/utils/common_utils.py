@@ -277,8 +277,8 @@ def save_embeddings(embeddings_path: str, embeddings: Dict):
     lock = FileLock(lock_path, timeout=10)
     
     try:
-        os.makedirs(os.path.dirname(embeddings_path), exist_ok=True)
         with lock:
+            os.makedirs(os.path.dirname(embeddings_path), exist_ok=True)
             with open(embeddings_path, "wb") as f:
                 pickle.dump(embeddings, f)
     except Timeout:

@@ -253,7 +253,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             display_json_path = Path(timestamp_dir) / "display.json"
             
             # Wait for file to be fully written (similar to cli_app.py)
-            import time
             max_wait_time = 10  # Maximum wait time in seconds
             wait_interval = 0.5  # Check every 0.5 seconds
             waited_time = 0

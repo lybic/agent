@@ -1,0 +1,54 @@
+Contributor License Agreement (CLA)
+
+Version 1.0 — October 2025
+
+Thank you for your interest in contributing to the lybic/agent project (“Project”), owned and maintained by Beijing Tingyu Technology Co., Ltd. (“Lybic” or "Tingyu").
+To ensure clear and proper management of intellectual property rights, this Contributor License Agreement (“Agreement”) sets out the terms under which You contribute to the Project.
+
+1. Definitions
+
+“You” means the individual or legal entity submitting a Contribution.
+“Contribution” means any source code, documentation, data, design, configuration, or other material submitted by You to the Project.
+
+2. Assignment of Copyright
+
+You hereby irrevocably and permanently assign to Lybic all right, title, and interest, including all worldwide copyrights and related rights, in any and all of Your Contributions, effective from the date of submission.
+
+Lybic shall have the right, without any further notice or approval from You, to use, modify, sublicense, distribute, commercialize, or otherwise exploit such Contributions in any manner.
+
+To the fullest extent permitted by law, You waive any and all moral rights in relation to the Contributions, including the right of attribution and the right to object to modification.
+
+3. License Back to You
+
+Lybic grants You a perpetual, worldwide, non-exclusive, royalty-free license to use, reproduce, and distribute Your Contributions and any derivative works thereof, under the same terms as the Project’s main open-source license (Apache License 2.0).
+
+4. Representations and Warranties
+
+You represent and warrant that:
+
+Each of Your Contributions is an original work created by You, and You have full rights to make the assignment under this Agreement;
+
+To the best of Your knowledge, Your Contributions do not infringe any third party’s intellectual property rights or other proprietary rights;
+
+If You are entering into this Agreement on behalf of a company or organization, You have full authority to bind such entity.
+
+5. Disclaimer
+
+Your Contributions are provided “AS IS”, without any express or implied warranties, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement.
+
+6. Governing Law and Dispute Resolution
+
+This Agreement shall be governed by and construed in accordance with the laws of the People’s Republic of China.
+
+Any disputes arising out of or in connection with this Agreement shall first be resolved through friendly negotiation; if negotiation fails, either party may bring the dispute before the People’s Court of Haidian District, Beijing, China.
+
+7. Acceptance
+
+By submitting a Contribution (including via pull request, patch, issue, or any other means), You acknowledge that You have read, understood, and agreed to be bound by the terms of this Agreement.
+
+Signature
+
+Name: __________________________
+Email: __________________________
+Company/Organization (if applicable): __________________________
+Date: __________________________

@@ -269,6 +269,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                         if size1 == size2 and size1 > 0:
                             logger.info(f"Display.json file appears to be complete (size: {size1} bytes)")
                             break
+                        elif size1 == size2 and size1 == 0:
+                            logger.warning(f"Display.json file exists but is empty and unchanged (size: 0 bytes) for task {task_id}")
+                            waited_time += wait_interval
+                            continue
                         else:
                             waited_time += wait_interval
                             continue

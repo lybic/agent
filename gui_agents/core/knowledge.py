@@ -137,6 +137,32 @@ class KnowledgeBase:
 
         return search_results, total_tokens, cost_string
 
+    def _generate_query(self, instruction: str, observation: Dict) -> Tuple[str, List[int], str]:
+        """Generate a search query using the query formulator tool.
+        
+        Args:
+            instruction (str): The task instruction
+            observation (Dict): Current observation including screenshot
+            
+        Returns:
+            Tuple[str, List[int], str]: The generated query, token usage, and cost
+        """
+        self.query_formulator.tools["query_formulator"].llm_agent.reset()
+
+        content, total_tokens, cost_string = self.query_formulator.execute_tool("query_formulator", {
+            "str_input": f"The task is: {instruction}\n" + 
+                "To use google search to get some useful information, first carefully analyze " + 
+                "the screenshot of the current desktop UI state, then given the task " + 
+                "instruction, formulate a question that can be used to search on the Internet " + 
+                "for information in helping with the task execution.\n" + 
+                "The question should not be too general or too specific. Please ONLY provide " + 
+                "the question.\nQuestion:",
+            "img_input": observation["screenshot"] if "screenshot" in observation else None
+        })
+        
+        search_query = content.strip().replace('"', "")
+        return search_query, total_tokens, cost_string
+
     def formulate_query(self, instruction: str, observation: Dict) -> Tuple[str, List[int], str]:
         """Formulate search query based on instruction and current state
         
@@ -164,20 +190,7 @@ class KnowledgeBase:
                 if instruction in formulate_query:
                     return formulate_query[instruction], [0, 0, 0], ""
 
-                self.query_formulator.tools["query_formulator"].llm_agent.reset()
-
-                content, total_tokens, cost_string = self.query_formulator.execute_tool("query_formulator", {
-                    "str_input": f"The task is: {instruction}\n" + 
-                        "To use google search to get some useful information, first carefully analyze " + 
-                        "the screenshot of the current desktop UI state, then given the task " + 
-                        "instruction, formulate a question that can be used to search on the Internet " + 
-                        "for information in helping with the task execution.\n" + 
-                        "The question should not be too general or too specific. Please ONLY provide " + 
-                        "the question.\nQuestion:",
-                    "img_input": observation["screenshot"] if "screenshot" in observation else None
-                })
-                
-                search_query = content.strip().replace('"', "")
+                search_query, total_tokens, cost_string = self._generate_query(instruction, observation)
             
                 print("search query: ", search_query)
                 formulate_query[instruction] = search_query
@@ -189,19 +202,7 @@ class KnowledgeBase:
         except Timeout:
             print(f"Timeout waiting for lock on formulate_query file: {query_path}")
             # If we timeout, fallback to generating the query without caching
-            self.query_formulator.tools["query_formulator"].llm_agent.reset()
-            content, total_tokens, cost_string = self.query_formulator.execute_tool("query_formulator", {
-                "str_input": f"The task is: {instruction}\n" + 
-                    "To use google search to get some useful information, first carefully analyze " + 
-                    "the screenshot of the current desktop UI state, then given the task " + 
-                    "instruction, formulate a question that can be used to search on the Internet " + 
-                    "for information in helping with the task execution.\n" + 
-                    "The question should not be too general or too specific. Please ONLY provide " + 
-                    "the question.\nQuestion:",
-                "img_input": observation["screenshot"] if "screenshot" in observation else None
-            })
-            search_query = content.strip().replace('"', "")
-            return search_query, total_tokens, cost_string
+            return self._generate_query(instruction, observation)
 
     def retrieve_narrative_experience(self, instruction: str) -> Tuple[str, str, List[int], str]:
         """Retrieve narrative experience using embeddings
@@ -343,29 +344,30 @@ class KnowledgeBase:
         if not self.save_knowledge:
             return
 
-        lock_path = self.episodic_memory_path + ".lock"
-        lock = FileLock(lock_path, timeout=10)
-        
-        try:
-            with lock:
-                kb = load_knowledge_base(self.episodic_memory_path)
+        # Load knowledge base outside the lock to avoid nested locking
+        kb = load_knowledge_base(self.episodic_memory_path)
 
-                if subtask_key not in kb:
-                    subtask_summarization = self.summarize_episode(subtask_traj)
-                    kb[subtask_key] = subtask_summarization
+        if subtask_key not in kb:
+            subtask_summarization = self.summarize_episode(subtask_traj)
+            kb[subtask_key] = subtask_summarization
 
-                    if self.save_knowledge:
+            if self.save_knowledge:
+                lock_path = self.episodic_memory_path + ".lock"
+                lock = FileLock(lock_path, timeout=10)
+                
+                try:
+                    with lock:
                         os.makedirs(os.path.dirname(self.episodic_memory_path), exist_ok=True)
                         with open(self.episodic_memory_path, "w") as fout:
                             json.dump(kb, fout, indent=2)
+                except Timeout:
+                    print(f"Timeout waiting for lock on episodic memory: {self.episodic_memory_path}")
+                    return None
+                except Exception as e:
+                    print(f"Error saving episodic memory: {e}")
+                    return None
 
-                return kb.get(subtask_key)
-        except Timeout:
-            print(f"Timeout waiting for lock on episodic memory: {self.episodic_memory_path}")
-            return None
-        except Exception as e:
-            print(f"Error saving episodic memory: {e}")
-            return None
+        return kb.get(subtask_key)
 
     def save_narrative_memory(self, task_key: str, task_traj: str) -> None:
         """Save narrative memory (task level knowledge).
@@ -377,29 +379,30 @@ class KnowledgeBase:
         if not self.save_knowledge:
             return
 
-        lock_path = self.narrative_memory_path + ".lock"
-        lock = FileLock(lock_path, timeout=10)
-        
-        try:
-            with lock:
-                kb = load_knowledge_base(self.narrative_memory_path)
+        # Load knowledge base outside the lock to avoid nested locking
+        kb = load_knowledge_base(self.narrative_memory_path)
 
-                if task_key not in kb:
-                    task_summarization = self.summarize_narrative(task_traj)
-                    kb[task_key] = task_summarization
+        if task_key not in kb:
+            task_summarization = self.summarize_narrative(task_traj)
+            kb[task_key] = task_summarization
 
-                    if self.save_knowledge:
+            if self.save_knowledge:
+                lock_path = self.narrative_memory_path + ".lock"
+                lock = FileLock(lock_path, timeout=10)
+                
+                try:
+                    with lock:
                         os.makedirs(os.path.dirname(self.narrative_memory_path), exist_ok=True)
                         with open(self.narrative_memory_path, "w") as fout:
                             json.dump(kb, fout, indent=2)
+                except Timeout:
+                    print(f"Timeout waiting for lock on narrative memory: {self.narrative_memory_path}")
+                    return None
+                except Exception as e:
+                    print(f"Error saving narrative memory: {e}")
+                    return None
 
-                return kb.get(task_key)
-        except Timeout:
-            print(f"Timeout waiting for lock on narrative memory: {self.narrative_memory_path}")
-            return None
-        except Exception as e:
-            print(f"Error saving narrative memory: {e}")
-            return None
+        return kb.get(task_key)
 
     def initialize_task_trajectory(self, instruction: str) -> None:
         """Initialize a new task trajectory.

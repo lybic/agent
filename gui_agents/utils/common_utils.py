@@ -2,12 +2,14 @@ import json
 import re
 import tiktoken
 import numpy as np
+import os
 
 from typing import Tuple, List, Union, Dict
 
 from pydantic import BaseModel, ValidationError
 
 import pickle
+from filelock import FileLock, Timeout
 
 
 class Node(BaseModel):
@@ -195,9 +197,27 @@ def extract_first_agent_function(code_string):
 
 
 def load_knowledge_base(kb_path: str) -> Dict:
+    """Load knowledge base from JSON file with file locking to prevent race conditions.
+    
+    Args:
+        kb_path: Path to the knowledge base JSON file
+        
+    Returns:
+        Dict containing the knowledge base data, or empty dict on error
+    """
+    lock_path = kb_path + ".lock"
+    lock = FileLock(lock_path, timeout=10)
+    
     try:
-        with open(kb_path, "r") as f:
-            return json.load(f)
+        with lock:
+            with open(kb_path, "r") as f:
+                return json.load(f)
+    except FileNotFoundError:
+        # File doesn't exist yet, return empty dict
+        return {}
+    except Timeout:
+        print(f"Timeout waiting for lock on knowledge base: {kb_path}")
+        return {}
     except Exception as e:
         print(f"Error loading knowledge base: {e}")
         return {}
@@ -217,11 +237,29 @@ def clean_empty_embeddings(embeddings: Dict) -> Dict:
 
 
 def load_embeddings(embeddings_path: str) -> Dict:
+    """Load embeddings from pickle file with file locking to prevent race conditions.
+    
+    Args:
+        embeddings_path: Path to the embeddings pickle file
+        
+    Returns:
+        Dict containing the embeddings data, or empty dict on error
+    """
+    lock_path = embeddings_path + ".lock"
+    lock = FileLock(lock_path, timeout=10)
+    
     try:
-        with open(embeddings_path, "rb") as f:
-            embeddings = pickle.load(f)
-        embeddings = clean_empty_embeddings(embeddings)
-        return embeddings
+        with lock:
+            with open(embeddings_path, "rb") as f:
+                embeddings = pickle.load(f)
+            embeddings = clean_empty_embeddings(embeddings)
+            return embeddings
+    except FileNotFoundError:
+        # File doesn't exist yet, return empty dict
+        return {}
+    except Timeout:
+        print(f"Timeout waiting for lock on embeddings: {embeddings_path}")
+        return {}
     except Exception as e:
         # print(f"Error loading embeddings: {e}")
         print(f"Empty embeddings file: {embeddings_path}")
@@ -229,11 +267,22 @@ def load_embeddings(embeddings_path: str) -> Dict:
 
 
 def save_embeddings(embeddings_path: str, embeddings: Dict):
+    """Save embeddings to pickle file with file locking to prevent race conditions.
+    
+    Args:
+        embeddings_path: Path to the embeddings pickle file
+        embeddings: Dict containing embeddings data to save
+    """
+    lock_path = embeddings_path + ".lock"
+    lock = FileLock(lock_path, timeout=10)
+    
     try:
-        import os
-        os.makedirs(os.path.dirname(embeddings_path), exist_ok=True)
-        with open(embeddings_path, "wb") as f:
-            pickle.dump(embeddings, f)
+        with lock:
+            os.makedirs(os.path.dirname(embeddings_path), exist_ok=True)
+            with open(embeddings_path, "wb") as f:
+                pickle.dump(embeddings, f)
+    except Timeout:
+        print(f"Timeout waiting for lock on embeddings: {embeddings_path}")
     except Exception as e:
         print(f"Error saving embeddings: {e}")
 

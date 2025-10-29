@@ -3,6 +3,7 @@ import os
 from typing import Dict, Tuple, List, Union
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+from filelock import FileLock, Timeout
 from gui_agents.utils.common_utils import (
     load_embeddings,
     load_knowledge_base,
@@ -136,28 +137,16 @@ class KnowledgeBase:
 
         return search_results, total_tokens, cost_string
 
-    def formulate_query(self, instruction: str, observation: Dict) -> Tuple[str, List[int], str]:
-        """Formulate search query based on instruction and current state
+    def _generate_query(self, instruction: str, observation: Dict) -> Tuple[str, List[int], str]:
+        """Generate a search query using the query formulator tool.
         
         Args:
             instruction (str): The task instruction
             observation (Dict): Current observation including screenshot
             
         Returns:
-            Tuple[str, List[int], float]: The formulated query, token usage, and cost
+            Tuple[str, List[int], str]: The generated query, token usage, and cost
         """
-        query_path = os.path.join(
-            self.local_kb_path, self.platform, "formulate_query.json"
-        )
-        try:
-            with open(query_path, "r") as f:
-                formulate_query = json.load(f)
-        except:
-            formulate_query = {}
-
-        if instruction in formulate_query:
-            return formulate_query[instruction], [0, 0, 0], ""
-
         self.query_formulator.tools["query_formulator"].llm_agent.reset()
 
         content, total_tokens, cost_string = self.query_formulator.execute_tool("query_formulator", {
@@ -172,13 +161,48 @@ class KnowledgeBase:
         })
         
         search_query = content.strip().replace('"', "")
-    
-        print("search query: ", search_query)
-        formulate_query[instruction] = search_query
-        with open(query_path, "w") as f:
-            json.dump(formulate_query, f, indent=2)
-
         return search_query, total_tokens, cost_string
+
+    def formulate_query(self, instruction: str, observation: Dict) -> Tuple[str, List[int], str]:
+        """Formulate search query based on instruction and current state
+        
+        Args:
+            instruction (str): The task instruction
+            observation (Dict): Current observation including screenshot
+            
+        Returns:
+            Tuple[str, List[int], float]: The formulated query, token usage, and cost
+        """
+        query_path = os.path.join(
+            self.local_kb_path, self.platform, "formulate_query.json"
+        )
+        lock_path = query_path + ".lock"
+        lock = FileLock(lock_path, timeout=10)
+        
+        try:
+            with lock:
+                try:
+                    with open(query_path, "r") as f:
+                        formulate_query = json.load(f)
+                except (FileNotFoundError, json.JSONDecodeError):
+                    formulate_query = {}
+
+                if instruction in formulate_query:
+                    return formulate_query[instruction], [0, 0, 0], ""
+
+                search_query, total_tokens, cost_string = self._generate_query(instruction, observation)
+            
+                print("search query: ", search_query)
+                formulate_query[instruction] = search_query
+                os.makedirs(os.path.dirname(query_path), exist_ok=True)
+                with open(query_path, "w") as f:
+                    json.dump(formulate_query, f, indent=2)
+
+                return search_query, total_tokens, cost_string
+        except Timeout:
+            print(f"Timeout waiting for lock on formulate_query file: {query_path}")
+            # If we timeout, fallback to generating the query without caching
+            return self._generate_query(instruction, observation)
 
     def retrieve_narrative_experience(self, instruction: str) -> Tuple[str, str, List[int], str]:
         """Retrieve narrative experience using embeddings
@@ -320,19 +344,28 @@ class KnowledgeBase:
         if not self.save_knowledge:
             return
 
-        try:
-            kb = load_knowledge_base(self.episodic_memory_path)
-        except:
-            kb = {}
+        # Load knowledge base outside the lock to avoid nested locking
+        kb = load_knowledge_base(self.episodic_memory_path)
 
         if subtask_key not in kb:
             subtask_summarization = self.summarize_episode(subtask_traj)
             kb[subtask_key] = subtask_summarization
 
             if self.save_knowledge:
-                os.makedirs(os.path.dirname(self.episodic_memory_path), exist_ok=True)
-                with open(self.episodic_memory_path, "w") as fout:
-                    json.dump(kb, fout, indent=2)
+                lock_path = self.episodic_memory_path + ".lock"
+                lock = FileLock(lock_path, timeout=10)
+                
+                try:
+                    with lock:
+                        os.makedirs(os.path.dirname(self.episodic_memory_path), exist_ok=True)
+                        with open(self.episodic_memory_path, "w") as fout:
+                            json.dump(kb, fout, indent=2)
+                except Timeout:
+                    print(f"Timeout waiting for lock on episodic memory: {self.episodic_memory_path}")
+                    return None
+                except Exception as e:
+                    print(f"Error saving episodic memory: {e}")
+                    return None
 
         return kb.get(subtask_key)
 
@@ -346,19 +379,28 @@ class KnowledgeBase:
         if not self.save_knowledge:
             return
 
-        try:
-            kb = load_knowledge_base(self.narrative_memory_path)
-        except:
-            kb = {}
+        # Load knowledge base outside the lock to avoid nested locking
+        kb = load_knowledge_base(self.narrative_memory_path)
 
         if task_key not in kb:
             task_summarization = self.summarize_narrative(task_traj)
             kb[task_key] = task_summarization
 
             if self.save_knowledge:
-                os.makedirs(os.path.dirname(self.narrative_memory_path), exist_ok=True)
-                with open(self.narrative_memory_path, "w") as fout:
-                    json.dump(kb, fout, indent=2)
+                lock_path = self.narrative_memory_path + ".lock"
+                lock = FileLock(lock_path, timeout=10)
+                
+                try:
+                    with lock:
+                        os.makedirs(os.path.dirname(self.narrative_memory_path), exist_ok=True)
+                        with open(self.narrative_memory_path, "w") as fout:
+                            json.dump(kb, fout, indent=2)
+                except Timeout:
+                    print(f"Timeout waiting for lock on narrative memory: {self.narrative_memory_path}")
+                    return None
+                except Exception as e:
+                    print(f"Error saving narrative memory: {e}")
+                    return None
 
         return kb.get(task_key)
 

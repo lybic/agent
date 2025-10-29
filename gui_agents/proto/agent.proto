@@ -184,6 +184,16 @@ enum TaskStatus {
   CANCELLED = 6;
 }
 
+message ExecutionStatistics {
+  int32 steps = 1;
+  int32 durationSeconds = 2;
+  int64 inputTokens = 3;
+  int64 outputTokens = 4;
+  int64 totalTokens = 5;
+  double cost = 6;
+  string currencySymbol = 7;
+}
+
 message QueryTaskStatusRequest {
   string taskId = 1;
 }
@@ -194,6 +204,7 @@ message QueryTaskStatusResponse {
   string message = 3;
   string result = 4;
   optional Sandbox sandbox = 5;
+  optional ExecutionStatistics executionStatistics = 6;
 }
 
 message GetAgentTaskStreamRequest {

@@ -38,6 +38,7 @@ from gui_agents.agents.stream_manager import stream_manager, StreamMessage
 from gui_agents.agents.agent_s import load_config
 from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig, Authorization, InstanceMode
 from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface, __version__
+from gui_agents.utils.analyze_display import analyze_display_json
 
 
 class AgentServicer(agent_pb2_grpc.AgentServicer):
@@ -110,8 +111,12 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             domain=platform.node(),
         )
 
-    def _setup_task_state(self, task_id: str) -> Registry:
-        """Setup global state and registry for task execution with task isolation"""
+    def _setup_task_state(self, task_id: str) -> tuple[Registry, Path]:
+        """Setup global state and registry for task execution with task isolation
+        
+        Returns:
+            tuple: (task_registry, timestamp_dir) - Registry and path to task log directory
+        """
         # Create timestamp-based directory structure like cli_app.py
         datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         timestamp_dir = Path(self.log_dir) / f"{datetime_str}_{task_id[:8]}"  # Include task_id prefix
@@ -144,7 +149,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
         logger.info(f"Created task-specific registry for task {task_id}")
 
-        return task_registry
+        return task_registry, timestamp_dir
 
     async def _run_task(self, task_id: str, backend_kwargs):
         """
@@ -174,7 +179,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             await stream_manager.add_message(task_id, "starting", "Task starting")
 
             # Create task-specific registry
-            task_registry = self._setup_task_state(task_id)
+            task_registry, timestamp_dir = self._setup_task_state(task_id)
+            
+            # Store timestamp_dir in task info for later statistics collection
+            async with self.task_lock:
+                self.tasks[task_id]["timestamp_dir"] = str(timestamp_dir)
 
             # Set task_id for the agent. This is needed so that agent.reset() can find the right components.
             if hasattr(agent, 'set_task_id'):
@@ -200,6 +209,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             async with self.task_lock:
                 self.tasks[task_id]["final_state"] = final_state
                 self.tasks[task_id]["status"] = "finished"
+                
+                # Collect execution statistics from display.json
+                await self._collect_execution_statistics(task_id)
 
             if final_state and final_state == "completed":
                 await stream_manager.add_message(task_id, "finished", "Task completed successfully")
@@ -221,6 +233,81 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             logger.info(f"Task {task_id} processing finished.")
             # Registry cleanup is now handled within the worker thread
             await stream_manager.unregister_task(task_id)
+
+    async def _collect_execution_statistics(self, task_id: str):
+        """
+        Collect execution statistics from display.json file for the given task.
+        
+        This method analyzes the display.json file in the task's timestamp directory
+        and stores the execution statistics in the task info.
+        
+        Parameters:
+            task_id (str): Identifier of the task
+        """
+        try:
+            timestamp_dir = self.tasks[task_id].get("timestamp_dir")
+            if not timestamp_dir:
+                logger.warning(f"No timestamp_dir found for task {task_id}, cannot collect statistics")
+                return
+            
+            display_json_path = Path(timestamp_dir) / "display.json"
+            
+            # Wait for file to be fully written (similar to cli_app.py)
+            import time
+            max_wait_time = 10  # Maximum wait time in seconds
+            wait_interval = 0.5  # Check every 0.5 seconds
+            waited_time = 0
+            
+            while waited_time < max_wait_time:
+                if display_json_path.exists():
+                    # Check if file is still being written by monitoring its size
+                    try:
+                        size1 = display_json_path.stat().st_size
+                        await asyncio.sleep(wait_interval)
+                        size2 = display_json_path.stat().st_size
+                        
+                        # If file size hasn't changed in the last 0.5 seconds, it's likely complete
+                        if size1 == size2 and size1 > 0:
+                            logger.info(f"Display.json file appears to be complete (size: {size1} bytes)")
+                            break
+                        else:
+                            waited_time += wait_interval
+                            continue
+                    except OSError:
+                        # File might be temporarily inaccessible
+                        await asyncio.sleep(wait_interval)
+                        waited_time += wait_interval
+                        continue
+                else:
+                    await asyncio.sleep(wait_interval)
+                    waited_time += wait_interval
+            
+            if display_json_path.exists():
+                logger.info(f"Collecting execution statistics from: {display_json_path}")
+                
+                # Analyze the display.json file
+                result = analyze_display_json(str(display_json_path))
+                
+                if result:
+                    # Store statistics in task info
+                    self.tasks[task_id]["execution_statistics"] = {
+                        "steps": result.get("fast_action_count", 0),
+                        "duration_seconds": result.get("total_duration", 0),
+                        "input_tokens": result.get("total_input_tokens", 0),
+                        "output_tokens": result.get("total_output_tokens", 0),
+                        "total_tokens": result.get("total_tokens", 0),
+                        "cost": result.get("total_cost", 0.0),
+                        "currency_symbol": result.get("currency_symbol", "￥")
+                    }
+                    logger.info(f"Execution statistics collected for task {task_id}: "
+                              f"{self.tasks[task_id]['execution_statistics']}")
+                else:
+                    logger.warning(f"No valid data found in display.json for task {task_id}")
+            else:
+                logger.warning(f"Display.json file not found at: {display_json_path} after waiting {max_wait_time} seconds")
+                
+        except Exception as e:
+            logger.error(f"Error collecting execution statistics for task {task_id}: {e}")
 
     async def _make_backend_kwargs(self, request):
         """
@@ -583,13 +670,31 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             message = "Task is running."
             result = ""
 
-        return agent_pb2.QueryTaskStatusResponse(
+        # Build response with optional execution statistics
+        response = agent_pb2.QueryTaskStatusResponse(
             taskId=task_id,
             status=task_status,
             message=message,
             result=result,
             sandbox=task_info["sandbox"]
         )
+        
+        # Add execution statistics if available (only for finished tasks)
+        exec_stats = task_info.get("execution_statistics")
+        if exec_stats:
+            response.executionStatistics.CopyFrom(
+                agent_pb2.ExecutionStatistics(
+                    steps=exec_stats["steps"],
+                    durationSeconds=exec_stats["duration_seconds"],
+                    inputTokens=exec_stats["input_tokens"],
+                    outputTokens=exec_stats["output_tokens"],
+                    totalTokens=exec_stats["total_tokens"],
+                    cost=exec_stats["cost"],
+                    currencySymbol=exec_stats["currency_symbol"]
+                )
+            )
+        
+        return response
 
     async def CancelTask(self, request, context):
         """

@@ -40,6 +40,7 @@ Lybic GUI Agent is an open-source framework that enables developers and business
 </div>
 
 ## 🥳 Updates
+- [x] **2025/10/17**: We have completed the verification test of the 100-step task at [OS-world](https://os-world.github.io/).
 - [x] **2025/09/14**: The paper has been accepted by [arxiv](https://arxiv.org/abs/2509.11067)
 - [x] **2025/09/09**: We achieved the world's first place in the 50-step length of [OS-world](https://os-world.github.io/)!
 - [x] **2025/08/08**: Released v0.1.0 of [Lybic GUI Agent](https://github.com/lybic/agent) library, with support for Windows, Mac, Ubuntu and Lybic API!

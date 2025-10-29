@@ -41,6 +41,7 @@ Lybic GUI Agent 是一个开源框架，使开发人员和企业能够创建能�
 </div>
 
 ## 🥳 最新动态
+- [x] **2025/10/17**: 我们在[OS-world](https://os-world.github.io/) 已经完成100步任务的验证测试。
 - [x] **2025/09/14**: 论文已经在[arxiv](https://arxiv.org/abs/2509.11067)上可以浏览
 - [x] **2025/09/09**: 我们在[OS-world](https://os-world.github.io/) 50步任务中取得了世界第一的成绩！
 - [x] **2025/08/08**: 发布了[Lybic GUI Agent](https://github.com/lybic/agent) v0.1.0版本，支持Windows、Mac、Ubuntu和Lybic API！

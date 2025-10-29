@@ -41,6 +41,7 @@ Lybic GUI Agentは、開発者や企業がインテリジェントなコンピ�
 </div>
 
 ## 🥳 更新情報
+- [x] **2025/10/17**: [OS-world](https://os-world.github.io/)にて100ステップタスクの検証テストが完了しました。
 - [x] **2025/09/14**: この論文は現在[arXiv](https://arxiv.org/abs/2509.11067)で公開されている。
 - [x] **2025/09/09**: [OS-world](https://os-world.github.io/)の50ステップ長で世界第1位を達成しました！
 - [x] **2025/08/08**: Windows、Mac、Ubuntu、Lybic APIをサポートする[Lybic GUI Agent](https://github.com/lybic/agent)ライブラリのv0.1.0をリリースしました！

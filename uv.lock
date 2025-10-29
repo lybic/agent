@@ -1626,16 +1626,16 @@ wheels = [
 
 [[package]]
 name = "lybic"
-version = "0.8.0b3"
+version = "0.8.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "pillow" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4b/fe/12d7c147f53d6a7ad6ae4d2896abf1e23caf1f695435d4adaa0fd93abdb6/lybic-0.8.0b3.tar.gz", hash = "sha256:61e5edb239ac91338c559888f8b793096a4b41b10bfdb99978cea488149f1df3", size = 38617, upload-time = "2025-10-13T03:00:11.449Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c3/ab/5027b367e1b36e662d036c96fe9c36726854bf6ec290680b387f7c58dcfc/lybic-0.8.1.tar.gz", hash = "sha256:48686d542d1f52472a46db112ee6fbde1001042b11b15015f13867205ac47933", size = 42804, upload-time = "2025-10-29T07:49:18.419Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/c8/aaf5266625e85e1c03569066106518b5ad475e0fc98c07eaa2bb0dbf39c6/lybic-0.8.0b3-py3-none-any.whl", hash = "sha256:bc606f345c6bd26621f5f1fb5dc99862bc836d7728c85c8b90385c30e4a0c64f", size = 50760, upload-time = "2025-10-13T03:00:10.088Z" },
+    { url = "https://files.pythonhosted.org/packages/46/33/db289526d4aa431caa26144b8928ae397251056e4034bcbee24bee910cfb/lybic-0.8.1-py3-none-any.whl", hash = "sha256:669459b9af723b84f21b2e63e18e5272326ebca9cd2e932401aa71b4937d68f0", size = 64376, upload-time = "2025-10-29T07:49:17.111Z" },
 ]
 
 [[package]]

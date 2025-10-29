@@ -158,7 +158,7 @@ class KnowledgeBase:
                 try:
                     with open(query_path, "r") as f:
                         formulate_query = json.load(f)
-                except:
+                except (FileNotFoundError, json.JSONDecodeError):
                     formulate_query = {}
 
                 if instruction in formulate_query:

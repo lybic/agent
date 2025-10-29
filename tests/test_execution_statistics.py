@@ -20,9 +20,14 @@ def test_analyze_display_json():
     print("=" * 80)
     
     # Import directly from the module file to avoid dependency issues
+    # Use relative path from test file location
+    test_dir = Path(__file__).parent
+    repo_root = test_dir.parent
+    analyze_module_path = repo_root / 'gui_agents' / 'utils' / 'analyze_display.py'
+    
     spec = importlib.util.spec_from_file_location(
         'analyze_display', 
-        'gui_agents/utils/analyze_display.py'
+        str(analyze_module_path)
     )
     analyze_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(analyze_module)
@@ -92,8 +97,13 @@ def test_proto_message_creation():
     print("=" * 80)
     
     try:
+        # Use relative path from test file location
+        test_dir = Path(__file__).parent
+        repo_root = test_dir.parent
+        proto_pb_dir = repo_root / 'gui_agents' / 'proto' / 'pb'
+        
         import sys
-        sys.path.insert(0, 'gui_agents/proto/pb')
+        sys.path.insert(0, str(proto_pb_dir))
         import agent_pb2
         
         # Create an ExecutionStatistics message

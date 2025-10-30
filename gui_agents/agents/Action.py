@@ -207,3 +207,44 @@ class Memorize(Action):
 @dataclass(slots=True)
 class Screenshot(Action):
     pass
+
+@dataclass(slots=True)
+class MobileTap(Action):
+    x: int
+    y: int
+    element_description: str
+
+@dataclass(slots=True)
+class MobileDoubleTap(Action):
+    x: int
+    y: int
+    element_description: str
+
+@dataclass(slots=True)
+class MobileSwipe(Action):
+    startX: int
+    startY: int
+    endX: int
+    endY: int
+    duration: int
+    element_description: str
+
+@dataclass(slots=True)
+class MobileTypeText(Action):
+    text: str
+
+@dataclass(slots=True)
+class MobileHotkey(Action):
+    keys: List[str]
+
+@dataclass(slots=True)
+class MobileHome(Action):
+    pass
+
+@dataclass(slots=True)
+class MobileBack(Action):
+    pass
+
+@dataclass(slots=True)
+class MobileScreenshot(Action):
+    pass

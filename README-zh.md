@@ -105,6 +105,12 @@ Lybic GUI Agent 是一个开源框架，使开发人员和企业能够创建能�
 pip install lybic-guiagents
 ```
 
+> **Windows用户注意**: 如果在安装过程中遇到Unicode解码错误（特别是在使用非UTF-8默认编码的系统上，如中文Windows），请在运行pip之前设置以下环境变量：
+> ```cmd
+> set PYTHONUTF8=1
+> ```
+> 然后重新运行安装命令。这将启用Python的UTF-8模式，解决Windows上的编码问题。
+
 ### 安装(从源代码安装)
 
 您可以使用 [UV](https://docs.astral.sh/uv/getting-started/installation/) (一个现代化的Python包管理器) 0.8.5版本进行安装：
@@ -137,6 +143,12 @@ uv sync
 # 6. 在开发模式下本地安装包
 uv pip install -e .
 ```
+
+> **Windows用户注意**: 如果在依赖项安装过程中遇到Unicode解码错误（例如 `UnicodeDecodeError: 'gbk' codec can't decode byte`），这通常是由于某些包含非UTF-8编码文件的包导致的。在运行 `uv sync` 之前设置此环境变量：
+> ```cmd
+> set PYTHONUTF8=1
+> ```
+> 这将启用Python的UTF-8模式，解决非UTF-8默认区域设置的Windows系统上的编码问题。
 
 ### API密钥配置
 
@@ -376,7 +388,41 @@ USE_PRECREATE_VM=Ubuntu
   uv pip install -e .
   ```
 
-#### 3. Lybic沙盒连接问题
+#### 3. Windows安装编码问题
+
+**问题**: 在Windows上安装包时出现 `UnicodeDecodeError`，特别是出现如下错误信息：
+```
+UnicodeDecodeError: 'gbk' codec can't decode byte 0xa2 in position 905: illegal multibyte sequence
+```
+
+**解决方案**:
+
+当Python尝试使用系统默认编码（例如中文Windows上的GBK）而不是UTF-8读取包元数据文件时会出现此问题。解决方法：
+
+**选项1: 临时设置环境变量（命令提示符）**
+```cmd
+set PYTHONUTF8=1
+pip install lybic-guiagents
+```
+
+**选项2: 临时设置环境变量（PowerShell）**
+```powershell
+$env:PYTHONUTF8=1
+pip install lybic-guiagents
+```
+
+**选项3: 永久设置环境变量（系统级）**
+1. 打开 系统属性 → 高级 → 环境变量
+2. 添加新的系统变量：
+   - 变量名：`PYTHONUTF8`，值：`1`
+3. 重启终端并重试安装
+
+**选项4: 使用Python 3.15+（未来）**
+Python 3.15+将在Windows上默认启用UTF-8模式（[PEP 686](https://peps.python.org/pep-0686/)），这将消除此问题。
+
+> **注意**: 一些用户报告在额外设置 `PYTHONIOENCODING=utf-8` 后取得了成功，尽管在大多数情况下 `PYTHONUTF8=1` 应该足够了。如果在设置 `PYTHONUTF8=1` 后仍然遇到问题，请尝试在命令提示符中添加 `set PYTHONIOENCODING=utf-8`（或在PowerShell中使用 `$env:PYTHONIOENCODING="utf-8"`）。
+
+#### 4. Lybic沙盒连接问题
 
 **问题**: `Connection timeout`或`Sandbox creation failed`。
 
@@ -386,7 +432,7 @@ USE_PRECREATE_VM=Ubuntu
 - 确保您的Lybic账户中有足够的配额
 - 如果沙盒超时，请尝试增加`LYBIC_MAX_LIFE_SECONDS`
 
-#### 4. VMware后端问题
+#### 5. VMware后端问题
 
 **问题**: 虚拟机无法启动或控制。
 
@@ -398,7 +444,7 @@ USE_PRECREATE_VM=Ubuntu
 - 验证VMware服务是否正在运行
 - 设置正确的`USE_PRECREATE_VM`环境变量
 
-#### 5. 模型性能问题
+#### 6. 模型性能问题
 
 **问题**: 响应时间慢或定位准确性差。
 

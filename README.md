@@ -421,7 +421,7 @@ pip install lybic-guiagents
 **Option 4: Use Python 3.15+ (Future)**
 Python 3.15+ will enable UTF-8 mode by default on Windows ([PEP 686](https://peps.python.org/pep-0686/)), which will eliminate this issue.
 
-> **Note**: Some users have reported success with additionally setting `PYTHONIOENCODING=utf-8`, though `PYTHONUTF8=1` should be sufficient in most cases. If you still encounter issues after setting `PYTHONUTF8=1`, try adding `set PYTHONIOENCODING=utf-8` (or `$env:PYTHONIOENCODING="utf-8"` in PowerShell).
+> **Note**: Some users have reported success with additionally setting `PYTHONIOENCODING=utf-8`, though `PYTHONUTF8=1` should be sufficient in most cases. If you still encounter issues after setting `PYTHONUTF8=1`, try adding `set PYTHONIOENCODING=utf-8` in Command Prompt (or `$env:PYTHONIOENCODING="utf-8"` in PowerShell).
 
 #### 4. Lybic Sandbox Connection Issues
 

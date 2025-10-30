@@ -26,8 +26,16 @@ GRANT ALL PRIVILEGES ON DATABASE agent_tasks TO agent_user;
 \q
 ```
 
-### Step 3: Install Python Dependencies
+### Step 3: Python Dependencies
 
+The required `asyncpg` library is already included in the project dependencies.
+
+If you're installing from source, it's automatically included:
+```bash
+pip install lybic-guiagents
+```
+
+If you need to verify or install separately:
 ```bash
 pip install asyncpg
 ```

@@ -130,6 +130,12 @@ uv sync
 uv pip install -e .
 ```
 
+> **Windows利用者への注意**: 依存関係のインストール中にUnicodeデコードエラー（例：`UnicodeDecodeError: 'gbk' codec can't decode byte`）が発生した場合、これは通常、非UTF-8エンコードファイルを含むパッケージが原因です。`uv sync` を実行する前に、この環境変数を設定してください：
+> ```cmd
+> set PYTHONUTF8=1
+> ```
+> これによりPythonのUTF-8モードが有効になり、非UTF-8デフォルトロケールのWindowsシステムでのエンコード問題が解決されます。
+
 ### APIキーの設定
 
 APIキーを設定する最も簡単な方法は次のとおりです。
@@ -345,7 +351,41 @@ USE_PRECREATE_VM=Ubuntu
   uv pip install -e .
   ```
 
-#### 3. Lybicサンドボックス接続の問題
+#### 3. Windowsインストール時のエンコード問題
+
+**問題**: Windows上でパッケージをインストール中に `UnicodeDecodeError` が発生し、特に次のようなエラーメッセージが表示される：
+```
+UnicodeDecodeError: 'gbk' codec can't decode byte 0xa2 in position 905: illegal multibyte sequence
+```
+
+**解決策**:
+
+この問題は、Pythonがパッケージメタデータファイルを読み込む際に、UTF-8ではなくシステムのデフォルトエンコーディング（例：中国語WindowsのGBK）を使用しようとする場合に発生します。解決方法：
+
+**オプション1: 環境変数を一時的に設定（コマンドプロンプト）**
+```cmd
+set PYTHONUTF8=1
+pip install lybic-guiagents
+```
+
+**オプション2: 環境変数を一時的に設定（PowerShell）**
+```powershell
+$env:PYTHONUTF8=1
+pip install lybic-guiagents
+```
+
+**オプション3: 環境変数を永続的に設定（システム全体）**
+1. システムのプロパティ → 詳細設定 → 環境変数を開きます
+2. 新しいシステム変数を追加します：
+   - 変数名：`PYTHONUTF8`、値：`1`
+3. ターミナルを再起動して、インストールを再試行します
+
+**オプション4: Python 3.15+を使用（将来）**
+Python 3.15+はWindows上でデフォルトでUTF-8モードを有効にします（[PEP 686](https://peps.python.org/pep-0686/)）。これによりこの問題は解消されます。
+
+> **注意**: 一部のユーザーは `PYTHONIOENCODING=utf-8` を追加で設定することで成功を報告していますが、ほとんどの場合 `PYTHONUTF8=1` で十分です。`PYTHONUTF8=1` を設定した後も問題が発生する場合は、コマンドプロンプトで `set PYTHONIOENCODING=utf-8`（またはPowerShellで `$env:PYTHONIOENCODING="utf-8"`）を追加してみてください。
+
+#### 4. Lybicサンドボックス接続の問題
 
 **問題**: `Connection timeout`または`Sandbox creation failed`。
 
@@ -355,7 +395,7 @@ USE_PRECREATE_VM=Ubuntu
 - Lybicアカウントに十分なクォータがあることを確認します
 - サンドボックスがタイムアウトする場合は、`LYBIC_MAX_LIFE_SECONDS`を増やしてみてください
 
-#### 4. VMwareバックエンドの問題
+#### 5. VMwareバックエンドの問題
 
 **問題**: 仮想マシンが起動または制御に失敗する。
 
@@ -367,7 +407,7 @@ USE_PRECREATE_VM=Ubuntu
 - VMwareサービスが実行されていることを確認します
 - 正しい`USE_PRECREATE_VM`環境変数を設定します
 
-#### 5. モデルのパフォーマンスの問題
+#### 6. モデルのパフォーマンスの問題
 
 **問題**: 応答時間が遅い、またはグラウンディングの精度が低い。
 

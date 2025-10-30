@@ -104,6 +104,12 @@ You can install Lybic GUI Agent by using pip:
 pip install lybic-guiagents
 ```
 
+> **Note for Windows Users**: If you encounter Unicode decoding errors during installation (especially on systems with non-UTF-8 default encoding like Chinese Windows), set the following environment variable before running pip:
+> ```cmd
+> set PYTHONUTF8=1
+> ```
+> Then run the installation command again. This enables Python's UTF-8 mode, which resolves encoding issues on Windows.
+
 ### Installation(from source code)
 
 You can use [UV](https://docs.astral.sh/uv/getting-started/installation/) (a modern Python package manager) version 0.8.5 for installation:
@@ -136,6 +142,12 @@ uv sync
 # 6. Install the package locally in development mode
 uv pip install -e .
 ```
+
+> **Note for Windows Users**: If you encounter Unicode decoding errors during dependency installation (e.g., `UnicodeDecodeError: 'gbk' codec can't decode byte`), this is typically caused by packages with non-UTF-8 encoded files. Set this environment variable before running `uv sync`:
+> ```cmd
+> set PYTHONUTF8=1
+> ```
+> This enables Python's UTF-8 mode, which resolves encoding issues on Windows systems with non-UTF-8 default locales.
 
 ### API Key Configuration
 
@@ -377,7 +389,41 @@ USE_PRECREATE_VM=Ubuntu
   # uv pip install -e . -i  https://pypi.tuna.tsinghua.edu.cn/simple
   ```
 
-#### 3. Lybic Sandbox Connection Issues
+#### 3. Windows Installation Encoding Issues
+
+**Problem**: `UnicodeDecodeError` during package installation on Windows, especially with error messages like:
+```
+UnicodeDecodeError: 'gbk' codec can't decode byte 0xa2 in position 905: illegal multibyte sequence
+```
+
+**Solution**:
+
+This issue occurs when Python tries to read package metadata files using the system's default encoding (e.g., GBK on Chinese Windows) instead of UTF-8. To resolve this:
+
+**Option 1: Set environment variable temporarily (Command Prompt)**
+```cmd
+set PYTHONUTF8=1
+pip install lybic-guiagents
+```
+
+**Option 2: Set environment variable temporarily (PowerShell)**
+```powershell
+$env:PYTHONUTF8=1
+pip install lybic-guiagents
+```
+
+**Option 3: Set environment variable permanently (System-wide)**
+1. Open System Properties → Advanced → Environment Variables
+2. Add new system variable:
+   - Variable name: `PYTHONUTF8`, Value: `1`
+3. Restart your terminal and try installation again
+
+**Option 4: Use Python 3.15+ (Future)**
+Python 3.15+ will enable UTF-8 mode by default on Windows ([PEP 686](https://peps.python.org/pep-0686/)), which will eliminate this issue.
+
+> **Note**: Some users have reported success with additionally setting `PYTHONIOENCODING=utf-8`, though `PYTHONUTF8=1` should be sufficient in most cases. If you still encounter issues after setting `PYTHONUTF8=1`, try adding `set PYTHONIOENCODING=utf-8` in Command Prompt (or `$env:PYTHONIOENCODING="utf-8"` in PowerShell).
+
+#### 4. Lybic Sandbox Connection Issues
 
 **Problem**: `Connection timeout` or `Sandbox creation failed`.
 
@@ -387,7 +433,7 @@ USE_PRECREATE_VM=Ubuntu
 - Ensure sufficient quota in your Lybic account
 - Try increasing `LYBIC_MAX_LIFE_SECONDS` if sandbox times out
 
-#### 4. VMware Backend Issues
+#### 5. VMware Backend Issues
 
 **Problem**: Virtual machine fails to start or control.
 
@@ -399,7 +445,7 @@ USE_PRECREATE_VM=Ubuntu
 - Verify VMware service is running
 - Set correct `USE_PRECREATE_VM` environment variable
 
-#### 5. Model Performance Issues
+#### 6. Model Performance Issues
 
 **Problem**: Slow response times or poor grounding accuracy.
 

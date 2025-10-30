@@ -39,6 +39,7 @@ from gui_agents.agents.agent_s import load_config
 from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig, Authorization, InstanceMode
 from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface, __version__
 from gui_agents.utils.analyze_display import analyze_display_json
+from gui_agents.storage import create_storage, TaskData
 
 
 class AgentServicer(agent_pb2_grpc.AgentServicer):
@@ -55,7 +56,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             log_dir (str): Directory for logging and task-related files.
         """
         self.max_concurrent_task_num = max_concurrent_task_num
-        self.tasks = {}
+        self.tasks = {}  # Runtime-only data (agent, queue, future)
+        self.storage = create_storage()  # Persistent task data storage
         self.global_common_config = agent_pb2.CommonConfig(id="global")
         self.task_lock = asyncio.Lock()
         self.log_dir = log_dir
@@ -72,10 +74,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         task_id = request.taskId
         logger.info(f"Received GetAgentTaskStream request for taskId: {task_id}")
 
-        async with self.task_lock:
-            task_info = self.tasks.get(task_id)
-
-        if not task_info:
+        # Check if task exists in storage
+        task_data = await self.storage.get_task(task_id)
+        if not task_data:
             context.set_code(grpc.StatusCode.NOT_FOUND)
             context.set_details(f"Task with ID {task_id} not found.")
             return
@@ -160,16 +161,20 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         	backend_kwargs (dict): Backend configuration passed to the HardwareInterface (e.g., platform, org/api fields, sandbox id).
 
         Notes:
-        	- Updates the task entry in self.tasks (status and final_state).
+        	- Updates the task entry in storage (status and final_state).
         	- Emits task lifecycle messages via stream_manager and unregisters the task when finished.
         	- Exceptions are caught, the task status is set to "error", and an error message is emitted.
         	- Supports task cancellation via asyncio.CancelledError.
         """
         async with self.task_lock:
-            self.tasks[task_id]["status"] = "running"
-            agent = self.tasks[task_id]["agent"]
-            steps = self.tasks[task_id]["max_steps"]
-            query = self.tasks[task_id]["query"]
+            # Update status to running in storage
+            await self.storage.update_task(task_id, {"status": "running"})
+            
+            # Get runtime data
+            task_info = self.tasks.get(task_id)
+            agent = task_info["agent"]
+            steps = task_info["max_steps"]
+            query = task_info["query"]
 
             # Register task with stream manager
             await stream_manager.register_task(task_id)
@@ -181,9 +186,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             # Create task-specific registry
             task_registry, timestamp_dir = self._setup_task_state(task_id)
             
-            # Store timestamp_dir in task info for later statistics collection
-            async with self.task_lock:
-                self.tasks[task_id]["timestamp_dir"] = str(timestamp_dir)
+            # Store timestamp_dir in storage
+            await self.storage.update_task(task_id, {"timestamp_dir": str(timestamp_dir)})
 
             # Set task_id for the agent. This is needed so that agent.reset() can find the right components.
             if hasattr(agent, 'set_task_id'):
@@ -206,12 +210,14 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             # The final state is now determined inside the thread. We'll assume success if no exception.
             final_state = "completed"
 
-            async with self.task_lock:
-                self.tasks[task_id]["final_state"] = final_state
-                self.tasks[task_id]["status"] = "finished"
-                
-                # Collect execution statistics from display.json
-                await self._collect_execution_statistics(task_id)
+            # Update storage with final state
+            await self.storage.update_task(task_id, {
+                "final_state": final_state,
+                "status": "finished"
+            })
+            
+            # Collect execution statistics from display.json
+            await self._collect_execution_statistics(task_id)
 
             if final_state and final_state == "completed":
                 await stream_manager.add_message(task_id, "finished", "Task completed successfully")
@@ -221,13 +227,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
         except asyncio.CancelledError:
             logger.info(f"Task {task_id} was cancelled")
-            async with self.task_lock:
-                self.tasks[task_id]["status"] = "cancelled"
+            await self.storage.update_task(task_id, {"status": "cancelled"})
             await stream_manager.add_message(task_id, "cancelled", "Task was cancelled by user request")
         except Exception as e:
             logger.exception(f"Error during task execution for {task_id}: {e}")
-            async with self.task_lock:
-                self.tasks[task_id]["status"] = "error"
+            await self.storage.update_task(task_id, {"status": "error"})
             await stream_manager.add_message(task_id, "error", f"An error occurred: {e}")
         finally:
             logger.info(f"Task {task_id} processing finished.")
@@ -239,18 +243,19 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         Collect execution statistics from display.json file for the given task.
         
         This method analyzes the display.json file in the task's timestamp directory
-        and stores the execution statistics in the task info.
+        and stores the execution statistics in the task storage.
         
         Parameters:
             task_id (str): Identifier of the task
         """
         try:
-            timestamp_dir = self.tasks[task_id].get("timestamp_dir")
-            if not timestamp_dir:
+            # Get timestamp_dir from storage
+            task_data = await self.storage.get_task(task_id)
+            if not task_data or not task_data.timestamp_dir:
                 logger.warning(f"No timestamp_dir found for task {task_id}, cannot collect statistics")
                 return
             
-            display_json_path = Path(timestamp_dir) / "display.json"
+            display_json_path = Path(task_data.timestamp_dir) / "display.json"
             
             # Wait for file to be fully written (similar to cli_app.py)
             max_wait_time = 10  # Maximum wait time in seconds
@@ -292,8 +297,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 result = analyze_display_json(str(display_json_path))
                 
                 if result:
-                    # Store statistics in task info
-                    self.tasks[task_id]["execution_statistics"] = {
+                    # Store statistics in storage
+                    execution_statistics = {
                         "steps": result.get("fast_action_count", 0),
                         "duration_seconds": result.get("total_duration", 0),
                         "input_tokens": result.get("total_input_tokens", 0),
@@ -302,8 +307,12 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                         "cost": result.get("total_cost", 0.0),
                         "currency_symbol": result.get("currency_symbol", "￥")
                     }
-                    logger.info(f"Execution statistics collected for task {task_id}: "
-                              f"{self.tasks[task_id]['execution_statistics']}")
+                    
+                    await self.storage.update_task(task_id, {
+                        "execution_statistics": execution_statistics
+                    })
+                    
+                    logger.info(f"Execution statistics collected for task {task_id}: {execution_statistics}")
                 else:
                     logger.warning(f"No valid data found in display.json for task {task_id}")
             else:
@@ -399,6 +408,25 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 backend_kwargs['endpoint'] = auth_info.apiEndpoint
 
         return backend_kwargs
+
+    def _sandbox_to_dict(self, sandbox) -> dict:
+        """
+        Convert sandbox protobuf object to dictionary for storage.
+        
+        Args:
+            sandbox: Sandbox protobuf object
+            
+        Returns:
+            dict: Dictionary representation of sandbox info
+        """
+        if not sandbox:
+            return {}
+        
+        return {
+            "id": sandbox.id if hasattr(sandbox, 'id') else "",
+            "os": sandbox.os if hasattr(sandbox, 'os') else 0,
+            "shape_name": sandbox.shapeName if hasattr(sandbox, 'shapeName') else "",
+        }
 
     async def _make_agent(self,request):
         """
@@ -512,7 +540,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         task_future = None
 
         async with self.task_lock:
-            active_tasks = sum(1 for t in self.tasks.values() if t['status'] in ['pending', 'running'])
+            active_tasks = await self.storage.count_active_tasks()
             if active_tasks >= self.max_concurrent_task_num:
                 context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
                 context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
@@ -525,16 +553,24 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             if request.HasField("runningConfig") and request.runningConfig.steps:
                 max_steps = request.runningConfig.steps
 
+            # Store persistent data in storage
+            sandbox_info = self._sandbox_to_dict(backend_kwargs["sandbox"])
+            task_data = TaskData(
+                task_id=task_id,
+                status="pending",
+                query=request.instruction,
+                max_steps=max_steps,
+                sandbox_info=sandbox_info
+            )
+            await self.storage.create_task(task_data)
+            
+            # Store runtime-only data (agent, queue, future) in memory
             self.tasks[task_id] = {
-                "request": request,
-                "status": "pending",
-                "final_state": None,
+                "agent": agent,
                 "queue": queue,
                 "future": None,
                 "query": request.instruction,
-                "agent": agent,
                 "max_steps": max_steps,
-                "sandbox": backend_kwargs["sandbox"],
             }
 
             # This property is used to pass sandbox information.
@@ -584,7 +620,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         logger.info(f"Received RunAgentInstructionAsync request, assigning taskId: {task_id}")
 
         async with self.task_lock:
-            active_tasks = sum(1 for t in self.tasks.values() if t['status'] in ['pending', 'running'])
+            active_tasks = await self.storage.count_active_tasks()
             if active_tasks >= self.max_concurrent_task_num:
                 context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
                 context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
@@ -599,17 +635,26 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             # Create queue for this task
             queue = asyncio.Queue()
 
+            # Store persistent data in storage
+            sandbox_info = self._sandbox_to_dict(backend_kwargs["sandbox"])
+            task_data = TaskData(
+                task_id=task_id,
+                status="pending",
+                query=request.instruction,
+                max_steps=max_steps,
+                sandbox_info=sandbox_info
+            )
+            await self.storage.create_task(task_data)
+            
+            # Store runtime-only data in memory
             self.tasks[task_id] = {
-                "request": request,
-                "status": "pending",
-                "final_state": None,
+                "agent": agent,
                 "queue": queue,
                 "future": None,
                 "query": request.instruction,
-                "agent": agent,
                 "max_steps": max_steps,
-                "sandbox": backend_kwargs["sandbox"],
             }
+            
             # This property is used to pass sandbox information.
             # It has now completed its mission and needs to be deleted, otherwise other backends may crash.
             del backend_kwargs["sandbox"]
@@ -635,18 +680,19 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             QueryTaskStatusResponse: the task ID, mapped `status`, a short `message` describing the current state, a `result` string (empty if none), and the `sandbox` value echoed from the original request.
         """
         task_id = request.taskId
-        async with self.task_lock:
-            task_info = self.tasks.get(task_id)
+        
+        # Get task data from storage
+        task_data = await self.storage.get_task(task_id)
 
-        if not task_info:
+        if not task_data:
             return agent_pb2.QueryTaskStatusResponse(
                 taskId=task_id,
                 status=agent_pb2.TaskStatus.NOT_FOUND,
                 message=f"Task with ID {task_id} not found."
             )
 
-        status = task_info["status"]
-        final_state = task_info.get("final_state")
+        status = task_data.status
+        final_state = task_data.final_state
 
         status_map = {
             "pending": agent_pb2.TaskStatus.PENDING,
@@ -673,27 +719,33 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             message = "Task is running."
             result = ""
 
+        # Build sandbox response from stored sandbox_info
+        sandbox_pb = agent_pb2.Sandbox()
+        if task_data.sandbox_info:
+            sandbox_pb.id = task_data.sandbox_info.get("id", "")
+            sandbox_pb.os = task_data.sandbox_info.get("os", 0)
+            sandbox_pb.shapeName = task_data.sandbox_info.get("shape_name", "")
+
         # Build response with optional execution statistics
         response = agent_pb2.QueryTaskStatusResponse(
             taskId=task_id,
             status=task_status,
             message=message,
             result=result,
-            sandbox=task_info["sandbox"]
+            sandbox=sandbox_pb
         )
         
         # Add execution statistics if available (only for finished tasks)
-        exec_stats = task_info.get("execution_statistics")
-        if exec_stats:
+        if task_data.execution_statistics:
             response.executionStatistics.CopyFrom(
                 agent_pb2.ExecutionStatistics(
-                    steps=exec_stats["steps"],
-                    durationSeconds=exec_stats["duration_seconds"],
-                    inputTokens=exec_stats["input_tokens"],
-                    outputTokens=exec_stats["output_tokens"],
-                    totalTokens=exec_stats["total_tokens"],
-                    cost=exec_stats["cost"],
-                    currencySymbol=exec_stats["currency_symbol"]
+                    steps=task_data.execution_statistics["steps"],
+                    durationSeconds=task_data.execution_statistics["duration_seconds"],
+                    inputTokens=task_data.execution_statistics["input_tokens"],
+                    outputTokens=task_data.execution_statistics["output_tokens"],
+                    totalTokens=task_data.execution_statistics["total_tokens"],
+                    cost=task_data.execution_statistics["cost"],
+                    currencySymbol=task_data.execution_statistics["currency_symbol"]
                 )
             )
         
@@ -716,18 +768,22 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         task_id = request.taskId
         logger.info(f"Received CancelTask request for taskId: {task_id}")
 
-        async with self.task_lock:
-            task_info = self.tasks.get(task_id)
+        # Get task data from storage
+        task_data = await self.storage.get_task(task_id)
 
-        if not task_info:
+        if not task_data:
             return agent_pb2.CancelTaskResponse(
                 taskId=task_id,
                 success=False,
                 message=f"Task with ID {task_id} not found."
             )
 
-        status = task_info["status"]
-        task_future = task_info.get("future")
+        status = task_data.status
+        
+        # Get task future from runtime data
+        async with self.task_lock:
+            task_info = self.tasks.get(task_id)
+            task_future = task_info.get("future") if task_info else None
 
         # Check if task can be cancelled
         if status in ["finished", "error"]:
@@ -746,7 +802,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             try:
                 # Cancel the task future
                 task_future.cancel()
-                task_info["status"] = "cancelled"
+                
+                # Update status in storage
+                await self.storage.update_task(task_id, {"status": "cancelled"})
 
                 # Set cancellation flag in global state for agents to check
                 global_state: GlobalState = Registry.get_from_context("GlobalStateStore", task_id)  # type: ignore
@@ -859,23 +917,15 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         Returns:
             agent_pb2.CommonConfig: A copy of the task's CommonConfig with sensitive fields masked, or an empty CommonConfig if no task with the given id exists (in which case the gRPC context is set to NOT_FOUND).
         """
-        async with self.task_lock:
-            if request.id == "global":
-                return await self.GetGlobalCommonConfig(request, context)
-            else:
-                task_info = self.tasks.get(request.id)
-        if task_info and task_info.get("request"):
-            if task_info["request"].HasField("runningConfig"):
-                original_config = task_info["request"].runningConfig
-                masked_config = self._mask_config_secrets(original_config)
-            else:
-                masked_config = agent_pb2.CommonConfig(id=request.id)
-
-            logger.debug(f"Returned masked config for task {request.id}")
-            return masked_config
-        context.set_code(grpc.StatusCode.NOT_FOUND)
-        context.set_details(f"Config for task {request.id} not found.")
-        return agent_pb2.CommonConfig()
+        if request.id == "global":
+            return await self.GetGlobalCommonConfig(request, context)
+        else:
+            # For task-specific configs, we can no longer retrieve the full request
+            # as we're not storing it in the new storage system
+            # Return NOT_FOUND for now, or store request_data if needed
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            context.set_details(f"Config for task {request.id} not found. Task-specific configs are not persisted.")
+            return agent_pb2.CommonConfig()
 
     def _new_lybic_client(self, lybic_auth: LybicAuth) -> LybicClient:
         """

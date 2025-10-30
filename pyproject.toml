@@ -41,6 +41,7 @@ dependencies = [
     "protobuf>=5.29.5",
     "googleapis-common-protos>=1.70.0",
     "filelock",
+    "asyncpg>=0.29.0",
 ]
 [project.optional-dependencies]
 dev = [

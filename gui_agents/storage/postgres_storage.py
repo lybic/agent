@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import logging
 import json
+import asyncio
 
 from .base import TaskStorage, TaskData
 
@@ -20,7 +21,7 @@ try:
 except ImportError:
     POSTGRES_AVAILABLE = False
     asyncpg = None
-    logger.warning("asyncpg not installed. PostgreSQL storage will not be available.")
+    logger.warning("`asyncpg` not installed. PostgreSQL storage will not be available.")
 
 
 class PostgresStorage(TaskStorage):
@@ -68,6 +69,7 @@ class PostgresStorage(TaskStorage):
         self.connection_string = connection_string
         self._pool: Optional[asyncpg.Pool] = None
         self._initialized = False
+        self._init_lock = asyncio.Lock()
         logger.info("Initialized PostgresStorage for task persistence")
     
     async def _ensure_initialized(self):
@@ -75,29 +77,34 @@ class PostgresStorage(TaskStorage):
         if self._initialized:
             return
         
-        if not self._pool:
+        async with self._init_lock:
+            # Double-check after acquiring lock
+            if self._initialized:
+                return
+            
+            if not self._pool:
+                try:
+                    self._pool = await asyncpg.create_pool(
+                        self.connection_string,
+                        min_size=2,
+                        max_size=10,
+                        command_timeout=60
+                    )
+                    logger.info("PostgreSQL connection pool created")
+                except Exception as e:
+                    logger.error(f"Failed to create PostgreSQL connection pool: {e}")
+                    raise
+            
+            # Create table if not exists
             try:
-                self._pool = await asyncpg.create_pool(
-                    self.connection_string,
-                    min_size=2,
-                    max_size=10,
-                    command_timeout=60
-                )
-                logger.info("PostgreSQL connection pool created")
+                async with self._pool.acquire() as conn:
+                    await conn.execute(self.CREATE_TABLE_SQL)
+                    logger.info("PostgreSQL schema initialized")
             except Exception as e:
-                logger.error(f"Failed to create PostgreSQL connection pool: {e}")
+                logger.error(f"Failed to initialize PostgreSQL schema: {e}")
                 raise
-        
-        # Create table if not exists
-        try:
-            async with self._pool.acquire() as conn:
-                await conn.execute(self.CREATE_TABLE_SQL)
-                logger.info("PostgreSQL schema initialized")
-        except Exception as e:
-            logger.error(f"Failed to initialize PostgreSQL schema: {e}")
-            raise
-        
-        self._initialized = True
+            
+            self._initialized = True
     
     async def close(self):
         """Close the database connection pool."""

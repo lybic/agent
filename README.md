@@ -336,6 +336,24 @@ if __name__ == '__main__':
     asyncio.run(run_agent_instruction())
 ```
 
+#### Task Persistence (Optional)
+
+The gRPC service supports persistent storage for task status and history using PostgreSQL. This allows task data to survive service restarts.
+
+-   **Default Behavior**: By default, tasks are stored in memory and will be lost when the service stops.
+-   **Enable Persistence**: To enable PostgreSQL persistence, you need to:
+    1.  Install the required dependency:
+        -   If installing from PyPI: `pip install lybic-guiagents[postgres]`
+        -   If installing from source: `uv pip install .[postgres]`
+    2.  Set the following environment variables:
+        ```bash
+        # Use the postgres backend instead of the default 'memory'
+        TASK_STORAGE_BACKEND=postgres
+        # Set your PostgreSQL connection string
+        POSTGRES_CONNECTION_STRING=postgresql://user:password@host:port/database
+        ```
+-   **Docker Usage**: The `agenticlybic/guiagent` Docker image comes with PostgreSQL support pre-installed. You only need to set the environment variables above to enable persistence when running the gRPC service container.
+
 ### VMware Configuration
 
 To use PyAutoGUI with VMware, you need to install [VMware Workstation Pro](https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion) (on Windows) and create a virtual machine. 

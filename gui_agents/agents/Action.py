@@ -209,42 +209,40 @@ class Screenshot(Action):
     pass
 
 @dataclass(slots=True)
-class MobileTap(Action):
+class TouchTap(Action):
     x: int
     y: int
     element_description: str
 
 @dataclass(slots=True)
-class MobileDoubleTap(Action):
-    x: int
-    y: int
-    element_description: str
-
-@dataclass(slots=True)
-class MobileSwipe(Action):
+class TouchDrag(Action):
     startX: int
     startY: int
     endX: int
     endY: int
+    element_description: str
+
+@dataclass(slots=True)
+class TouchSwipe(Action):
+    x: int
+    y: int
+    direction: str
+    distance: int
+    element_description: str
+
+@dataclass(slots=True)
+class TouchLongPress(Action):
+    x: int
+    y: int
     duration: int
     element_description: str
 
 @dataclass(slots=True)
-class MobileTypeText(Action):
-    text: str
-
-@dataclass(slots=True)
-class MobileHotkey(Action):
-    keys: List[str]
-
-@dataclass(slots=True)
-class MobileHome(Action):
+class AndroidHome(Action):
     pass
 
 @dataclass(slots=True)
-class MobileBack(Action):
+class AndroidBack(Action):
     pass
 
-@dataclass(slots=True)
-class MobileScreenshot(Action):
-    pass
+

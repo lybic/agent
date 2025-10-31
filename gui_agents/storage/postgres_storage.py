@@ -296,7 +296,8 @@ class PostgresStorage(TaskStorage):
                     task_id
                 )
                 
-                if result == "DELETE 0":
+                deleted_count = int(result.split()[-1]) if result and result.startswith("DELETE") else 0
+                if deleted_count == 0:
                     logger.warning(f"Task {task_id} not found for deletion in PostgreSQL")
                     return False
                 

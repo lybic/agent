@@ -1263,11 +1263,13 @@ async def serve():
                     metrics.update_uptime()
                     
                     # Update system metrics
-                    import sys
-                    import psutil
-                    process = psutil.Process()
-                    memory_bytes = process.memory_info().rss
-                    metrics.update_system_metrics(memory_bytes=memory_bytes)
+                    try:
+                        import psutil
+                        process = psutil.Process()
+                        memory_bytes = process.memory_info().rss
+                        metrics.update_system_metrics(memory_bytes=memory_bytes)
+                    except ImportError:
+                        pass  # psutil not available, skip memory metrics
                     
                     # Update stream manager metrics
                     stream_tasks = len(stream_manager._tasks)

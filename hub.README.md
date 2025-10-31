@@ -150,6 +150,31 @@ if __name__ == '__main__':
     asyncio.run(run_agent_instruction())
 ```
 
+### Task Persistence
+
+The gRPC service supports persistent storage for task status and history using PostgreSQL, allowing task data to survive container restarts. This feature is pre-installed in the Docker image.
+
+To enable it, set the following environment variables in your `.env` file or via `--env` flags:
+
+```bash
+# .env file
+
+# Use the postgres backend instead of the default 'memory'
+TASK_STORAGE_BACKEND=postgres
+# Set your PostgreSQL connection string
+POSTGRES_CONNECTION_STRING=postgresql://user:password@host:port/database
+```
+
+When you run the gRPC service container with these variables, it will automatically connect to your PostgreSQL database and persist task data. If these variables are not set, it will default to in-memory storage (data is lost on container stop).
+
+Example `docker run` command with persistence enabled:
+
+```sh
+docker run --rm -it -p 50051:50051 --env-file .env agenticlybic/guiagent /app/.venv/bin/lybic-guiagent-grpc
+```
+
+Make sure your `.env` file contains the `TASK_STORAGE_BACKEND` and `POSTGRES_CONNECTION_STRING` variables.
+
 ## Image Details
 
 -   **Base Image**: `debian:bookworm-slim`

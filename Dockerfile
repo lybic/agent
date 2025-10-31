@@ -47,6 +47,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-editable
 
 
+# Install optional postgres dependency for persistence
+RUN uv pip install .[postgres]
+
+
 # --- Stage 3: final ---
 # Creates the lean, final runtime image.
 FROM base AS final

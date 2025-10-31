@@ -281,6 +281,24 @@ if __name__ == '__main__':
     asyncio.run(run_agent_instruction())
 ```
 
+#### タスクの永続化 (オプション)
+
+gRPCサービスは、PostgreSQLを使用してタスクの状態と履歴を永続的に保存する機能をサポートしています。これにより、サービスが再起動してもタスクデータが失われることはありません。
+
+-   **デフォルトの動作**: デフォルトでは、タスクはメモリに保存され、サービスが停止するとデータは失われます。
+-   **永続化の有効化**: PostgreSQLによる永続化を有効にするには、次の手順が必要です：
+    1.  必要な依存関係をインストールします：
+        -   PyPIからインストールする場合: `pip install lybic-guiagents[postgres]`
+        -   ソースからインストールする場合: `uv pip install .[postgres]`
+    2.  以下の環境変数を設定します：
+        ```bash
+        # デフォルトの'memory'の代わりにpostgresバックエンドを使用します
+        TASK_STORAGE_BACKEND=postgres
+        # PostgreSQLの接続文字列を設定します
+        POSTGRES_CONNECTION_STRING=postgresql://user:password@host:port/database
+        ```
+-   **Dockerでの使用**: `agenticlybic/guiagent` DockerイメージにはPostgreSQLのサポートがプリインストールされています。gRPCサービスコンテナを実行する際に、上記の環境変数を設定するだけで永続化を有効にできます。
+
 ### Lybicサンドボックスの設定
 
 Lybicサンドボックスを設定する最も簡単な方法は、[APIキーの設定](#apiキーの設定)セクションで説明したように、`.env`ファイルを編集してAPIキーを追加することです。

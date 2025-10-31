@@ -336,6 +336,24 @@ if __name__ == '__main__':
     asyncio.run(run_agent_instruction())
 ```
 
+#### 任务持久化 (可选)
+
+gRPC服务支持使用PostgreSQL对任务状态和历史记录进行持久化存储。这使得任务数据能够在服务重启后得以保留。
+
+-   **默认行为**: 默认情况下，任务存储在内存中，当服务停止时数据将丢失。
+-   **启用持久化**: 要启用PostgreSQL持久化，您需要：
+    1.  安装所需的依赖：
+        -   如果从PyPI安装: `pip install lybic-guiagents[postgres]`
+        -   如果从源代码安装: `uv pip install .[postgres]`
+    2.  设置以下环境变量：
+        ```bash
+        # 使用 postgres 后端，而不是默认的 'memory'
+        TASK_STORAGE_BACKEND=postgres
+        # 设置您的PostgreSQL连接字符串
+        POSTGRES_CONNECTION_STRING=postgresql://user:password@host:port/database
+        ```
+-   **Docker使用**: `agenticlybic/guiagent` Docker镜像已预装PostgreSQL支持。在运行gRPC服务容器时，您只需设置上述环境变量即可启用持久化。
+
 ### VMware配置
 
 要将PyAutoGUI与VMware一起使用，您需要安装[VMware Workstation Pro](https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion)（在Windows上）并创建一个虚拟机。

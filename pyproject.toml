@@ -43,8 +43,17 @@ dependencies = [
     "filelock",
 ]
 [project.optional-dependencies]
+postgres = [
+    "asyncpg>=0.29.0",
+]
 dev = [
     "pytest",
+    "anyio",
+    "pytest-asyncio",
+    "pytest-tornasync",
+    "pytest-trio",
+    "pytest-twisted",
+    "twisted"
 ]
 grpc = [
     "grpcio",

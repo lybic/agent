@@ -33,17 +33,17 @@ jobs:
 
       - name: Generate changelog
         env:
+          ARK_MODEL_ENDPOINT: ${{ secrets.ARK_MODEL_ENDPOINT }}
+          ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
+          ARK_MODEL_NAME: ${{ secrets.ARK_MODEL_NAME }}
           GH_TOKEN: ${{ github.token }}
           NEW_TAG: ${{ github.event.inputs.new_tag }}
           PREVIOUS_TAG: ${{ github.event.inputs.previous_tag }}
         run: |
-          echo "## Changelog for $NEW_TAG" > changelog.md
-          echo "" >> changelog.md
-          echo "Update from $PREVIOUS_TAG to $NEW_TAG" >> changelog.md
-          echo "" >> changelog.md
           echo "Release timestamp: $(date +%Y-%m-%d)" >> changelog.md
           echo "" >> changelog.md
-          gh api repos/${{ github.repository }}/compare/$(echo "$PREVIOUS_TAG" | tr '[:upper:]' '[:lower:]')...HEAD --jq '.commits[] | "- \(.commit.message | split("\n")[0]) (by @\(.author.login // .commit.author.name) in `\(.sha | tostring | .[0:7])`) "' >> changelog.md
+          COMMIT_LOGS=$(gh api repos/${{ github.repository }}/compare/$(echo "$PREVIOUS_TAG" | tr '[:upper:]' '[:lower:]')...HEAD --jq '.commits[] | "- \(.commit.message | split("\n")[0]) (by @\(.author.login // .commit.author.name) in `\(.sha | tostring | .[0:7])`) "')
+          echo "$COMMIT_LOGS" | python scripts/generate_changelog.py $NEW_TAG $PREVIOUS_TAG >> changelog.md
           mkdir -p CHANGELOGS
           mv changelog.md CHANGELOGS/${NEW_TAG}-release.md
 

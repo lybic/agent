@@ -101,7 +101,6 @@ class LybicBackend(Backend):
         
         # 初始化SDK组件
         self.sandbox_manager = Sandbox(self.client)
-        self.computer_use = ComputerUse(self.client)
         
         # 沙盒ID
         self.sandbox_id = self.precreate_sid
@@ -177,12 +176,12 @@ class LybicBackend(Backend):
         elif isinstance(action, Memorize):
             log.info(f"Memorizing information: {action.information}")
 
-    def _execute_with_retry(self, action_dto: dto.ComputerUseActionDto) -> dto.SandboxActionResponseDto:
+    def _execute_with_retry(self, action_dto: dto.ExecuteSandboxActionDto) -> dto.SandboxActionResponseDto:
         """
         带重试机制的执行方法
         """
         async def _execute():
-            return await self.computer_use.execute_computer_use_action(
+            return await self.sandbox_manager.execute_sandbox_action(
                 sandbox_id=self.sandbox_id,
                 data=action_dto
             )
@@ -208,7 +207,7 @@ class LybicBackend(Backend):
             holdKey=" ".join(act.holdKey) if act.holdKey else ""
         )
         
-        action_dto = dto.ComputerUseActionDto(
+        action_dto = dto.ExecuteSandboxActionDto(
             action=click_action,
             includeScreenShot=False,
             includeCursorPosition=False
@@ -226,7 +225,7 @@ class LybicBackend(Backend):
             holdKey=" ".join(act.holdKey) if act.holdKey else ""
         )
         
-        action_dto = dto.ComputerUseActionDto(
+        action_dto = dto.ExecuteSandboxActionDto(
             action=double_click_action,
             includeScreenShot=False,
             includeCursorPosition=False
@@ -243,7 +242,7 @@ class LybicBackend(Backend):
             holdKey=" ".join(act.holdKey) if act.holdKey else ""
         )
         
-        action_dto = dto.ComputerUseActionDto(
+        action_dto = dto.ExecuteSandboxActionDto(
             action=move_action,
             includeScreenShot=False,
             includeCursorPosition=False
@@ -262,7 +261,7 @@ class LybicBackend(Backend):
             holdKey=" ".join(act.holdKey) if act.holdKey else ""
         )
         
-        action_dto = dto.ComputerUseActionDto(
+        action_dto = dto.ExecuteSandboxActionDto(
             action=drag_action,
             includeScreenShot=False,
             includeCursorPosition=False
@@ -278,7 +277,7 @@ class LybicBackend(Backend):
             treatNewLineAsEnter=True  # 默认将换行符作为回车键处理
         )
         
-        action_dto = dto.ComputerUseActionDto(
+        action_dto = dto.ExecuteSandboxActionDto(
             action=type_action,
             includeScreenShot=False,
             includeCursorPosition=False
@@ -306,7 +305,7 @@ class LybicBackend(Backend):
             holdKey=" ".join(act.holdKey) if act.holdKey else ""
         )
         
-        action_dto = dto.ComputerUseActionDto(
+        action_dto = dto.ExecuteSandboxActionDto(
             action=scroll_action,
             includeScreenShot=False,
             includeCursorPosition=False
@@ -333,7 +332,7 @@ class LybicBackend(Backend):
             duration=duration
         )
         
-        action_dto = dto.ComputerUseActionDto(
+        action_dto = dto.ExecuteSandboxActionDto(
             action=hotkey_action,
             includeScreenShot=False,
             includeCursorPosition=False

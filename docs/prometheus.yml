@@ -1,0 +1,66 @@
+# Example Prometheus Configuration for GUI Agents Service
+#
+# Save this file as prometheus.yml and run Prometheus with:
+#   prometheus --config.file=prometheus.yml
+#
+# Or use the provided docker-compose.yml to run both the service and Prometheus
+
+global:
+  scrape_interval: 15s  # How often to scrape targets
+  evaluation_interval: 15s  # How often to evaluate rules
+  
+  # Attach these labels to any time series or alerts when communicating with
+  # external systems (federation, remote storage, Alertmanager).
+  external_labels:
+    monitor: 'gui-agents-monitor'
+
+# Alertmanager configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - localhost:9093
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+# rule_files:
+#   - "alert_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # GUI Agents gRPC service metrics
+  - job_name: 'gui_agents'
+    
+    # Override the global scrape interval for this job
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    
+    # Metrics path defaults to '/metrics'
+    metrics_path: /metrics
+    
+    # Scheme defaults to 'http'
+    scheme: http
+    
+    # Static targets - update with your service host/port
+    static_configs:
+      - targets:
+          - 'localhost:8000'  # Prometheus metrics endpoint
+        labels:
+          service: 'gui-agents-grpc'
+          environment: 'production'  # or 'development', 'staging', etc.
+    
+    # Optional: Add authentication if your metrics endpoint is protected
+    # basic_auth:
+    #   username: 'admin'
+    #   password: 'secret'
+    
+    # Optional: TLS configuration
+    # tls_config:
+    #   ca_file: /path/to/ca.pem
+    #   cert_file: /path/to/cert.pem
+    #   key_file: /path/to/key.pem
+    #   insecure_skip_verify: false
+
+  # Prometheus itself (for monitoring the monitoring system)
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

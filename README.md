@@ -292,6 +292,26 @@ docker run --rm -it -p 50051:50051 --env-file gui_agents/.env agenticlybic/guiag
 ```
 > **Note**: The `-p 50051:50051` flag maps the container's gRPC port to your host machine.
 
+**Optional: Enable Prometheus Monitoring**
+
+The gRPC service supports optional Prometheus metrics for monitoring task execution, resource usage, and performance. To enable:
+
+```sh
+# Install Prometheus dependencies
+pip install -e ".[prometheus]"
+
+# Run with Prometheus enabled
+docker run --rm -it \
+  -p 50051:50051 \
+  -p 8000:8000 \
+  -e ENABLE_PROMETHEUS=true \
+  -e PROMETHEUS_PORT=8000 \
+  --env-file gui_agents/.env \
+  agenticlybic/guiagent /app/.venv/bin/lybic-guiagent-grpc
+```
+
+Access metrics at `http://localhost:8000/metrics`. See [Prometheus Metrics Documentation](gui_agents/metrics/README.md) for details.
+
 **2. Python Client Example**
 
 Once the service is running, you can interact with it using a gRPC client. Here is a Python example of how to send an instruction to the agent and stream its progress.

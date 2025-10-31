@@ -23,6 +23,7 @@ sudo -u postgres psql
 CREATE DATABASE agent_tasks;
 CREATE USER agent_user WITH PASSWORD 'your_password';
 GRANT ALL PRIVILEGES ON DATABASE agent_tasks TO agent_user;
+ALTER DATABASE agent_tasks OWNER TO agent_user;
 \q
 ```
 

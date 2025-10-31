@@ -4,8 +4,6 @@ PostgreSQL storage implementation for task persistence.
 This implementation stores task data in a PostgreSQL database.
 Data persists across service restarts.
 """
-
-import asyncio
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import logging
@@ -21,6 +19,7 @@ try:
     POSTGRES_AVAILABLE = True
 except ImportError:
     POSTGRES_AVAILABLE = False
+    asyncpg = None
     logger.warning("asyncpg not installed. PostgreSQL storage will not be available.")
 
 

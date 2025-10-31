@@ -34,9 +34,9 @@ import datetime
 from lybic import LybicClient, LybicAuth, Sandbox
 import gui_agents.cli_app as app
 from gui_agents.proto import agent_pb2, agent_pb2_grpc
-from gui_agents.agents.stream_manager import stream_manager, StreamMessage
+from gui_agents.agents.stream_manager import stream_manager
 from gui_agents.agents.agent_s import load_config
-from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig, Authorization, InstanceMode
+from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig, InstanceMode
 from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface, __version__
 from gui_agents.utils.analyze_display import analyze_display_json
 from gui_agents.storage import create_storage, TaskData

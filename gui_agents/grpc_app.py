@@ -173,6 +173,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             
             # Get runtime data
             task_info = self.tasks.get(task_id)
+            if not task_info:
+                raise ValueError(f"Task {task_id} not found in runtime data")
             agent = task_info["agent"]
             steps = task_info["max_steps"]
             query = task_info["query"]

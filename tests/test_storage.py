@@ -3,7 +3,6 @@ Tests for storage implementations (memory and postgres).
 """
 
 import pytest
-import asyncio
 import sys
 import os
 from datetime import datetime

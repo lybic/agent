@@ -6,7 +6,6 @@ This script tests the storage layer without importing the full gui_agents packag
 
 import asyncio
 import sys
-from datetime import datetime
 from pathlib import Path
 
 # Add the storage directory to path
@@ -14,7 +13,7 @@ storage_dir = Path(__file__).parent.parent / "gui_agents" / "storage"
 sys.path.insert(0, str(storage_dir.parent))
 
 # Import storage modules
-from storage.base import TaskData, TaskStorage
+from storage.base import TaskData
 from storage.memory_storage import MemoryStorage
 
 

@@ -223,19 +223,14 @@ class PostgresStorage(TaskStorage):
         values = []
         param_idx = 1
         
-        field_mapping = {
-            'status': 'status',
-            'final_state': 'final_state',
-            'timestamp_dir': 'timestamp_dir',
-            'execution_statistics': 'execution_statistics',
-            'sandbox_info': 'sandbox_info',
-            'request_data': 'request_data'
+        allowed_update_fields = {
+            'status', 'final_state', 'timestamp_dir',
+            'execution_statistics', 'sandbox_info', 'request_data'
         }
         
         for key, value in updates.items():
-            if key in field_mapping:
-                db_field = field_mapping[key]
-                set_clauses.append(f"{db_field} = ${param_idx}")
+            if key in allowed_update_fields:
+                set_clauses.append(f"{key} = ${param_idx}")
                 
                 # Serialize dicts to JSON for JSONB columns
                 if key in ['execution_statistics', 'sandbox_info', 'request_data'] and value is not None:

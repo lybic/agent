@@ -1626,16 +1626,16 @@ wheels = [
 
 [[package]]
 name = "lybic"
-version = "0.8.1"
+version = "0.8.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "pillow" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c3/ab/5027b367e1b36e662d036c96fe9c36726854bf6ec290680b387f7c58dcfc/lybic-0.8.1.tar.gz", hash = "sha256:48686d542d1f52472a46db112ee6fbde1001042b11b15015f13867205ac47933", size = 42804, upload-time = "2025-10-29T07:49:18.419Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/03/a6/84e43828609f707b7006108afdb5e8306ac0942d8422831714c41b699550/lybic-0.8.2.tar.gz", hash = "sha256:a6c7afc09dc85a14da6c5d4665df21e9df04fce73c4c109d04e6553935e5be8c", size = 42162, upload-time = "2025-10-31T02:44:09.363Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/46/33/db289526d4aa431caa26144b8928ae397251056e4034bcbee24bee910cfb/lybic-0.8.1-py3-none-any.whl", hash = "sha256:669459b9af723b84f21b2e63e18e5272326ebca9cd2e932401aa71b4937d68f0", size = 64376, upload-time = "2025-10-29T07:49:17.111Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/e3/3217fecbd349dcd4a79741640335868e142a2b4dfa113d6cc2edd7e5543a/lybic-0.8.2-py3-none-any.whl", hash = "sha256:49a690c81d0135a64dad1dbc4fff178dfa8b1b02eb5ecb0a6bb8184fd46cef6e", size = 59610, upload-time = "2025-10-31T02:44:08.419Z" },
 ]
 
 [[package]]
@@ -1831,7 +1831,7 @@ requires-dist = [
     { name = "librosa", marker = "extra == 'vmware-and-evaluation'" },
     { name = "lxml", marker = "extra == 'all'" },
     { name = "lxml", marker = "extra == 'vmware-and-evaluation'" },
-    { name = "lybic", specifier = ">=0.8.1,<1.0.0" },
+    { name = "lybic", specifier = "==0.8.2" },
     { name = "lybic", marker = "extra == 'all'", specifier = ">=0.7.3" },
     { name = "mutagen", marker = "extra == 'all'" },
     { name = "mutagen", marker = "extra == 'vmware-and-evaluation'" },

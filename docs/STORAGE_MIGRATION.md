@@ -29,17 +29,14 @@ ALTER DATABASE agent_tasks OWNER TO agent_user;
 
 ### Step 3: Python Dependencies
 
-The required `asyncpg` library is already included in the project dependencies.
+The required `asyncpg` library is an optional dependency. To use the PostgreSQL backend, you need to install it by including the `postgres` extra:
 
-If you're installing from source, it's automatically included:
 ```bash
-pip install lybic-guiagents
-```
+# If installing from PyPI
+pip install "lybic-guiagents[postgres]"
 
-If you need to verify or install separately:
-```bash
-pip install asyncpg
-```
+# If installing from source
+pip install .[postgres]
 
 ### Step 4: Configure Environment
 

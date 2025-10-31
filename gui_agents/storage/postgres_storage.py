@@ -262,7 +262,8 @@ class PostgresStorage(TaskStorage):
                 result = await conn.execute(query, *values)
                 
                 # Check if any row was updated
-                if result == "UPDATE 0":
+                updated_count = int(result.split()[-1]) if result and result.startswith("UPDATE") else 0
+                if updated_count == 0:
                     logger.warning(f"Task {task_id} not found for update in PostgreSQL")
                     return False
                 

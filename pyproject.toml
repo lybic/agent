@@ -59,6 +59,9 @@ grpc = [
     "grpcio",
     "grpcio-tools>=1.71.2",
 ]
+prometheus = [
+    "prometheus-client>=0.20.0",
+]
 vmware-and-evaluation = [
     "python-pptx",
     "odfpy",

@@ -26,6 +26,7 @@ logger.info("Initializing Agent server")
 
 import asyncio
 import platform
+import time
 from concurrent import futures
 import grpc
 import uuid
@@ -41,6 +42,7 @@ from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonCon
 from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface, __version__
 from gui_agents.utils.analyze_display import analyze_display_json
 from gui_agents.storage import create_storage, TaskData
+from gui_agents.metrics import get_metrics_instance
 
 
 class AgentServicer(agent_pb2_grpc.AgentServicer):
@@ -62,6 +64,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         self.global_common_config = agent_pb2.CommonConfig(id="global")
         self.task_lock = asyncio.Lock()
         self.log_dir = log_dir
+        self.metrics = get_metrics_instance()
+        
+        # Track task timing for metrics
+        self.task_start_times = {}  # task_id -> start_time
+        self.task_created_times = {}  # task_id -> created_time
 
     async def GetAgentTaskStream(self, request, context):
         """
@@ -74,10 +81,15 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         """
         task_id = request.taskId
         logger.info(f"Received GetAgentTaskStream request for taskId: {task_id}")
+        
+        # Record gRPC request
+        self.metrics.record_grpc_request("GetAgentTaskStream")
+        self.metrics.record_grpc_stream_connection("GetAgentTaskStream", 1)
 
         # Check if task exists in storage
         task_data = await self.storage.get_task(task_id)
         if not task_data:
+            self.metrics.record_grpc_error("GetAgentTaskStream", "NOT_FOUND")
             context.set_code(grpc.StatusCode.NOT_FOUND)
             context.set_details(f"Task with ID {task_id} not found.")
             return
@@ -96,8 +108,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             logger.info(f"GetAgentTaskStream for {task_id} cancelled by client.")
         except Exception as e:
             logger.exception(f"Error in GetAgentTaskStream for task {task_id}")
+            self.metrics.record_grpc_error("GetAgentTaskStream", "INTERNAL")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"An error occurred during streaming: {e}")
+        finally:
+            self.metrics.record_grpc_stream_connection("GetAgentTaskStream", -1)
 
     async def GetAgentInfo(self, request, context):
         """
@@ -106,6 +121,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         Returns:
             agent_pb2.AgentInfo: An AgentInfo message containing the server version, the configured maximum concurrent task count (`maxConcurrentTasks`), the current log level (`log_level`), and the host name (`domain`).
         """
+        self.metrics.record_grpc_request("GetAgentInfo")
         return agent_pb2.AgentInfo(
             version=__version__,
             maxConcurrentTasks=self.max_concurrent_task_num,
@@ -167,9 +183,19 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         	- Exceptions are caught, the task status is set to "error", and an error message is emitted.
         	- Supports task cancellation via asyncio.CancelledError.
         """
+        task_start_time = time.time()
+        
         async with self.task_lock:
             # Update status to running in storage
             await self.storage.update_task(task_id, {"status": "running"})
+            
+            # Record queue wait time
+            if task_id in self.task_created_times:
+                queue_wait = task_start_time - self.task_created_times[task_id]
+                self.metrics.record_task_queue_wait(queue_wait)
+            
+            # Record task start
+            self.task_start_times[task_id] = task_start_time
             
             # Get runtime data
             task_info = self.tasks.get(task_id)
@@ -181,6 +207,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
             # Register task with stream manager
             await stream_manager.register_task(task_id)
+            
+            # Update active tasks count
+            active_count = await self.storage.count_active_tasks()
+            self.metrics.record_task_active(active_count)
+            self.metrics.record_task_utilization(active_count, self.max_concurrent_task_num)
 
         try:
             # Send message through stream manager
@@ -232,12 +263,30 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             logger.info(f"Task {task_id} was cancelled")
             await self.storage.update_task(task_id, {"status": "cancelled"})
             await stream_manager.add_message(task_id, "cancelled", "Task was cancelled by user request")
+            self.metrics.record_task_created("cancelled")
         except Exception as e:
             logger.exception(f"Error during task execution for {task_id}: {e}")
             await self.storage.update_task(task_id, {"status": "error"})
             await stream_manager.add_message(task_id, "error", f"An error occurred: {e}")
+            self.metrics.record_task_created("failed")
         finally:
             logger.info(f"Task {task_id} processing finished.")
+            
+            # Record task execution duration
+            if task_id in self.task_start_times:
+                duration = time.time() - self.task_start_times[task_id]
+                self.metrics.record_task_execution_duration(duration)
+                del self.task_start_times[task_id]
+            
+            # Clean up timing data
+            if task_id in self.task_created_times:
+                del self.task_created_times[task_id]
+            
+            # Update active task count
+            active_count = await self.storage.count_active_tasks()
+            self.metrics.record_task_active(active_count)
+            self.metrics.record_task_utilization(active_count, self.max_concurrent_task_num)
+            
             # Registry cleanup is now handled within the worker thread
             await stream_manager.unregister_task(task_id)
 
@@ -314,6 +363,17 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                     await self.storage.update_task(task_id, {
                         "execution_statistics": execution_statistics
                     })
+                    
+                    # Record metrics
+                    self.metrics.record_tokens(
+                        execution_statistics["input_tokens"],
+                        execution_statistics["output_tokens"]
+                    )
+                    self.metrics.record_cost(
+                        execution_statistics["cost"],
+                        execution_statistics["currency_symbol"]
+                    )
+                    self.metrics.record_task_steps(execution_statistics["steps"])
                     
                     logger.info(f"Execution statistics collected for task {task_id}: {execution_statistics}")
                 else:
@@ -539,12 +599,17 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         """
         task_id = str(uuid.uuid4())
         logger.info(f"Received RunAgentInstruction request, assigning taskId: {task_id}")
+        
+        # Record gRPC request and stream connection
+        self.metrics.record_grpc_request("RunAgentInstruction")
+        self.metrics.record_grpc_stream_connection("RunAgentInstruction", 1)
 
         task_future = None
 
         async with self.task_lock:
             active_tasks = await self.storage.count_active_tasks()
             if active_tasks >= self.max_concurrent_task_num:
+                self.metrics.record_grpc_error("RunAgentInstruction", "RESOURCE_EXHAUSTED")
                 context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
                 context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
                 return
@@ -568,6 +633,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 request_data=request_dict
             )
             await self.storage.create_task(task_data)
+            
+            # Record task creation metrics
+            self.metrics.record_task_created("pending")
+            self.task_created_times[task_id] = time.time()
             
             # Store runtime-only data (agent, queue, future) in memory
             self.tasks[task_id] = {
@@ -608,7 +677,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                     logger.error(f"Error setting cancellation flag for task {task_id} on client disconnect: {e}")
         except Exception as e:
             logger.exception(f"Error in RunAgentInstruction stream for task {task_id}")
+            self.metrics.record_grpc_error("RunAgentInstruction", "INTERNAL")
             context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"An error occurred during streaming: {e}")
+        finally:
+            self.metrics.record_grpc_stream_connection("RunAgentInstruction", -1)
             context.set_details(f"An error occurred during streaming: {e}")
 
     async def RunAgentInstructionAsync(self, request, context):
@@ -623,10 +696,14 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         """
         task_id = str(uuid.uuid4())
         logger.info(f"Received RunAgentInstructionAsync request, assigning taskId: {task_id}")
+        
+        # Record gRPC request
+        self.metrics.record_grpc_request("RunAgentInstructionAsync")
 
         async with self.task_lock:
             active_tasks = await self.storage.count_active_tasks()
             if active_tasks >= self.max_concurrent_task_num:
+                self.metrics.record_grpc_error("RunAgentInstructionAsync", "RESOURCE_EXHAUSTED")
                 context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
                 context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
                 return
@@ -652,6 +729,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 request_data=request_dict
             )
             await self.storage.create_task(task_data)
+            
+            # Record task creation metrics
+            self.metrics.record_task_created("pending")
+            self.task_created_times[task_id] = time.time()
             
             # Store runtime-only data in memory
             self.tasks[task_id] = {
@@ -688,10 +769,14 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         """
         task_id = request.taskId
         
+        # Record gRPC request
+        self.metrics.record_grpc_request("QueryTaskStatus")
+        
         # Get task data from storage
         task_data = await self.storage.get_task(task_id)
 
         if not task_data:
+            self.metrics.record_grpc_error("QueryTaskStatus", "NOT_FOUND")
             return agent_pb2.QueryTaskStatusResponse(
                 taskId=task_id,
                 status=agent_pb2.TaskStatus.NOT_FOUND,
@@ -774,11 +859,15 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         """
         task_id = request.taskId
         logger.info(f"Received CancelTask request for taskId: {task_id}")
+        
+        # Record gRPC request
+        self.metrics.record_grpc_request("CancelTask")
 
         # Get task data from storage
         task_data = await self.storage.get_task(task_id)
 
         if not task_data:
+            self.metrics.record_grpc_error("CancelTask", "NOT_FOUND")
             return agent_pb2.CancelTaskResponse(
                 taskId=task_id,
                 success=False,
@@ -974,8 +1063,10 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             context.set_details("Permission denied.")
             return agent_pb2.SetCommonConfigResponse()
         logger.info("Setting new global common config.")
+        self.metrics.record_grpc_request("SetGlobalCommonConfig")
         request.commonConfig.id = "global"
         self.global_common_config = request.commonConfig
+        self.metrics.record_config_update("global")
 
         return agent_pb2.SetCommonConfigResponse(success=True, id=self.global_common_config.id)
 
@@ -1059,7 +1150,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         sandbox = await sandbox_service.get(result.id)
         await lybic_client.close()
 
-        return agent_pb2.Sandbox(
+        sandbox_pb = agent_pb2.Sandbox(
             id=sandbox.sandbox.id,
             os=self._lybic_sandbox_os_to_pb_enum(sandbox.sandbox.shape),
             shapeName=sandbox.sandbox.shapeName,
@@ -1067,6 +1158,12 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             virtualization=sandbox.sandbox.shape.virtualization,
             architecture=sandbox.sandbox.shape.architecture,
         )
+        
+        # Record sandbox creation metric
+        os_name = self._get_os_name_from_enum(sandbox_pb.os)
+        self.metrics.record_sandbox_created(os_name)
+        
+        return sandbox_pb
 
     @staticmethod
     def _lybic_sandbox_os_to_pb_enum(os) -> agent_pb2.SandboxOS:
@@ -1084,6 +1181,20 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         else:
             os_enum = agent_pb2.SandboxOS.OSUNDEFINED
         return os_enum
+    
+    @staticmethod
+    def _get_os_name_from_enum(os_enum: agent_pb2.SandboxOS) -> str:
+        """
+        Converts a sandbox OS enum to a string name for metrics.
+        """
+        if os_enum == agent_pb2.SandboxOS.WINDOWS:
+            return "Windows"
+        elif os_enum == agent_pb2.SandboxOS.LINUX:
+            return "Linux"
+        elif os_enum == agent_pb2.SandboxOS.ANDROID:
+            return "Android"
+        else:
+            return "Undefined"
 
     async def _get_sandbox_pb(self, sid: str, lybic_auth: LybicAuth) -> agent_pb2.Sandbox:
         """
@@ -1113,12 +1224,27 @@ async def serve():
     This coroutine initializes and starts an aio gRPC server that serves the AgentServicer and remains running until server shutdown. It reads the following environment variables to control behavior:
     - GRPC_PORT: port to listen on (default "50051")
     - GRPC_MAX_WORKER_THREADS: maximum thread pool workers for the server (default "100")
+    - ENABLE_PROMETHEUS: enable Prometheus metrics collection (default "false")
+    - PROMETHEUS_PORT: port for Prometheus HTTP server (default "8000")
     
     The function also registers the servicer with the server, configures the stream_manager to use the current asyncio event loop, and then starts and awaits server termination.
     """
     port = os.environ.get("GRPC_PORT", 50051)
     max_workers = int(os.environ.get("GRPC_MAX_WORKER_THREADS", 100))
     task_num = int(os.environ.get("TASK_MAX_TASKS", 5))
+    
+    # Initialize Prometheus metrics if enabled
+    metrics = get_metrics_instance()
+    if metrics.enabled:
+        prometheus_port = int(os.environ.get("PROMETHEUS_PORT", 8000))
+        metrics.start_http_server(prometheus_port)
+        metrics.update_service_info(
+            version=__version__,
+            max_concurrent_tasks=task_num,
+            log_level=level,
+            domain=platform.node()
+        )
+    
     servicer = AgentServicer(max_concurrent_task_num=task_num, log_dir=app.log_dir)
     server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers))
     agent_pb2_grpc.add_AgentServicer_to_server(servicer, server)
@@ -1126,6 +1252,39 @@ async def serve():
     logger.info(f"Agent gRPC server started on port {port}")
 
     stream_manager.set_loop(asyncio.get_running_loop())
+    
+    # Start periodic metrics update task
+    async def update_metrics_periodically():
+        """Periodically update metrics that need regular updates."""
+        while True:
+            try:
+                await asyncio.sleep(10)  # Update every 10 seconds
+                if metrics.enabled:
+                    metrics.update_uptime()
+                    
+                    # Update system metrics
+                    import sys
+                    import psutil
+                    process = psutil.Process()
+                    memory_bytes = process.memory_info().rss
+                    metrics.update_system_metrics(memory_bytes=memory_bytes)
+                    
+                    # Update stream manager metrics
+                    stream_tasks = len(stream_manager._tasks)
+                    metrics.update_system_metrics(stream_tasks=stream_tasks)
+                    
+                    # Update task success rate
+                    all_tasks = await servicer.storage.list_tasks()
+                    if all_tasks:
+                        completed_tasks = sum(1 for t in all_tasks if t.status == "finished" and t.final_state == "completed")
+                        total_tasks = len(all_tasks)
+                        metrics.update_success_rate(completed_tasks, total_tasks)
+            except Exception as e:
+                logger.error(f"Error updating metrics: {e}")
+    
+    # Start metrics update task
+    if metrics.enabled:
+        asyncio.create_task(update_metrics_periodically())
 
     await server.start()
     await server.wait_for_termination()

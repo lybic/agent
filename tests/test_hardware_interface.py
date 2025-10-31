@@ -34,10 +34,24 @@ plan = [
 
 plan = [
     # {'type': 'Hotkey', 'keys': ['command', 'space'], 'duration': 80}
+    # {
+    #     "type": "TouchTap",
+    #     "x": 130,
+    #     "y": 478,
+    # },
+    # {
+    #     "type": "TouchSwipe",
+    #     "x": 540,
+    #     "y": 960,
+    #     "direction": "right",
+    #     "distance": 300,
+    # },
     {
-        "type": "TouchTap",
-        "x": 50,
-        "y": 50,
+        "type": "TouchDrag",
+        "startX": 130,
+        "startY": 180,
+        "endX": 335,
+        "endY": 787,
     },
     # {
     #     "type": "TypeText",

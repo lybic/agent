@@ -98,7 +98,6 @@ class LybicMobileBackend(Backend):
         
         # 初始化SDK组件
         self.sandbox_manager = Sandbox(self.client)
-        self.computer_use = ComputerUse(self.client)
         
         # 沙盒ID
         self.sandbox_id = self.precreate_sid
@@ -165,7 +164,7 @@ class LybicMobileBackend(Backend):
         带重试机制的执行方法
         """
         async def _execute():
-            return await self.computer_use.execute_computer_use_action(
+            return await self.sandbox_manager.execute_sandbox_action(
                 sandbox_id=self.sandbox_id,
                 data=action_dto
             )
@@ -199,8 +198,8 @@ class LybicMobileBackend(Backend):
 
     def _touchdrag(self, act: TouchDrag) -> dto.SandboxActionResponseDto:
         """执行拖拽操作"""
-        drag_action = dto.MouseDragAction(
-            type="mouse:drag",
+        drag_action = dto.TouchDragAction(
+            type="touch:drag",
             startX=dto.PixelLength(type="px", value=act.startX),
             startY=dto.PixelLength(type="px", value=act.startY),
             endX=dto.PixelLength(type="px", value=act.endX),

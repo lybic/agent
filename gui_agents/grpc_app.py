@@ -31,6 +31,7 @@ import grpc
 import uuid
 import datetime
 
+from google.protobuf import json_format
 from lybic import LybicClient, LybicAuth, Sandbox
 import gui_agents.cli_app as app
 from gui_agents.proto import agent_pb2, agent_pb2_grpc
@@ -555,12 +556,14 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
             # Store persistent data in storage
             sandbox_info = self._sandbox_to_dict(backend_kwargs["sandbox"])
+            request_dict = json_format.MessageToDict(request, preserving_proto_field_name=True)
             task_data = TaskData(
                 task_id=task_id,
                 status="pending",
                 query=request.instruction,
                 max_steps=max_steps,
-                sandbox_info=sandbox_info
+                sandbox_info=sandbox_info,
+                request_data=request_dict
             )
             await self.storage.create_task(task_data)
             
@@ -637,12 +640,14 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
             # Store persistent data in storage
             sandbox_info = self._sandbox_to_dict(backend_kwargs["sandbox"])
+            request_dict = json_format.MessageToDict(request, preserving_proto_field_name=True)
             task_data = TaskData(
                 task_id=task_id,
                 status="pending",
                 query=request.instruction,
                 max_steps=max_steps,
-                sandbox_info=sandbox_info
+                sandbox_info=sandbox_info,
+                request_data=request_dict
             )
             await self.storage.create_task(task_data)
             
@@ -919,13 +924,30 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         """
         if request.id == "global":
             return await self.GetGlobalCommonConfig(request, context)
-        else:
-            # For task-specific configs, we can no longer retrieve the full request
-            # as we're not storing it in the new storage system
-            # Return NOT_FOUND for now, or store request_data if needed
-            context.set_code(grpc.StatusCode.NOT_FOUND)
-            context.set_details(f"Config for task {request.id} not found. Task-specific configs are not persisted.")
-            return agent_pb2.CommonConfig()
+        
+        task_data = await self.storage.get_task(request.id)
+        if task_data and task_data.request_data:
+            try:
+                # Reconstruct CommonConfig from the stored request data
+                if "runningConfig" in task_data.request_data:
+                    running_config_dict = task_data.request_data.get("runningConfig", {})
+                    original_config = agent_pb2.CommonConfig()
+                    json_format.ParseDict(running_config_dict, original_config, ignore_unknown_fields=True)
+                    masked_config = self._mask_config_secrets(original_config)
+                    logger.debug(f"Returned masked config for task {request.id}")
+                    return masked_config
+                else:
+                    # No runningConfig in the original request
+                    return agent_pb2.CommonConfig(id=request.id)
+            except Exception as e:
+                logger.error(f"Failed to parse config for task {request.id}: {e}")
+                context.set_code(grpc.StatusCode.INTERNAL)
+                context.set_details(f"Failed to parse config for task {request.id}.")
+                return agent_pb2.CommonConfig()
+
+        context.set_code(grpc.StatusCode.NOT_FOUND)
+        context.set_details(f"Config for task {request.id} not found or request data not persisted.")
+        return agent_pb2.CommonConfig()
 
     def _new_lybic_client(self, lybic_auth: LybicAuth) -> LybicClient:
         """

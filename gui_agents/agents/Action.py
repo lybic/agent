@@ -46,6 +46,12 @@ __all__ = [
     "Fail",
     "Screenshot",
     "Memorize",
+    "TouchTap",
+    "TouchDrag",
+    "TouchSwipe",
+    "TouchLongPress",
+    "AndroidHome",
+    "AndroidBack",
 ]
 
 T_Action = TypeVar("T_Action", bound="Action")

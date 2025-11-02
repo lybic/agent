@@ -804,3 +804,91 @@ class FastGrounding(ACI):
         self.global_state.set_running_state("stopped")
         actionDict = {"type": "UserTakeover", "message": message}
         return actionDict
+
+    @agent_action
+    def touch_tap(
+        self,
+        element_description: str,
+    ):
+        x, y = self.resize_coordinates(self.coords1)  # type: ignore
+        actionDict = {
+            "type": "TouchTap",
+            "x": x,
+            "y": y,
+            "element_description": element_description,
+        }
+        action_details = f"Tapped at coordinates ({x}, {y}) with element: {element_description}"
+        self._record_passive_memory("TouchTap", action_details)
+        return actionDict
+    
+    @agent_action
+    def touch_drag(
+        self,
+        starting_description: str,
+        ending_description: str,
+    ):
+        x1, y1 = self.resize_coordinates(self.coords1)  # type: ignore
+        x2, y2 = self.resize_coordinates(self.coords2)  # type: ignore
+        actionDict = {
+            "type": "TouchDrag",
+            "startX": x1,
+            "startY": y1,
+            "endX": x2,
+            "endY": y2,
+            "starting_description": starting_description,
+            "ending_description": ending_description
+        }
+        action_details = f"Dragged from ({x1}, {y1}) to ({x2}, {y2}), starting: {starting_description}, ending: {ending_description}"
+        self._record_passive_memory("TouchDrag", action_details)
+        return actionDict
+    
+    @agent_action
+    def touch_swipe(
+        self,
+        direction: str,
+        element_description: str,
+    ):
+        x, y = self.resize_coordinates(self.coords1)  # type: ignore
+        actionDict = {
+            "type": "TouchSwipe",
+            "x": x,
+            "y": y,
+            "direction": direction,
+            "distance": 300,
+            "element_description": element_description,
+        }
+        action_details = f"Swiped at coordinates ({x}, {y}) on element: {element_description} in direction {direction} "
+        self._record_passive_memory("TouchSwipe", action_details)
+        return actionDict
+    
+    @agent_action
+    def touch_longpress(
+        self,
+        element_description: str,
+        duration: int = 2000,
+    ):
+        x, y = self.resize_coordinates(self.coords1)  # type: ignore
+        actionDict = {
+            "type": "TouchLongPress",
+            "x": x,
+            "y": y,
+            "duration": duration,
+            "element_description": element_description,
+        }
+        action_details = f"Long pressed at coordinates ({x}, {y}) with element: {element_description} for {duration}ms"
+        self._record_passive_memory("TouchLongPress", action_details)
+        return actionDict
+    
+    @agent_action
+    def android_home(
+        self,
+    ):
+        actionDict = {"type": "AndroidHome"}
+        return actionDict
+    
+    @agent_action
+    def android_back(
+        self,
+    ):
+        actionDict = {"type": "AndroidBack"}
+        return actionDict

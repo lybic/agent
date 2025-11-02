@@ -629,6 +629,9 @@ def main():
     # Set platform to Windows if backend is lybic
     if args.backend == 'lybic':
         current_platform = 'windows'
+    
+    if args.backend == 'lybic_mobile':
+        current_platform = 'android'
 
     # Initialize agent based on mode
     if args.mode == 'fast':

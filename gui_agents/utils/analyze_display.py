@@ -84,15 +84,17 @@ def analyze_display_json(file_path: str) -> Dict:
     is_fast_mode = False
     if 'operations' in data and 'agent' in data['operations']:
         for operation in data['operations']['agent']:
-            if operation.get('operation') == 'fast_action_execution':
+            if operation.get('operation') == 'fast_planning_execution':
                 is_fast_mode = True
                 break
     
     if is_fast_mode:
         # Fast mode analysis - similar to original logic
         if 'operations' in data and 'agent' in data['operations']:
-            for operation in data['operations']['agent']:
-                if operation.get('operation') == 'fast_action_execution':
+            ops_list = [operation for operation in data['operations']['agent']]
+            ops_list.extend([operation for operation in data['operations']['grounding']])
+            for operation in ops_list:
+                if operation.get('operation') == 'fast_planning_execution':
                     fast_action_count += 1
                     
                 # Extract tokens
@@ -123,7 +125,8 @@ def analyze_display_json(file_path: str) -> Dict:
             token_cost_operations = {
                 'formulate_query', 'retrieve_narrative_experience', 'retrieve_knowledge',
                 'knowledge_fusion', 'subtask_planner', 'generated_dag', 'reflection',
-                'episode_summarization', 'action_plan', 'grounding_model_response'
+                'episode_summarization', 'narrative_summarization', 'Worker.retrieve_episodic_experience',
+                'action_plan', 'grounding_model_response'
             }
             
             # Count hardware operations as steps

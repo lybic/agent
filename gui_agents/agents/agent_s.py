@@ -705,7 +705,7 @@ class AgentSFast(UIAgent):
         kb_release_tag: str = "v0.2.2",
         enable_takeover: bool = False,
         enable_search: bool = True,
-        enable_reflection: bool = True,
+        enable_reflection: bool = False,
         tools_config: dict | None = None,
         # enable_reflection: bool = False,
     ):
@@ -781,7 +781,7 @@ class AgentSFast(UIAgent):
         # Get tool configuration from tools_config
         tool_config = None
         for tool in self.tools_config["tools"]:
-            if tool["tool_name"] == self.action_generator_tool:
+            if tool["tool_name"] == self.fast_action_generator_tool:
                 tool_config = tool
                 break
 
@@ -791,7 +791,7 @@ class AgentSFast(UIAgent):
         # First check global search switch
         if not self.enable_search:
             tool_params["enable_search"] = False
-            logger.info(f"Configuring {self.action_generator_tool} with search DISABLED (global switch off)")
+            logger.info(f"Configuring {self.fast_action_generator_tool} with search DISABLED (global switch off)")
         else:
             if tool_config and "enable_search" in tool_config:
                 enable_search = tool_config.get("enable_search", False)
@@ -809,6 +809,10 @@ class AgentSFast(UIAgent):
         # Merge with search-related parameters
         all_params = {**tool_config, **tool_params}
 
+        # Remove provider and model from all_params to avoid duplicate arguments
+        all_params.pop("provider", None)
+        all_params.pop("model", None)
+
         auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
         for key in auth_keys:
             if key in all_params:
@@ -821,6 +825,39 @@ class AgentSFast(UIAgent):
             model,
             **all_params
         )
+
+        # Initialize and register reflection agent if reflection is enabled
+        if self.enable_reflection:
+            self.reflection_agent = Tools()
+            
+            # Get tool configuration for traj_reflector from tools_config
+            traj_reflector_config = None
+            for tool in self.tools_config["tools"]:
+                if tool["tool_name"] == "traj_reflector":
+                    traj_reflector_config = tool
+                    break
+            
+            # Get base config from Tools_dict
+            reflector_tool_config = self.Tools_dict["traj_reflector"].copy()
+            reflector_provider = reflector_tool_config.get("provider")
+            reflector_model = reflector_tool_config.get("model")
+            
+            # Remove provider and model from reflector_tool_config to avoid duplicate arguments
+            reflector_tool_config.pop("provider", None)
+            reflector_tool_config.pop("model", None)
+            
+            auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+            for key in auth_keys:
+                if key in reflector_tool_config:
+                    logger.info(f"AgentSFast.reset: Setting {key} for traj_reflector")
+            
+            # Register the reflection tool
+            self.reflection_agent.register_tool(
+                "traj_reflector",
+                reflector_provider,
+                reflector_model,
+                **reflector_tool_config
+            )
 
         # Use normal Grounding (description -> coordinates) instead of direct coordinate execution
         self.grounding = Grounding(
@@ -967,7 +1004,7 @@ class AgentSFast(UIAgent):
             module="agent",
             operation="fast_planning_execution",
             data={
-                "duration": planning_execution_time,
+                "duration": fast_action_execution_time,
                 "tokens": total_tokens,
                 "cost": cost_string
             }

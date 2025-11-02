@@ -226,7 +226,8 @@ class TouchDrag(Action):
     startY: int
     endX: int
     endY: int
-    element_description: str
+    starting_description: str
+    ending_description: str
 
 @dataclass(slots=True)
 class TouchSwipe(Action):

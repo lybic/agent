@@ -34,12 +34,24 @@ plan = [
 
 plan = [
     # {'type': 'Hotkey', 'keys': ['command', 'space'], 'duration': 80}
+    # {
+    #     "type": "TouchTap",
+    #     "x": 130,
+    #     "y": 478,
+    # },
+    # {
+    #     "type": "TouchSwipe",
+    #     "x": 540,
+    #     "y": 960,
+    #     "direction": "right",
+    #     "distance": 300,
+    # },
     {
-        "type": "Click",
-        "x": 50,
-        "y": 400,
-        "button": 1,
-        "holdKey": []
+        "type": "TouchDrag",
+        "startX": 130,
+        "startY": 180,
+        "endX": 335,
+        "endY": 787,
     },
     # {
     #     "type": "TypeText",
@@ -49,7 +61,7 @@ plan = [
 ]
 
 # 2. 创建硬件接口
-hwi = HardwareInterface(backend="lybic", **backend_kwargs)
+hwi = HardwareInterface(backend="lybic_mobile", **backend_kwargs)
 # hwi = HardwareInterface(backend="pyautogui", **backend_kwargs)
 
 # 3. 执行

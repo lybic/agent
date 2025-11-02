@@ -12,7 +12,8 @@ from abc import ABC, abstractmethod
 import logging
 from gui_agents.core.mllm import LLMAgent, WebSearchAgent, EmbeddingAgent
 import threading
-from gui_agents.prompts.prompts import system_prompts
+import os
+# from gui_agents.prompts.prompts import system_prompts
 
 logger = logging.getLogger("desktopenv.tools")
 
@@ -20,6 +21,8 @@ class BaseTool(ABC):
     """Base class for all tools."""
     _prompts_dict = None
     _prompts_dict_lock = threading.Lock()
+    # Directory for text-based prompts (one file per tool)
+    _prompts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
 
     @classmethod
     def _load_prompts_dict(cls):
@@ -31,12 +34,26 @@ class BaseTool(ABC):
         if cls._prompts_dict is None:
             with cls._prompts_dict_lock:
                 if cls._prompts_dict is None:
+                    prompts: Dict[str, str] = {}
                     try:
-                        # Import prompts from prompts.py module
-                        cls._prompts_dict = system_prompts
+                        if os.path.isdir(cls._prompts_dir):
+                            for fname in os.listdir(cls._prompts_dir):
+                                if not fname.lower().endswith(".txt"):
+                                    continue
+                                key = os.path.splitext(fname)[0]
+                                fpath = os.path.join(cls._prompts_dir, fname)
+                                try:
+                                    with open(fpath, "r", encoding="utf-8") as f:
+                                        prompts[key] = f.read()
+                                        # logger.info(f"Loaded prompt file: {fpath}")
+                                except Exception as e:
+                                    logger.error(f"Failed to read prompt file: {fpath}: {e}")
+                        else:
+                            logger.warning(f"Prompts directory not found: {cls._prompts_dir}")
                     except Exception as e:
-                        logger.error(f"Failed to load prompts from prompts.py: {e}")
-                        cls._prompts_dict = {}
+                        logger.error(f"Failed to load prompts from directory: {cls._prompts_dir}: {e}")
+                        prompts = {}
+                    cls._prompts_dict = prompts
 
     def __init__(self, provider: str, model_name: str, tool_name: str, **kwargs):
         """

@@ -108,7 +108,7 @@ class Agent:
             element_description:str, a detailed descriptions of which element to tap on. This description should be at least a full sentence.
         '''
     
-    def touch_longpress(self, duration: int):
+    def touch_longpress(self, element_description: str, duration: int):
     '''Long press for a specified amount of time in milliseconds on the element
         Args:
             element_description:str, a detailed descriptions of which element to long press on. This description should be at least a full sentence.

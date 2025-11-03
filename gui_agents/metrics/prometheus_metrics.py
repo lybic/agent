@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 try:
     from prometheus_client import (
         Counter, Gauge, Histogram, Summary, Info,
-        CollectorRegistry, generate_latest, CONTENT_TYPE_LATEST,
         start_http_server
     )
     PROMETHEUS_AVAILABLE = True
@@ -452,7 +451,6 @@ def grpc_method_metrics(method_name: str):
                 result = await func(*args, **kwargs)
                 return result
             except Exception as e:
-                error_occurred = True
                 # Extract gRPC status code if available
                 status_code = getattr(e, 'code', 'UNKNOWN')
                 if hasattr(status_code, 'name'):

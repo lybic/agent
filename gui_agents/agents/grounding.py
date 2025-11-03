@@ -23,7 +23,77 @@ def agent_action(func):
     return func
 
 
-class Grounding(ACI):
+class MobileActionsMixin:
+    """
+    Mixin class that provides mobile-specific actions to avoid code duplication.
+    It is intended to be used by classes that implement `resize_coordinates` and `_record_passive_memory`.
+    """
+    def _create_touch_tap_action(self, x, y, element_description):
+        actionDict = {
+            "type": "TouchTap",
+            "x": x,
+            "y": y,
+            "element_description": element_description,
+        }
+        action_details = f"Tapped at coordinates ({x}, {y}) with element: {element_description}"
+        self._record_passive_memory("TouchTap", action_details)
+        return actionDict
+
+    def _create_touch_drag_action(self, x1, y1, x2, y2, starting_description, ending_description):
+        actionDict = {
+            "type": "TouchDrag",
+            "startX": x1,
+            "startY": y1,
+            "endX": x2,
+            "endY": y2,
+            "starting_description": starting_description,
+            "ending_description": ending_description
+        }
+        action_details = f"Dragged from ({x1}, {y1}) to ({x2}, {y2}), starting: {starting_description}, ending: {ending_description}"
+        self._record_passive_memory("TouchDrag", action_details)
+        return actionDict
+
+    def _create_touch_swipe_action(self, x, y, direction, element_description):
+        actionDict = {
+            "type": "TouchSwipe",
+            "x": x,
+            "y": y,
+            "direction": direction,
+            "distance": 300,
+            "element_description": element_description,
+        }
+        action_details = f"Swiped at coordinates ({x}, {y}) on element: {element_description} in direction {direction} "
+        self._record_passive_memory("TouchSwipe", action_details)
+        return actionDict
+
+    def _create_touch_longpress_action(self, x, y, duration, element_description):
+        actionDict = {
+            "type": "TouchLongPress",
+            "x": x,
+            "y": y,
+            "duration": duration,
+            "element_description": element_description,
+        }
+        action_details = f"Long pressed at coordinates ({x}, {y}) with element: {element_description} for {duration}ms"
+        self._record_passive_memory("TouchLongPress", action_details)
+        return actionDict
+
+    @agent_action
+    def android_home(
+        self,
+    ):
+        actionDict = {"type": "AndroidHome"}
+        return actionDict
+
+    @agent_action
+    def android_back(
+        self,
+    ):
+        actionDict = {"type": "AndroidBack"}
+        return actionDict
+
+
+class Grounding(ACI, MobileActionsMixin):
 
     def __init__(
         self,
@@ -464,23 +534,15 @@ class Grounding(ACI):
         self.global_state.set_running_state("stopped")
         actionDict = {"type": "UserTakeover", "message": message}
         return actionDict
-    
+
     @agent_action
     def touch_tap(
         self,
         element_description: str,
     ):
         x, y = self.resize_coordinates(self.coords1)  # type: ignore
-        actionDict = {
-            "type": "TouchTap",
-            "x": x,
-            "y": y,
-            "element_description": element_description,
-        }
-        action_details = f"Tapped at coordinates ({x}, {y}) with element: {element_description}"
-        self._record_passive_memory("TouchTap", action_details)
-        return actionDict
-    
+        return self._create_touch_tap_action(x, y, element_description)
+
     @agent_action
     def touch_drag(
         self,
@@ -489,19 +551,8 @@ class Grounding(ACI):
     ):
         x1, y1 = self.resize_coordinates(self.coords1)  # type: ignore
         x2, y2 = self.resize_coordinates(self.coords2)  # type: ignore
-        actionDict = {
-            "type": "TouchDrag",
-            "startX": x1,
-            "startY": y1,
-            "endX": x2,
-            "endY": y2,
-            "starting_description": starting_description,
-            "ending_description": ending_description
-        }
-        action_details = f"Dragged from ({x1}, {y1}) to ({x2}, {y2}), starting: {starting_description}, ending: {ending_description}"
-        self._record_passive_memory("TouchDrag", action_details)
-        return actionDict
-    
+        return self._create_touch_drag_action(x1, y1, x2, y2, starting_description, ending_description)
+
     @agent_action
     def touch_swipe(
         self,
@@ -509,18 +560,8 @@ class Grounding(ACI):
         element_description: str,
     ):
         x, y = self.resize_coordinates(self.coords1)  # type: ignore
-        actionDict = {
-            "type": "TouchSwipe",
-            "x": x,
-            "y": y,
-            "direction": direction,
-            "distance": 300,
-            "element_description": element_description,
-        }
-        action_details = f"Swiped at coordinates ({x}, {y}) on element: {element_description} in direction {direction} "
-        self._record_passive_memory("TouchSwipe", action_details)
-        return actionDict
-    
+        return self._create_touch_swipe_action(x, y, direction, element_description)
+
     @agent_action
     def touch_longpress(
         self,
@@ -528,33 +569,10 @@ class Grounding(ACI):
         duration: int = 2000,
     ):
         x, y = self.resize_coordinates(self.coords1)  # type: ignore
-        actionDict = {
-            "type": "TouchLongPress",
-            "x": x,
-            "y": y,
-            "duration": duration,
-            "element_description": element_description,
-        }
-        action_details = f"Long pressed at coordinates ({x}, {y}) with element: {element_description} for {duration}ms"
-        self._record_passive_memory("TouchLongPress", action_details)
-        return actionDict
-    
-    @agent_action
-    def android_home(
-        self,
-    ):
-        actionDict = {"type": "AndroidHome"}
-        return actionDict
-    
-    @agent_action
-    def android_back(
-        self,
-    ):
-        actionDict = {"type": "AndroidBack"}
-        return actionDict
+        return self._create_touch_longpress_action(x, y, duration, element_description)
 
 
-class FastGrounding(ACI):
+class FastGrounding(ACI, MobileActionsMixin):
 
     def __init__(
         self,
@@ -808,87 +826,49 @@ class FastGrounding(ACI):
     @agent_action
     def touch_tap(
         self,
-        element_description: str,
+        x: int,
+        y: int,
+        element_description: str = "",
     ):
-        x, y = self.resize_coordinates(self.coords1)  # type: ignore
-        actionDict = {
-            "type": "TouchTap",
-            "x": x,
-            "y": y,
-            "element_description": element_description,
-        }
-        action_details = f"Tapped at coordinates ({x}, {y}) with element: {element_description}"
-        self._record_passive_memory("TouchTap", action_details)
-        return actionDict
-    
+        x, y = self.resize_coordinates([x, y])
+        return self._create_touch_tap_action(x, y, element_description or f"Coordinates ({x}, {y})")
+
     @agent_action
     def touch_drag(
         self,
-        starting_description: str,
-        ending_description: str,
+        startX: int,
+        startY: int,
+        endX: int,
+        endY: int,
+        starting_description: str = "",
+        ending_description: str = "",
     ):
-        x1, y1 = self.resize_coordinates(self.coords1)  # type: ignore
-        x2, y2 = self.resize_coordinates(self.coords2)  # type: ignore
-        actionDict = {
-            "type": "TouchDrag",
-            "startX": x1,
-            "startY": y1,
-            "endX": x2,
-            "endY": y2,
-            "starting_description": starting_description,
-            "ending_description": ending_description
-        }
-        action_details = f"Dragged from ({x1}, {y1}) to ({x2}, {y2}), starting: {starting_description}, ending: {ending_description}"
-        self._record_passive_memory("TouchDrag", action_details)
-        return actionDict
-    
+        startX, startY = self.resize_coordinates([startX, startY])
+        endX, endY = self.resize_coordinates([endX, endY])
+        return self._create_touch_drag_action(
+            startX, startY, endX, endY,
+            starting_description or f"Coordinates ({startX}, {startY})",
+            ending_description or f"Coordinates ({endX}, {endY})"
+        )
+
     @agent_action
     def touch_swipe(
         self,
+        x: int,
+        y: int,
         direction: str,
-        element_description: str,
+        element_description: str = "",
     ):
-        x, y = self.resize_coordinates(self.coords1)  # type: ignore
-        actionDict = {
-            "type": "TouchSwipe",
-            "x": x,
-            "y": y,
-            "direction": direction,
-            "distance": 300,
-            "element_description": element_description,
-        }
-        action_details = f"Swiped at coordinates ({x}, {y}) on element: {element_description} in direction {direction} "
-        self._record_passive_memory("TouchSwipe", action_details)
-        return actionDict
-    
+        x, y = self.resize_coordinates([x, y])
+        return self._create_touch_swipe_action(x, y, direction, element_description or f"Coordinates ({x}, {y})")
+
     @agent_action
     def touch_longpress(
         self,
-        element_description: str,
+        x: int,
+        y: int,
+        element_description: str = "",
         duration: int = 2000,
     ):
-        x, y = self.resize_coordinates(self.coords1)  # type: ignore
-        actionDict = {
-            "type": "TouchLongPress",
-            "x": x,
-            "y": y,
-            "duration": duration,
-            "element_description": element_description,
-        }
-        action_details = f"Long pressed at coordinates ({x}, {y}) with element: {element_description} for {duration}ms"
-        self._record_passive_memory("TouchLongPress", action_details)
-        return actionDict
-    
-    @agent_action
-    def android_home(
-        self,
-    ):
-        actionDict = {"type": "AndroidHome"}
-        return actionDict
-    
-    @agent_action
-    def android_back(
-        self,
-    ):
-        actionDict = {"type": "AndroidBack"}
-        return actionDict
+        x, y = self.resize_coordinates([x, y])
+        return self._create_touch_longpress_action(x, y, duration, element_description or f"Coordinates ({x}, {y})")

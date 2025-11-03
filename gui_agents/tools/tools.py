@@ -7,13 +7,12 @@ evaluation, and action generation.
 """
 
 import time
-from typing import Dict, Any, Optional, List, Union, Tuple
+from typing import Dict, Any, Optional, List, Tuple
 from abc import ABC, abstractmethod
 import logging
 from gui_agents.core.mllm import LLMAgent, WebSearchAgent, EmbeddingAgent
 import threading
 import os
-# from gui_agents.prompts.prompts import system_prompts
 
 logger = logging.getLogger("desktopenv.tools")
 

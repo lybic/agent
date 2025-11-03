@@ -27,7 +27,7 @@ from gui_agents.agents.Backend.Backend import Backend
 
 # 导入官方Lybic SDK
 try:
-    from lybic import LybicClient, Sandbox, ComputerUse, dto, LybicAuth
+    from lybic import LybicClient, Sandbox, dto, LybicAuth
 except ImportError:
     raise ImportError(
         "Lybic Python SDK not found. Please install it with: pip install --upgrade lybic"
@@ -106,8 +106,8 @@ class LybicBackend(Backend):
         self.sandbox_id = self.precreate_sid
         
         # 如果没有预创建的沙盒ID，则创建新沙盒
-        if self.sandbox_id is None:
-            print("Creating sandbox using official SDK...")
+        if not self.sandbox_id:
+            log.info("Creating sandbox using official SDK...")
             max_life_seconds = int(os.getenv("LYBIC_MAX_LIFE_SECONDS", "3600"))
             sandbox_opts = sandbox_opts or {}
             sandbox_opts.setdefault("maxLifeSeconds", max_life_seconds)
@@ -122,7 +122,7 @@ class LybicBackend(Backend):
             self.sandbox_id = getattr(new_sandbox, 'id', "") or getattr(new_sandbox, 'sandbox_id', "")
             if not self.sandbox_id:
                 raise RuntimeError(f"Failed to get sandbox ID from response: {new_sandbox}")
-            print(f"Created sandbox: {self.sandbox_id}")
+            log.info(f"Created sandbox: {self.sandbox_id}")
 
     def __del__(self):
         """清理资源"""

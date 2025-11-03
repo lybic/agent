@@ -479,7 +479,7 @@ class AgentS2(UIAgent):
                         "plan": executor_info.get("executor_plan", "")
                     }
                 )
-            
+
             actions = [exec_code]
 
             # Stream action execution message
@@ -829,13 +829,6 @@ class AgentSFast(UIAgent):
         # Initialize and register reflection agent if reflection is enabled
         if self.enable_reflection:
             self.reflection_agent = Tools()
-            
-            # Get tool configuration for traj_reflector from tools_config
-            traj_reflector_config = None
-            for tool in self.tools_config["tools"]:
-                if tool["tool_name"] == "traj_reflector":
-                    traj_reflector_config = tool
-                    break
             
             # Get base config from Tools_dict
             reflector_tool_config = self.Tools_dict["traj_reflector"].copy()

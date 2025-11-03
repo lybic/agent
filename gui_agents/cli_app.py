@@ -629,7 +629,8 @@ def main():
     # Set platform to Windows if backend is lybic
     if args.backend == 'lybic':
         current_platform = 'windows'
-    
+
+    # todo: use lybic api to get actual platform,
     if args.backend == 'lybic_mobile':
         current_platform = 'android'
 

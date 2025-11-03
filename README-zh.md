@@ -203,7 +203,7 @@ python gui_agents/cli_app.py [OPTIONS]
 
 ### 选项
 
-- `--backend [lybic|pyautogui|pyautogui_vmware]`: 指定用于控制GUI的后端。默认为 `lybic`。
+- `--backend [lybic|lybic_mobile|pyautogui|pyautogui_vmware]`: 指定用于控制GUI的后端。默认为 `lybic`。
 
 - `--query "YOUR_QUERY"`: 可选，可在运行时输入；如果提供，智能体将执行查询然后退出。
 - `--max-steps NUMBER`: 设置智能体可以执行的最大步数。默认为 `50`。

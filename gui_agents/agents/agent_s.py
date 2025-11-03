@@ -109,7 +109,7 @@ class AgentS2(UIAgent):
 
     def __init__(
         self,
-        platform: str = platform.system().lower(),
+        platform: str = platform.system(),
         screen_size: List[int] = [1920, 1080],
         memory_root_path: str = os.getcwd(),
         memory_folder_name: str = "kb_s2",
@@ -126,6 +126,7 @@ class AgentS2(UIAgent):
         Parameters:
             tools_config (dict | None): Optional pre-loaded tools configuration; when present it is transformed into `Tools_dict`. Omit to load configuration from disk.
         """
+        platform = platform.lower()
         super().__init__(
             platform,
         )
@@ -698,7 +699,7 @@ class AgentSFast(UIAgent):
 
     def __init__(
         self,
-        platform: str = platform.system().lower(),
+        platform: str = platform.system(),
         screen_size: List[int] = [1920, 1080],
         memory_root_path: str = os.getcwd(),
         memory_folder_name: str = "kb_s2",
@@ -724,6 +725,7 @@ class AgentSFast(UIAgent):
             tools_config (dict | None): Optional pre-loaded tools configuration; if omitted, configuration is loaded from disk.
         
         """
+        platform = platform.lower()
         super().__init__(
             platform,
         )

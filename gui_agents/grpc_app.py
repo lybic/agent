@@ -682,7 +682,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             context.set_details(f"An error occurred during streaming: {e}")
         finally:
             self.metrics.record_grpc_stream_connection("RunAgentInstruction", -1)
-            context.set_details(f"An error occurred during streaming: {e}")
 
     async def RunAgentInstructionAsync(self, request, context):
         """

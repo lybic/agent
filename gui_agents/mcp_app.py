@@ -66,7 +66,7 @@ def load_access_tokens() -> set:
     """Load valid access tokens from access_tokens.txt"""
     tokens = set()
     if ACCESS_TOKENS_FILE.exists():
-        with open(ACCESS_TOKENS_FILE, 'r') as f:
+        with open(ACCESS_TOKENS_FILE, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
                 # Skip empty lines and comments
@@ -546,7 +546,7 @@ def main():
     if not ACCESS_TOKENS_FILE.exists():
         logger.warning(f"Access tokens file not found at {ACCESS_TOKENS_FILE}")
         logger.warning("Creating default access_tokens.txt file")
-        with open(ACCESS_TOKENS_FILE, 'w') as f:
+        with open(ACCESS_TOKENS_FILE, 'w', encoding='utf-8') as f:
             f.write("# Access tokens for MCP server authentication\n")
             f.write("# Each line represents a valid Bearer token\n")
             f.write("default_token_for_testing\n")

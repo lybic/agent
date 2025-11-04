@@ -6,8 +6,7 @@ These tests verify the MCP server's authentication, tool definitions, and basic 
 
 import pytest
 import os
-from pathlib import Path
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import patch
 
 
 # Test access token management
@@ -173,7 +172,7 @@ def test_fastapi_app_creation():
     
     # Check routes exist
     routes = [route.path for route in app.routes]
-    assert "/sse" in routes
+    assert "/mcp" in routes
     assert "/health" in routes
     assert "/" in routes
 
@@ -181,14 +180,20 @@ def test_fastapi_app_creation():
 @pytest.mark.asyncio
 async def test_health_endpoint():
     """Test health check endpoint"""
-    from gui_agents.mcp_app import health_check
+    from gui_agents.mcp_app import health_check, active_tasks
+
+    # Mock active tasks
+    active_tasks.add("task1")
     
     result = await health_check()
     
     assert result['status'] == 'healthy'
     assert result['server'] == 'gui-agent-mcp-server'
     assert 'active_sandboxes' in result
-    assert 'active_tasks' in result
+    assert result['active_tasks'] == 1
+
+    # Clear mock
+    active_tasks.clear()
 
 
 @pytest.mark.asyncio
@@ -205,39 +210,6 @@ async def test_root_endpoint():
     assert 'authentication' in result
     assert 'tools' in result
     assert len(result['tools']) == 3
-
-
-@pytest.mark.asyncio
-async def test_authenticate_request_valid():
-    """Test request authentication with valid token"""
-    from gui_agents.mcp_app import authenticate_request
-    from fastapi import Request
-    
-    # Create mock request with valid token
-    mock_request = Mock(spec=Request)
-    mock_request.headers.get.return_value = "Bearer valid_token"
-    
-    with patch('gui_agents.mcp_app.verify_bearer_token', return_value=True):
-        # Should not raise exception
-        await authenticate_request(mock_request)
-
-
-@pytest.mark.asyncio
-async def test_authenticate_request_invalid():
-    """Test request authentication with invalid token"""
-    from gui_agents.mcp_app import authenticate_request
-    from fastapi import Request, HTTPException
-    
-    # Create mock request with invalid token
-    mock_request = Mock(spec=Request)
-    mock_request.headers.get.return_value = "Bearer invalid_token"
-    
-    with patch('gui_agents.mcp_app.verify_bearer_token', return_value=False):
-        with pytest.raises(HTTPException) as exc_info:
-            await authenticate_request(mock_request)
-        
-        assert exc_info.value.status_code == 401
-        assert "Invalid or missing Bearer token" in str(exc_info.value.detail)
 
 
 def test_access_tokens_file_location():

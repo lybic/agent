@@ -38,7 +38,7 @@ else:
 
 # Test 3: Check MCP dependencies
 print("\n[3/5] Checking MCP dependencies...")
-required_modules = ['mcp', 'fastapi', 'sse_starlette', 'uvicorn']
+required_modules = ['mcp', 'fastapi', 'uvicorn']
 missing = []
 for module in required_modules:
     try:
@@ -73,7 +73,7 @@ if pyproject_file.exists():
         print("✗ MCP server entry point not found in pyproject.toml")
     
     # Check MCP dependencies
-    if "mcp>=" in content and "fastapi>=" in content and "sse-starlette>=" in content:
+    if "mcp>=" in content and "fastapi>=" in content:
         print("✓ MCP dependencies are listed in pyproject.toml")
     else:
         print("✗ MCP dependencies not properly listed in pyproject.toml")
@@ -96,7 +96,7 @@ print("  2. Run: python -m gui_agents.mcp_app")
 print("  3. Or use: lybic-guiagent-mcp (after installation)")
 
 print("\nEndpoints:")
-print("  - POST /sse - MCP SSE endpoint (requires Bearer token)")
+print("  - POST /mcp - MCP Streamable HTTP endpoint (requires Bearer token)")
 print("  - GET /health - Health check")
 print("  - GET / - Server information")
 
@@ -112,3 +112,4 @@ if missing:
 else:
     print("✓ All checks passed! MCP server is ready to use.")
     sys.exit(0)
+

@@ -340,6 +340,9 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
     llm_api_key = arguments.get("llm_api_key")
     llm_endpoint = arguments.get("llm_endpoint")
     
+    # Initialize task_id early for exception handling
+    task_id = None
+    
     try:
         lybic_auth = get_lybic_auth(apikey, orgid)
         
@@ -554,7 +557,17 @@ def main():
     # Check environment compatibility
     has_display, pyautogui_available, env_error = app.check_display_environment()
     compatible_backends, incompatible_backends = app.get_compatible_backends(has_display, pyautogui_available)
-    app.validate_backend_compatibility('lybic', compatible_backends, incompatible_backends)
+    
+    # Log environment information if there are any warnings
+    if env_error:
+        logger.info(f"Environment note: {env_error}")
+    
+    try:
+        app.validate_backend_compatibility('lybic', compatible_backends, incompatible_backends)
+    except Exception as e:
+        logger.error(f"Backend validation failed: {e}")
+        logger.error("MCP server requires Lybic backend support")
+        sys.exit(1)
     
     port = int(os.environ.get("MCP_PORT", 8000))
     host = os.environ.get("MCP_HOST", "0.0.0.0")

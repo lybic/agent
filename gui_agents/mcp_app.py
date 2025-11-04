@@ -34,11 +34,14 @@ else:
         load_dotenv(dotenv_path=parent_env_path)
 
 # Import agent components
+import uvicorn
 from lybic import LybicClient, LybicAuth, Sandbox
 from gui_agents.agents.agent_s import AgentS2, AgentSFast, load_config
 from gui_agents.agents.hardware_interface import HardwareInterface
+from gui_agents.agents.Action import Screenshot
 from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
+from gui_agents.utils.analyze_display import analyze_display_json
 import gui_agents.cli_app as cli_app
 
 # Setup logging
@@ -302,7 +305,6 @@ async def handle_get_sandbox_screenshot(arguments: dict) -> list[types.TextConte
         )
         
         # Take screenshot
-        from gui_agents.agents.Action import Screenshot
         screenshot = hwi.dispatch(Screenshot())
         
         # Save screenshot to temporary location (cross-platform)
@@ -462,7 +464,6 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
         
         if display_json_path.exists():
             try:
-                from gui_agents.utils.analyze_display import analyze_display_json
                 analysis = analyze_display_json(str(display_json_path))
                 if analysis:
                     result_text += f"\nExecution Statistics:\n"
@@ -541,8 +542,6 @@ async def root():
 
 def main():
     """Main entry point for MCP server"""
-    import uvicorn
-    
     # Check for access tokens file
     if not ACCESS_TOKENS_FILE.exists():
         logger.warning(f"Access tokens file not found at {ACCESS_TOKENS_FILE}")

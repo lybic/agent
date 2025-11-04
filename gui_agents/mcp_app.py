@@ -14,6 +14,7 @@ import sys
 import logging
 import asyncio
 import datetime
+import tempfile
 from pathlib import Path
 from typing import Optional, Any, Dict
 
@@ -304,8 +305,9 @@ async def handle_get_sandbox_screenshot(arguments: dict) -> list[types.TextConte
         from gui_agents.agents.Action import Screenshot
         screenshot = hwi.dispatch(Screenshot())
         
-        # Save screenshot to temporary location
-        temp_dir = Path("/tmp/mcp_screenshots")
+        # Save screenshot to temporary location (cross-platform)
+        temp_base = Path(tempfile.gettempdir())
+        temp_dir = temp_base / "mcp_screenshots"
         temp_dir.mkdir(parents=True, exist_ok=True)
         screenshot_path = temp_dir / f"{sandbox_id}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         screenshot.save(screenshot_path)
@@ -336,7 +338,7 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
     llm_api_key = arguments.get("llm_api_key")
     llm_endpoint = arguments.get("llm_endpoint")
     
-    # Initialize task_id early for exception handling
+    # Initialize task_id to None so exception handler can check if cleanup is needed
     task_id = None
     
     try:

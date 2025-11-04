@@ -16,12 +16,9 @@ import asyncio
 import datetime
 from pathlib import Path
 from typing import Optional, Any, Dict
-from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.responses import Response
-from sse_starlette import EventSourceResponse
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from mcp import types
@@ -41,8 +38,6 @@ from gui_agents.agents.agent_s import AgentS2, AgentSFast, load_config
 from gui_agents.agents.hardware_interface import HardwareInterface
 from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
-from gui_agents.agents.stream_manager import stream_manager
-from gui_agents.proto.pb.agent_pb2 import InstanceMode
 import gui_agents.cli_app as cli_app
 
 # Setup logging

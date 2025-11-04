@@ -78,7 +78,7 @@ The server will start on `http://0.0.0.0:8000` by default.
 
 ### API Endpoints
 
-- **POST /sse** - MCP SSE endpoint (requires Bearer token authentication)
+- **POST /mcp_stream** - MCP Streamable HTTP endpoint (requires Bearer token authentication)
 - **GET /health** - Health check endpoint
 - **GET /** - Server information and available tools
 
@@ -220,8 +220,8 @@ headers = {
 response = httpx.get(f"{BASE_URL}/health", headers=headers)
 print(response.json())
 
-# MCP communication via SSE
-# (Requires SSE client implementation)
+# MCP communication via Streamable HTTP
+# (Requires a client that can handle streaming responses)
 ```
 
 ## Agent Modes
@@ -285,7 +285,7 @@ curl -H "Authorization: Bearer your_token" http://localhost:8000/health
 pip install -e ".[mcp]"
 
 # Or install specific packages
-pip install mcp fastapi sse-starlette uvicorn
+pip install mcp fastapi uvicorn
 ```
 
 ### Environment Variables

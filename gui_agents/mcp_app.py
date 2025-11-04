@@ -8,21 +8,23 @@ for GUI automation tasks. It implements Bearer Token authentication and exposes 
 - Getting sandbox screenshots  
 - Executing agent instructions with real-time streaming
 """
-
+import contextlib
 import os
 import sys
 import logging
 import asyncio
 import datetime
-import tempfile
 from pathlib import Path
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, AsyncIterator
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
 from mcp.server import Server
-from mcp.server.sse import SseServerTransport
 from mcp import types
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.cors import CORSMiddleware
+from starlette.types import Scope, Send, Receive
 
 # Load environment variables
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
@@ -35,10 +37,11 @@ else:
 
 # Import agent components
 import uvicorn
+
 from lybic import LybicClient, LybicAuth, Sandbox
+
 from gui_agents.agents.agent_s import AgentS2, AgentSFast, load_config
 from gui_agents.agents.hardware_interface import HardwareInterface
-from gui_agents.agents.Action import Screenshot
 from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
 from gui_agents.utils.analyze_display import analyze_display_json
@@ -59,6 +62,7 @@ ACCESS_TOKENS_FILE = SCRIPT_DIR / "access_tokens.txt"
 
 # Store for active sandboxes (for tracking and monitoring)
 active_sandboxes: Dict[str, Dict[str, Any]] = {}
+active_tasks: set = set()
 
 
 def load_access_tokens() -> set:
@@ -107,15 +111,13 @@ def get_lybic_auth(apikey: Optional[str] = None, orgid: Optional[str] = None) ->
     """Get Lybic authentication, using parameters or environment variables"""
     api_key = apikey or os.environ.get("LYBIC_API_KEY")
     org_id = orgid or os.environ.get("LYBIC_ORG_ID")
-    endpoint = os.environ.get("LYBIC_API_ENDPOINT", "https://api.lybic.cn/")
-    
+
     if not api_key or not org_id:
         raise ValueError("Lybic API key and Org ID are required (provide as parameters or set LYBIC_API_KEY and LYBIC_ORG_ID environment variables)")
-    
+
     return LybicAuth(
         org_id=org_id,
-        api_key=api_key,
-        endpoint=endpoint
+        api_key=api_key
     )
 
 
@@ -228,7 +230,7 @@ async def list_tools() -> list[types.Tool]:
 
 
 @mcp_server.call_tool()
-async def call_tool(name: str, arguments: Any) -> list[types.TextContent]:
+async def call_tool(name: str, arguments: Any) -> list[types.ContentBlock]:
     """Handle tool calls"""
     try:
         if name == "create_sandbox":
@@ -284,45 +286,26 @@ async def handle_create_sandbox(arguments: dict) -> list[types.TextContent]:
         raise
 
 
-async def handle_get_sandbox_screenshot(arguments: dict) -> list[types.TextContent]:
+async def handle_get_sandbox_screenshot(arguments: dict) -> list[types.ImageContent]:
     """Get screenshot from sandbox"""
     sandbox_id = arguments["sandbox_id"]
     apikey = arguments.get("apikey")
     orgid = arguments.get("orgid")
-    
-    try:
-        lybic_auth = get_lybic_auth(apikey, orgid)
-        
-        # Create hardware interface
-        hwi = HardwareInterface(
-            backend='lybic',
-            platform='Windows',
-            precreate_sid=sandbox_id,
-            org_id=lybic_auth.org_id,
-            api_key=lybic_auth.api_key,
-            endpoint=lybic_auth.endpoint
-        )
-        
-        # Take screenshot
-        screenshot = hwi.dispatch(Screenshot())
-        
-        # Save screenshot to temporary location (cross-platform)
-        temp_base = Path(tempfile.gettempdir())
-        temp_dir = temp_base / "mcp_screenshots"
-        temp_dir.mkdir(parents=True, exist_ok=True)
-        screenshot_path = temp_dir / f"{sandbox_id}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-        screenshot.save(screenshot_path)
-        
-        logger.info(f"Screenshot saved to: {screenshot_path}")
-        
-        return [types.TextContent(
-            type="text",
-            text=f"Screenshot captured successfully!\n\nSaved to: {screenshot_path}\nSize: {screenshot.width}x{screenshot.height}"
-        )]
-    except Exception as e:
-        logger.error(f"Failed to get screenshot: {e}", exc_info=True)
-        raise
 
+    lybic_auth = get_lybic_auth(apikey, orgid)
+
+    async with LybicClient(lybic_auth) as lybic_client:
+        sandbox_service = Sandbox(lybic_client)
+        try:
+            screenshot = await sandbox_service.get_screenshot_base64(sandbox_id)
+            return [types.ImageContent(
+                type="image",
+                data=screenshot,
+                mimeType="image/webp"
+            )]
+        except Exception as e:
+            logger.error(f"Failed to get screenshot: {e}", exc_info=True)
+            raise
 
 async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]:
     """Execute agent instruction with streaming"""
@@ -332,19 +315,17 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
     orgid = arguments.get("orgid")
     mode = arguments.get("mode", "fast")
     max_steps = arguments.get("max_steps", 50)
-    
+
     # LLM configuration
     llm_provider = arguments.get("llm_provider")
     llm_model = arguments.get("llm_model")
     llm_api_key = arguments.get("llm_api_key")
     llm_endpoint = arguments.get("llm_endpoint")
-    
-    # Initialize task_id to None for exception handler (will be set later in try block)
+
     task_id = None
-    
     try:
         lybic_auth = get_lybic_auth(apikey, orgid)
-        
+
         # Create or get sandbox
         if not sandbox_id:
             logger.info("No sandbox_id provided, creating new sandbox")
@@ -355,17 +336,18 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
             sandbox_id = sandbox.sandbox.id
             await lybic_client.close()
             logger.info(f"Created new sandbox: {sandbox_id}")
-        
+
         # Setup task
         task_id = f"mcp_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        active_tasks.add(task_id)
         log_dir = Path("runtime")
         timestamp_dir = log_dir / f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{task_id[:8]}"
         cache_dir = timestamp_dir / "cache" / "screens"
         state_dir = timestamp_dir / "state"
-        
+
         cache_dir.mkdir(parents=True, exist_ok=True)
         state_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Create task-specific registry
         task_registry = Registry()
         global_state = GlobalState(
@@ -380,13 +362,13 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
             display_info_path=str(timestamp_dir / "display.json"),
             agent_log_path=str(timestamp_dir / "agent_log.json")
         )
-        
+
         task_registry.register_instance("GlobalStateStore", global_state)
         Registry.set_task_registry(task_id, task_registry)
-        
+
         # Create agent with custom LLM config if provided
         tools_config, tools_dict = load_config()
-        
+
         if llm_provider and llm_model:
             logger.info(f"Applying custom LLM configuration: {llm_provider}/{llm_model}")
             for tool_name in tools_dict:
@@ -399,7 +381,7 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
                     if llm_endpoint:
                         tools_dict[tool_name]['base_url'] = llm_endpoint
                         tools_dict[tool_name]['endpoint_url'] = llm_endpoint
-            
+
             # Sync back to tools_config
             for tool_entry in tools_config['tools']:
                 tool_name = tool_entry['tool_name']
@@ -407,7 +389,7 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
                     for key in ['provider', 'model_name', 'model', 'api_key', 'base_url']:
                         if key in tools_dict[tool_name]:
                             tool_entry[key] = tools_dict[tool_name][key]
-        
+
         if mode == "fast":
             agent = AgentSFast(
                 platform="windows",
@@ -424,7 +406,7 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
                 enable_search=False,
                 tools_config=tools_config
             )
-        
+
         # Create hardware interface
         hwi = HardwareInterface(
             backend='lybic',
@@ -434,13 +416,13 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
             api_key=lybic_auth.api_key,
             endpoint=lybic_auth.endpoint
         )
-        
+
         # Reset agent
         agent.reset()
-        
+
         # Execute in thread
         logger.info(f"Executing instruction in {mode} mode: {instruction}")
-        
+
         if mode == "fast":
             await asyncio.to_thread(
                 cli_app.run_agent_fast,
@@ -453,14 +435,11 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
                 agent, instruction, hwi, max_steps, False,
                 task_id=task_id, task_registry=task_registry
             )
-        
-        # Cleanup registry
-        Registry.remove_task_registry(task_id)
-        
+
         # Analyze results
         display_json_path = timestamp_dir / "display.json"
         result_text = f"Instruction executed successfully!\n\nSandbox ID: {sandbox_id}\nMode: {mode}\nMax steps: {max_steps}\n"
-        
+
         if display_json_path.exists():
             try:
                 analysis = analyze_display_json(str(display_json_path))
@@ -473,40 +452,47 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
                     result_text += f"- Cost: {analysis.get('currency_symbol', '¥')}{analysis.get('total_cost', 0):.4f}\n"
             except Exception as e:
                 logger.warning(f"Failed to analyze execution: {e}")
-        
+
         result_text += f"\nLog directory: {timestamp_dir}\n"
-        
+
         return [types.TextContent(
             type="text",
             text=result_text
         )]
-        
+
     except Exception as e:
         logger.error(f"Failed to execute instruction: {e}", exc_info=True)
-        # Cleanup on error
+        raise
+    finally:
+        # Cleanup registry and active task
         if task_id:
             Registry.remove_task_registry(task_id)
-        raise
+            if task_id in active_tasks:
+                active_tasks.remove(task_id)
 
+session_manager = StreamableHTTPSessionManager(
+        app=mcp_server,
+        event_store=None,
+        json_response=False,
+        stateless=True,
+)
 
-# Create FastAPI app for SSE transport
-app = FastAPI(title="GUI Agent MCP Server")
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Context manager for session manager."""
+    async with session_manager.run():
+        logger.info("Application started with StreamableHTTP session manager!")
+        try:
+            yield
+        finally:
+            logger.info("Application shutting down...")
 
+# Create FastAPI app for Streamable HTTP transport
+title = "GUI Agent MCP Server"
+app = FastAPI(title=title, lifespan=lifespan)
 
-@app.post("/sse")
-async def handle_sse(request: Request):
-    """Handle SSE endpoint for MCP communication"""
-    # Authenticate request
-    await authenticate_request(request)
-    
-    # Create SSE transport
-    async with SseServerTransport("/messages") as transport:
-        await mcp_server.run(
-            transport[0],
-            transport[1],
-            mcp_server.create_initialization_options()
-        )
-
+async def handle_streamable_http(scope: Scope, receive: Receive, send: Send) -> None:
+    await session_manager.handle_request(scope, receive, send)
 
 @app.get("/health")
 async def health_check():
@@ -514,8 +500,10 @@ async def health_check():
     return {
         "status": "healthy",
         "server": "gui-agent-mcp-server",
-        "active_sandboxes": len(active_sandboxes)
+        "active_sandboxes": len(active_sandboxes),
+        "active_tasks": len(active_tasks)
     }
+
 
 
 @app.get("/")
@@ -526,7 +514,7 @@ async def root():
         "description": "MCP server for GUI automation with Lybic sandboxes",
         "version": "1.0.0",
         "endpoints": {
-            "sse": "/sse (POST) - MCP SSE endpoint (requires Bearer token)",
+            "mcp_stream": "/mcp (POST) - MCP Streamable HTTP endpoint (requires Bearer token)",
             "health": "/health (GET) - Health check",
         },
         "authentication": "Bearer token required (configured in access_tokens.txt)",
@@ -537,6 +525,20 @@ async def root():
         ]
     }
 
+class LoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path == "/mcp":
+            try:
+                await authenticate_request(request)
+            except HTTPException as exc:
+                # Return proper JSON response for authentication errors
+                from starlette.responses import JSONResponse
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={"detail": exc.detail},
+                    headers=exc.headers
+                )
+        return await call_next(request)
 
 def main():
     """Main entry point for MCP server"""
@@ -569,7 +571,38 @@ def main():
     
     logger.info(f"Starting MCP server on {host}:{port}")
     logger.info(f"Access tokens file: {ACCESS_TOKENS_FILE}")
-    
+
+    # Create a single FastAPI app to handle all routing
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.add_middleware(LoggingMiddleware)
+
+    # Create an ASGI wrapper class for the MCP endpoint
+    class MCPApp:
+        """ASGI wrapper for MCP streamable HTTP handler"""
+        async def __call__(self, scope: Scope, receive: Receive, send: Send):
+            if scope["type"] == "http" and scope["method"] == "POST":
+                await handle_streamable_http(scope, receive, send)
+            else:
+                # Method not allowed
+                await send({
+                    "type": "http.response.start",
+                    "status": 405,
+                    "headers": [[b"content-type", b"text/plain"]],
+                })
+                await send({
+                    "type": "http.response.body",
+                    "body": b"Method Not Allowed",
+                })
+
+    # Mount the MCP ASGI app
+    app.mount("/mcp", MCPApp())
+
+
     uvicorn.run(
         app,
         host=host,

@@ -10,6 +10,7 @@ for GUI automation tasks. It implements Bearer Token authentication and exposes 
 """
 
 import os
+import sys
 import logging
 import asyncio
 import datetime
@@ -42,7 +43,7 @@ from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
 from gui_agents.agents.stream_manager import stream_manager
 from gui_agents.proto.pb.agent_pb2 import InstanceMode
-import gui_agents.cli_app as app
+import gui_agents.cli_app as cli_app
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -444,13 +445,13 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
         
         if mode == "fast":
             await asyncio.to_thread(
-                app.run_agent_fast,
+                cli_app.run_agent_fast,
                 agent, instruction, hwi, max_steps, False,
                 task_id=task_id, task_registry=task_registry
             )
         else:
             await asyncio.to_thread(
-                app.run_agent_normal,
+                cli_app.run_agent_normal,
                 agent, instruction, hwi, max_steps, False,
                 task_id=task_id, task_registry=task_registry
             )
@@ -555,15 +556,15 @@ def main():
             f.write("default_token_for_testing\n")
     
     # Check environment compatibility
-    has_display, pyautogui_available, env_error = app.check_display_environment()
-    compatible_backends, incompatible_backends = app.get_compatible_backends(has_display, pyautogui_available)
+    has_display, pyautogui_available, env_error = cli_app.check_display_environment()
+    compatible_backends, incompatible_backends = cli_app.get_compatible_backends(has_display, pyautogui_available)
     
     # Log environment information if there are any warnings
     if env_error:
         logger.info(f"Environment note: {env_error}")
     
     try:
-        app.validate_backend_compatibility('lybic', compatible_backends, incompatible_backends)
+        cli_app.validate_backend_compatibility('lybic', compatible_backends, incompatible_backends)
     except Exception as e:
         logger.error(f"Backend validation failed: {e}")
         logger.error("MCP server requires Lybic backend support")

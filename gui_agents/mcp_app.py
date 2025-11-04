@@ -57,9 +57,8 @@ logging.basicConfig(
 SCRIPT_DIR = Path(__file__).parent
 ACCESS_TOKENS_FILE = SCRIPT_DIR / "access_tokens.txt"
 
-# Store for active sandboxes and tasks
+# Store for active sandboxes (for tracking and monitoring)
 active_sandboxes: Dict[str, Dict[str, Any]] = {}
-active_tasks: Dict[str, Dict[str, Any]] = {}
 
 
 def load_access_tokens() -> set:
@@ -340,7 +339,7 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
     llm_api_key = arguments.get("llm_api_key")
     llm_endpoint = arguments.get("llm_endpoint")
     
-    # Initialize task_id to None so exception handler can check if cleanup is needed
+    # Initialize task_id to None for exception handler (will be set later in try block)
     task_id = None
     
     try:
@@ -515,8 +514,7 @@ async def health_check():
     return {
         "status": "healthy",
         "server": "gui-agent-mcp-server",
-        "active_sandboxes": len(active_sandboxes),
-        "active_tasks": len(active_tasks)
+        "active_sandboxes": len(active_sandboxes)
     }
 
 

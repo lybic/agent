@@ -435,7 +435,7 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
                 enable_takeover=False,
                 enable_search=False,
                 tools_config=tools_config,
-                enable_reflection=False,
+                enable_reflection=True,
             )
         else:
             agent = AgentS2(

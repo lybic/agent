@@ -208,7 +208,7 @@ async def list_tools() -> list[types.Tool]:
                     },
                     "llm_provider": {
                         "type": "string",
-                        "description": "LLM provider to use (e.g., 'openai', 'anthropic', 'google')"
+                        "description": "LLM provider to use (e.g., 'openai', 'anthropic', 'google', 'doubao', 'qwen')"
                     },
                     "llm_model": {
                         "type": "string",
@@ -259,7 +259,7 @@ async def handle_create_sandbox(arguments: dict) -> list[types.TextContent]:
         lybic_auth = get_lybic_auth(apikey, orgid)
         lybic_client = LybicClient(lybic_auth)
         sandbox_service = Sandbox(lybic_client)
-        
+
         # Create sandbox
         logger.info(f"Creating sandbox with shape: {shape}")
         result = await sandbox_service.create(shape=shape)
@@ -283,7 +283,12 @@ async def handle_create_sandbox(arguments: dict) -> list[types.TextContent]:
         )]
     except Exception as e:
         logger.error(f"Failed to create sandbox: {e}", exc_info=True)
-        raise
+        return [
+            types.TextContent(
+                type="text",
+                text=f"Error creating sandbox: {str(e)}"
+            )
+        ]
 
 
 async def handle_get_sandbox_screenshot(arguments: dict) -> list[types.ImageContent]:
@@ -298,11 +303,17 @@ async def handle_get_sandbox_screenshot(arguments: dict) -> list[types.ImageCont
         sandbox_service = Sandbox(lybic_client)
         try:
             screenshot = await sandbox_service.get_screenshot_base64(sandbox_id)
-            return [types.ImageContent(
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"Success get screenshot from sandbox {sandbox_id}:"
+                ),
+                types.ImageContent(
                 type="image",
                 data=screenshot,
                 mimeType="image/webp"
-            )]
+            ),
+            ]
         except Exception as e:
             logger.error(f"Failed to get screenshot: {e}", exc_info=True)
             raise
@@ -329,12 +340,19 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
         # Create or get sandbox
         if not sandbox_id:
             logger.info("No sandbox_id provided, creating new sandbox")
-            lybic_client = LybicClient(lybic_auth)
-            sandbox_service = Sandbox(lybic_client)
-            result = await sandbox_service.create(shape="beijing-2c-4g-cpu")
-            sandbox = await sandbox_service.get(result.id)
-            sandbox_id = sandbox.sandbox.id
-            await lybic_client.close()
+            async with LybicClient(lybic_auth) as lybic_client:
+                sandbox_service = Sandbox(lybic_client)
+                result = await sandbox_service.create(shape="beijing-2c-4g-cpu")
+                sandbox = await sandbox_service.get(result.id)
+                sandbox_id = sandbox.sandbox.id
+                # Store sandbox info
+                sandbox_info = {
+                    "id": sandbox.sandbox.id,
+                    "shape": "beijing-2c-4g-cpu",
+                    "os": str(sandbox.sandbox.shape.os),
+                    "created_at": datetime.datetime.now().isoformat()
+                }
+                active_sandboxes[sandbox.sandbox.id] = sandbox_info
             logger.info(f"Created new sandbox: {sandbox_id}")
 
         # Setup task
@@ -372,7 +390,7 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
         if llm_provider and llm_model:
             logger.info(f"Applying custom LLM configuration: {llm_provider}/{llm_model}")
             for tool_name in tools_dict:
-                if tool_name not in ['embedding', 'grounding']:
+                if tool_name not in ['embedding', 'grounding']: # General visual model
                     tools_dict[tool_name]['provider'] = llm_provider
                     tools_dict[tool_name]['model_name'] = llm_model
                     tools_dict[tool_name]['model'] = llm_model
@@ -382,13 +400,33 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
                         tools_dict[tool_name]['base_url'] = llm_endpoint
                         tools_dict[tool_name]['endpoint_url'] = llm_endpoint
 
-            # Sync back to tools_config
+            # Special handling for grounding and embedding models:
+            tools_dict['grounding']['provider'] = 'doubao'
+            tools_dict['grounding']['model_name'] = "doubao-1-5-ui-tars-250428"
+            tools_dict['grounding']['model'] = "doubao-1-5-ui-tars-250428"
+            if llm_api_key:
+                tools_dict['grounding']['api_key'] = llm_api_key
+            if llm_endpoint:
+                tools_dict['grounding']['base_url'] = llm_endpoint
+                tools_dict['grounding']['endpoint_url'] = llm_endpoint
+            tools_dict['embedding']['provider'] = 'doubao'
+            tools_dict['embedding']['model_name'] = "doubao-embedding-text-240715"
+            tools_dict['embedding']['model'] = "doubao-embedding-text-240715"
+            if llm_api_key:
+                tools_dict['embedding']['api_key'] = llm_api_key
+            if llm_endpoint:
+                tools_dict['embedding']['base_url'] = llm_endpoint
+                tools_dict['embedding']['endpoint_url'] = llm_endpoint
+
+            # Sync all modifications back to tools_config
             for tool_entry in tools_config['tools']:
                 tool_name = tool_entry['tool_name']
                 if tool_name in tools_dict:
-                    for key in ['provider', 'model_name', 'model', 'api_key', 'base_url']:
-                        if key in tools_dict[tool_name]:
-                            tool_entry[key] = tools_dict[tool_name][key]
+                    modified_data = tools_dict[tool_name]
+                    # Ensure all modified fields are synced back to tools_config
+                    for key, value in modified_data.items():
+                        if key in ['provider', 'model_name', 'api_key', 'base_url', 'model', 'endpoint_url']:
+                            tool_entry[key] = value
 
         if mode == "fast":
             agent = AgentSFast(
@@ -396,7 +434,8 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
                 screen_size=[1280, 720],
                 enable_takeover=False,
                 enable_search=False,
-                tools_config=tools_config
+                tools_config=tools_config,
+                enable_reflection=False,
             )
         else:
             agent = AgentS2(
@@ -406,6 +445,9 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
                 enable_search=False,
                 tools_config=tools_config
             )
+
+        # Set task_id before calling reset()
+        agent.task_id = task_id
 
         # Create hardware interface
         hwi = HardwareInterface(
@@ -417,7 +459,7 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
             endpoint=lybic_auth.endpoint
         )
 
-        # Reset agent
+        # Reset agent (now it has task_id set)
         agent.reset()
 
         # Execute in thread

@@ -37,7 +37,7 @@ from lybic import LybicClient, LybicAuth, Sandbox
 import gui_agents.cli_app as app
 from gui_agents.proto import agent_pb2, agent_pb2_grpc
 from gui_agents.agents.stream_manager import stream_manager
-from gui_agents.agents.agent_s import load_config
+from gui_agents.agents.agent_s import load_config, AgentSFast, UIAgent
 from gui_agents.proto.pb.agent_pb2 import LLMConfig, StageModelConfig, CommonConfig, InstanceMode
 from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface, __version__
 from gui_agents.utils.analyze_display import analyze_display_json
@@ -507,7 +507,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             "shape_name": sandbox.shapeName if hasattr(sandbox, 'shapeName') else "",
         }
 
-    async def _make_agent(self,request):
+    async def _make_agent(self,request)->UIAgent:
         """
         Builds and returns an AgentS2 configured for the incoming request by applying model and provider overrides to the tool configurations.
         
@@ -589,7 +589,17 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                     if key in ['provider', 'model_name', 'api_key', 'base_url', 'model']:
                         tool_entry[key] = value
 
-        return AgentS2(
+        mode: InstanceMode | None
+        if request.HasField("runningConfig"):
+            if request.runningConfig.mode == agent_pb2.InstanceMode.NORMAL:
+                return AgentS2(
+                    platform="windows",  # Sandbox system
+                    screen_size=[1280, 720],
+                    enable_takeover=False,
+                    enable_search=False,
+                    tools_config=tools_config,
+                )
+        return AgentSFast(
             platform="windows",  # Sandbox system
             screen_size=[1280, 720],
             enable_takeover=False,

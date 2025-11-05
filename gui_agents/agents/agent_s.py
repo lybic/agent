@@ -699,7 +699,7 @@ class AgentSFast(UIAgent):
 
     def __init__(
         self,
-        platform: str = platform.system(),
+        platform: str = platform.system().lower(),
         screen_size: List[int] = [1920, 1080],
         memory_root_path: str = os.getcwd(),
         memory_folder_name: str = "kb_s2",
@@ -792,10 +792,13 @@ class AgentSFast(UIAgent):
 
         # First check global search switch
         if not self.enable_search:
+            # If global search is disabled, force disable search for this tool
             tool_params["enable_search"] = False
             logger.info(f"Configuring {self.fast_action_generator_tool} with search DISABLED (global switch off)")
         else:
+            # If global search is enabled, check tool-specific config
             if tool_config and "enable_search" in tool_config:
+                # Use enable_search from config file
                 enable_search = tool_config.get("enable_search", False)
                 tool_params["enable_search"] = enable_search
                 tool_params["search_provider"] = tool_config.get("search_provider", "bocha")
@@ -828,31 +831,29 @@ class AgentSFast(UIAgent):
             **all_params
         )
 
-        # Initialize and register reflection agent if reflection is enabled
         if self.enable_reflection:
             self.reflection_agent = Tools()
-            
+
             # Get base config from Tools_dict
             reflector_tool_config = self.Tools_dict["traj_reflector"].copy()
             reflector_provider = reflector_tool_config.get("provider")
             reflector_model = reflector_tool_config.get("model")
-            
+
             # Remove provider and model from reflector_tool_config to avoid duplicate arguments
             reflector_tool_config.pop("provider", None)
             reflector_tool_config.pop("model", None)
-            
+
             auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
             for key in auth_keys:
                 if key in reflector_tool_config:
                     logger.info(f"AgentSFast.reset: Setting {key} for traj_reflector")
-            
+
             # Register the reflection tool
             self.reflection_agent.register_tool(
-                "traj_reflector",
-                reflector_provider,
-                reflector_model,
-                **reflector_tool_config
-            )
+                "traj_reflector", self.Tools_dict["traj_reflector"]["provider"],
+                self.Tools_dict["traj_reflector"]["model"])
+            self.reflections = []
+            self.planner_history = []
 
         # Use normal Grounding (description -> coordinates) instead of direct coordinate execution
         self.grounding = Grounding(
@@ -1036,7 +1037,7 @@ class AgentSFast(UIAgent):
 
             actions = [exec_code]
             self.latest_action = plan_code
-            
+
             if plan_code == (self.last_exec_plan_code or None):
                 self.last_exec_repeat += 1
             else:
@@ -1050,7 +1051,7 @@ class AgentSFast(UIAgent):
                     "content": warning_msg
                 })
         except Exception as e:
-            logger.error("Error in parsing/grounding action code: %s | raw_grounded_action: %s", e, self.raw_grounded_action)
+            logger.error("Error in parsing action code: %s", e)
             self.global_state.add_agent_log({
                 "type": "Error in parsing action code",
                 "content": f"error={str(e)}; latest_grounded_action={self.raw_grounded_action}"
@@ -1072,7 +1073,7 @@ class AgentSFast(UIAgent):
                     "type": "warning",
                     "content": warning_msg
                 })
-            
+
             self.global_state.log_operation(
                 module="agent",
                 operation="fast_action_error",

@@ -793,7 +793,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             self.metrics.record_grpc_error("RunAgentInstructionAsync", "INTERNAL")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"Failed to initialize task: {e}")
-            return agent_pb2.RunAgentInstructionAsyncResponse()
+            return agent_pb2.RunAgentInstructionAsyncResponse(taskId="")
 
     async def QueryTaskStatus(self, request, context):
         """

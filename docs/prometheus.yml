@@ -43,7 +43,7 @@ scrape_configs:
     # Static targets - update with your service host/port
     static_configs:
       - targets:
-          - 'localhost:8000'  # Prometheus metrics endpoint
+          - 'gui-agents-service:8000'  # Prometheus metrics endpoint
         labels:
           service: 'gui-agents-grpc'
           environment: 'production'  # or 'development', 'staging', etc.

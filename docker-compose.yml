@@ -18,12 +18,14 @@ services:
   # GUI Agents gRPC Service
   gui-agents:
     build:
-      context: ..
+      context: .
       dockerfile: Dockerfile
     container_name: gui-agents-service
     ports:
       - "50051:50051"  # gRPC service
       - "8000:8000"    # Prometheus metrics
+    entrypoint:
+        - /app/.venv/bin/lybic-guiagent-grpc
     environment:
       - ENABLE_PROMETHEUS=true
       - PROMETHEUS_PORT=8000
@@ -52,7 +54,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - docs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'

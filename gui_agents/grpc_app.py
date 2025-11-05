@@ -184,7 +184,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         	- Supports task cancellation via asyncio.CancelledError.
         """
         task_start_time = time.time()
-        
+
         async with self.task_lock:
             # Update status to running in storage
             await self.storage.update_task(task_id, {"status": "running"})
@@ -271,17 +271,24 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             self.metrics.record_task_created("failed")
         finally:
             logger.info(f"Task {task_id} processing finished.")
-            
+
             # Record task execution duration
             if task_id in self.task_start_times:
                 duration = time.time() - self.task_start_times[task_id]
                 self.metrics.record_task_execution_duration(duration)
-                del self.task_start_times[task_id]
-            
+                async with self.task_lock:
+                    del self.task_start_times[task_id]
+
             # Clean up timing data
             if task_id in self.task_created_times:
-                del self.task_created_times[task_id]
-            
+                async with self.task_lock:
+                    del self.task_created_times[task_id]
+
+            # Clean up runtime task data to prevent memory leaks
+            if task_id in self.tasks:
+                async with self.task_lock:
+                    del self.tasks[task_id]
+
             # Update active task count
             active_count = await self.storage.count_active_tasks()
             self.metrics.record_task_active(active_count)

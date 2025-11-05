@@ -48,7 +48,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 
 # Install optional postgres dependency for persistence
-RUN uv pip install .[postgres]
+RUN uv pip install .[postgres,prometheus]
 
 
 # --- Stage 3: final ---

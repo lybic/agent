@@ -803,8 +803,8 @@ class AgentSFast(UIAgent):
 
         # Get base config from Tools_dict
         tool_config = self.Tools_dict[self.fast_action_generator_tool].copy()
-        provider = tool_config.get("provider")
-        model = tool_config.get("model")
+        provider = tool_config.pop("provider")
+        model = tool_config.pop("model")
 
         # Merge with search-related parameters
         all_params = {**tool_config, **tool_params}
@@ -824,9 +824,17 @@ class AgentSFast(UIAgent):
 
         if self.enable_reflection:
             self.reflection_agent = Tools()
+            # Get traj_reflector config from Tools_dict
+            traj_reflector_config = self.Tools_dict["traj_reflector"].copy()
+            traj_reflector_provider = traj_reflector_config.pop("provider")
+            traj_reflector_model = traj_reflector_config.pop("model")
+            
             self.reflection_agent.register_tool(
-                "traj_reflector", self.Tools_dict["traj_reflector"]["provider"],
-                self.Tools_dict["traj_reflector"]["model"])
+                "traj_reflector",
+                traj_reflector_provider,
+                traj_reflector_model,
+                **traj_reflector_config
+            )
             self.reflections = []
             self.planner_history = []
 

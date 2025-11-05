@@ -22,8 +22,8 @@ groups:
       - alert: HighTaskFailureRate
         expr: |
           (
-            rate(agent_tasks_created_total{status="failed"}[5m]) /
-            rate(agent_tasks_created_total[5m])
+            sum(rate(agent_tasks_created_total{status="failed"}[5m])) /
+            sum(rate(agent_tasks_created_total[5m]))
           ) > 0.2
         for: 5m
         labels:
@@ -101,7 +101,7 @@ groups:
       - alert: HighGRPCErrorRate
         expr: |
           (
-            rate(agent_grpc_errors_total[5m]) /
+            sum by (method) (rate(agent_grpc_errors_total[5m])) /
             rate(agent_grpc_requests_total[5m])
           ) > 0.05
         for: 5m

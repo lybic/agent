@@ -1,0 +1,5 @@
+# Access tokens for MCP server authentication
+# Each line represents a valid Bearer token
+# Lines starting with # are comments
+# Example token format: token_abc123xyz
+default_token_for_testing

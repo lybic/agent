@@ -184,6 +184,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         	- Supports task cancellation via asyncio.CancelledError.
         """
         task_start_time = time.time()
+        # Initialize variables before lock to ensure they're accessible in exception handlers
+        # if lock acquisition or task lookup fails. These are assigned within the lock below.
         agent = None
         steps = None
         query = None
@@ -733,7 +735,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                     self.metrics.record_grpc_error("RunAgentInstructionAsync", "RESOURCE_EXHAUSTED")
                     context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
                     context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
-                    return
+                    return agent_pb2.RunAgentInstructionAsyncResponse(taskId="")
 
                 agent = await self._make_agent(request=request)
                 backend_kwargs = await self._make_backend_kwargs(request)

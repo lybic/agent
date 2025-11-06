@@ -13,11 +13,9 @@ import asyncio
 import pytest
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
-from pathlib import Path
 
 from gui_agents.grpc_app import AgentServicer
 from gui_agents.proto import agent_pb2
-from gui_agents.storage import TaskData
 
 
 class TestGrpcMemoryLeak:

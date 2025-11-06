@@ -30,7 +30,8 @@ jobs:
       - name: Create release branch
         run: |
           git checkout -b changelog_${{ github.event.inputs.new_tag }}
-
+      - name: Setup-deps
+        run: pip install openai
       - name: Generate changelog
         env:
           ARK_MODEL_ENDPOINT: ${{ secrets.ARK_MODEL_ENDPOINT }}

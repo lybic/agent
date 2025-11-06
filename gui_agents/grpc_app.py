@@ -184,11 +184,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         	- Supports task cancellation via asyncio.CancelledError.
         """
         task_start_time = time.time()
-        # Initialize variables before lock to ensure they're accessible in exception handlers
-        # if lock acquisition or task lookup fails. These are assigned within the lock below.
-        agent = None
-        steps = None
-        query = None
 
         async with self.task_lock:
             # Update status to running in storage

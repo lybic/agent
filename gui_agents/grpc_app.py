@@ -783,10 +783,8 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             # Clean up if task was created in self.tasks but failed before starting
             if task_created:
                 async with self.task_lock:
-                    if task_id in self.tasks:
-                        del self.tasks[task_id]
-                    if task_id in self.task_created_times:
-                        del self.task_created_times[task_id]
+                    self.tasks.pop(task_id, None)
+                    self.task_created_times.pop(task_id, None)
             self.metrics.record_grpc_error("RunAgentInstructionAsync", "INTERNAL")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"Failed to initialize task: {e}")

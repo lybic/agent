@@ -128,8 +128,21 @@ class LybicBackend(Backend):
     def __del__(self):
         """清理资源"""
         try:
-            if hasattr(self, 'client'):
-                self.loop.run_until_complete(self.client.close())
+            if hasattr(self, 'client') and hasattr(self, 'loop'):
+                # Check if the loop is running in another thread
+                if self.loop.is_running():
+                    # Schedule close on the loop rather than blocking
+                    asyncio.run_coroutine_threadsafe(self.client.close(), self.loop)
+                else:
+                    # Safe to run directly if loop is not running
+                    try:
+                        self.loop.run_until_complete(self.client.close())
+                    except RuntimeError:
+                        # If we can't use the existing loop, create a new one
+                        try:
+                            asyncio.run(self.client.close())
+                        except Exception:
+                            pass  # Ignore cleanup errors in destructor
         except Exception as e:
             log.warning(f"Error closing Lybic client: {e}")
 
@@ -354,7 +367,21 @@ class LybicBackend(Backend):
 
     def close(self):
         """关闭客户端连接"""
+        if not hasattr(self, 'client') or not hasattr(self, 'loop'):
+            return
+
         try:
-            self.loop.run_until_complete(self.client.close())
+            if self.loop.is_running():
+                # Schedule close on the loop rather than blocking
+                future = asyncio.run_coroutine_threadsafe(self.client.close(), self.loop)
+                # Wait for completion with timeout
+                future.result(timeout=5.0)
+            else:
+                # Safe to run directly if loop is not running
+                try:
+                    self.loop.run_until_complete(self.client.close())
+                except RuntimeError:
+                    # If we can't use the existing loop, create a new one
+                    asyncio.run(self.client.close())
         except Exception as e:
             log.warning(f"Error closing Lybic client: {e}")

@@ -272,21 +272,20 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         finally:
             logger.info(f"Task {task_id} processing finished.")
 
-            # Record task execution duration
-            if task_id in self.task_start_times:
-                duration = time.time() - self.task_start_times[task_id]
-                self.metrics.record_task_execution_duration(duration)
-                async with self.task_lock:
+            # Clean up all task-related data while holding the lock to ensure consistency
+            async with self.task_lock:
+                # Record task execution duration
+                if task_id in self.task_start_times:
+                    duration = time.time() - self.task_start_times[task_id]
+                    self.metrics.record_task_execution_duration(duration)
                     del self.task_start_times[task_id]
 
-            # Clean up timing data
-            if task_id in self.task_created_times:
-                async with self.task_lock:
+                # Clean up timing data
+                if task_id in self.task_created_times:
                     del self.task_created_times[task_id]
 
-            # Clean up runtime task data to prevent memory leaks
-            if task_id in self.tasks:
-                async with self.task_lock:
+                # Clean up runtime task data to prevent memory leaks
+                if task_id in self.tasks:
                     del self.tasks[task_id]
 
             # Update active task count
@@ -612,54 +611,71 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         self.metrics.record_grpc_stream_connection("RunAgentInstruction", 1)
 
         task_future = None
+        task_created = False
 
-        async with self.task_lock:
-            active_tasks = await self.storage.count_active_tasks()
-            if active_tasks >= self.max_concurrent_task_num:
-                self.metrics.record_grpc_error("RunAgentInstruction", "RESOURCE_EXHAUSTED")
-                context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
-                context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
-                return
+        try:
+            async with self.task_lock:
+                active_tasks = await self.storage.count_active_tasks()
+                if active_tasks >= self.max_concurrent_task_num:
+                    self.metrics.record_grpc_error("RunAgentInstruction", "RESOURCE_EXHAUSTED")
+                    context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
+                    context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
+                    return
 
-            queue = asyncio.Queue()
-            agent = await self._make_agent(request)
-            backend_kwargs = await self._make_backend_kwargs(request)
-            max_steps = 50
-            if request.HasField("runningConfig") and request.runningConfig.steps:
-                max_steps = request.runningConfig.steps
+                queue = asyncio.Queue()
+                agent = await self._make_agent(request)
+                backend_kwargs = await self._make_backend_kwargs(request)
+                max_steps = 50
+                if request.HasField("runningConfig") and request.runningConfig.steps:
+                    max_steps = request.runningConfig.steps
 
-            # Store persistent data in storage
-            sandbox_info = self._sandbox_to_dict(backend_kwargs["sandbox"])
-            request_dict = json_format.MessageToDict(request, preserving_proto_field_name=True)
-            task_data = TaskData(
-                task_id=task_id,
-                status="pending",
-                query=request.instruction,
-                max_steps=max_steps,
-                sandbox_info=sandbox_info,
-                request_data=request_dict
-            )
-            await self.storage.create_task(task_data)
+                # Store persistent data in storage
+                sandbox_info = self._sandbox_to_dict(backend_kwargs["sandbox"])
+                request_dict = json_format.MessageToDict(request, preserving_proto_field_name=True)
+                task_data = TaskData(
+                    task_id=task_id,
+                    status="pending",
+                    query=request.instruction,
+                    max_steps=max_steps,
+                    sandbox_info=sandbox_info,
+                    request_data=request_dict
+                )
+                await self.storage.create_task(task_data)
+                
+                # Record task creation metrics
+                self.metrics.record_task_created("pending")
+                self.task_created_times[task_id] = time.time()
+                
+                # Store runtime-only data (agent, queue, future) in memory
+                self.tasks[task_id] = {
+                    "agent": agent,
+                    "queue": queue,
+                    "future": None,
+                    "query": request.instruction,
+                    "max_steps": max_steps,
+                }
+                task_created = True
+
+                # This property is used to pass sandbox information.
+                # It has now completed its mission and needs to be deleted, otherwise other backends may crash.
+                del backend_kwargs["sandbox"]
+
+                task_future = asyncio.create_task(self._run_task(task_id, backend_kwargs))
+                self.tasks[task_id]["future"] = task_future
+        except Exception as e:
+            logger.exception(f"Error initializing task {task_id}: {e}")
+            # Clean up if task was created in self.tasks but failed before starting
+            if task_created:
+                async with self.task_lock:
+                    self.tasks.pop(task_id, None)
+                    self.task_created_times.pop(task_id, None)
+
+
+            self.metrics.record_grpc_error("RunAgentInstruction", "INTERNAL")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"Failed to initialize task: {e}")
+            return
             
-            # Record task creation metrics
-            self.metrics.record_task_created("pending")
-            self.task_created_times[task_id] = time.time()
-            
-            # Store runtime-only data (agent, queue, future) in memory
-            self.tasks[task_id] = {
-                "agent": agent,
-                "queue": queue,
-                "future": None,
-                "query": request.instruction,
-                "max_steps": max_steps,
-            }
-
-            # This property is used to pass sandbox information.
-            # It has now completed its mission and needs to be deleted, otherwise other backends may crash.
-            del backend_kwargs["sandbox"]
-
-            task_future = asyncio.create_task(self._run_task(task_id, backend_kwargs))
-            self.tasks[task_id]["future"] = task_future
         try:
             async for msg in stream_manager.get_message_stream(task_id):
                 yield agent_pb2.TaskStream(
@@ -706,59 +722,73 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         # Record gRPC request
         self.metrics.record_grpc_request("RunAgentInstructionAsync")
 
-        async with self.task_lock:
-            active_tasks = await self.storage.count_active_tasks()
-            if active_tasks >= self.max_concurrent_task_num:
-                self.metrics.record_grpc_error("RunAgentInstructionAsync", "RESOURCE_EXHAUSTED")
-                context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
-                context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
-                return
+        task_created = False
+        try:
+            async with self.task_lock:
+                active_tasks = await self.storage.count_active_tasks()
+                if active_tasks >= self.max_concurrent_task_num:
+                    self.metrics.record_grpc_error("RunAgentInstructionAsync", "RESOURCE_EXHAUSTED")
+                    context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
+                    context.set_details(f"Max concurrent tasks ({self.max_concurrent_task_num}) reached.")
+                    return agent_pb2.RunAgentInstructionAsyncResponse(taskId="")
 
-            agent = await self._make_agent(request=request)
-            backend_kwargs = await self._make_backend_kwargs(request)
-            max_steps = 50
-            if request.HasField("runningConfig") and request.runningConfig.steps:
-                max_steps = request.runningConfig.steps
+                agent = await self._make_agent(request=request)
+                backend_kwargs = await self._make_backend_kwargs(request)
+                max_steps = 50
+                if request.HasField("runningConfig") and request.runningConfig.steps:
+                    max_steps = request.runningConfig.steps
 
-            # Create queue for this task
-            queue = asyncio.Queue()
+                # Create queue for this task
+                queue = asyncio.Queue()
 
-            # Store persistent data in storage
-            sandbox_info = self._sandbox_to_dict(backend_kwargs["sandbox"])
-            request_dict = json_format.MessageToDict(request, preserving_proto_field_name=True)
-            task_data = TaskData(
-                task_id=task_id,
-                status="pending",
-                query=request.instruction,
-                max_steps=max_steps,
-                sandbox_info=sandbox_info,
-                request_data=request_dict
-            )
-            await self.storage.create_task(task_data)
-            
-            # Record task creation metrics
-            self.metrics.record_task_created("pending")
-            self.task_created_times[task_id] = time.time()
-            
-            # Store runtime-only data in memory
-            self.tasks[task_id] = {
-                "agent": agent,
-                "queue": queue,
-                "future": None,
-                "query": request.instruction,
-                "max_steps": max_steps,
-            }
-            
-            # This property is used to pass sandbox information.
-            # It has now completed its mission and needs to be deleted, otherwise other backends may crash.
-            del backend_kwargs["sandbox"]
+                # Store persistent data in storage
+                sandbox_info = self._sandbox_to_dict(backend_kwargs["sandbox"])
+                request_dict = json_format.MessageToDict(request, preserving_proto_field_name=True)
+                task_data = TaskData(
+                    task_id=task_id,
+                    status="pending",
+                    query=request.instruction,
+                    max_steps=max_steps,
+                    sandbox_info=sandbox_info,
+                    request_data=request_dict
+                )
+                await self.storage.create_task(task_data)
+                
+                # Record task creation metrics
+                self.metrics.record_task_created("pending")
+                self.task_created_times[task_id] = time.time()
+                
+                # Store runtime-only data in memory
+                self.tasks[task_id] = {
+                    "agent": agent,
+                    "queue": queue,
+                    "future": None,
+                    "query": request.instruction,
+                    "max_steps": max_steps,
+                }
+                task_created = True
+                
+                # This property is used to pass sandbox information.
+                # It has now completed its mission and needs to be deleted, otherwise other backends may crash.
+                del backend_kwargs["sandbox"]
 
-            # Start the task in background
-            task_future = asyncio.create_task(self._run_task(task_id, backend_kwargs))
+                # Start the task in background
+                task_future = asyncio.create_task(self._run_task(task_id, backend_kwargs))
 
-            self.tasks[task_id]["future"] = task_future
+                self.tasks[task_id]["future"] = task_future
 
-        return agent_pb2.RunAgentInstructionAsyncResponse(taskId=task_id)
+            return agent_pb2.RunAgentInstructionAsyncResponse(taskId=task_id)
+        except Exception as e:
+            logger.exception(f"Error initializing async task {task_id}: {e}")
+            # Clean up if task was created in self.tasks but failed before starting
+            if task_created:
+                async with self.task_lock:
+                    self.tasks.pop(task_id, None)
+                    self.task_created_times.pop(task_id, None)
+            self.metrics.record_grpc_error("RunAgentInstructionAsync", "INTERNAL")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"Failed to initialize task: {e}")
+            return agent_pb2.RunAgentInstructionAsyncResponse(taskId="")
 
     async def QueryTaskStatus(self, request, context):
         """

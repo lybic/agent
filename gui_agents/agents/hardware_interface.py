@@ -3,6 +3,7 @@ from __future__ import annotations
 from gui_agents.agents.Backend.Backend import Backend
 from gui_agents.agents.Backend.ADBBackend import ADBBackend
 from gui_agents.agents.Backend.LybicBackend import LybicBackend
+from gui_agents.agents.Backend.LybicMobileBackend import LybicMobileBackend
 try:
     from gui_agents.agents.Backend.PyAutoGUIBackend import PyAutoGUIBackend
 except ImportError:
@@ -16,7 +17,7 @@ use to perform UI operations.  It is deliberately thin:
 
 *   Accepts one `Action` **or** a `List[Action]` (defined in *actions.py*).
 *   Delegates to a concrete *Backend* which knows how to translate the `Action`
-    into platform‑specific calls (PyAutoGUI, ADB, Lybic cloud device, …).
+    into platform-specific calls (PyAutoGUI, ADB, Lybic cloud device, …).
 *   Performs minimal capability checks + error propagation.
 
 The default backend implemented here is **PyAutoGUIBackend**.  
@@ -60,6 +61,7 @@ __all__ = [
     "PyAutoGUIBackend",
     "ADBBackend",
     "LybicBackend",
+    "LybicMobileBackend",
    # "PyAutoGUIVMwareBackend",
 ]
 
@@ -75,6 +77,7 @@ class HardwareInterface:
         "pyautogui": PyAutoGUIBackend,
         "adb": ADBBackend,
         "lybic": LybicBackend,
+        "lybic_mobile": LybicMobileBackend,
     }
     if PyAutoGUIBackend is not None:
         BACKEND_MAP["pyautogui_vmware"] = PyAutoGUIBackend
@@ -130,7 +133,7 @@ class HardwareInterface:
             actionDict: `Action` instance or list thereof.
         """
         """
-        Convenience helper – accept JSON-style dict(s) instead of Action objects.
+        Convenience helper - accept JSON-style dict(s) instead of Action objects.
 
         Parameters
         ----------

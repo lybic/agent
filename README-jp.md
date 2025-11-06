@@ -189,7 +189,7 @@ python gui_agents/cli_app.py [OPTIONS]
 
 ### オプション
 
-- `--backend [lybic|pyautogui|pyautogui_vmware]`: GUIを制御するために使用するバックエンドを指定します。デフォルトは`lybic`です。
+- `--backend [lybic|lybic_mobile|pyautogui|pyautogui_vmware]`: GUIを制御するために使用するバックエンドを指定します。デフォルトは`lybic`です。
 
 - `--query "YOUR_QUERY"`: オプション。実行時に入力できます。指定した場合、エージェントはクエリを実行して終了します。
 - `--max-steps NUMBER`: エージェントが実行できる最大ステップ数を設定します。デフォルトは`50`です。

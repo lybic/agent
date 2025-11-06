@@ -46,6 +46,12 @@ __all__ = [
     "Fail",
     "Screenshot",
     "Memorize",
+    "TouchTap",
+    "TouchDrag",
+    "TouchSwipe",
+    "TouchLongPress",
+    "AndroidHome",
+    "AndroidBack",
 ]
 
 T_Action = TypeVar("T_Action", bound="Action")
@@ -207,3 +213,43 @@ class Memorize(Action):
 @dataclass(slots=True)
 class Screenshot(Action):
     pass
+
+@dataclass(slots=True)
+class TouchTap(Action):
+    x: int
+    y: int
+    element_description: str
+
+@dataclass(slots=True)
+class TouchDrag(Action):
+    startX: int
+    startY: int
+    endX: int
+    endY: int
+    starting_description: str
+    ending_description: str
+
+@dataclass(slots=True)
+class TouchSwipe(Action):
+    x: int
+    y: int
+    direction: str
+    distance: int
+    element_description: str
+
+@dataclass(slots=True)
+class TouchLongPress(Action):
+    x: int
+    y: int
+    duration: int
+    element_description: str
+
+@dataclass(slots=True)
+class AndroidHome(Action):
+    pass
+
+@dataclass(slots=True)
+class AndroidBack(Action):
+    pass
+
+

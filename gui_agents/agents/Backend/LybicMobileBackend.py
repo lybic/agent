@@ -11,12 +11,13 @@ from PIL import Image
 
 from gui_agents.agents.Action import (
     Action,
-    Click,
-    DoubleClick,
-    Move,
-    Drag,
+    TouchTap,
+    TouchDrag,
+    TouchSwipe,
+    TouchLongPress,
+    AndroidHome,
+    AndroidBack,
     TypeText,
-    Scroll,
     Hotkey,
     Wait,
     Screenshot,
@@ -37,13 +38,9 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
-class LybicBackend(Backend):
-    """
-    基于官方Lybic Python SDK的Backend实现
-    支持与原LybicBackend相同的Action类型，但使用官方SDK替代HTTP调用
-    """
+class LybicMobileBackend(Backend):
     
-    _supported = {Click, DoubleClick, Move, Drag, TypeText, Scroll, Hotkey,
+    _supported = {TouchTap, TouchDrag, TouchSwipe, TouchLongPress, AndroidHome, AndroidBack, TypeText, Hotkey,
                   Wait, Screenshot, Memorize}
 
     def __init__(self, 
@@ -127,45 +124,31 @@ class LybicBackend(Backend):
     def __del__(self):
         """清理资源"""
         try:
-            if hasattr(self, 'client') and hasattr(self, 'loop'):
-                # Check if the loop is running in another thread
-                if self.loop.is_running():
-                    # Schedule close on the loop rather than blocking
-                    asyncio.run_coroutine_threadsafe(self.client.close(), self.loop)
-                else:
-                    # Safe to run directly if loop is not running
-                    try:
-                        self.loop.run_until_complete(self.client.close())
-                    except RuntimeError:
-                        # If we can't use the existing loop, create a new one
-                        try:
-                            asyncio.run(self.client.close())
-                        except Exception:
-                            pass  # Ignore cleanup errors in destructor
+            if hasattr(self, 'client'):
+                self.loop.run_until_complete(self.client.close())
         except Exception as e:
             log.warning(f"Error closing Lybic client: {e}")
 
     def execute(self, action: Action) -> Any:
-        """
-        执行Action，将其转换为Lybic SDK调用
-        """
         if not self.supports(type(action)):
             raise NotImplementedError(f"{type(action).__name__} unsupported")
         if not self.sandbox_id:
             raise RuntimeError("Sandbox ID is empty; create a sandbox first (precreate_sid or auto-create).")
 
-        if isinstance(action, Click):
-            return self._click(action)
-        elif isinstance(action, DoubleClick):
-            return self._double_click(action)
-        elif isinstance(action, Move):
-            return self._move(action)
-        elif isinstance(action, Drag):
-            return self._drag(action)
+        if isinstance(action, TouchTap):
+            return self._touchtap(action)
+        elif isinstance(action, TouchDrag):
+            return self._touchdrag(action)
+        elif isinstance(action, TouchSwipe):
+            return self._touchswipe(action)
+        elif isinstance(action, TouchLongPress):
+            return self._touchlongpress(action)
+        elif isinstance(action, AndroidHome):
+            return self._android_home(action)
+        elif isinstance(action, AndroidBack):
+            return self._android_back(action)
         elif isinstance(action, TypeText):
             return self._type(action)
-        elif isinstance(action, Scroll):
-            return self._scroll(action)
         elif isinstance(action, Hotkey):
             return self._hotkey(action)
         elif isinstance(action, Screenshot):
@@ -197,72 +180,107 @@ class LybicBackend(Backend):
         
         raise RuntimeError(f"Lybic SDK action failed after {self.max_retries + 1} attempts: {exc}") from exc
 
-    def _click(self, act: Click) -> dto.SandboxActionResponseDto:
+    def _touchtap(self, act: TouchTap) -> dto.SandboxActionResponseDto:
         """执行点击操作"""
-        click_action = dto.MouseClickAction(
-            type="mouse:click",
+        tap_action = dto.TouchTapAction(
+            type="touch:tap",
             x=dto.PixelLength(type="px", value=act.x),
             y=dto.PixelLength(type="px", value=act.y),
-            button=act.button,
-            holdKey=" ".join(act.holdKey) if act.holdKey else ""
         )
         
         action_dto = dto.ExecuteSandboxActionDto(
-            action=click_action,
+            action=tap_action,
             includeScreenShot=False,
             includeCursorPosition=False
         )
         
         return self._execute_with_retry(action_dto)
 
-    def _double_click(self, act: DoubleClick) -> dto.SandboxActionResponseDto:
-        """执行双击操作"""
-        double_click_action = dto.MouseDoubleClickAction(
-            type="mouse:doubleClick",
-            x=dto.PixelLength(type="px", value=act.x),
-            y=dto.PixelLength(type="px", value=act.y),
-            button=act.button,
-            holdKey=" ".join(act.holdKey) if act.holdKey else ""
-        )
-        
-        action_dto = dto.ExecuteSandboxActionDto(
-            action=double_click_action,
-            includeScreenShot=False,
-            includeCursorPosition=False
-        )
-        
-        return self._execute_with_retry(action_dto)
-
-    def _move(self, act: Move) -> dto.SandboxActionResponseDto:
-        """执行鼠标移动操作"""
-        move_action = dto.MouseMoveAction(
-            type="mouse:move",
-            x=dto.PixelLength(type="px", value=act.x),
-            y=dto.PixelLength(type="px", value=act.y),
-            holdKey=" ".join(act.holdKey) if act.holdKey else ""
-        )
-        
-        action_dto = dto.ExecuteSandboxActionDto(
-            action=move_action,
-            includeScreenShot=False,
-            includeCursorPosition=False
-        )
-        
-        return self._execute_with_retry(action_dto)
-
-    def _drag(self, act: Drag) -> dto.SandboxActionResponseDto:
+    def _touchdrag(self, act: TouchDrag) -> dto.SandboxActionResponseDto:
         """执行拖拽操作"""
-        drag_action = dto.MouseDragAction(
-            type="mouse:drag",
+        drag_action = dto.TouchDragAction(
+            type="touch:drag",
             startX=dto.PixelLength(type="px", value=act.startX),
             startY=dto.PixelLength(type="px", value=act.startY),
             endX=dto.PixelLength(type="px", value=act.endX),
             endY=dto.PixelLength(type="px", value=act.endY),
-            holdKey=" ".join(act.holdKey) if act.holdKey else ""
         )
         
         action_dto = dto.ExecuteSandboxActionDto(
             action=drag_action,
+            includeScreenShot=False,
+            includeCursorPosition=False
+        )
+        
+        return self._execute_with_retry(action_dto)
+
+    def _touchswipe(self, act: TouchSwipe) -> dto.SandboxActionResponseDto:
+        """执行滑动操作"""
+        if act.direction not in ["up", "down", "left", "right"]:
+            raise ValueError("Invalid direction for swipe action, must be 'up', 'down', 'left', or 'right'")
+
+        swipe_action = dto.TouchSwipeAction(
+            type="touch:swipe",
+            x=dto.PixelLength(type="px", value=act.x),
+            y=dto.PixelLength(type="px", value=act.y),
+            direction=act.direction,
+            distance=dto.PixelLength(type="px", value=act.distance),
+        )
+        
+        action_dto = dto.ExecuteSandboxActionDto(
+            action=swipe_action,
+            includeScreenShot=False,
+            includeCursorPosition=False
+        )
+        
+        return self._execute_with_retry(action_dto)
+
+    def _touchlongpress(self, act: TouchLongPress) -> dto.SandboxActionResponseDto:
+        """执行长按操作"""
+        duration = 80  # 默认值
+        if act.duration is not None:
+            if 1 <= act.duration <= 5000:
+                duration = act.duration
+            else:
+                raise ValueError("longPress duration must be between 1 and 5000")
+
+        longpress_action = dto.TouchLongPressAction(
+            type="touch:longPress",
+            x=dto.PixelLength(type="px", value=act.x),
+            y=dto.PixelLength(type="px", value=act.y),
+            duration=duration,
+        )
+        
+        action_dto = dto.ExecuteSandboxActionDto(
+            action=longpress_action,
+            includeScreenShot=False,
+            includeCursorPosition=False
+        )
+        
+        return self._execute_with_retry(action_dto)
+    
+    def _android_home(self, act: AndroidHome) -> dto.SandboxActionResponseDto:
+        """执行返回主屏幕操作"""
+        home_action = dto.AndroidHomeAction(
+            type="android:home",
+        )
+        
+        action_dto = dto.ExecuteSandboxActionDto(
+            action=home_action,
+            includeScreenShot=False,
+            includeCursorPosition=False
+        )
+        
+        return self._execute_with_retry(action_dto)
+    
+    def _android_back(self, act: AndroidBack) -> dto.SandboxActionResponseDto:
+        """执行返回操作"""
+        back_action = dto.AndroidBackAction(
+            type="android:back",
+        )
+        
+        action_dto = dto.ExecuteSandboxActionDto(
+            action=back_action,
             includeScreenShot=False,
             includeCursorPosition=False
         )
@@ -279,34 +297,6 @@ class LybicBackend(Backend):
         
         action_dto = dto.ExecuteSandboxActionDto(
             action=type_action,
-            includeScreenShot=False,
-            includeCursorPosition=False
-        )
-        
-        return self._execute_with_retry(action_dto)
-
-    def _scroll(self, act: Scroll) -> dto.SandboxActionResponseDto:
-        """执行滚动操作"""
-        # 根据滚动方向确定stepVertical和stepHorizontal
-        step_vertical = 0
-        step_horizontal = 0
-        
-        if act.stepVertical is not None:
-            step_vertical = act.stepVertical
-        if act.stepHorizontal is not None:
-            step_horizontal = act.stepHorizontal
-            
-        scroll_action = dto.MouseScrollAction(
-            type="mouse:scroll",
-            x=dto.PixelLength(type="px", value=act.x),
-            y=dto.PixelLength(type="px", value=act.y),
-            stepVertical=step_vertical,
-            stepHorizontal=step_horizontal,
-            holdKey=" ".join(act.holdKey) if act.holdKey else ""
-        )
-        
-        action_dto = dto.ExecuteSandboxActionDto(
-            action=scroll_action,
             includeScreenShot=False,
             includeCursorPosition=False
         )
@@ -360,27 +350,13 @@ class LybicBackend(Backend):
 
     def get_sandbox_id(self) -> str:
         """获取当前沙盒ID"""
-        if self.sandbox_id is None:
+        if not self.sandbox_id:
             raise RuntimeError("Sandbox ID is not available")
         return self.sandbox_id
 
     def close(self):
         """关闭客户端连接"""
-        if not hasattr(self, 'client') or not hasattr(self, 'loop'):
-            return
-
         try:
-            if self.loop.is_running():
-                # Schedule close on the loop rather than blocking
-                future = asyncio.run_coroutine_threadsafe(self.client.close(), self.loop)
-                # Wait for completion with timeout
-                future.result(timeout=5.0)
-            else:
-                # Safe to run directly if loop is not running
-                try:
-                    self.loop.run_until_complete(self.client.close())
-                except RuntimeError:
-                    # If we can't use the existing loop, create a new one
-                    asyncio.run(self.client.close())
+            self.loop.run_until_complete(self.client.close())
         except Exception as e:
             log.warning(f"Error closing Lybic client: {e}")

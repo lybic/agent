@@ -109,7 +109,7 @@ class AgentS2(UIAgent):
 
     def __init__(
         self,
-        platform: str = platform.system().lower(),
+        platform: str = platform.system(),
         screen_size: List[int] = [1920, 1080],
         memory_root_path: str = os.getcwd(),
         memory_folder_name: str = "kb_s2",
@@ -126,6 +126,7 @@ class AgentS2(UIAgent):
         Parameters:
             tools_config (dict | None): Optional pre-loaded tools configuration; when present it is transformed into `Tools_dict`. Omit to load configuration from disk.
         """
+        platform = platform.lower()
         super().__init__(
             platform,
         )
@@ -436,7 +437,8 @@ class AgentS2(UIAgent):
                 current_width, current_height = self.global_state.get_screen_size()
                 self.grounding.reset_screen_size(current_width, current_height)
                 self.grounding.assign_coordinates(executor_info["executor_plan"], observation)
-                plan_code = parse_single_code_from_string(executor_info["executor_plan"].split("Grounded Action")[-1])
+                raw_grounded_action = executor_info["executor_plan"].split("Grounded Action")[-1]
+                plan_code = parse_single_code_from_string(raw_grounded_action)
                 plan_code = sanitize_code(plan_code)
                 plan_code = extract_first_agent_function(plan_code)
                 agent: Grounding = self.grounding # type: ignore
@@ -473,7 +475,9 @@ class AgentS2(UIAgent):
                     operation="grounding_error",
                     data={
                         "content": str(e),
-                        "fallback_action": plan_code
+                        "fallback_action": plan_code,
+                        "raw_grounded_action": (raw_grounded_action if 'raw_grounded_action' in locals() else None),
+                        "plan": executor_info.get("executor_plan", "")
                     }
                 )
 
@@ -691,18 +695,18 @@ class AgentS2(UIAgent):
         return subtask_trajectory
 
 class AgentSFast(UIAgent):
-    """Fast version of AgentS2 that directly generates actions using the fast_action_generator tool"""
+    """Fast version of AgentS2 that generates a description-based plan with reflection, then grounds to precise coordinates before execution"""
 
     def __init__(
         self,
-        platform: str = platform.system().lower(),
+        platform: str = platform.system(),
         screen_size: List[int] = [1920, 1080],
         memory_root_path: str = os.getcwd(),
         memory_folder_name: str = "kb_s2",
         kb_release_tag: str = "v0.2.2",
         enable_takeover: bool = False,
         enable_search: bool = True,
-        enable_reflection: bool = True,
+        enable_reflection: bool = False,
         tools_config: dict | None = None,
         # enable_reflection: bool = False,
     ):
@@ -721,6 +725,7 @@ class AgentSFast(UIAgent):
             tools_config (dict | None): Optional pre-loaded tools configuration; if omitted, configuration is loaded from disk.
         
         """
+        platform = platform.lower()
         super().__init__(
             platform,
         )
@@ -787,13 +792,10 @@ class AgentSFast(UIAgent):
 
         # First check global search switch
         if not self.enable_search:
-            # If global search is disabled, force disable search for this tool
             tool_params["enable_search"] = False
             logger.info(f"Configuring {self.fast_action_generator_tool} with search DISABLED (global switch off)")
         else:
-            # If global search is enabled, check tool-specific config
             if tool_config and "enable_search" in tool_config:
-                # Use enable_search from config file
                 enable_search = tool_config.get("enable_search", False)
                 tool_params["enable_search"] = enable_search
                 tool_params["search_provider"] = tool_config.get("search_provider", "bocha")
@@ -809,6 +811,10 @@ class AgentSFast(UIAgent):
         # Merge with search-related parameters
         all_params = {**tool_config, **tool_params}
 
+        # Remove provider and model from all_params to avoid duplicate arguments
+        all_params.pop("provider", None)
+        all_params.pop("model", None)
+
         auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
         for key in auth_keys:
             if key in all_params:
@@ -822,25 +828,38 @@ class AgentSFast(UIAgent):
             **all_params
         )
 
+        # Initialize and register reflection agent if reflection is enabled
         if self.enable_reflection:
             self.reflection_agent = Tools()
+            
+            # Get base config from Tools_dict
+            reflector_tool_config = self.Tools_dict["traj_reflector"].copy()
+            reflector_provider = reflector_tool_config.get("provider")
+            reflector_model = reflector_tool_config.get("model")
+            
+            # Remove provider and model from reflector_tool_config to avoid duplicate arguments
+            reflector_tool_config.pop("provider", None)
+            reflector_tool_config.pop("model", None)
+            
+            auth_keys = ['api_key', 'base_url', 'endpoint_url', 'azure_endpoint', 'api_version']
+            for key in auth_keys:
+                if key in reflector_tool_config:
+                    logger.info(f"AgentSFast.reset: Setting {key} for traj_reflector")
+            
+            # Register the reflection tool
             self.reflection_agent.register_tool(
-                "traj_reflector", self.Tools_dict["traj_reflector"]["provider"],
-                self.Tools_dict["traj_reflector"]["model"])
-            self.reflections = []
-            self.planner_history = []
+                "traj_reflector",
+                reflector_provider,
+                reflector_model,
+                **reflector_tool_config
+            )
 
-        self.grounding_width, self.grounding_height = self.fast_action_generator.tools[self.fast_action_generator_tool].get_grounding_wh()
-        if self.grounding_width is None or self.grounding_height is None:
-            self.grounding_width = self.screen_size[0]
-            self.grounding_height = self.screen_size[1]
-        self.grounding = FastGrounding(
+        # Use normal Grounding (description -> coordinates) instead of direct coordinate execution
+        self.grounding = Grounding(
             Tools_dict=self.Tools_dict,
             platform=self.platform,
             width=self.screen_size[0],
-            height=self.screen_size[1],
-            grounding_width=self.grounding_width,
-            grounding_height=self.grounding_height
+            height=self.screen_size[1]
         )
 
         # Reset state variables
@@ -852,6 +871,9 @@ class AgentSFast(UIAgent):
         else:
             self.global_state: GlobalState = Registry.get("GlobalStateStore") # type: ignore
         self.latest_action = None
+        self.last_exec_plan_code: Optional[str] = None
+        self.last_exec_repeat: int = 0
+        self.raw_grounded_action: Optional[str] = None
 
         # Pass task_id to tools and components if available
         self.fast_action_generator.task_id = self.task_id
@@ -951,7 +973,6 @@ class AgentSFast(UIAgent):
                     })
 
         agent_log = agent_log_to_string(self.global_state.get_agent_log())
-        
         generator_message = textwrap.dedent(f"""
             Task Description: {instruction}
         """)
@@ -976,7 +997,7 @@ class AgentSFast(UIAgent):
 
         self.global_state.log_operation(
             module="agent",
-            operation="fast_action_execution",
+            operation="fast_planning_execution",
             data={
                 "duration": fast_action_execution_time,
                 "tokens": total_tokens,
@@ -994,54 +1015,72 @@ class AgentSFast(UIAgent):
         current_width, current_height = self.global_state.get_screen_size()
         self.grounding.reset_screen_size(current_width, current_height)
         try:
-            code_pattern = r"```python\s*(.*?)\s*```"
-            import re
-            match = re.search(code_pattern, plan, re.DOTALL)
+            grounding_start_time = time.time()
+            self.raw_grounded_action = plan.split("Grounded Action")[-1]
+            plan_code = parse_single_code_from_string(self.raw_grounded_action)
+            self.grounding.assign_coordinates(plan, observation)
+            plan_code = sanitize_code(plan_code)
+            plan_code = extract_first_agent_function(plan_code)
+            agent: Grounding = self.grounding  # type: ignore
+            exec_code = eval(plan_code)  # type: ignore
+            grounding_execution_time = time.time() - grounding_start_time
+
+            self.global_state.log_operation(
+                module="agent",
+                operation="fast_grounding_execution",
+                data={
+                    "duration": grounding_execution_time,
+                    "content": plan_code
+                }
+            )
+
+            actions = [exec_code]
+            self.latest_action = plan_code
             
-            if match:
-                action_code = match.group(1).strip()
-                logger.info("Extracted action code: %s", action_code)
-                
-                agent: FastGrounding = self.grounding # type: ignore
-                exec_code = eval(action_code) # type: ignore
-                actions = [exec_code]
-                self.latest_action = action_code
+            if plan_code == (self.last_exec_plan_code or None):
+                self.last_exec_repeat += 1
             else:
-                logger.warning("No code block found, trying to parse the entire response")
-                action_code = plan.strip()
-                
-                if action_code.startswith("agent."):
-                    agent: FastGrounding = self.grounding # type: ignore
-                    exec_code = eval(action_code) # type: ignore
-                    actions = [exec_code]
-                    self.latest_action = action_code
-                else:
-                    logger.error("Could not parse action, using wait action")
-                    self.global_state.add_agent_log({
-                        "type": "Wrong action code format",
-                        "content": action_code
-                    })
-                    agent: FastGrounding = self.grounding # type: ignore
-                    exec_code = eval("agent.wait(1000)") # type: ignore
-                    actions = [exec_code]
-                    self.latest_action = "agent.wait(1000)"
-        except Exception as e:
-            logger.error("Error in parsing action code: %s", e)
-            self.global_state.add_agent_log({
-                    "type": "Error in parsing action code",
-                    "content": str(e)  # Convert Exception to string
+                self.last_exec_plan_code = plan_code
+                self.last_exec_repeat = 1
+            if self.last_exec_repeat >= 3:
+                warning_msg = f"Action repeated {self.last_exec_repeat} times, possible stuck: {plan_code}"
+                logger.warning(warning_msg)
+                self.global_state.add_agent_log({
+                    "type": "warning",
+                    "content": warning_msg
                 })
-            agent: FastGrounding = self.grounding # type: ignore
-            exec_code = eval("agent.wait(1000)") # type: ignore
+        except Exception as e:
+            logger.error("Error in parsing/grounding action code: %s | raw_grounded_action: %s", e, self.raw_grounded_action)
+            self.global_state.add_agent_log({
+                "type": "Error in parsing action code",
+                "content": f"error={str(e)}; latest_grounded_action={self.raw_grounded_action}"
+            })
+            agent: Grounding = self.grounding  # type: ignore
+            exec_code = eval("agent.wait(1000)")  # type: ignore
             actions = [exec_code]
             self.latest_action = "agent.wait(1000)"
+            
+            if self.latest_action == (self.last_exec_plan_code or None):
+                self.last_exec_repeat += 1
+            else:
+                self.last_exec_plan_code = self.latest_action
+                self.last_exec_repeat = 1
+            if self.last_exec_repeat >= 3:
+                warning_msg = f"Action repeated {self.last_exec_repeat} times, possible stuck: {self.raw_grounded_action}"
+                logger.warning(warning_msg)
+                self.global_state.add_agent_log({
+                    "type": "warning",
+                    "content": warning_msg
+                })
             
             self.global_state.log_operation(
                 module="agent",
                 operation="fast_action_error",
                 data={
                     "content": str(e),
-                    "fallback_action": "agent.wait(1000)"
+                    "fallback_action": "agent.wait(1000)",
+                    "raw_grounded_action": self.raw_grounded_action,
+                    "plan": plan
                 }
             )
 
@@ -1055,7 +1094,7 @@ class AgentSFast(UIAgent):
 
         executor_info = {
             "executor_plan": plan,
-            "reflection": reflection or "",
+            "reflection": "",
             "plan_code": self.latest_action
         }
 

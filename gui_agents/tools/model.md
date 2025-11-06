@@ -179,31 +179,32 @@
 
 **OpenAI Models:**
 
-- `gpt-4.1`
-- `gpt-4.1-mini`
-- `o1`
-- `o1-pro`
-- `o1-mini`
-- `o3`
-- `o3-pro`
-- `o3-mini`
-- `o4-mini`
+- `openai/gpt-5`
+- `openai/gpt-4.1`
+- `openai/gpt-4.1-mini`
+- `openai/o1`
+- `openai/o1-pro`
+- `openai/o1-mini`
+- `openai/o3`
+- `openai/o3-pro`
+- `openai/o3-mini`
+- `openai/o4-mini`
 
 **xAI Grok Models:**
 
-- `grok-4`
-- `grok-3`
-- `grok-3-mini`
+- `x-ai/grok-4`
+- `x-ai/grok-3`
+- `x-ai/grok-3-mini`
 
 **Anthropic Claude Models:**
 
-- `claude-opus-4`
-- `claude-sonnet-4`
+- `anthropic/claude-opus-4`
+- `anthropic/claude-sonnet-4`
 
 **Google Gemini Models:**
 
-- `gemini-2.5-flash`
-- `gemini-2.5-pro`
+- `google/gemini-2.5-flash`
+- `google/gemini-2.5-pro`
 
 📚 **Reference Link:** <https://openrouter.ai/models>
 

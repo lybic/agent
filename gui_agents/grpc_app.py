@@ -169,6 +169,14 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
         return task_registry, timestamp_dir
 
+    def _backend_kwargs_get_agent_backend(self,backend_kwargs)->str:
+        arg =  backend_kwargs.get("platform","windows").lower()
+        if arg == 'windows' or arg == 'ubuntu':
+            return 'lybic'
+        elif arg == 'android':
+            return 'lybic_mobile'
+        raise ValueError(f"Unsupported platform for backend: {arg}")
+
     async def _run_task(self, task_id: str, backend_kwargs):
         """
         Run the lifecycle of a single agent task: mark it running, execute the agent, record final state, emit stream messages, and unregister the task.
@@ -227,7 +235,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             if hasattr(agent, 'set_task_id'):
                 agent.set_task_id(task_id)
 
-            hwi = HardwareInterface(backend='lybic', **backend_kwargs)
+            hwi = HardwareInterface(backend=self._backend_kwargs_get_agent_backend(backend_kwargs), **backend_kwargs)
 
             # We need to set the registry for the main thread context before reset
             Registry.set_task_registry(task_id, task_registry)
@@ -413,6 +421,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         platform_map = {
             agent_pb2.SandboxOS.WINDOWS: "Windows",
             agent_pb2.SandboxOS.LINUX: "Ubuntu",
+            agent_pb2.SandboxOS.ANDROID: "Android",
         }
         backend = "lybic"
         shape = "beijing-2c-4g-cpu" # default shape # todo: check shape exist by using lybic sdk >=0.8.0b3
@@ -425,7 +434,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         sid = ''
         sandbox_pb = None
 
-        if backend == 'lybic':
+        if backend == 'lybic' or backend=='lybic_mobile':
             auth_info = (request.runningConfig.authorizationInfo
                          if request.HasField("runningConfig") and request.runningConfig.HasField("authorizationInfo")
                          else self.global_common_config.authorizationInfo)
@@ -459,11 +468,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 platform_str = platform_map.get(request.sandbox.os, platform.system())
 
         backend_kwargs["sandbox"] = sandbox_pb
-        backend_kwargs["platform"] = platform_str
+        backend_kwargs["platform"] = platform_str # windows,android,linux
         backend_kwargs["precreate_sid"] = sid
 
         # Add Lybic authorization info if available
-        if backend == 'lybic':
+        if backend == 'lybic' or backend=='lybic_mobile':
             auth_info = (request.runningConfig.authorizationInfo
                          if request.HasField("runningConfig") and request.runningConfig.HasField("authorizationInfo")
                          else self.global_common_config.authorizationInfo)

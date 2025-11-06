@@ -23,7 +23,77 @@ def agent_action(func):
     return func
 
 
-class Grounding(ACI):
+class MobileActionsMixin:
+    """
+    Mixin class that provides mobile-specific actions to avoid code duplication.
+    It is intended to be used by classes that implement `resize_coordinates` and `_record_passive_memory`.
+    """
+    def _create_touch_tap_action(self, x, y, element_description):
+        actionDict = {
+            "type": "TouchTap",
+            "x": x,
+            "y": y,
+            "element_description": element_description,
+        }
+        action_details = f"Tapped at coordinates ({x}, {y}) with element: {element_description}"
+        self._record_passive_memory("TouchTap", action_details)
+        return actionDict
+
+    def _create_touch_drag_action(self, x1, y1, x2, y2, starting_description, ending_description):
+        actionDict = {
+            "type": "TouchDrag",
+            "startX": x1,
+            "startY": y1,
+            "endX": x2,
+            "endY": y2,
+            "starting_description": starting_description,
+            "ending_description": ending_description
+        }
+        action_details = f"Dragged from ({x1}, {y1}) to ({x2}, {y2}), starting: {starting_description}, ending: {ending_description}"
+        self._record_passive_memory("TouchDrag", action_details)
+        return actionDict
+
+    def _create_touch_swipe_action(self, x, y, direction, element_description):
+        actionDict = {
+            "type": "TouchSwipe",
+            "x": x,
+            "y": y,
+            "direction": direction,
+            "distance": 300,
+            "element_description": element_description,
+        }
+        action_details = f"Swiped at coordinates ({x}, {y}) on element: {element_description} in direction {direction} "
+        self._record_passive_memory("TouchSwipe", action_details)
+        return actionDict
+
+    def _create_touch_longpress_action(self, x, y, duration, element_description):
+        actionDict = {
+            "type": "TouchLongPress",
+            "x": x,
+            "y": y,
+            "duration": duration,
+            "element_description": element_description,
+        }
+        action_details = f"Long pressed at coordinates ({x}, {y}) with element: {element_description} for {duration}ms"
+        self._record_passive_memory("TouchLongPress", action_details)
+        return actionDict
+
+    @agent_action
+    def android_home(
+        self,
+    ):
+        actionDict = {"type": "AndroidHome"}
+        return actionDict
+
+    @agent_action
+    def android_back(
+        self,
+    ):
+        actionDict = {"type": "AndroidBack"}
+        return actionDict
+
+
+class Grounding(ACI, MobileActionsMixin):
 
     def __init__(
         self,
@@ -109,7 +179,24 @@ class Grounding(ACI):
         grounding_start_time = time.time()
         self.grounding_model.tools["grounding"].llm_agent.reset()
         prompt = (
-            f"Task: Visual Grounding - Locate and return coordinates\n Query:{ref_expr}\n Instructions: 1. Carefully analyze the provided screenshot image \n 2. Locate the EXACT element/area described in the query \n 3. Return ONLY the pixel coordinates [x, y] of one representative point within the target area \n 4. Choose a point that is clearly inside the described element/region \n 5. Coordinates must be integers representing pixel positions on the image \n 6. If the described element has multiple instances, select the most prominent or central one 7. - If this appears to be for dragging (selecting text, moving items, etc.): * For START points: Position slightly to the LEFT of text/content in empty space  * For END points: Position slightly to the RIGHT of text/content in empty space  * Avoid placing coordinates directly ON text characters to prevent text selection issues  * Keep offset minimal (3-5 pixels) - don't go too far from the target area  * Still return only ONE coordinate as requested \n Output Format: Return only two integers separated by comma, like: (900, 400)\n Important Notes: - Focus on the main descriptive elements in the query (colors, positions, objects) - Ignore any additional context that doesn't help locate the target - The returned point should be clickable/actionable within the target area \n CRITICAL REQUIREMENTS: - MUST return exactly ONE coordinate pair under ALL circumstances - NO explanations, NO multiple coordinates, NO additional text \n"
+            f"Task: Visual Grounding - Locate and return coordinates\n"
+            f"Query: {ref_expr}\n"
+            "Instructions: "
+            "1. Carefully analyze the provided screenshot image. "
+            "2. Locate the EXACT element/area described in the query. "
+            "3. Return ONLY the pixel coordinates [x, y] of one representative point strictly inside the target area. "
+            "4. Choose a point that is clearly inside the described element/region "
+            "5. Coordinates must be integers representing pixel positions on the image. "
+            "6. If the described element has multiple instances, select the most prominent or central one "
+            "7. If this appears to be for dragging (selecting text, moving items, etc.): For START points: Position slightly to the LEFT of text/content in empty space For END points: Position slightly to the RIGHT of text/content in empty space Avoid placing coordinates directly ON text characters to prevent text selection issues Keep offset minimal (3-5 pixels) - don't go too far from the target area Still return only ONE coordinate as requested \nStill return only ONE coordinate as requested \n"
+            "Output Format: Return only two integers separated by comma, like: (900, 400)\n"
+            "Important Notes: "
+            "- Focus on the main descriptive elements in the query (colors, positions, objects) "
+            "- Ignore any additional context "
+            "- The returned point should be clickable/actionable within the target area \n"
+            "CRITICAL REQUIREMENTS: "
+            "- MUST return exactly ONE coordinate pair under ALL circumstances "
+            "- NO explanations, NO multiple coordinates, NO additional text \n"
         )
         response, total_tokens, cost_string = self.grounding_model.execute_tool(
             "grounding", {
@@ -147,10 +234,13 @@ class Grounding(ACI):
             raise RuntimeError(f"Error in parsing grounded action: {e}") from e
 
         if (function_name in [
-                "agent.click", "agent.doubleclick", "agent.move", "agent.scroll"
+                "agent.click", "agent.doubleclick", "agent.move", "agent.scroll",
+                "agent.touch_tap", "agent.touch_swipe", "agent.touch_longpress",
         ] and len(args) >= 1 and args[0] is not None):
             self.coords1 = self.generate_coords(args[0], obs)
-        elif function_name == "agent.drag" and len(args) >= 2:
+        elif (function_name in [
+                "agent.drag", "agent.touch_drag",
+        ] and len(args) >= 2):
             self.coords1 = self.generate_coords(args[0], obs)
             self.coords2 = self.generate_coords(args[1], obs)
 
@@ -445,8 +535,44 @@ class Grounding(ACI):
         actionDict = {"type": "UserTakeover", "message": message}
         return actionDict
 
+    @agent_action
+    def touch_tap(
+        self,
+        element_description: str,
+    ):
+        x, y = self.resize_coordinates(self.coords1)  # type: ignore
+        return self._create_touch_tap_action(x, y, element_description)
 
-class FastGrounding(ACI):
+    @agent_action
+    def touch_drag(
+        self,
+        starting_description: str,
+        ending_description: str,
+    ):
+        x1, y1 = self.resize_coordinates(self.coords1)  # type: ignore
+        x2, y2 = self.resize_coordinates(self.coords2)  # type: ignore
+        return self._create_touch_drag_action(x1, y1, x2, y2, starting_description, ending_description)
+
+    @agent_action
+    def touch_swipe(
+        self,
+        direction: str,
+        element_description: str,
+    ):
+        x, y = self.resize_coordinates(self.coords1)  # type: ignore
+        return self._create_touch_swipe_action(x, y, direction, element_description)
+
+    @agent_action
+    def touch_longpress(
+        self,
+        element_description: str,
+        duration: int = 2000,
+    ):
+        x, y = self.resize_coordinates(self.coords1)  # type: ignore
+        return self._create_touch_longpress_action(x, y, duration, element_description)
+
+
+class FastGrounding(ACI, MobileActionsMixin):
 
     def __init__(
         self,
@@ -696,3 +822,53 @@ class FastGrounding(ACI):
         self.global_state.set_running_state("stopped")
         actionDict = {"type": "UserTakeover", "message": message}
         return actionDict
+
+    @agent_action
+    def touch_tap(
+        self,
+        x: int,
+        y: int,
+        element_description: str = "",
+    ):
+        x, y = self.resize_coordinates([x, y])
+        return self._create_touch_tap_action(x, y, element_description or f"Coordinates ({x}, {y})")
+
+    @agent_action
+    def touch_drag(
+        self,
+        startX: int,
+        startY: int,
+        endX: int,
+        endY: int,
+        starting_description: str = "",
+        ending_description: str = "",
+    ):
+        startX, startY = self.resize_coordinates([startX, startY])
+        endX, endY = self.resize_coordinates([endX, endY])
+        return self._create_touch_drag_action(
+            startX, startY, endX, endY,
+            starting_description or f"Coordinates ({startX}, {startY})",
+            ending_description or f"Coordinates ({endX}, {endY})"
+        )
+
+    @agent_action
+    def touch_swipe(
+        self,
+        x: int,
+        y: int,
+        direction: str,
+        element_description: str = "",
+    ):
+        x, y = self.resize_coordinates([x, y])
+        return self._create_touch_swipe_action(x, y, direction, element_description or f"Coordinates ({x}, {y})")
+
+    @agent_action
+    def touch_longpress(
+        self,
+        x: int,
+        y: int,
+        element_description: str = "",
+        duration: int = 2000,
+    ):
+        x, y = self.resize_coordinates([x, y])
+        return self._create_touch_longpress_action(x, y, duration, element_description or f"Coordinates ({x}, {y})")

@@ -25,6 +25,11 @@ from ..agents.hardware_interface import HardwareInterface
 from ..store.registry import Registry
 from ..agents.global_state import GlobalState
 
+# Import backend classes for destroy_sandbox functionality
+from ..agents.Backend.LybicBackend import LybicBackend
+from ..agents.Backend.LybicMobileBackend import LybicMobileBackend
+
+
 
 class AgentService:
     """
@@ -337,8 +342,6 @@ class AgentService:
             # Destroy sandbox if requested (only for Lybic backend)
             if destroy_sandbox:
                 try:
-                    from gui_agents.agents.Backend.LybicBackend import LybicBackend
-                    from gui_agents.agents.Backend.LybicMobileBackend import LybicMobileBackend
                     if isinstance(hwi.backend, (LybicBackend, LybicMobileBackend)):
                         self.logger.info("Destroying sandbox as requested...")
                         hwi.backend.destroy_sandbox()
@@ -391,8 +394,6 @@ class AgentService:
             # Destroy sandbox if requested (only for Lybic backend)
             if destroy_sandbox:
                 try:
-                    from gui_agents.agents.Backend.LybicBackend import LybicBackend
-                    from gui_agents.agents.Backend.LybicMobileBackend import LybicMobileBackend
                     if isinstance(hwi.backend, (LybicBackend, LybicMobileBackend)):
                         self.logger.info("[Fast Mode] Destroying sandbox as requested...")
                         hwi.backend.destroy_sandbox()

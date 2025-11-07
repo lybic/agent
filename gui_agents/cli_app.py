@@ -405,7 +405,7 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
         auto_analyze_execution(timestamp_dir)
         
         # Destroy sandbox if requested (only for Lybic backend)
-        if destroy_sandbox and (hwi_para.backend == "lybic" or isinstance(hwi_para.backend, LybicBackend)):
+        if destroy_sandbox:
             try:
                 logger.info("Destroying sandbox as requested...")
                 from gui_agents.agents.Backend.LybicMobileBackend import LybicMobileBackend
@@ -548,7 +548,7 @@ def run_agent_fast(agent,
         auto_analyze_execution(timestamp_dir)
         
         # Destroy sandbox if requested (only for Lybic backend)
-        if destroy_sandbox and (hwi_para.backend == "lybic" or isinstance(hwi_para.backend, LybicBackend)):
+        if destroy_sandbox:
             try:
                 logger.info("[Fast Mode] Destroying sandbox as requested...")
                 from gui_agents.agents.Backend.LybicMobileBackend import LybicMobileBackend

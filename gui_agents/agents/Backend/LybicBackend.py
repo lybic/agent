@@ -365,7 +365,25 @@ class LybicBackend(Backend):
         return self.sandbox_id
 
     def destroy_sandbox(self):
-        """销毁当前沙盒"""
+        """
+        Destroy the current sandbox using the Lybic SDK.
+        
+        This method destroys the sandbox associated with this backend instance.
+        Pre-created sandboxes (those provided via precreate_sid) are NOT destroyed
+        to prevent accidental deletion of shared or persistent sandboxes.
+        
+        The method handles both running and non-running event loops properly
+        and includes comprehensive error handling with logging.
+        
+        Raises:
+            RuntimeError: If there are issues executing the async delete operation
+            Exception: Any exceptions from the Lybic SDK delete API are caught and logged
+        
+        Note:
+            - Only sandboxes created by this instance are destroyed
+            - Pre-created sandboxes are skipped with an informational log
+            - Errors during destruction are logged but not re-raised
+        """
         if not self.sandbox_id:
             log.warning("No sandbox ID available to destroy")
             return

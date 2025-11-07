@@ -670,9 +670,6 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 }
                 task_created = True
 
-                # Add destroy_sandbox to backend_kwargs
-                backend_kwargs["destroy_sandbox"] = destroy_sandbox
-                
                 # This property is used to pass sandbox information.
                 # It has now completed its mission and needs to be deleted, otherwise other backends may crash.
                 del backend_kwargs["sandbox"]

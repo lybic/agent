@@ -41,6 +41,7 @@ class TaskRequest:
     enable_takeover: bool = False
     enable_search: bool = True
     timeout: int = 3600  # 1 hour default timeout
+    destroy_sandbox: bool = False  # Destroy sandbox after task completion
     config: Optional[Dict[str, Any]] = None
     
     def __post_init__(self):

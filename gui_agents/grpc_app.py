@@ -212,6 +212,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             agent = task_info["agent"]
             steps = task_info["max_steps"]
             query = task_info["query"]
+            destroy_sandbox = task_info.get("destroy_sandbox", False)
 
             # Register task with stream manager
             await stream_manager.register_task(task_id)
@@ -245,9 +246,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             # Run the blocking function in a separate thread, passing the context
             mode: InstanceMode | None = backend_kwargs.get("mode")
             if mode and mode == InstanceMode.NORMAL:
-                await asyncio.to_thread(app.run_agent_normal, agent, query, hwi, steps, False, task_id=task_id, task_registry=task_registry)
+                await asyncio.to_thread(app.run_agent_normal, agent, query, hwi, steps, False, destroy_sandbox, task_id=task_id, task_registry=task_registry)
             else:
-                await asyncio.to_thread(app.run_agent_fast, agent, query, hwi, steps, False, task_id=task_id, task_registry=task_registry)
+                await asyncio.to_thread(app.run_agent_fast, agent, query, hwi, steps, False, destroy_sandbox, task_id=task_id, task_registry=task_registry)
 
             # The final state is now determined inside the thread. We'll assume success if no exception.
             final_state = "completed"
@@ -637,6 +638,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 max_steps = 50
                 if request.HasField("runningConfig") and request.runningConfig.steps:
                     max_steps = request.runningConfig.steps
+                
+                # Get destroy_sandbox parameter (default: False)
+                destroy_sandbox = request.destroySandbox if request.HasField("destroySandbox") else False
 
                 # Store persistent data in storage
                 sandbox_info = self._sandbox_to_dict(backend_kwargs["sandbox"])
@@ -662,9 +666,13 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                     "future": None,
                     "query": request.instruction,
                     "max_steps": max_steps,
+                    "destroy_sandbox": destroy_sandbox,
                 }
                 task_created = True
 
+                # Add destroy_sandbox to backend_kwargs
+                backend_kwargs["destroy_sandbox"] = destroy_sandbox
+                
                 # This property is used to pass sandbox information.
                 # It has now completed its mission and needs to be deleted, otherwise other backends may crash.
                 del backend_kwargs["sandbox"]
@@ -746,6 +754,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 max_steps = 50
                 if request.HasField("runningConfig") and request.runningConfig.steps:
                     max_steps = request.runningConfig.steps
+                
+                # Get destroy_sandbox parameter (default: False)
+                destroy_sandbox = request.destroySandbox if request.HasField("destroySandbox") else False
 
                 # Create queue for this task
                 queue = asyncio.Queue()
@@ -774,8 +785,12 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                     "future": None,
                     "query": request.instruction,
                     "max_steps": max_steps,
+                    "destroy_sandbox": destroy_sandbox,
                 }
                 task_created = True
+                
+                # Add destroy_sandbox to backend_kwargs
+                backend_kwargs["destroy_sandbox"] = destroy_sandbox
                 
                 # This property is used to pass sandbox information.
                 # It has now completed its mission and needs to be deleted, otherwise other backends may crash.

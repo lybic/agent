@@ -258,7 +258,7 @@ def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInter
 
     return screenshot
 
-def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50, enable_takeover: bool = False, task_id: str | None = None, task_registry: Registry | None = None):
+def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50, enable_takeover: bool = False, destroy_sandbox: bool = False, task_id: str | None = None, task_registry: Registry | None = None):
     """
     Run an agent in normal mode to iteratively observe, plan, and execute actions for a given instruction.
     
@@ -270,6 +270,7 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
         hwi_para (HardwareInterface): Hardware interface used to capture screenshots and dispatch actions.
         max_steps (int): Maximum number of agent prediction/execute cycles to run.
         enable_takeover (bool): If True, the agent may request a user takeover that pauses execution until the user resumes.
+        destroy_sandbox (bool): If True, destroy the sandbox after task completion (only for Lybic backend).
         task_id (str | None): Optional task ID for context.
         task_registry (Registry | None): Optional task-specific registry.
     """
@@ -402,6 +403,16 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
         # Auto-analyze execution statistics after task completion
         timestamp_dir = os.path.join(log_dir, datetime_str)
         auto_analyze_execution(timestamp_dir)
+        
+        # Destroy sandbox if requested (only for Lybic backend)
+        if destroy_sandbox and (hwi_para.backend == "lybic" or isinstance(hwi_para.backend, LybicBackend)):
+            try:
+                logger.info("Destroying sandbox as requested...")
+                from gui_agents.agents.Backend.LybicMobileBackend import LybicMobileBackend
+                if isinstance(hwi_para.backend, (LybicBackend, LybicMobileBackend)):
+                    hwi_para.backend.destroy_sandbox()
+            except Exception as e:
+                logger.error(f"Failed to destroy sandbox: {e}")
     finally:
         if task_registry:
             Registry.remove_task_registry(task_id)
@@ -411,7 +422,10 @@ def run_agent_fast(agent,
                    instruction: str,
                    hwi_para: HardwareInterface,
                    max_steps: int = 50,
-                   enable_takeover: bool = False, task_id: str | None = None, task_registry: Registry | None = None):
+                   enable_takeover: bool = False,
+                   destroy_sandbox: bool = False,
+                   task_id: str | None = None,
+                   task_registry: Registry | None = None):
     if task_registry:
         Registry.set_task_registry(task_id, task_registry)
 
@@ -532,6 +546,16 @@ def run_agent_fast(agent,
         # Auto-analyze execution statistics after task completion
         timestamp_dir = os.path.join(log_dir, datetime_str)
         auto_analyze_execution(timestamp_dir)
+        
+        # Destroy sandbox if requested (only for Lybic backend)
+        if destroy_sandbox and (hwi_para.backend == "lybic" or isinstance(hwi_para.backend, LybicBackend)):
+            try:
+                logger.info("[Fast Mode] Destroying sandbox as requested...")
+                from gui_agents.agents.Backend.LybicMobileBackend import LybicMobileBackend
+                if isinstance(hwi_para.backend, (LybicBackend, LybicMobileBackend)):
+                    hwi_para.backend.destroy_sandbox()
+            except Exception as e:
+                logger.error(f"[Fast Mode] Failed to destroy sandbox: {e}")
     finally:
         if task_registry:
             Registry.remove_task_registry(task_id)
@@ -573,6 +597,10 @@ def main():
         '--force-backend',
         action='store_true',
         help='Force the use of specified backend even if incompatible with current environment')
+    parser.add_argument(
+        '--destroy-sandbox',
+        action='store_true',
+        help='Destroy the sandbox after task completion (only applicable for Lybic backend, disabled by default)')
     args = parser.parse_args()
 
     # Check environment compatibility
@@ -696,7 +724,7 @@ def main():
     if args.query:
         agent.reset()
         run_agent_func(agent, args.query, hwi, args.max_steps,
-                       args.enable_takeover)
+                       args.enable_takeover, args.destroy_sandbox)
 
     else:
         while True:
@@ -705,7 +733,7 @@ def main():
             agent.reset()
 
             # Run the agent on your own device
-            run_agent_func(agent, query, hwi, args.max_steps, args.enable_takeover)
+            run_agent_func(agent, query, hwi, args.max_steps, args.enable_takeover, args.destroy_sandbox)
 
             response = input("Would you like to provide another query? (y/n): ")
             if response.lower() != "y":

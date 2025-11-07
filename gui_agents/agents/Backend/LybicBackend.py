@@ -364,6 +364,38 @@ class LybicBackend(Backend):
             raise RuntimeError("Sandbox ID is not available")
         return self.sandbox_id
 
+    def destroy_sandbox(self):
+        """销毁当前沙盒"""
+        if not self.sandbox_id:
+            log.warning("No sandbox ID available to destroy")
+            return
+        
+        if not self.precreate_sid:
+            # Only destroy sandboxes that were created by this instance
+            # Don't destroy pre-created sandboxes
+            log.info(f"Destroying sandbox: {self.sandbox_id}")
+            
+            async def _delete_sandbox():
+                await self.sandbox_manager.delete(self.sandbox_id)
+            
+            try:
+                if self.loop.is_running():
+                    # Schedule delete on the loop
+                    future = asyncio.run_coroutine_threadsafe(_delete_sandbox(), self.loop)
+                    future.result(timeout=10.0)
+                else:
+                    # Safe to run directly if loop is not running
+                    try:
+                        self.loop.run_until_complete(_delete_sandbox())
+                    except RuntimeError:
+                        # If we can't use the existing loop, create a new one
+                        asyncio.run(_delete_sandbox())
+                log.info(f"Successfully destroyed sandbox: {self.sandbox_id}")
+            except Exception as e:
+                log.error(f"Failed to destroy sandbox {self.sandbox_id}: {e}")
+        else:
+            log.info(f"Skipping destruction of pre-created sandbox: {self.sandbox_id}")
+
     def close(self):
         """关闭客户端连接"""
         if not hasattr(self, 'client') or not hasattr(self, 'loop'):

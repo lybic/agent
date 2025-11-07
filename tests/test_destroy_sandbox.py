@@ -4,8 +4,7 @@ Test script to verify destroy_sandbox functionality.
 """
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch
-import asyncio
+from unittest.mock import Mock, patch
 
 
 class TestDestroySandbox(unittest.TestCase):

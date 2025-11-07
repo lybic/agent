@@ -201,7 +201,8 @@ class Grounding(ACI, MobileActionsMixin):
         response, total_tokens, cost_string = self.grounding_model.execute_tool(
             "grounding", {
                 "str_input": prompt,
-                "img_input": obs["screenshot"]
+                "img_input": obs["screenshot"],
+                "img_url": obs.get("screenshot_url")
             })
         logger.info(
             f"Grounding model tokens: {total_tokens}, cost: {cost_string}")

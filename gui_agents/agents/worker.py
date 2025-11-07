@@ -285,6 +285,7 @@ class Worker:
                     text_content +
                     "\n\nThe initial screen is provided. No action has been taken yet.",
                     image_content=obs["screenshot"],
+                    image_url=obs.get("screenshot_url"),
                     role="user")
 
             else:
@@ -298,7 +299,8 @@ class Worker:
                 reflection, total_tokens, cost_string = self.reflection_agent.execute_tool(
                     "traj_reflector", {
                         "str_input": text_content,
-                        "img_input": obs["screenshot"]
+                        "img_input": obs["screenshot"],
+                        "img_url": obs.get("screenshot_url")
                     })
                 logger.info(
                     f"Trajectory reflector tokens: {total_tokens}, cost: {cost_string}"
@@ -338,7 +340,8 @@ class Worker:
             "action_generator_with_takeover"
             if self.enable_takeover else "action_generator", {
                 "str_input": generator_message,
-                "img_input": obs["screenshot"]
+                "img_input": obs["screenshot"],
+                "img_url": obs.get("screenshot_url")
             })
         logger.info(
             f"Action generator tokens: {total_tokens}, cost: {cost_string}")

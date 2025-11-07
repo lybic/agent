@@ -222,11 +222,21 @@ class LLMAgent:
         self,
         text_content,
         image_content=None,
+        image_url=None,
         role=None,
         image_detail="high",
         put_text_last=False,
     ):
-        """Add a new message to the list of messages"""
+        """Add a new message to the list of messages
+        
+        Args:
+            text_content: Text content of the message
+            image_content: Image data (bytes or numpy array), will be base64 encoded
+            image_url: Direct image URL (preferred over base64 for large images)
+            role: Message role
+            image_detail: Detail level for image
+            put_text_last: Whether to put text after images
+        """
 
         # API-style inference from OpenAI and similar services
         if isinstance(
@@ -263,7 +273,30 @@ class LLMAgent:
                 "content": [{"type": "text", "text": text_content}],
             }
 
-            if isinstance(image_content, np.ndarray) or image_content:
+            # 优先使用image_url（避免base64编码大图）
+            if image_url:
+                if isinstance(image_url, list):
+                    for url in image_url:
+                        message["content"].append(
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": url,
+                                  "detail": image_detail,
+                                },
+                            }
+                        )
+                else:
+                    message["content"].append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": image_url,
+                               "detail": image_detail,
+                            },
+                        }
+                    )
+            elif isinstance(image_content, np.ndarray) or image_content:
                 # Check if image_content is a list or a single image
                 if isinstance(image_content, list):
                     # If image_content is a list of images, loop through each image
@@ -314,7 +347,30 @@ class LLMAgent:
                 "content": [{"type": "text", "text": text_content}],
             }
 
-            if image_content:
+            # 优先使用image_url（Anthropic支持URL source）
+            if image_url:
+                if isinstance(image_url, list):
+                    for url in image_url:
+                        message["content"].append(
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "url",
+                                    "url": url,
+                                },
+                            }
+                        )
+                else:
+                    message["content"].append(
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "url",
+                                "url": image_url,
+                            },
+                        }
+                    )
+            elif image_content:
                 # Check if image_content is a list or a single image
                 if isinstance(image_content, list):
                     # If image_content is a list of images, loop through each image
@@ -361,7 +417,26 @@ class LLMAgent:
                 "content": [{"type": "text", "text": text_content}],
             }
 
-            if image_content:
+            # 优先使用image_url
+            if image_url:
+                if isinstance(image_url, list):
+                    for url in image_url:
+                        message["content"].append(
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": url
+                                },
+                            }
+                        )
+                else:
+                    message["content"].append(
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": image_url},
+                        }
+                    )
+            elif image_content:
                 # Check if image_content is a list or a single image
                 if isinstance(image_content, list):
                     # If image_content is a list of images, loop through each image

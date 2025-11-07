@@ -352,12 +352,19 @@ class LybicBackend(LybicSandboxDestroyMixin, Backend):
         try:
             url, image, b64_str = self.loop.run_until_complete(_get_screenshot())
             
+            # 存储截图URL，供后续LLM请求使用
+            self.last_screenshot_url = url
+            
             # 返回PIL图像，保持与原LybicBackend的兼容性
             # 如果需要cursor信息，可以通过其他方式获取
             return image
             
         except Exception as e:
             raise RuntimeError(f"Failed to take screenshot: {e}") from e
+    
+    def get_last_screenshot_url(self) -> Optional[str]:
+        """获取最新的截图URL"""
+        return self.last_screenshot_url
 
     def get_sandbox_id(self) -> str:
         """获取当前沙盒ID"""

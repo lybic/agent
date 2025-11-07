@@ -304,8 +304,14 @@ def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_s
                 return
 
             screenshot: Image.Image = hwi.dispatch(Screenshot())  # type: ignore
+            
+            # 获取截图URL（如果是Lybic后端）
+            screenshot_url = None
+            if hasattr(hwi.backend, 'get_last_screenshot_url'):
+                screenshot_url = hwi.backend.get_last_screenshot_url()
+            
             global_state.set_screenshot(
-                scale_screenshot_dimensions(screenshot, hwi_para))  # type: ignore
+                scale_screenshot_dimensions(screenshot, hwi_para), url=screenshot_url)  # type: ignore
             obs = global_state.get_obs_for_manager()
 
             predict_start = time.time()
@@ -453,8 +459,14 @@ def run_agent_fast(agent,
                 return
 
             screenshot: Image.Image = hwi.dispatch(Screenshot())  # type: ignore
+            
+            # 获取截图URL（如果是Lybic后端）
+            screenshot_url = None
+            if hasattr(hwi.backend, 'get_last_screenshot_url'):
+                screenshot_url = hwi.backend.get_last_screenshot_url()
+            
             global_state.set_screenshot(
-                scale_screenshot_dimensions(screenshot, hwi_para))  # type: ignore
+                scale_screenshot_dimensions(screenshot, hwi_para), url=screenshot_url)  # type: ignore
             obs = global_state.get_obs_for_manager()
 
             predict_start = time.time()

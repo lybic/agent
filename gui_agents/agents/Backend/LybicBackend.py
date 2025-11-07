@@ -300,8 +300,8 @@ class LybicBackend(Backend):
             type="mouse:scroll",
             x=dto.PixelLength(type="px", value=act.x),
             y=dto.PixelLength(type="px", value=act.y),
-            stepVertical=step_vertical,
-            stepHorizontal=step_horizontal,
+            stepVertical=-step_vertical,
+            stepHorizontal=-step_horizontal,
             holdKey=" ".join(act.holdKey) if act.holdKey else ""
         )
         

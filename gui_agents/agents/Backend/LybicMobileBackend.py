@@ -25,6 +25,7 @@ from gui_agents.agents.Action import (
 )
 
 from gui_agents.agents.Backend.Backend import Backend
+from gui_agents.agents.Backend.LybicBackendBase import LybicSandboxDestroyMixin
 
 # 导入官方Lybic SDK
 try:
@@ -38,7 +39,7 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
-class LybicMobileBackend(Backend):
+class LybicMobileBackend(LybicSandboxDestroyMixin, Backend):
     
     _supported = {TouchTap, TouchDrag, TouchSwipe, TouchLongPress, AndroidHome, AndroidBack, TypeText, Hotkey,
                   Wait, Screenshot, Memorize}

@@ -24,6 +24,7 @@ from gui_agents.agents.Action import (
 )
 
 from gui_agents.agents.Backend.Backend import Backend
+from gui_agents.agents.Backend.LybicBackendBase import LybicSandboxDestroyMixin
 
 # 导入官方Lybic SDK
 try:
@@ -37,7 +38,7 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
-class LybicBackend(Backend):
+class LybicBackend(LybicSandboxDestroyMixin, Backend):
     """
     基于官方Lybic Python SDK的Backend实现
     支持与原LybicBackend相同的Action类型，但使用官方SDK替代HTTP调用

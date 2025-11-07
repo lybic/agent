@@ -168,6 +168,7 @@ message RunAgentInstructionRequest {
 
   optional Sandbox sandbox = 2; // if sandbox is not specified, agent will create a sandbox to execute the instruction
   optional CommonConfig runningConfig = 3; // if runningConfig is not specified, agent will use the default global config
+  optional bool destroySandbox = 4; // if true, destroy the sandbox after task completion (default: false)
 }
 
 message RunAgentInstructionAsyncResponse {

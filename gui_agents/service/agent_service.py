@@ -25,6 +25,11 @@ from ..agents.hardware_interface import HardwareInterface
 from ..store.registry import Registry
 from ..agents.global_state import GlobalState
 
+# Import backend classes for destroy_sandbox functionality
+from ..agents.Backend.LybicBackend import LybicBackend
+from ..agents.Backend.LybicMobileBackend import LybicMobileBackend
+
+
 
 class AgentService:
     """
@@ -218,13 +223,13 @@ class AgentService:
                 self._run_agent_fast_internal(
                     agent, request.instruction, hwi, 
                     request.max_steps, request.enable_takeover,
-                    task_result.task_id
+                    request.destroy_sandbox, task_result.task_id
                 )
             else:
                 self._run_agent_normal_internal(
                     agent, request.instruction, hwi, 
                     request.max_steps, request.enable_takeover,
-                    task_result.task_id
+                    request.destroy_sandbox, task_result.task_id
                 )
             
             end_time = time.time()
@@ -288,7 +293,7 @@ class AgentService:
         return task_result
     
     def _run_agent_normal_internal(self, agent, instruction: str, hwi, max_steps: int,
-                                 enable_takeover: bool, task_id: str):
+                                 enable_takeover: bool, destroy_sandbox: bool, task_id: str):
         """Run agent in normal mode (adapted from cli_app.py)"""
         # This is a simplified version - you may want to adapt the full logic from cli_app.py
         global_state: GlobalState = Registry.get_from_context("GlobalStateStore", task_id)  # type: ignore
@@ -308,33 +313,43 @@ class AgentService:
                 Screenshot = getattr(agents_module.Action, 'Screenshot')
         from PIL import Image
         
-        for step in range(max_steps):
-            # Take screenshot
-            screenshot: Image.Image = hwi.dispatch(Screenshot())
-            global_state.set_screenshot(screenshot)
-            obs = global_state.get_obs_for_manager()
-            
-            # Get agent prediction
-            info, code = agent.predict(instruction=instruction, observation=obs)
-            
-            # Check for completion
-            if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower():
-                agent.update_narrative_memory(f"Task: {instruction}")
-                break
-            
-            if "next" in code[0]["type"].lower():
-                continue
+        try:
+            for step in range(max_steps):
+                # Take screenshot
+                screenshot: Image.Image = hwi.dispatch(Screenshot())
+                global_state.set_screenshot(screenshot)
+                obs = global_state.get_obs_for_manager()
                 
-            if "wait" in code[0]["type"].lower():
-                time.sleep(5)
-                continue
-            
-            # Execute action
-            hwi.dispatchDict(code[0])
-            time.sleep(1.0)
+                # Get agent prediction
+                info, code = agent.predict(instruction=instruction, observation=obs)
+                
+                # Check for completion
+                if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower():
+                    agent.update_narrative_memory(f"Task: {instruction}")
+                    break
+                
+                if "next" in code[0]["type"].lower():
+                    continue
+                    
+                if "wait" in code[0]["type"].lower():
+                    time.sleep(5)
+                    continue
+                
+                # Execute action
+                hwi.dispatchDict(code[0])
+                time.sleep(1.0)
+        finally:
+            # Destroy sandbox if requested (only for Lybic backend)
+            if destroy_sandbox:
+                try:
+                    if isinstance(hwi.backend, (LybicBackend, LybicMobileBackend)):
+                        self.logger.info("Destroying sandbox as requested...")
+                        hwi.backend.destroy_sandbox()
+                except Exception as e:
+                    self.logger.error(f"Failed to destroy sandbox: {e}")
     
     def _run_agent_fast_internal(self, agent, instruction: str, hwi, max_steps: int,
-                              enable_takeover: bool, task_id: str):
+                              enable_takeover: bool, destroy_sandbox: bool, task_id: str):
         """Run agent in fast mode (adapted from cli_app.py)"""
         global_state: GlobalState = Registry.get_from_context("GlobalStateStore", task_id)  # type: ignore
         global_state.set_Tu(instruction)
@@ -353,27 +368,37 @@ class AgentService:
                 Screenshot = getattr(agents_module.Action, 'Screenshot')
         from PIL import Image
         
-        for step in range(max_steps):
-            # Take screenshot
-            screenshot: Image.Image = hwi.dispatch(Screenshot())
-            global_state.set_screenshot(screenshot)
-            obs = global_state.get_obs_for_manager()
-            
-            # Get agent prediction
-            info, code = agent.predict(instruction=instruction, observation=obs)
-            
-            # Check for completion
-            if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower():
-                break
-            
-            if "wait" in code[0]["type"].lower():
-                wait_duration = code[0].get("duration", 5000) / 1000
-                time.sleep(wait_duration)
-                continue
-            
-            # Execute action
-            hwi.dispatchDict(code[0])
-            time.sleep(0.5)
+        try:
+            for step in range(max_steps):
+                # Take screenshot
+                screenshot: Image.Image = hwi.dispatch(Screenshot())
+                global_state.set_screenshot(screenshot)
+                obs = global_state.get_obs_for_manager()
+                
+                # Get agent prediction
+                info, code = agent.predict(instruction=instruction, observation=obs)
+                
+                # Check for completion
+                if "done" in code[0]["type"].lower() or "fail" in code[0]["type"].lower():
+                    break
+                
+                if "wait" in code[0]["type"].lower():
+                    wait_duration = code[0].get("duration", 5000) / 1000
+                    time.sleep(wait_duration)
+                    continue
+                
+                # Execute action
+                hwi.dispatchDict(code[0])
+                time.sleep(0.5)
+        finally:
+            # Destroy sandbox if requested (only for Lybic backend)
+            if destroy_sandbox:
+                try:
+                    if isinstance(hwi.backend, (LybicBackend, LybicMobileBackend)):
+                        self.logger.info("[Fast Mode] Destroying sandbox as requested...")
+                        hwi.backend.destroy_sandbox()
+                except Exception as e:
+                    self.logger.error(f"[Fast Mode] Failed to destroy sandbox: {e}")
     
     def execute_task(
         self, 
@@ -383,6 +408,7 @@ class AgentService:
         max_steps: int | None = None,
         enable_takeover: bool | None = None,
         enable_search: bool | None = None,
+        destroy_sandbox: bool | None = None,
         timeout: int | None = None,
         **kwargs
     ) -> TaskResult:
@@ -396,6 +422,7 @@ class AgentService:
             max_steps: Maximum steps (overrides config default)
             enable_takeover: Enable user takeover (overrides config default)
             enable_search: Enable web search (overrides config default)
+            destroy_sandbox: Destroy sandbox after task completion (overrides default: False)
             timeout: Task timeout in seconds (overrides config default)
             **kwargs: Additional configuration parameters
             
@@ -410,6 +437,7 @@ class AgentService:
             max_steps=max_steps or self.config.default_max_steps,
             enable_takeover=enable_takeover if enable_takeover is not None else self.config.enable_takeover,
             enable_search=enable_search if enable_search is not None else self.config.enable_search,
+            destroy_sandbox=destroy_sandbox if destroy_sandbox is not None else False,
             timeout=timeout or self.config.task_timeout,
             config=kwargs
         )
@@ -452,10 +480,11 @@ class AgentService:
             max_steps=kwargs.get('max_steps', self.config.default_max_steps),
             enable_takeover=kwargs.get('enable_takeover', self.config.enable_takeover),
             enable_search=kwargs.get('enable_search', self.config.enable_search),
+            destroy_sandbox=kwargs.get('destroy_sandbox', False),
             timeout=kwargs.get('timeout', self.config.task_timeout),
             config={k: v for k, v in kwargs.items() if k not in [
                 'backend', 'mode', 'max_steps', 'enable_takeover', 
-                'enable_search', 'timeout'
+                'enable_search', 'destroy_sandbox', 'timeout'
             ]}
         )
         

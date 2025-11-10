@@ -1964,7 +1964,7 @@ requires-dist = [
     { name = "openai" },
     { name = "openai", marker = "extra == 'all'" },
     { name = "opencv-python", marker = "extra == 'all'", specifier = "~=4.8.1.78" },
-    { name = "opencv-python", marker = "extra == 'vmware-and-evaluation'", specifier = "~=4.8.1.78" },
+    { name = "opencv-python", marker = "extra == 'vmware-and-evaluation'", specifier = ">=4.8.1.78,<4.12.1.0" },
     { name = "opencv-python-headless", marker = "extra == 'all'" },
     { name = "opencv-python-headless", marker = "extra == 'vmware-and-evaluation'" },
     { name = "openpyxl", marker = "extra == 'all'" },

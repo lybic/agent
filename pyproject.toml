@@ -83,7 +83,7 @@ vmware-and-evaluation = [
     "PyMuPDF",
     "formulas",
     "pyacoustid",
-    "opencv-python~=4.8.1.78",
+    "opencv-python>=4.8.1.78,<4.12.1.0",
     "PyPDF2",
     "librosa",
     "fastdtw",

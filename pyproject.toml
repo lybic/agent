@@ -122,7 +122,7 @@ all=[
     "requests~=2.31.0",
     "pytz~=2024.1",
     "psutil~=5.9.6",
-    "tqdm~=4.65.0",
+    "tqdm>=4.65,<4.68",
     "flask~=3.0.0",
     "requests-toolbelt~=1.0.0",
     "lxml",

@@ -256,20 +256,28 @@ class LMMEngineDoubao(LMMEngine):
     )
     def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
         """Generate the next message based on previous messages"""
-        response = self.llm_client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            max_tokens=max_new_tokens if max_new_tokens else 4096,
-            temperature=temperature,
-            extra_body={
-                "thinking": {
-                    "type": "disabled",
-                    # "type": "enabled",
-                    # "type": "auto",
-                }
-            },
-            **kwargs,
-        )
+        try:
+            response = self.llm_client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=max_new_tokens if max_new_tokens else 4096,
+                temperature=temperature,
+                extra_body={
+                    "thinking": {
+                        "type": "disabled",
+                        # "type": "enabled",
+                        # "type": "auto",
+                    }
+                },
+                **kwargs,
+            )
+        except APIError as e:
+            message = str(e)
+            if "Total tokens of image and text exceed max message tokens" in message or (
+                "max message tokens" in message and "Total tokens" in message
+            ):
+                raise ValueError(f"Doubao token limit exceeded: {message}") from e
+            raise
         
         content = response.choices[0].message.content
         total_tokens, cost = calculate_tokens_and_cost(response, self.provider, self.model)

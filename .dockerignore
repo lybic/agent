@@ -2,3 +2,5 @@
 dist
 lybic_guiagents.egg-info
 runtime
+.env
+gui_agents/.env

@@ -150,6 +150,40 @@ if __name__ == '__main__':
     asyncio.run(run_agent_instruction())
 ```
 
+### Running the Agent (restful Service Mode)
+
+This mode runs the agent as a FastAPI-based RESTful service, exposing API endpoints on port `5000`.
+
+To start the RESTful service, run the following command. Ensure your `.env` file contains `LYBIC_API_KEY`, `LYBIC_ORG_ID`, and `ARK_API_KEY`.
+
+```sh
+docker run --rm -it -p 5000:5000 --env-file .env docker.io/agenticlybic/guiagent:mini_<version>
+```
+
+> **Note**: Replace `<version>` with the specific version number you intend to use.
+
+#### API Example
+
+Once the service is running, you can interact with it via HTTP requests. For example, to stream agent execution using `curl`:
+
+```bash
+curl -X POST http://localhost:5000/api/agent/run \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instruction": "Open a browser and navigate to google.com",
+    "sandbox_id": "your-sandbox-id",
+    "authentication": {
+      "api_key": "your-lybic-api-key",
+      "org_id": "your-lybic-org-id"
+    },
+    "ark_apikey": "your-ark-api-key"
+  }'
+```
+
+This service also provides a web playground for testing, which may be accessible at `http://localhost:5173` if included in the image.
+
+For complete documentation of this service, please refer to our [user manual](https://github.com/lybic/mini-agent/blob/main/User_Manual.md) and the documentation in our reference [repository](https://github.com/lybic/mini-agent).
+
 ### Task Persistence
 
 The gRPC service supports persistent storage for task status and history using PostgreSQL, allowing task data to survive container restarts. This feature is pre-installed in the Docker image.

@@ -30,10 +30,10 @@ WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project --no-editable --extra grpc
+    uv sync --locked --no-install-project --no-editable --extra grpc --extra postgres --extra prometheus --extra mcp
 
-# Copy the project into the intermediate image
-COPY . /app
+# Copy only proto files first for proto build
+COPY gui_agents/proto /app/gui_agents/proto
 
 # Build proto
 RUN .venv/bin/python -m grpc_tools.protoc -Igui_agents/proto \
@@ -43,12 +43,12 @@ RUN .venv/bin/python -m grpc_tools.protoc -Igui_agents/proto \
   gui_agents/proto/agent.proto && \
     sed -i 's/^import agent_pb2 as agent__pb2/from . import agent_pb2 as agent__pb2/' /app/gui_agents/proto/pb/agent_pb2_grpc.py
 
+# Copy the project into the intermediate image
+COPY . /app
+
+# Install the project itself
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-editable
-
-
-# Install optional postgres dependency for persistence
-RUN uv pip install .[postgres,prometheus,mcp,grpc]
 
 
 # --- Stage 3: final ---

@@ -253,8 +253,19 @@ class KnowledgeBase:
         sorted_indices = np.argsort(similarities)[::-1]
 
         keys = list(knowledge_base.keys())
-        idx = 1 if keys[sorted_indices[0]] == instruction else 0
-        return keys[sorted_indices[idx]], knowledge_base[keys[sorted_indices[idx]]], total_tokens, cost_string
+        # Select the best candidate index (skip exact instruction match when possible)
+        best_idx = sorted_indices[0]
+        if keys[best_idx] == instruction and len(sorted_indices) > 1:
+            best_idx = sorted_indices[1]
+
+        # Apply similarity threshold filtering
+        threshold = 0.4
+        best_sim = similarities[best_idx]
+        if best_sim < threshold:
+            # Return empty results when similarity is too low to avoid injecting unrelated memory
+            return "", "", total_tokens, cost_string
+
+        return keys[best_idx], knowledge_base[keys[best_idx]], total_tokens, cost_string
 
     def retrieve_episodic_experience(self, instruction: str) -> Tuple[str, str, List[int], str]:
         """Retrieve similar task experience using embeddings
@@ -307,8 +318,16 @@ class KnowledgeBase:
         sorted_indices = np.argsort(similarities)[::-1]
 
         keys = list(knowledge_base.keys())
-        idx = 1 if keys[sorted_indices[0]] == instruction else 0
-        return keys[sorted_indices[idx]], knowledge_base[keys[sorted_indices[idx]]], total_tokens, cost_string
+        best_idx = sorted_indices[0]
+        if keys[best_idx] == instruction and len(sorted_indices) > 1:
+            best_idx = sorted_indices[1]
+
+        threshold = 0.4
+        best_sim = similarities[best_idx]
+        if best_sim < threshold:
+            return "", "", total_tokens, cost_string
+
+        return keys[best_idx], knowledge_base[keys[best_idx]], total_tokens, cost_string
 
     def knowledge_fusion(
         self,

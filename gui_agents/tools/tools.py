@@ -140,6 +140,15 @@ class BaseTool(ABC):
             except Exception as e:
                 attempt += 1
                 logger.error(f"LLM call attempt {attempt} failed: {str(e)}")
+
+                # If this is a token-limit error surfaced from the engine (e.g., Doubao/Ark), treat as fatal and stop retrying
+                msg = str(e)
+                if "token limit exceeded" in msg or (
+                    "Total tokens of image and text exceed max message tokens" in msg
+                ):
+                    logger.error("Detected token limit error, aborting without further retries.")
+                    raise
+
                 if attempt == max_retries:
                     logger.error("Max retries reached. Returning error message.")
                     return f"Error: LLM call failed after {max_retries} attempts: {str(e)}", [0, 0, 0], ""

@@ -65,6 +65,7 @@ active_sandboxes: Dict[str, Dict[str, Any]] = {}
 active_tasks: set = set()
 
 
+@functools.lru_cache(maxsize=None)
 def load_access_tokens() -> set:
     """Load valid access tokens from access_tokens.txt"""
     tokens = set()

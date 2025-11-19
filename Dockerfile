@@ -28,7 +28,7 @@ WORKDIR /app
 
 # Slow dependencies are built separately, allowing other steps to reuse these caches.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install "grpcio" "grpcio-tools>=1.71.2" "asyncpg>=0.29.0"
+    uv pip install "grpcio==1.75.1" "grpcio-tools==1.71.2" "asyncpg==0.30.0"
 
 # Copy only proto files first for proto build
 COPY gui_agents/proto /app/gui_agents/proto

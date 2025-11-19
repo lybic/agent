@@ -292,7 +292,7 @@ async def handle_create_sandbox(arguments: dict) -> list[types.TextContent]:
         ]
 
 
-async def handle_get_sandbox_screenshot(arguments: dict) -> list[types.ImageContent]:
+async def handle_get_sandbox_screenshot(arguments: dict) -> list[types.ContentBlock]:
     """Get screenshot from sandbox"""
     sandbox_id = arguments["sandbox_id"]
     apikey = arguments.get("apikey")

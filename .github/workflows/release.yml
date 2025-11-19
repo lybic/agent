@@ -1,4 +1,4 @@
-name: Create Release Changelog And Version
+name: Release
 
 on:
   workflow_dispatch:
@@ -11,13 +11,15 @@ on:
         required: true
 
 jobs:
-  create_changelog:
+  create_changelog_and_release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write      # To push tags, branches, and commits
-      pull-requests: write # To create and merge pull requests
+      contents: write
+      pull-requests: write
+    outputs:
+      tag_name: ${{ github.event.inputs.new_tag }}
     steps:
-      - name: Checkout master branch
+      - name: Checkout main branch
         uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Required for changelog generation from git history
@@ -27,11 +29,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Create release branch
-        run: |
-          git checkout -b changelog_${{ github.event.inputs.new_tag }}
       - name: Setup-deps
         run: pip install openai
+
       - name: Generate changelog
         env:
           ARK_MODEL_ENDPOINT: ${{ secrets.ARK_MODEL_ENDPOINT }}
@@ -48,42 +48,104 @@ jobs:
           mkdir -p CHANGELOGS
           mv changelog.md CHANGELOGS/${NEW_TAG}-release.md
 
-      - name: Update version and commit changelog
+      - name: Update version and commit to main
         run: |
           # Remove 'v' or 'V' prefix from tag if present (e.g., v0.4.0 -> 0.4.0)
           VERSION=$(echo "${{ github.event.inputs.new_tag }}" | sed 's/^[vV]//')
-          echo "Initial pyproject.toml:"
-          cat pyproject.toml
-          # Update version in pyproject.toml and gui_agents/__init__.py
+          echo "Update version in pyproject.toml and gui_agents/__init__.py"
           sed -i -E "s/^(version\s*=\s*)\".*\"/\1\"$VERSION\"/" pyproject.toml
           sed -i -E "s/^(__version__\s*=\s*)\".*\"/\1\"$VERSION\"/" gui_agents/__init__.py
-          echo "Updated pyproject.toml:"
-          cat pyproject.toml
-          echo "Updated gui_agents/__init__.py:"
-          cat gui_agents/__init__.py
 
-          # Install uv and update lock file
           make install-uv
           uv lock
 
-          git status
-          # Commit the version update
+          git add pyproject.toml gui_agents/__init__.py uv.lock CHANGELOGS/${{ github.event.inputs.new_tag }}-release.md
+          git commit -m "build: bump version to ${{ github.event.inputs.new_tag }}"
+          git push origin main
 
-          git add pyproject.toml
-          git add gui_agents/__init__.py
-          git add uv.lock
-          git add CHANGELOGS/${{ github.event.inputs.new_tag }}-release.md
-          git commit -m "docs(changelog): Generate changelog for ${{ github.event.inputs.new_tag }}"
+      - name: Create and push tag
+        run: |
+          git tag ${{ github.event.inputs.new_tag }}
+          git push origin ${{ github.event.inputs.new_tag }}
 
-          git push --set-upstream origin changelog_${{ github.event.inputs.new_tag }}
-
-      - name: Create Changelog Pull Request
+      - name: Create Release
         env:
           GH_TOKEN: ${{ github.token }}
-          NEW_TAG: ${{ github.event.inputs.new_tag }}
-        run:  |
-          gh pr create \
-            --title "build: bump Agentic-Lybic to ${NEW_TAG}" \
-            --body "build: bump Agentic-Lybic to ${NEW_TAG}" \
-            --base main \
-            --head changelog_${{ github.event.inputs.new_tag }}
+        run: |
+          gh release create ${{ github.event.inputs.new_tag }} \
+            --title "Release ${{ github.event.inputs.new_tag }}" \
+            --notes-file "CHANGELOGS/${{ github.event.inputs.new_tag }}-release.md"
+
+  publish-to-pypi:
+    name: Publish Python Package to PyPI
+    needs: create_changelog_and_release
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/lybic
+    permissions:
+      id-token: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ needs.create_changelog_and_release.outputs.tag_name }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.x'
+
+    - name: Install uv
+      run: make install-uv
+
+    - name: Build package
+      run: make build
+
+    - name: Publish package to PyPI
+      env:
+        UV_PUBLISH_USERNAME: __token__
+        UV_PUBLISH_PASSWORD: ${{ secrets.LYBIC_PYPI_KEY }}
+      run: make publish
+
+  build-and-push-docker:
+    name: Build and Push Docker Image
+    needs: create_changelog_and_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.create_changelog_and_release.outputs.tag_name }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-flags: --allow-insecure-entitlement security.insecure --allow-insecure-entitlement network.host
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: agenticlybic
+          password: ${{secrets.LYBIC_DOCKER_HUB_KEY}}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: agenticlybic/guiagent
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ needs.create_changelog_and_release.outputs.tag_name }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=agenticlybic/guiagent:buildcache
+          cache-to: type=registry,ref=agenticlybic/guiagent:buildcache,mode=max
+          platforms: linux/amd64,linux/arm64

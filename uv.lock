@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12, <3.15"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
@@ -1262,7 +1262,7 @@ wheels = [
 
 [[package]]
 name = "groq"
-version = "0.32.0"
+version = "0.35.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1272,9 +1272,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4d/8c/ed52c15fac63f577dd996367dd5d5133cba3e67e844df21800342461b916/groq-0.32.0.tar.gz", hash = "sha256:fb1ade61f47a06d1a1c1dc0fab690d269b799ebd57ad1dd867efaeaa7adeb2af", size = 141541, upload-time = "2025-09-27T23:01:34.617Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/f6/c61df67afa7863aef1cbbf76052bf4b6784fcadb9f3ba5a25a4e18d79d09/groq-0.35.0.tar.gz", hash = "sha256:b3b96f3ac39ee8755ad7b64c71d2065ecc37a84b52a62fd87de209c8725fed13", size = 144425, upload-time = "2025-11-18T23:52:45.966Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9d/08/24d62fccb01c4e86c59ba79073af7e5c8ab643846823c2fa3e957bde4b58/groq-0.32.0-py3-none-any.whl", hash = "sha256:0ed0be290042f8826f851f3a1defaac4f979dcfce86ec4a0681a23af00ec800b", size = 135387, upload-time = "2025-09-27T23:01:33.223Z" },
+    { url = "https://files.pythonhosted.org/packages/15/23/e54a7dec9940ab67d3ce160ec02f5022bd8d6c912829887bdd907340fa2f/groq-0.35.0-py3-none-any.whl", hash = "sha256:7c8b3bf9501fad59a4f62c7aa8349f00e4862a0bbaf9587b321754ece83442ef", size = 137078, upload-time = "2025-11-18T23:52:44.544Z" },
 ]
 
 [[package]]
@@ -1816,15 +1816,12 @@ dependencies = [
     { name = "google-genai" },
     { name = "googleapis-common-protos" },
     { name = "groq" },
-    { name = "grpcio" },
-    { name = "grpcio-tools" },
     { name = "lybic" },
     { name = "numpy" },
     { name = "oa-atomacos", marker = "sys_platform == 'darwin'" },
     { name = "openai" },
     { name = "pillow" },
     { name = "protobuf" },
-    { name = "pydantic" },
     { name = "pyobjc", marker = "sys_platform == 'darwin'" },
     { name = "pyperclip" },
     { name = "pytest" },
@@ -2005,10 +2002,8 @@ requires-dist = [
     { name = "googleapis-common-protos", specifier = ">=1.70.0" },
     { name = "groq" },
     { name = "groq", marker = "extra == 'all'" },
-    { name = "grpcio" },
     { name = "grpcio", marker = "extra == 'all'" },
     { name = "grpcio", marker = "extra == 'grpc'" },
-    { name = "grpcio-tools", specifier = ">=1.71.2" },
     { name = "grpcio-tools", marker = "extra == 'all'", specifier = ">=1.71.2" },
     { name = "grpcio-tools", marker = "extra == 'grpc'", specifier = ">=1.71.2" },
     { name = "gymnasium", marker = "extra == 'all'", specifier = "~=0.28.1" },
@@ -2052,7 +2047,6 @@ requires-dist = [
     { name = "pyacoustid", marker = "extra == 'all'" },
     { name = "pyacoustid", marker = "extra == 'vmware-and-evaluation'" },
     { name = "pyautogui", marker = "extra == 'pyautogui'" },
-    { name = "pydantic" },
     { name = "pydrive", marker = "extra == 'all'" },
     { name = "pygetwindow", marker = "extra == 'all'" },
     { name = "pymupdf", marker = "extra == 'all'" },

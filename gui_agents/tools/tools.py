@@ -654,7 +654,7 @@ class FastActionGeneratorTool(BaseTool):
 class EmbeddingTool(BaseTool):
     """Tool for generating text embeddings."""
     
-    def __init__(self, provider: str, model_name: str, tool_name: str, base_url='', api_key=''):
+    def __init__(self, provider: str, model_name: str, tool_name: str, base_url='', api_key='', **kwargs):
         """
         Create and configure an EmbeddingTool backed by an EmbeddingAgent.
         
@@ -664,10 +664,15 @@ class EmbeddingTool(BaseTool):
             tool_name (str): Tool key used to look up prompts or register the tool.
             base_url (str, optional): Custom endpoint URL for the provider; defaults to ''.
             api_key (str, optional): API key or credential for authenticating with the provider; defaults to ''.
+            **kwargs: Additional parameters (e.g., endpoint_url) that may be passed but are not used.
         """
         self.provider = provider
         self.model_name = model_name
         self.tool_name = tool_name
+        
+        # Use endpoint_url as base_url if provided and base_url is empty
+        if not base_url and 'endpoint_url' in kwargs:
+            base_url = kwargs['endpoint_url']
         
         # Create EmbeddingAgent instance
         self.engine_params = {

@@ -147,7 +147,7 @@ message StageModelConfig{
 message CommonConfig {
   string id = 1;
 
-  optional string backend = 2; // only `lybic` backend supported yet
+  optional string backend = 2; // `lybic` for windows and linux or `lybic_mobile` for android
   InstanceMode mode = 3; // agent mode default is FAST
   optional int32 steps = 4; // default max steps is 50
   string platform = 5; // agent target plat。 this is not used now

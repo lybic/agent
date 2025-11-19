@@ -567,7 +567,7 @@ def main():
         '--backend',
         type=str,
         default='lybic',
-        help='Backend to use (e.g., lybic, pyautogui, pyautogui_vmware)')
+        help='Backend to use (e.g., lybic, lybic_mobile, pyautogui, pyautogui_vmware)')
     parser.add_argument('--query',
                         type=str,
                         default='',

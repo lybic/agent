@@ -177,8 +177,9 @@ Execute a natural language instruction in a sandbox with real-time streaming.
 import asyncio
 from mcp.client.streamable_http import streamablehttp_client
 from mcp import ClientSession
+import os
 
-LYBIC_MCP_SERVER_API_KEY = "default_token_for_testing"
+LYBIC_MCP_SERVER_API_KEY = os.environ.get("LYBIC_MCP_SERVER_API_KEY", "default_token_for_testing")
 async def main():
     # Connect to a streamable HTTP server
     async with streamablehttp_client('http://localhost:8000/mcp', headers={"Authorization": f"Bearer {LYBIC_MCP_SERVER_API_KEY}"}) as (

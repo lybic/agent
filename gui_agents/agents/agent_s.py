@@ -851,7 +851,9 @@ class AgentSFast(UIAgent):
             # Register the reflection tool
             self.reflection_agent.register_tool(
                 "traj_reflector", self.Tools_dict["traj_reflector"]["provider"],
-                self.Tools_dict["traj_reflector"]["model"])
+                self.Tools_dict["traj_reflector"]["model"],
+                **reflector_tool_config
+            )
             self.reflections = []
             self.planner_history = []
 

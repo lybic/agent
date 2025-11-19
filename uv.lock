@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12, <3.15"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
@@ -1791,16 +1791,16 @@ wheels = [
 
 [[package]]
 name = "lybic"
-version = "0.8.2"
+version = "0.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "pillow" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/03/a6/84e43828609f707b7006108afdb5e8306ac0942d8422831714c41b699550/lybic-0.8.2.tar.gz", hash = "sha256:a6c7afc09dc85a14da6c5d4665df21e9df04fce73c4c109d04e6553935e5be8c", size = 42162, upload-time = "2025-10-31T02:44:09.363Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/22/14/a40e0a907e6df8fd690b6c5efe1f4f02c7cbced42d4e35138c157647af0d/lybic-0.11.0.tar.gz", hash = "sha256:99084cff6e0b18b0ebb4efcb79ea18ab7294731877022be3dd61b937045cfe9b", size = 45884, upload-time = "2025-11-19T07:01:27.595Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/e3/3217fecbd349dcd4a79741640335868e142a2b4dfa113d6cc2edd7e5543a/lybic-0.8.2-py3-none-any.whl", hash = "sha256:49a690c81d0135a64dad1dbc4fff178dfa8b1b02eb5ecb0a6bb8184fd46cef6e", size = 59610, upload-time = "2025-10-31T02:44:08.419Z" },
+    { url = "https://files.pythonhosted.org/packages/04/ff/02751e03008bd2e285be9b63e88c2a54c7f304d3e0c7c8197d32610812b7/lybic-0.11.0-py3-none-any.whl", hash = "sha256:8f18aeb139350f96d27ce262ba637e468bd903bd16d9f704374adbf0dc85504f", size = 62178, upload-time = "2025-11-19T07:01:26.423Z" },
 ]
 
 [[package]]
@@ -2013,7 +2013,7 @@ requires-dist = [
     { name = "librosa", marker = "extra == 'vmware-and-evaluation'" },
     { name = "lxml", marker = "extra == 'all'" },
     { name = "lxml", marker = "extra == 'vmware-and-evaluation'" },
-    { name = "lybic", specifier = ">=0.8.2,<1.0.0" },
+    { name = "lybic", specifier = ">=0.11.0,<1.0.0" },
     { name = "lybic", marker = "extra == 'all'", specifier = ">=0.7.3" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
     { name = "mutagen", marker = "extra == 'all'" },

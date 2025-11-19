@@ -29,7 +29,7 @@ dependencies = [
     "boto3",
     "scikit-learn",
     "tiktoken",
-    "lybic>=0.8.2,<1.0.0",
+    "lybic>=0.11.0,<1.0.0",
     'pyobjc; platform_system == "Darwin"',
     'oa_atomacos; platform_system == "Darwin"',
     'pywinauto; platform_system == "Windows"',

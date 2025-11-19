@@ -174,33 +174,32 @@ Execute a natural language instruction in a sandbox with real-time streaming.
 ### Using MCP SDK
 
 ```python
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+import asyncio
+from mcp.client.streamable_http import streamablehttp_client
+from mcp import ClientSession
 
-# Create MCP client
-server_params = StdioServerParameters(
-    command="lybic-guiagent-mcp",
-    env={"LYBIC_API_KEY": "your_key", "LYBIC_ORG_ID": "your_org"}
-)
+LYBIC_MCP_SERVER_API_KEY = "default_token_for_testing"
+async def main():
+    # Connect to a streamable HTTP server
+    async with streamablehttp_client('http://localhost:8000/mcp', headers={"Authorization": f"Bearer {LYBIC_MCP_SERVER_API_KEY}"}) as (
+        read_stream,
+        write_stream,
+        _,
+    ):
+        # Create a session using the client streams
+        async with ClientSession(read_stream, write_stream) as session:
+            # Initialize the connection
+            print("Initializing connection")
+            await session.initialize()
+            print(await session.list_tools())
+            # Call a tool
+            print("Calling tool")
+            tool_result = await session.call_tool("execute_instruction", {"sandbox_id":"BOX-01KADMDC6TAE8NAJX82HMHSAQT","instruction":"打开浏览器"})
+            print(tool_result)
 
-async with stdio_client(server_params) as (read, write):
-    async with ClientSession(read, write) as session:
-        # Initialize session
-        await session.initialize()
-        
-        # Create sandbox
-        result = await session.call_tool("create_sandbox", {
-            "shape": "beijing-2c-4g-cpu"
-        })
-        sandbox_id = extract_sandbox_id(result)
-        
-        # Execute instruction
-        result = await session.call_tool("execute_instruction", {
-            "instruction": "Open notepad and type 'Hello World'",
-            "sandbox_id": sandbox_id,
-            "mode": "fast"
-        })
-        print(result)
+if __name__ == "__main__":
+    asyncio.run(main())
+
 ```
 
 ### Using HTTP Directly

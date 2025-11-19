@@ -20,13 +20,14 @@ import sys
 from typing import Optional
 
 try:
-    from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
 except ImportError:
     print("Error: MCP client library not installed")
     print("Install with: pip install mcp")
     sys.exit(1)
 
+LYBIC_MCP_SERVER_API_KEY = "default_token_for_testing"
 
 class MCPGUIAgentClient:
     """Simple wrapper for MCP GUI Agent client"""
@@ -38,15 +39,11 @@ class MCPGUIAgentClient:
         Args:
             server_command: Command to start the MCP server
         """
-        self.server_params = StdioServerParameters(
-            command=server_command,
-            args=[]
-        )
     
     async def connect(self):
         """Connect to MCP server and initialize session"""
-        self.client = stdio_client(self.server_params)
-        self.read, self.write = await self.client.__aenter__()
+        self.client = streamablehttp_client('http://localhost:8000', headers={"Authorization": f"Bearer {LYBIC_MCP_SERVER_API_KEY}"})
+        self.read, self.write, _ = await self.client.__aenter__()
         self.session = ClientSession(self.read, self.write)
         await self.session.__aenter__()
         

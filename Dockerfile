@@ -26,11 +26,9 @@ RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/
 # Change the working directory to the `app` directory
 WORKDIR /app
 
-# Install dependencies including grpc extras needed for protoc
+# Slow dependencies are built separately, allowing other steps to reuse these caches.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project --no-editable --extra grpc --extra postgres --extra prometheus --extra mcp
+    uv pip install "grpcio" "grpcio-tools>=1.71.2" "asyncpg>=0.29.0"
 
 # Copy only proto files first for proto build
 COPY gui_agents/proto /app/gui_agents/proto
@@ -42,6 +40,12 @@ RUN .venv/bin/python -m grpc_tools.protoc -Igui_agents/proto \
   --pyi_out=gui_agents/proto/pb \
   gui_agents/proto/agent.proto && \
     sed -i 's/^import agent_pb2 as agent__pb2/from . import agent_pb2 as agent__pb2/' /app/gui_agents/proto/pb/agent_pb2_grpc.py
+
+# Install dependencies including grpc extras needed for protoc
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project --no-editable --extra grpc --extra postgres --extra prometheus --extra mcp
 
 # Copy the project into the intermediate image
 COPY . /app

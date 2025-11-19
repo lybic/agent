@@ -78,7 +78,7 @@ The server will start on `http://0.0.0.0:8000` by default.
 
 ### API Endpoints
 
-- **POST /mcp_stream** - MCP Streamable HTTP endpoint (requires Bearer token authentication)
+- **POST /mcp** - MCP Streamable HTTP endpoint (requires Bearer token authentication)
 - **GET /health** - Health check endpoint
 - **GET /** - Server information and available tools
 

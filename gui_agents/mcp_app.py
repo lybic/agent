@@ -309,9 +309,9 @@ async def handle_get_sandbox_screenshot(arguments: dict) -> list[types.ImageCont
                     text=f"Success get screenshot from sandbox {sandbox_id}:"
                 ),
                 types.ImageContent(
-                type="image",
-                data=screenshot,
-                mimeType="image/webp"
+                    type="image",
+                    data=screenshot,
+                    mimeType="image/webp"
             ),
             ]
         except Exception as e:
@@ -567,7 +567,7 @@ async def root():
         ]
     }
 
-class LoggingMiddleware(BaseHTTPMiddleware):
+class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         if request.url.path == "/mcp":
             try:
@@ -621,7 +621,7 @@ def main():
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.add_middleware(LoggingMiddleware)
+    app.add_middleware(AuthMiddleware)
 
     # Create an ASGI wrapper class for the MCP endpoint
     class MCPApp:

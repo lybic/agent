@@ -507,7 +507,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             "shape_name": sandbox.shapeName if hasattr(sandbox, 'shapeName') else "",
         }
 
-    async def _make_agent(self,request)->UIAgent:
+    async def _make_agent(self,request) -> UIAgent:
         """
         Builds and returns an AgentS2 configured for the incoming request by applying model and provider overrides to the tool configurations.
         
@@ -589,18 +589,17 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                     if key in ['provider', 'model_name', 'api_key', 'base_url', 'model']:
                         tool_entry[key] = value
 
-        mode: InstanceMode | None
         if request.HasField("runningConfig"):
             if request.runningConfig.mode == agent_pb2.InstanceMode.NORMAL:
                 return AgentS2(
-                    platform="windows",  # Sandbox system
+                    platform="windows" if request.runningConfig.backend=='lybic' else "android",  # Sandbox system
                     screen_size=[1280, 720],
                     enable_takeover=False,
                     enable_search=False,
                     tools_config=tools_config,
                 )
         return AgentSFast(
-            platform="windows",  # Sandbox system
+            platform="windows" if request.runningConfig.backend=='lybic' else "android",  # Sandbox system
             screen_size=[1280, 720],
             enable_takeover=False,
             enable_search=False,

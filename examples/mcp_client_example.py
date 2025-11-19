@@ -42,7 +42,7 @@ class MCPGUIAgentClient:
     
     async def connect(self):
         """Connect to MCP server and initialize session"""
-        self.client = streamablehttp_client('http://localhost:8000', headers={"Authorization": f"Bearer {LYBIC_MCP_SERVER_API_KEY}"})
+        self.client = streamablehttp_client('http://localhost:8000/mcp', headers={"Authorization": f"Bearer {LYBIC_MCP_SERVER_API_KEY}"})
         self.read, self.write, _ = await self.client.__aenter__()
         self.session = ClientSession(self.read, self.write)
         await self.session.__aenter__()

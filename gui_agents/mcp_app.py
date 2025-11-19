@@ -9,6 +9,7 @@ for GUI automation tasks. It implements Bearer Token authentication and exposes 
 - Executing agent instructions with real-time streaming
 """
 import contextlib
+import functools
 import os
 import sys
 import logging

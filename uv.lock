@@ -1367,18 +1367,17 @@ wheels = [
 
 [[package]]
 name = "gymnasium"
-version = "0.28.1"
+version = "1.2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cloudpickle" },
     { name = "farama-notifications" },
-    { name = "jax-jumpy" },
     { name = "numpy" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/58/6a/c304954dc009648a21db245a8f56f63c8da8a025d446dd0fd67319726003/gymnasium-0.28.1.tar.gz", hash = "sha256:4c2c745808792c8f45c6e88ad0a5504774394e0c126f6e3db555e720d3da6f24", size = 796462, upload-time = "2023-03-25T12:02:00.613Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1b/1c/d70b2ddd067992fa0332deae08293ef2dc489917ac5342e0e4b8850641f6/gymnasium-1.2.2.tar.gz", hash = "sha256:46d927328f8518bb5a689dbe270d228c1da2b08bcb71ae0152c10aa66f48d530", size = 829250, upload-time = "2025-11-04T15:21:06.048Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/60/82/3762ef4555791a729ae554e13c011efe5e8347d7eba9ea5ed245a8d1b234/gymnasium-0.28.1-py3-none-any.whl", hash = "sha256:7bc9a5bce1022f997d1dbc152fc91d1ac977bad9cc7794cdc25437010867cabf", size = 925534, upload-time = "2023-03-25T12:01:58.35Z" },
+    { url = "https://files.pythonhosted.org/packages/c7/53/39cd8c2f85e213fce1f32367c4bdbd3402d3bcde7d0826a1172a0f2c5cc0/gymnasium-1.2.2-py3-none-any.whl", hash = "sha256:f04ec362b1fdf73a8b327db5ef89384a3f2ba411e05d3521513414fbbb2199c8", size = 952118, upload-time = "2025-11-04T15:21:03.484Z" },
 ]
 
 [[package]]
@@ -1525,18 +1524,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/9c/cb/8ac0172223afbccb63986cc25049b154ecfb5e85932587206f42317be31d/itsdangerous-2.2.0.tar.gz", hash = "sha256:e0050c0b7da1eea53ffaf149c0cfbb5c6e2e2b69c4bef22c81fa6eb73e5f6173", size = 54410, upload-time = "2024-04-16T21:28:15.614Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/04/96/92447566d16df59b2a776c0fb82dbc4d9e07cd95062562af01e408583fc4/itsdangerous-2.2.0-py3-none-any.whl", hash = "sha256:c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef", size = 16234, upload-time = "2024-04-16T21:28:14.499Z" },
-]
-
-[[package]]
-name = "jax-jumpy"
-version = "1.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/52/6a/b6affff68f172a4c8316d9ab9b7d952e865df15b854f158690991864e0fe/jax-jumpy-1.0.0.tar.gz", hash = "sha256:195fb955cc4c2b7f0b1453e3cb1fb1c414a51a407ffac7a51e69a73cb30d59ad", size = 19417, upload-time = "2023-03-17T16:52:56.598Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/73/23/338caee543d80584916da20f018aeb017764509d964fd347b97f41f97baa/jax_jumpy-1.0.0-py3-none-any.whl", hash = "sha256:ab7e01454bba462de3c4d098e3e585c302a8f06bc36d9182ab4e7e4aa7067c5e", size = 20368, upload-time = "2023-03-17T16:52:55.437Z" },
 ]
 
 [[package]]
@@ -2006,7 +1993,7 @@ requires-dist = [
     { name = "grpcio", marker = "extra == 'grpc'" },
     { name = "grpcio-tools", marker = "extra == 'all'", specifier = ">=1.71.2" },
     { name = "grpcio-tools", marker = "extra == 'grpc'", specifier = ">=1.71.2" },
-    { name = "gymnasium", marker = "extra == 'all'", specifier = "~=0.28.1" },
+    { name = "gymnasium", marker = "extra == 'all'", specifier = ">=0.28.1,<1.3.0" },
     { name = "imagehash", marker = "extra == 'all'" },
     { name = "imagehash", marker = "extra == 'vmware-and-evaluation'" },
     { name = "librosa", marker = "extra == 'all'" },

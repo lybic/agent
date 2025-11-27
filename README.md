@@ -21,8 +21,8 @@
     <small>Latest Version:</small><a href="https://pypi.org/project/lybic-guiagents/"><img alt="PyPI" src="https://img.shields.io/pypi/v/lybic-guiagents"></a>
     &nbsp;
     <a href="https://github.com/lybic/agent/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/pypi/l/lybic-guiagents"></a>
-    &nbsp;
     <a href="https://github.com/lybic/agent"><img alt="Stars" src="https://img.shields.io/github/stars/lybic/agent?style=social"></a>
+    <a href="https://gitcode.com/lybic/agent/star/badge.svg"><img src="https://gitcode.com/lybic/agent/star/badge.svg" alt="GitCode Stars"></a>
 </p>
 
 ## What is Lybic GUI Agent?

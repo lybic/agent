@@ -179,6 +179,9 @@ class GlobalState:
         self.termination_flag_path = Path(termination_flag_path)
         self.running_state_path = Path(running_state_path)
         self.agent_log_path = Path(agent_log_path)
+        
+        # 存储截图URL的路径
+        self.screenshot_url_path = self.screenshot_dir / "screenshot_url.txt"
 
         # If display_info_path is not provided, create display.json in the same directory as running_state_path
         if not display_info_path:
@@ -253,12 +256,31 @@ class GlobalState:
         screenshot.save(buf, format="PNG")
         return buf.getvalue()
 
-    def set_screenshot(self, img: Image.Image) -> Path:
+    def set_screenshot(self, img: Image.Image, url: Optional[str] = None) -> Path:
         ts = int(time.time() * 1000)
         out = self.screenshot_dir / f"{ts}.png"
         img.save(out)
         logger.debug("Screenshot saved to %s", out)
+        
+        # 保存截图URL（如果提供）
+        if url:
+            try:
+                safe_write_text(self.screenshot_url_path, url)
+                logger.debug("Screenshot URL saved: %s", url)
+            except Exception as e:
+                logger.warning(f"Failed to save screenshot URL: {e}")
+        
         return out
+    
+    def get_screenshot_url(self) -> Optional[str]:
+        """获取最新的截图URL（如果可用）"""
+        try:
+            if self.screenshot_url_path.exists():
+                url = safe_read_text(self.screenshot_url_path).strip()
+                return url if url else None
+        except Exception as e:
+            logger.warning(f"Failed to read screenshot URL: {e}")
+        return None
 
     def get_screen_size(self) -> List[int]:
         pngs = sorted(self.screenshot_dir.glob("*.png"))
@@ -502,11 +524,15 @@ class GlobalState:
     def get_obs_for_manager(self):
         return {
             "screenshot": self.get_screenshot(),
+            "screenshot_url": self.get_screenshot_url(),
             "termination_flag": self.get_termination_flag(),
         }
 
     def get_obs_for_grounding(self):
-        return {"screenshot": self.get_screenshot()}
+        return {
+            "screenshot": self.get_screenshot(),
+            "screenshot_url": self.get_screenshot_url(),
+        }
 
     def get_obs_for_evaluator(self):
         return {
@@ -515,6 +541,7 @@ class GlobalState:
             "completed_subtasks": self.get_completed_subtasks(),
             "remaining_subtasks": self.get_remaining_subtasks(),
             "screenshot": self.get_screenshot(),
+            "screenshot_url": self.get_screenshot_url(),
         }
 
     # ---------- Display Information Management ----------

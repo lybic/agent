@@ -43,6 +43,10 @@ from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface, __vers
 from gui_agents.utils.analyze_display import analyze_display_json
 from gui_agents.storage import create_storage, TaskData
 from gui_agents.metrics import get_metrics_instance
+from gui_agents.utils.conversation_utils import (
+    extract_all_conversation_history_from_agent,
+    restore_all_conversation_history_to_agent
+)
 
 
 class AgentServicer(agent_pb2_grpc.AgentServicer):
@@ -261,6 +265,9 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
             
             # Collect execution statistics from display.json
             await self._collect_execution_statistics(task_id)
+            
+            # Extract and save conversation history (excluding images)
+            await self._save_conversation_history(task_id, agent)
 
             if final_state and final_state == "completed":
                 await stream_manager.add_message(task_id, "finished", "Task completed successfully")
@@ -398,6 +405,74 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 
         except Exception as e:
             logger.error(f"Error collecting execution statistics for task {task_id}: {e}")
+
+    async def _save_conversation_history(self, task_id: str, agent):
+        """
+        Extract and save conversation history from agent to storage.
+        
+        This method extracts the LLM conversation history (excluding images/screenshots)
+        from the agent's tools and saves it to the storage for later retrieval.
+        
+        Parameters:
+            task_id (str): Identifier of the task
+            agent: Agent instance (AgentS2 or AgentSFast)
+        """
+        try:
+            logger.info(f"Extracting conversation history for task {task_id}")
+            
+            # Extract conversation history from all tools in the agent
+            conversation_history = extract_all_conversation_history_from_agent(agent)
+            
+            if conversation_history:
+                # Save to storage
+                await self.storage.update_task(task_id, {
+                    "conversation_history": conversation_history
+                })
+                
+                # Log statistics
+                total_messages = sum(len(history) for history in conversation_history.values())
+                logger.info(f"Saved conversation history for task {task_id}: {len(conversation_history)} tools, {total_messages} total messages")
+            else:
+                logger.warning(f"No conversation history extracted for task {task_id}")
+                
+        except Exception as e:
+            logger.error(f"Error saving conversation history for task {task_id}: {e}")
+
+    async def _restore_conversation_history(self, previous_task_id: str, agent):
+        """
+        Restore conversation history from a previous task to the agent.
+        
+        This method retrieves the saved conversation history from storage
+        and restores it to the agent's tools, allowing the agent to continue
+        with the context from the previous task.
+        
+        Parameters:
+            previous_task_id (str): Identifier of the previous task
+            agent: Agent instance (AgentS2 or AgentSFast) to restore history to
+        """
+        try:
+            logger.info(f"Restoring conversation history from previous task {previous_task_id}")
+            
+            # Get previous task data from storage
+            previous_task_data = await self.storage.get_task(previous_task_id)
+            
+            if not previous_task_data:
+                logger.warning(f"Previous task {previous_task_id} not found in storage")
+                return
+            
+            if not previous_task_data.conversation_history:
+                logger.warning(f"No conversation history found for previous task {previous_task_id}")
+                return
+            
+            # Restore conversation history to all tools in the agent
+            restore_all_conversation_history_to_agent(agent, previous_task_data.conversation_history)
+            
+            # Log statistics
+            total_messages = sum(len(history) for history in previous_task_data.conversation_history.values())
+            logger.info(f"Restored conversation history from task {previous_task_id}: {len(previous_task_data.conversation_history)} tools, {total_messages} total messages")
+                
+        except Exception as e:
+            logger.error(f"Error restoring conversation history from task {previous_task_id}: {e}")
 
     async def _make_backend_kwargs(self, request):
         """
@@ -643,6 +718,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
                 queue = asyncio.Queue()
                 agent = await self._make_agent(request)
+                
+                # Restore conversation history from previous task if provided
+                if request.HasField("previousTaskId") and request.previousTaskId:
+                    await self._restore_conversation_history(request.previousTaskId, agent)
+                
                 backend_kwargs = await self._make_backend_kwargs(request)
                 max_steps = 50
                 if request.HasField("runningConfig") and request.runningConfig.steps:
@@ -756,6 +836,11 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                     return agent_pb2.RunAgentInstructionAsyncResponse(taskId="")
 
                 agent = await self._make_agent(request=request)
+                
+                # Restore conversation history from previous task if provided
+                if request.HasField("previousTaskId") and request.previousTaskId:
+                    await self._restore_conversation_history(request.previousTaskId, agent)
+                
                 backend_kwargs = await self._make_backend_kwargs(request)
                 max_steps = 50
                 if request.HasField("runningConfig") and request.runningConfig.steps:

@@ -746,21 +746,6 @@ def main():
             previous_task_id = input("Enter the previous task ID: ").strip()
             if previous_task_id:
                 logger.info(f"Will continue conversation context from task {previous_task_id}")
-    
-    # Restore conversation history if previous task ID is provided
-    if previous_task_id:
-        try:
-            import asyncio
-            previous_task_data = asyncio.run(storage.get_task(previous_task_id))
-            
-            if previous_task_data and previous_task_data.conversation_history:
-                # Agent will be reset after this, so we restore history after reset
-                restore_all_conversation_history_to_agent(agent, previous_task_data.conversation_history)
-                logger.info(f"Restored conversation history from task {previous_task_id}")
-            else:
-                logger.warning(f"No conversation history found for task {previous_task_id}")
-        except Exception as e:
-            logger.error(f"Failed to restore conversation history from task {previous_task_id}: {e}")
 
     # Initialize hardware interface with error handling
     backend_kwargs = {"platform": platform_os}
@@ -805,9 +790,21 @@ def main():
         )
         asyncio.run(storage.create_task(task_data))
         
-        # Reset agent (this clears conversation history if not already restored)
-        if not previous_task_id:
-            agent.reset()
+        # Always reset agent first
+        agent.reset()
+        
+        # Restore conversation history if previous task ID is provided
+        if previous_task_id:
+            try:
+                previous_task_data = asyncio.run(storage.get_task(previous_task_id))
+                
+                if previous_task_data and previous_task_data.conversation_history:
+                    restore_all_conversation_history_to_agent(agent, previous_task_data.conversation_history)
+                    logger.info(f"Restored conversation history from task {previous_task_id}")
+                else:
+                    logger.warning(f"No conversation history found for task {previous_task_id}")
+            except Exception as e:
+                logger.error(f"Failed to restore conversation history from task {previous_task_id}: {e}")
         
         # Run the task
         run_agent_func(agent, args.query, hwi, args.max_steps,
@@ -824,6 +821,9 @@ def main():
         print("You can use this task ID to continue the conversation context in the next run.")
 
     else:
+        # Track whether this is the first task in the interactive session
+        first_task = True
+        
         while True:
             query = input("Query: ")
             
@@ -840,12 +840,23 @@ def main():
             )
             asyncio.run(storage.create_task(task_data))
 
-            # Reset agent only for the first task or if not continuing
-            if not previous_task_id:
-                agent.reset()
-            else:
-                # For subsequent tasks, we don't reset to keep the conversation context
-                previous_task_id = None  # Clear for next iteration
+            # Always reset agent first
+            agent.reset()
+            
+            # Restore conversation history if this is the first task and previous_task_id was provided
+            if first_task and previous_task_id:
+                try:
+                    previous_task_data = asyncio.run(storage.get_task(previous_task_id))
+                    
+                    if previous_task_data and previous_task_data.conversation_history:
+                        restore_all_conversation_history_to_agent(agent, previous_task_data.conversation_history)
+                        logger.info(f"Restored conversation history from task {previous_task_id}")
+                    else:
+                        logger.warning(f"No conversation history found for task {previous_task_id}")
+                except Exception as e:
+                    logger.error(f"Failed to restore conversation history from task {previous_task_id}: {e}")
+                
+                first_task = False
 
             # Run the agent on your own device
             run_agent_func(agent, query, hwi, args.max_steps, args.enable_takeover, args.destroy_sandbox)

@@ -25,23 +25,29 @@ def strip_images_from_message(message: Dict[str, Any]) -> Dict[str, Any]:
     if "content" not in message:
         return message
     
+    # Handle case where content is a string (simple text message)
+    if isinstance(message["content"], str):
+        return message.copy()
+    
     cleaned_message = {
         "role": message["role"],
         "content": []
     }
     
-    # Filter out image content
-    for content_item in message["content"]:
-        if isinstance(content_item, dict):
-            # Keep text content, skip image content
-            if content_item.get("type") == "text":
-                cleaned_message["content"].append(content_item)
-            # Skip image_url content
-            elif content_item.get("type") == "image_url":
-                continue
-            # Skip image content (for Anthropic format)
-            elif content_item.get("type") == "image":
-                continue
+    # Handle case where content is a list
+    if isinstance(message["content"], list):
+        # Filter out image content
+        for content_item in message["content"]:
+            if isinstance(content_item, dict):
+                # Keep text content, skip image content
+                if content_item.get("type") == "text":
+                    cleaned_message["content"].append(content_item)
+                # Skip image_url content
+                elif content_item.get("type") == "image_url":
+                    continue
+                # Skip image content (for Anthropic format)
+                elif content_item.get("type") == "image":
+                    continue
     
     return cleaned_message
 
@@ -158,8 +164,10 @@ def restore_conversation_history_to_llm_agent(llm_agent, conversation_history: L
         logger.warning("LLMAgent does not have messages attribute")
         return
     
-    # Replace messages with the restored history
-    llm_agent.messages = conversation_history
+    # Clear existing messages and extend with restored history
+    # This preserves any external references to the messages list
+    llm_agent.messages.clear()
+    llm_agent.messages.extend(conversation_history)
     logger.info(f"Restored {len(conversation_history)} messages to LLMAgent")
 
 

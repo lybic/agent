@@ -46,6 +46,11 @@ from gui_agents.agents.hardware_interface import HardwareInterface
 from gui_agents.store.registry import Registry
 from gui_agents.agents.global_state import GlobalState
 from gui_agents.utils.analyze_display import analyze_display_json
+from gui_agents.storage import create_storage, TaskData
+from gui_agents.utils.conversation_utils import (
+    extract_all_conversation_history_from_agent,
+    restore_all_conversation_history_to_agent
+)
 import gui_agents.cli_app as cli_app
 
 # Setup logging
@@ -223,6 +228,10 @@ async def list_tools() -> list[types.Tool]:
                     "llm_endpoint": {
                         "type": "string",
                         "description": "Custom endpoint URL for the LLM provider"
+                    },
+                    "previous_task_id": {
+                        "type": "string",
+                        "description": "Previous task ID to continue conversation context from (optional)"
                     }
                 },
                 "required": ["instruction"]
@@ -328,6 +337,7 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
     orgid = arguments.get("orgid")
     mode = arguments.get("mode", "fast")
     max_steps = arguments.get("max_steps", 50)
+    previous_task_id = arguments.get("previous_task_id")
 
     # LLM configuration
     llm_provider = arguments.get("llm_provider")
@@ -336,6 +346,8 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
     llm_endpoint = arguments.get("llm_endpoint")
 
     task_id = None
+    storage = create_storage()
+    
     try:
         lybic_auth = get_lybic_auth(apikey, orgid)
 
@@ -463,6 +475,20 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
 
         # Reset agent (now it has task_id set)
         agent.reset()
+        
+        # Restore conversation history from previous task if provided
+        if previous_task_id:
+            try:
+                logger.info(f"Restoring conversation history from previous task {previous_task_id}")
+                previous_task_data = await storage.get_task(previous_task_id)
+                
+                if previous_task_data and previous_task_data.conversation_history:
+                    restore_all_conversation_history_to_agent(agent, previous_task_data.conversation_history)
+                    logger.info(f"Restored conversation history from task {previous_task_id}")
+                else:
+                    logger.warning(f"No conversation history found for task {previous_task_id}")
+            except Exception as e:
+                logger.error(f"Failed to restore conversation history from task {previous_task_id}: {e}")
 
         # Execute in thread
         logger.info(f"Executing instruction in {mode} mode: {instruction}")
@@ -480,9 +506,30 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
                 task_id=task_id, task_registry=task_registry
             )
 
+        # Extract and save conversation history
+        try:
+            logger.info(f"Extracting conversation history for task {task_id}")
+            conversation_history = extract_all_conversation_history_from_agent(agent)
+            
+            if conversation_history:
+                # Create task data in storage
+                task_data = TaskData(
+                    task_id=task_id,
+                    status="finished",
+                    query=instruction,
+                    max_steps=max_steps,
+                    conversation_history=conversation_history
+                )
+                await storage.create_task(task_data)
+                
+                total_messages = sum(len(history) for history in conversation_history.values())
+                logger.info(f"Saved conversation history for task {task_id}: {len(conversation_history)} tools, {total_messages} total messages")
+        except Exception as e:
+            logger.error(f"Error saving conversation history for task {task_id}: {e}")
+        
         # Analyze results
         display_json_path = timestamp_dir / "display.json"
-        result_text = f"Instruction executed successfully!\n\nSandbox ID: {sandbox_id}\nMode: {mode}\nMax steps: {max_steps}\n"
+        result_text = f"Instruction executed successfully!\n\nTask ID: {task_id}\nSandbox ID: {sandbox_id}\nMode: {mode}\nMax steps: {max_steps}\n"
 
         if display_json_path.exists():
             try:
@@ -498,6 +545,7 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
                 logger.warning(f"Failed to analyze execution: {e}")
 
         result_text += f"\nLog directory: {timestamp_dir}\n"
+        result_text += f"\nYou can use Task ID '{task_id}' to continue the conversation context in the next execution.\n"
 
         return [types.TextContent(
             type="text",

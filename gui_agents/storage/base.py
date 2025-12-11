@@ -25,6 +25,7 @@ class TaskData:
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     request_data: Optional[Dict[str, Any]] = None
+    conversation_history: Optional[List[Dict[str, Any]]] = None  # LLM conversation history (excluding images)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert TaskData to dictionary for serialization."""

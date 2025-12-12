@@ -808,7 +808,7 @@ async def submit_task(request: SubmitTaskRequest):
                 query=request.instruction,
                 max_steps=request.max_steps,
                 sandbox_info=sandbox_info,
-                request_data=request.dict()
+                request_data=request.model_dump()
             )
             await service.storage.create_task(task_data)
             

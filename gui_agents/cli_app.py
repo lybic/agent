@@ -1,13 +1,20 @@
+import asyncio
 import argparse
 import logging
 import os
 import platform
 import sys
 import datetime
+import uuid
 from pathlib import Path
 from dotenv import load_dotenv
 
 from gui_agents.agents.Backend.LybicBackend import LybicBackend
+from gui_agents.storage import create_storage, TaskData
+from gui_agents.utils.conversation_utils import (
+    extract_all_conversation_history_from_agent,
+    restore_all_conversation_history_to_agent
+)
 
 env_path = Path(os.path.dirname(os.path.abspath(__file__))) / '.env'
 if env_path.exists():
@@ -257,6 +264,36 @@ def scale_screenshot_dimensions(screenshot: Image.Image, hwi_para: HardwareInter
         logger.warning(f"Could not scale screenshot dimensions: {e}")
 
     return screenshot
+
+def save_conversation_history_to_storage(agent, task_id: str, storage):
+    """
+    Save conversation history from agent to storage after task completion.
+    
+    Parameters:
+        agent: The agent instance to extract conversation history from
+        task_id (str): Identifier of the task
+        storage: Storage instance to save the conversation history
+    """
+    try:
+        logger.info(f"Saving conversation history for task {task_id}")
+        
+        # Extract conversation history from all tools in the agent
+        conversation_history = extract_all_conversation_history_from_agent(agent)
+        
+        if conversation_history:
+            asyncio.run(storage.update_task(task_id, {
+                "conversation_history": conversation_history
+            }))
+            
+            # Log statistics
+            total_messages = sum(len(history) for history in conversation_history.values())
+            logger.info(f"Saved conversation history for task {task_id}: {len(conversation_history)} tools, {total_messages} total messages")
+        else:
+            logger.warning(f"No conversation history extracted for task {task_id}")
+            
+    except Exception as e:
+        logger.error(f"Error saving conversation history for task {task_id}: {e}")
+
 
 def run_agent_normal(agent, instruction: str, hwi_para: HardwareInterface, max_steps: int = 50, enable_takeover: bool = False, destroy_sandbox: bool = False, task_id: str | None = None, task_registry: Registry | None = None):
     """
@@ -601,6 +638,11 @@ def main():
         '--destroy-sandbox',
         action='store_true',
         help='Destroy the sandbox after task completion (only applicable for Lybic backend, disabled by default)')
+    parser.add_argument(
+        '--previous-task-id',
+        type=str,
+        default=None,
+        help='Previous task ID to continue conversation context from')
     args = parser.parse_args()
 
     # Check environment compatibility
@@ -691,6 +733,19 @@ def main():
         logger.info("Web search functionality is DISABLED")
     else:
         logger.info("Web search functionality is ENABLED")
+    
+    # Initialize storage for conversation history persistence
+    storage = create_storage()
+    
+    # Check if user wants to continue from a previous task
+    previous_task_id = args.previous_task_id
+    if not previous_task_id and not args.query:
+        # Interactive mode: ask user if they want to continue from a previous task
+        continue_response = input("Do you want to continue from a previous task? (y/n): ")
+        if continue_response.lower() == "y":
+            previous_task_id = input("Enter the previous task ID: ").strip()
+            if previous_task_id:
+                logger.info(f"Will continue conversation context from task {previous_task_id}")
 
     # Initialize hardware interface with error handling
     backend_kwargs = {"platform": platform_os}
@@ -722,18 +777,94 @@ def main():
 
     # if query is provided, run the agent on the query
     if args.query:
+        import uuid
+        task_id = str(uuid.uuid4())
+        
+        # Create task data in storage
+        import asyncio
+        task_data = TaskData(
+            task_id=task_id,
+            status="running",
+            query=args.query,
+            max_steps=args.max_steps
+        )
+        asyncio.run(storage.create_task(task_data))
+        
+        # Always reset agent first
         agent.reset()
+        
+        # Restore conversation history if previous task ID is provided
+        if previous_task_id:
+            try:
+                previous_task_data = asyncio.run(storage.get_task(previous_task_id))
+                
+                if previous_task_data and previous_task_data.conversation_history:
+                    restore_all_conversation_history_to_agent(agent, previous_task_data.conversation_history)
+                    logger.info(f"Restored conversation history from task {previous_task_id}")
+                else:
+                    logger.warning(f"No conversation history found for task {previous_task_id}")
+            except Exception as e:
+                logger.error(f"Failed to restore conversation history from task {previous_task_id}: {e}")
+        
+        # Run the task
         run_agent_func(agent, args.query, hwi, args.max_steps,
                        args.enable_takeover, args.destroy_sandbox)
+        
+        # Save conversation history after task completion
+        save_conversation_history_to_storage(agent, task_id, storage)
+        
+        # Update task status
+        asyncio.run(storage.update_task(task_id, {"status": "finished"}))
+        
+        logger.info(f"Task completed. Task ID: {task_id}")
+        print(f"\n=== Task ID: {task_id} ===")
+        print("You can use this task ID to continue the conversation context in the next run.")
 
     else:
+        # Track whether this is the first task in the interactive session
+        first_task = True
+        
         while True:
             query = input("Query: ")
 
+            task_id = str(uuid.uuid4())
+            task_data = TaskData(
+                task_id=task_id,
+                status="running",
+                query=query,
+                max_steps=args.max_steps
+            )
+            asyncio.run(storage.create_task(task_data))
+
+            # Always reset agent first
             agent.reset()
+            
+            # Restore conversation history if this is the first task and previous_task_id was provided
+            if first_task and previous_task_id:
+                try:
+                    previous_task_data = asyncio.run(storage.get_task(previous_task_id))
+                    
+                    if previous_task_data and previous_task_data.conversation_history:
+                        restore_all_conversation_history_to_agent(agent, previous_task_data.conversation_history)
+                        logger.info(f"Restored conversation history from task {previous_task_id}")
+                    else:
+                        logger.warning(f"No conversation history found for task {previous_task_id}")
+                except Exception as e:
+                    logger.error(f"Failed to restore conversation history from task {previous_task_id}: {e}")
+                
+                first_task = False
 
             # Run the agent on your own device
             run_agent_func(agent, query, hwi, args.max_steps, args.enable_takeover, args.destroy_sandbox)
+            
+            # Save conversation history after task completion
+            save_conversation_history_to_storage(agent, task_id, storage)
+            
+            # Update task status
+            asyncio.run(storage.update_task(task_id, {"status": "finished"}))
+            
+            logger.info(f"Task completed. Task ID: {task_id}")
+            print(f"\n=== Task ID: {task_id} ===")
 
             response = input("Would you like to provide another query? (y/n): ")
             if response.lower() != "y":

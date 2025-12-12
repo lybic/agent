@@ -44,6 +44,7 @@ class PostgresStorage(TaskStorage):
         execution_statistics JSONB,
         sandbox_info JSONB,
         request_data JSONB,
+        conversation_history JSONB,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
@@ -133,8 +134,8 @@ class PostgresStorage(TaskStorage):
                     INSERT INTO agent_tasks (
                         task_id, status, query, max_steps, final_state,
                         timestamp_dir, execution_statistics, sandbox_info,
-                        request_data, created_at, updated_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                        request_data, conversation_history, created_at, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                     """,
                     task_data.task_id,
                     task_data.status,
@@ -145,6 +146,7 @@ class PostgresStorage(TaskStorage):
                     json.dumps(task_data.execution_statistics) if task_data.execution_statistics else None,
                     json.dumps(task_data.sandbox_info) if task_data.sandbox_info else None,
                     json.dumps(task_data.request_data) if task_data.request_data else None,
+                    json.dumps(task_data.conversation_history) if task_data.conversation_history else None,
                     task_data.created_at or datetime.now(),
                     task_data.updated_at or datetime.now()
                 )
@@ -175,7 +177,7 @@ class PostgresStorage(TaskStorage):
                     """
                     SELECT task_id, status, query, max_steps, final_state,
                            timestamp_dir, execution_statistics, sandbox_info,
-                           request_data, created_at, updated_at
+                           request_data, conversation_history, created_at, updated_at
                     FROM agent_tasks WHERE task_id = $1
                     """,
                     task_id
@@ -195,6 +197,7 @@ class PostgresStorage(TaskStorage):
                     execution_statistics=json.loads(row['execution_statistics']) if row['execution_statistics'] else None,
                     sandbox_info=json.loads(row['sandbox_info']) if row['sandbox_info'] else None,
                     request_data=json.loads(row['request_data']) if row['request_data'] else None,
+                    conversation_history=json.loads(row['conversation_history']) if row['conversation_history'] else None,
                     created_at=row['created_at'],
                     updated_at=row['updated_at']
                 )
@@ -225,7 +228,7 @@ class PostgresStorage(TaskStorage):
         
         allowed_update_fields = {
             'status', 'final_state', 'timestamp_dir',
-            'execution_statistics', 'sandbox_info', 'request_data'
+            'execution_statistics', 'sandbox_info', 'request_data', 'conversation_history'
         }
         
         for key, value in updates.items():
@@ -233,7 +236,7 @@ class PostgresStorage(TaskStorage):
                 set_clauses.append(f"{key} = ${param_idx}")
                 
                 # Serialize dicts to JSON for JSONB columns
-                if key in ['execution_statistics', 'sandbox_info', 'request_data'] and value is not None:
+                if key in ['execution_statistics', 'sandbox_info', 'request_data', 'conversation_history'] and value is not None:
                     value = json.dumps(value)
                 
                 values.append(value)
@@ -323,7 +326,7 @@ class PostgresStorage(TaskStorage):
         query = """
             SELECT task_id, status, query, max_steps, final_state,
                    timestamp_dir, execution_statistics, sandbox_info,
-                   request_data, created_at, updated_at
+                   request_data, conversation_history, created_at, updated_at
             FROM agent_tasks
         """
         
@@ -362,6 +365,7 @@ class PostgresStorage(TaskStorage):
                         execution_statistics=json.loads(row['execution_statistics']) if row['execution_statistics'] else None,
                         sandbox_info=json.loads(row['sandbox_info']) if row['sandbox_info'] else None,
                         request_data=json.loads(row['request_data']) if row['request_data'] else None,
+                        conversation_history=json.loads(row['conversation_history']) if row['conversation_history'] else None,
                         created_at=row['created_at'],
                         updated_at=row['updated_at']
                     )

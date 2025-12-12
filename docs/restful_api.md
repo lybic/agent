@@ -107,7 +107,22 @@ Run an agent task with Server-Sent Events (SSE) streaming for real-time progress
     "org_id": "your_org_id",
     "api_endpoint": "https://api.lybic.cn/"
   },
-  "ark_apikey": "optional-llm-api-key"
+  "stage_model_config": {
+    "grounding_model": {
+      "model_name": "gpt-4o",
+      "provider": "openai",
+      "api_key": "sk-your-openai-key"
+    },
+    "action_generator_model": {
+      "model_name": "claude-3-5-sonnet-20241022",
+      "provider": "anthropic",
+      "api_key": "sk-ant-your-anthropic-key"
+    },
+    "embedding_model": {
+      "model_name": "text-embedding-3-large",
+      "provider": "openai"
+    }
+  }
 }
 ```
 
@@ -122,7 +137,7 @@ Run an agent task with Server-Sent Events (SSE) streaming for real-time progress
 - `continue_context` (optional, default: false): Continue from previous task
 - `task_id` (optional): Previous task ID for context continuation
 - `authentication` (optional): Lybic authentication (uses env vars if not provided)
-- `ark_apikey` (optional): API key for LLM models (OpenAI, Anthropic, etc.)
+- `stage_model_config` (optional): Stage-specific model configurations for different agent components
 
 **Response (SSE Stream):**
 ```
@@ -274,29 +289,114 @@ Create a new sandbox environment.
 }
 ```
 
-## Model Configuration with ark_apikey
+## Model Configuration with stage_model_config
 
-The `ark_apikey` parameter allows you to specify a custom API key for LLM models used by the agent. This is similar to the `LLMConfig` functionality in the gRPC server.
+The `stage_model_config` parameter allows you to configure different LLM models for different agent components. This provides the same functionality as the gRPC server's `StageModelConfig`.
 
-When `ark_apikey` is provided, it will be applied to all LLM-based tools in the agent:
-- Grounding model
-- Action generator models
-- Embedding models
-- Planning models
-- And all other LLM-based components
+### Supported Model Configurations
 
-This allows you to:
-1. Use different API keys for different tasks
-2. Override the default API key configured in environment variables
-3. Support multi-tenant scenarios where different users have different API keys
+The `stage_model_config` allows you to configure different LLM models for different agent components. Each component serves a specific purpose in the agent's execution pipeline:
 
-**Example:**
+| Configuration Field | Tool Name | Purpose | Agent Mode | Recommended Models |
+|---------------------|-----------|---------|------------|-------------------|
+| `web_search_engine` | websearch | Web search engine | Normal | `exa`, `ark` |
+| `context_fusion_model` | context_fusion | Fuse context from multiple sources | Normal | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+| `subtask_planner_model` | subtask_planner | Break down tasks into subtasks | Normal | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+| `traj_reflector_model` | traj_reflector | Reflect on execution trajectory | Normal | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+| `memory_retrival_model` | memory_retrival | Retrieve relevant memory | Normal | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+| `grounding_model` | grounding | Ground UI elements in screenshots | Normal/Fast | Qwen-VL-Max, Doubao-1.5-UI-Tars, GPT-4o |
+| `task_evaluator_model` | evaluator | Evaluate task completion | Normal | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+| `action_generator_model` | action_generator | Generate actions (Normal mode) | Normal | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro, DeepSeek-R1 |
+| `action_generator_with_takeover_model` | action_generator_with_takeover | Generate actions with takeover | Normal | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+| `fast_action_generator_model` | fast_action_generator | Generate actions (Fast mode) | Fast | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+| `fast_action_generator_with_takeover_model` | fast_action_generator_with_takeover | Generate actions with takeover (Fast) | Fast | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+| `dag_translator_model` | dag_translator | Translate task to DAG | Normal | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+| `embedding_model` | embedding | Generate text embeddings | Normal/Fast | text-embedding-3-large, Gemini-Embedding, Jina-v4 |
+| `query_formulator_model` | query_formulator | Formulate search queries | Normal | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+| `narrative_summarization_model` | narrative_summarization | Summarize task narrative | Normal | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+| `text_span_model` | text_span | Extract text spans | Normal | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+| `episode_summarization_model` | episode_summarization | Summarize episodes | Normal | GPT-4o, Claude-3.5-Sonnet, Gemini-2.5-Pro |
+
+**Note:** 
+- `action_generator_model` serves as the default configuration for all LLM tools (except `grounding_model` and `embedding_model`) if no specific configuration is provided.
+- In **Fast mode**, only `grounding_model`, `embedding_model`, and `fast_action_generator_model` are used.
+- In **Normal mode**, all components may be used depending on the task complexity.
+
+### Supported Model Providers
+
+For detailed information about supported models and providers, see `gui_agents/tools/model.md`. Key providers include:
+
+- **OpenAI**: gpt-4o, gpt-4.1, o1, o3-mini, text-embedding-3-large
+- **Anthropic**: claude-opus-4, claude-sonnet-4, claude-3-7-sonnet, claude-3-5-sonnet-20241022
+- **Google Gemini**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash, text-embedding-004
+- **Alibaba Qwen**: qwen-max-latest, qwen-vl-max-latest (grounding), text-embedding-v4
+- **ByteDance Doubao**: doubao-1-5-ui-tars-250428 (grounding), doubao-seed-1-6-flash
+- **DeepSeek**: deepseek-chat, deepseek-reasoner
+- **Zhipu GLM**: GLM-4-Plus, GLM-4-AirX (grounding), Embedding-3
+- **xAI Grok**: grok-3-beta, grok-beta
+- **Proxy Platforms**: Monica, OpenRouter (support multiple providers)
+
+### LLM Config Fields
+
+Each model configuration supports:
+- `model_name` (required): Model name (e.g., "gpt-4o", "claude-3-5-sonnet-20241022", "gemini-2.5-pro")
+- `provider` (optional): Provider name (e.g., "openai", "anthropic", "gemini", "doubao")
+- `api_key` (optional): API key for this specific model
+- `api_endpoint` (optional): Custom API endpoint (useful for proxy services or self-hosted models)
+
+### Benefits
+
+1. Use different models for different components
+2. Use different API keys per model or per task
+3. Override default configurations from environment variables
+4. Support multi-tenant scenarios with per-user API keys
+5. Cost optimization by using cheaper models for less critical components
+
+### Examples
+
+**Example 1: Use different models for different components**
 ```bash
 curl -X POST http://localhost:8080/api/agent/run \
   -H "Content-Type: application/json" \
   -d '{
     "instruction": "Open calculator and compute 123 + 456",
-    "ark_apikey": "sk-your-openai-api-key",
+    "stage_model_config": {
+      "grounding_model": {
+        "model_name": "gpt-4o",
+        "provider": "openai",
+        "api_key": "sk-your-openai-key"
+      },
+      "action_generator_model": {
+        "model_name": "claude-3-5-sonnet-20241022",
+        "provider": "anthropic",
+        "api_key": "sk-ant-your-anthropic-key"
+      },
+      "embedding_model": {
+        "model_name": "text-embedding-3-large",
+        "provider": "openai"
+      }
+    },
+    "authentication": {
+      "api_key": "your_lybic_api_key",
+      "org_id": "your_lybic_org_id"
+    }
+  }'
+```
+
+**Example 2: Use custom endpoint**
+```bash
+curl -X POST http://localhost:8080/api/agent/run \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instruction": "Search for latest AI news",
+    "stage_model_config": {
+      "action_generator_model": {
+        "model_name": "deepseek-chat",
+        "provider": "openai",
+        "api_key": "your-deepseek-key",
+        "api_endpoint": "https://api.deepseek.com/v1"
+      }
+    },
     "authentication": {
       "api_key": "your_lybic_api_key",
       "org_id": "your_lybic_org_id"
@@ -337,7 +437,12 @@ response = requests.post(
         "mode": "fast",
         "max_steps": 30,
         "authentication": auth,
-        "ark_apikey": "your_llm_api_key"  # Optional
+        "stage_model_config": {  # Optional
+            "action_generator_model": {
+                "model_name": "gpt-4o",
+                "api_key": "your_llm_api_key"
+            }
+        }
     }
 )
 task_data = response.json()
@@ -432,7 +537,7 @@ The RESTful API provides similar functionality to the gRPC service (`grpc_app.py
 | Task Status | GET /api/agent/status | QueryTaskStatus |
 | Task Cancellation | POST /api/agent/cancel | CancelTask |
 | Agent Info | GET /api/agent/info | GetAgentInfo |
-| Model Config | ark_apikey parameter | LLMConfig protobuf |
+| Model Config | stage_model_config parameter | StageModelConfig protobuf |
 | Authentication | JSON in request body | AuthorizationInfo protobuf |
 
 ## Performance Considerations

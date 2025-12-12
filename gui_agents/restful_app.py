@@ -63,6 +63,35 @@ class LybicAuthentication(BaseModel):
     api_endpoint: Optional[str] = Field(None, description="Lybic API endpoint (optional)")
 
 
+class LLMConfig(BaseModel):
+    """LLM configuration for specific model"""
+    model_name: str = Field(..., description="Model name (e.g., gpt-4, claude-3-5-sonnet-20241022)")
+    provider: Optional[str] = Field(None, description="Provider name (e.g., openai, anthropic, google)")
+    api_key: Optional[str] = Field(None, description="API key for this model")
+    api_endpoint: Optional[str] = Field(None, description="API endpoint for this model")
+
+
+class StageModelConfig(BaseModel):
+    """Stage-specific model configurations for different agent components"""
+    web_search_engine: Optional[str] = Field(None, description="Web search engine to use")
+    context_fusion_model: Optional[LLMConfig] = Field(None, description="Context fusion model config")
+    subtask_planner_model: Optional[LLMConfig] = Field(None, description="Subtask planner model config")
+    traj_reflector_model: Optional[LLMConfig] = Field(None, description="Trajectory reflector model config")
+    memory_retrival_model: Optional[LLMConfig] = Field(None, description="Memory retrieval model config")
+    grounding_model: Optional[LLMConfig] = Field(None, description="Grounding model config")
+    task_evaluator_model: Optional[LLMConfig] = Field(None, description="Task evaluator model config")
+    action_generator_model: Optional[LLMConfig] = Field(None, description="Action generator model config")
+    action_generator_with_takeover_model: Optional[LLMConfig] = Field(None, description="Action generator with takeover model config")
+    fast_action_generator_model: Optional[LLMConfig] = Field(None, description="Fast action generator model config")
+    fast_action_generator_with_takeover_model: Optional[LLMConfig] = Field(None, description="Fast action generator with takeover model config")
+    dag_translator_model: Optional[LLMConfig] = Field(None, description="DAG translator model config")
+    embedding_model: Optional[LLMConfig] = Field(None, description="Embedding model config")
+    query_formulator_model: Optional[LLMConfig] = Field(None, description="Query formulator model config")
+    narrative_summarization_model: Optional[LLMConfig] = Field(None, description="Narrative summarization model config")
+    text_span_model: Optional[LLMConfig] = Field(None, description="Text span model config")
+    episode_summarization_model: Optional[LLMConfig] = Field(None, description="Episode summarization model config")
+
+
 class RunAgentRequest(BaseModel):
     """Request to run agent with streaming response"""
     instruction: str = Field(..., description="Task instruction in natural language")
@@ -71,7 +100,7 @@ class RunAgentRequest(BaseModel):
     continue_context: bool = Field(False, description="Continue from previous task context")
     task_id: Optional[str] = Field(None, description="Previous task ID for context continuation")
     authentication: Optional[LybicAuthentication] = Field(None, description="Lybic authentication")
-    ark_apikey: Optional[str] = Field(None, description="API key for LLM models (OpenAI, Anthropic, etc.)")
+    stage_model_config: Optional[StageModelConfig] = Field(None, description="Stage-specific model configurations")
     max_steps: int = Field(50, description="Maximum steps for task execution")
     mode: str = Field("fast", description="Agent mode: 'normal' or 'fast'")
     destroy_sandbox: bool = Field(False, description="Destroy sandbox after task completion")
@@ -88,7 +117,7 @@ class SubmitTaskRequest(BaseModel):
     continue_context: bool = Field(False, description="Continue from previous task context")
     task_id: Optional[str] = Field(None, description="Previous task ID for context continuation")
     authentication: Optional[LybicAuthentication] = Field(None, description="Lybic authentication")
-    ark_apikey: Optional[str] = Field(None, description="API key for LLM models (OpenAI, Anthropic, etc.)")
+    stage_model_config: Optional[StageModelConfig] = Field(None, description="Stage-specific model configurations")
     mode: str = Field("fast", description="Agent mode: 'normal' or 'fast'")
     destroy_sandbox: bool = Field(False, description="Destroy sandbox after task completion")
     shape: str = Field("beijing-2c-4g-cpu", description="Sandbox shape/size")
@@ -204,30 +233,71 @@ class RestfulAgentService:
             return 'lybic_mobile'
         raise ValueError(f"Unsupported platform for backend: {arg}")
     
-    async def _make_agent(self, mode: str, ark_apikey: Optional[str] = None) -> UIAgent:
-        """Create agent with optional model configuration via ark_apikey"""
+    async def _make_agent(self, mode: str, stage_model_config: Optional[StageModelConfig] = None, platform: str = "Windows") -> UIAgent:
+        """
+        Create agent with stage-specific model configurations.
+        
+        Parameters:
+            mode: Agent mode ('normal' or 'fast')
+            stage_model_config: Optional stage-specific model configurations
+            platform: Target platform (Windows, Ubuntu, Android)
+            
+        Returns:
+            UIAgent: Configured agent instance
+        """
         tools_config, tools_dict = load_config()
         
-        # Apply ark_apikey to all LLM tools if provided
-        if ark_apikey:
-            logger.info("Applying ark_apikey to LLM model configurations")
-            for tool_name, tool_cfg in tools_dict.items():
-                if 'provider' in tool_cfg:  # LLM-based tool
-                    tool_cfg['api_key'] = ark_apikey
-                    logger.info(f"Override api_key for tool '{tool_name}'")
+        # Apply stage model configurations if provided
+        if stage_model_config:
+            logger.info("Applying stage model configurations to this task")
             
-            # Update tools_config with modified tools_dict
+            def apply_config(tool_name: str, llm_config: Optional[LLMConfig]):
+                """Apply LLM configuration to a tool"""
+                if tool_name in tools_dict and llm_config and llm_config.model_name:
+                    tool_cfg = tools_dict[tool_name]
+                    if llm_config.provider:
+                        tool_cfg['provider'] = llm_config.provider
+                    tool_cfg['model_name'] = llm_config.model_name
+                    tool_cfg['model'] = llm_config.model_name
+                    
+                    # Override api_key and endpoint if provided
+                    if llm_config.api_key:
+                        tool_cfg['api_key'] = llm_config.api_key
+                        logger.info(f"Override api_key for tool '{tool_name}'")
+                    if llm_config.api_endpoint:
+                        tool_cfg['base_url'] = llm_config.api_endpoint
+                        tool_cfg['endpoint_url'] = llm_config.api_endpoint
+                        logger.info(f"Override base_url for tool '{tool_name}': {llm_config.api_endpoint}")
+                    
+                    logger.info(f"Override tool '{tool_name}' with model '{llm_config.model_name}'")
+            
+            # Apply specific model configurations
+            apply_config('embedding', stage_model_config.embedding_model)
+            apply_config('grounding', stage_model_config.grounding_model)
+            
+            # Apply action_generator_model as common config to all other LLM tools
+            if stage_model_config.action_generator_model:
+                common_llm_config = stage_model_config.action_generator_model
+                for tool_name in tools_dict.keys():
+                    if tool_name not in ['embedding', 'grounding']:
+                        apply_config(tool_name, common_llm_config)
+            
+            # Merge changes from tools_dict back into tools_config
             for tool_entry in tools_config['tools']:
                 tool_name = tool_entry['tool_name']
                 if tool_name in tools_dict:
                     modified_data = tools_dict[tool_name]
-                    if 'api_key' in modified_data:
-                        tool_entry['api_key'] = modified_data['api_key']
+                    for key, value in modified_data.items():
+                        if key in ['provider', 'model_name', 'api_key', 'base_url', 'model', 'endpoint_url']:
+                            tool_entry[key] = value
+        
+        # Determine platform string for agent
+        platform_str = "windows" if platform.lower() in ["windows", "ubuntu"] else "android"
         
         # Create agent based on mode
         if mode.lower() == "normal":
             return AgentS2(
-                platform="windows",
+                platform=platform_str,
                 screen_size=[1280, 720],
                 enable_takeover=False,
                 enable_search=False,
@@ -235,7 +305,7 @@ class RestfulAgentService:
             )
         else:  # fast mode
             return AgentSFast(
-                platform="windows",
+                platform=platform_str,
                 screen_size=[1280, 720],
                 enable_takeover=False,
                 enable_search=False,
@@ -617,7 +687,7 @@ async def run_agent(request: RunAgentRequest):
                 )
             
             # Create agent
-            agent = await service._make_agent(request.mode, request.ark_apikey)
+            agent = await service._make_agent(request.mode, request.stage_model_config, request.platform)
             
             # Restore conversation history if requested
             if request.continue_context and request.task_id:
@@ -721,7 +791,7 @@ async def submit_task(request: SubmitTaskRequest):
                 )
             
             # Create agent
-            agent = await service._make_agent(request.mode, request.ark_apikey)
+            agent = await service._make_agent(request.mode, request.stage_model_config, request.platform)
             
             # Restore conversation history if requested
             if request.continue_context and request.task_id:

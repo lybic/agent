@@ -45,7 +45,7 @@ RUN .venv/bin/python -m grpc_tools.protoc -Igui_agents/proto \
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project --no-editable --extra grpc --extra postgres --extra prometheus --extra mcp
+    uv sync --locked --no-install-project --no-editable --extra grpc --extra postgres --extra prometheus --extra mcp --extra restful
 
 # Copy the project into the intermediate image
 COPY . /app
@@ -62,8 +62,9 @@ FROM base AS final
 # Copy the environment, but not the source code
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
-# Expose the gRPC port
+# Expose the gRPC port and RESTful API port
 EXPOSE 50051
+EXPOSE 8080
 
-# Set the CMD to run the CLI app by default. This can be overridden to run the gRPC server.
+# Set the CMD to run the CLI app by default. This can be overridden to run the gRPC or RESTful server.
 CMD ["/app/.venv/bin/lybic-guiagent"]

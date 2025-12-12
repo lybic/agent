@@ -66,6 +66,12 @@ mcp = [
     "sse-starlette>=2.0.0",
     "uvicorn>=0.30.0",
 ]
+restful = [
+    "fastapi>=0.100.0",
+    "sse-starlette>=2.0.0",
+    "uvicorn>=0.30.0",
+    "pydantic>=2.0.0",
+]
 vmware-and-evaluation = [
     "python-pptx",
     "odfpy",
@@ -198,6 +204,7 @@ all=[
 lybic-guiagent = "gui_agents.cli_app:main"
 lybic-guiagent-grpc = "gui_agents.grpc_app:main"
 lybic-guiagent-mcp = "gui_agents.mcp_app:main"
+lybic-guiagent-restful = "gui_agents.restful_app:main"
 
 [[tool.uv.index]]
 url = "https://pypi.org/simple"

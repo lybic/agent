@@ -67,6 +67,7 @@ mcp = [
     "uvicorn>=0.30.0",
 ]
 restful = [
+    # Note: shares FastAPI dependencies with mcp
     "fastapi>=0.100.0",
     "sse-starlette>=2.0.0",
     "uvicorn>=0.30.0",

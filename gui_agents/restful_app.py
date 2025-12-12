@@ -660,7 +660,9 @@ async def run_agent(request: RunAgentRequest):
             }
             task_created = True
             
-            # Remove sandbox from backend_kwargs (avoid crashes)
+            # Remove sandbox object from backend_kwargs before passing to _run_task
+            # The sandbox info has been stored in task_data, and keeping it in backend_kwargs
+            # can cause serialization issues in some backend implementations
             del backend_kwargs["sandbox"]
             
             # Start task
@@ -762,7 +764,9 @@ async def submit_task(request: SubmitTaskRequest):
             }
             task_created = True
             
-            # Remove sandbox from backend_kwargs
+            # Remove sandbox object from backend_kwargs before passing to _run_task
+            # The sandbox info has been stored in task_data, and keeping it in backend_kwargs
+            # can cause serialization issues in some backend implementations
             del backend_kwargs["sandbox"]
             
             # Start task

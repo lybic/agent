@@ -319,7 +319,7 @@ class RestfulAgentService:
         # Get authentication
         auth = request.authentication or self.global_auth
         if not auth:
-            raise ValueError("Lybic backend requires valid authentication (org_id and api_key)")
+            raise HTTPException(status_code=401, detail="Lybic backend requires valid authentication (org_id and api_key)")
         
         lybic_auth = LybicAuth(
             org_id=auth.org_id,

@@ -11,7 +11,7 @@ import time
 import uuid
 import datetime
 import platform
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -38,14 +38,13 @@ logging.basicConfig(
 logger.info("Initializing RESTful Agent server")
 
 # Import FastAPI and related
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 # Import GUI agent components
 from lybic import LybicClient, LybicAuth, Sandbox
-import gui_agents.cli_app as app
+import gui_agents.cli_app as cli_app
 from gui_agents.agents.stream_manager import stream_manager
 from gui_agents.agents.agent_s import load_config, AgentSFast, UIAgent
 from gui_agents import Registry, GlobalState, AgentS2, HardwareInterface, __version__
@@ -57,8 +56,6 @@ from gui_agents.utils.conversation_utils import (
     restore_all_conversation_history_to_agent
 )
 
-
-# Pydantic models for API
 class LybicAuthentication(BaseModel):
     """Lybic authentication credentials"""
     api_key: str = Field(..., description="Lybic API key")
@@ -284,12 +281,10 @@ class RestfulAgentService:
     
     async def _create_sandbox(self, shape: str, lybic_auth: LybicAuth):
         """Create a sandbox via Lybic API"""
-        lybic_client = LybicClient(lybic_auth)
-        sandbox_service = Sandbox(lybic_client)
-        result = await sandbox_service.create(shape=shape)
-        sandbox = await sandbox_service.get(result.id)
-        await lybic_client.close()
-        
+        async with LybicClient(lybic_auth) as lybic_client:
+            result = await lybic_client.sandbox.create(shape=shape)
+            sandbox = await lybic_client.sandbox.get(result.id)
+
         # Create simple namespace object to mimic protobuf
         class SandboxInfo:
             def __init__(self, id, shape_name):
@@ -302,16 +297,14 @@ class RestfulAgentService:
         )
         
         # Record metric
-        self.metrics.record_sandbox_created(platform_str=shape)
+        self.metrics.record_sandbox_created(shape)
         
         return sandbox_info
     
     async def _get_sandbox_pb(self, sid: str, lybic_auth: LybicAuth):
         """Get sandbox details"""
-        lybic_client = LybicClient(lybic_auth)
-        sandbox_service = Sandbox(lybic_client)
-        sandbox_details = await sandbox_service.get(sid)
-        await lybic_client.close()
+        async with LybicClient(lybic_auth) as lybic_client:
+            sandbox = await lybic_client.sandbox.get(sid)
         
         class SandboxInfo:
             def __init__(self, id, shape_name):
@@ -319,8 +312,8 @@ class RestfulAgentService:
                 self.shapeName = shape_name
         
         return SandboxInfo(
-            id=sandbox_details.sandbox.id,
-            shape_name=sandbox_details.sandbox.shapeName
+            id=sandbox.sandbox.id,
+            shape_name=sandbox.sandbox.shapeName
         )
     
     def _sandbox_to_dict(self, sandbox) -> dict:
@@ -379,9 +372,9 @@ class RestfulAgentService:
 
             # Run agent
             if mode and mode.lower() == "normal":
-                await asyncio.to_thread(app.run_agent_normal, agent, query, hwi, steps, False, destroy_sandbox, task_id=task_id, task_registry=task_registry)
+                await asyncio.to_thread(cli_app.run_agent_normal, agent, query, hwi, steps, False, destroy_sandbox, task_id=task_id, task_registry=task_registry)
             else:
-                await asyncio.to_thread(app.run_agent_fast, agent, query, hwi, steps, False, destroy_sandbox, task_id=task_id, task_registry=task_registry)
+                await asyncio.to_thread(cli_app.run_agent_fast, agent, query, hwi, steps, False, destroy_sandbox, task_id=task_id, task_registry=task_registry)
 
             final_state = "completed"
 
@@ -399,10 +392,10 @@ class RestfulAgentService:
                 await stream_manager.add_message(task_id, "finished", f"Task finished with status: {final_state}")
 
         except asyncio.CancelledError:
-            logger.info(f"Task {task_id} was cancelled")
-            await self.storage.update_task(task_id, {"status": "cancelled"})
-            await stream_manager.add_message(task_id, "cancelled", "Task was cancelled")
-            self.metrics.record_task_created("cancelled")
+            logger.info(f"Task {task_id} was canceled")
+            await self.storage.update_task(task_id, {"status": "canceled"})
+            await stream_manager.add_message(task_id, "canceled", "Task was canceled")
+            self.metrics.record_task_created("canceled")
         except Exception as e:
             logger.exception(f"Error during task execution for {task_id}: {e}")
             await self.storage.update_task(task_id, {"status": "error"})
@@ -553,7 +546,7 @@ async def lifespan(app: FastAPI):
     
     # Startup
     max_tasks = int(os.environ.get("TASK_MAX_TASKS", 5))
-    service = RestfulAgentService(max_concurrent_task_num=max_tasks, log_dir=app.log_dir)
+    service = RestfulAgentService(max_concurrent_task_num=max_tasks, log_dir=cli_app.log_dir)
     
     # Configure stream manager
     stream_manager.set_loop(asyncio.get_running_loop())
@@ -587,7 +580,7 @@ app = FastAPI(
 )
 
 # Store log_dir on app for access in lifespan
-app.log_dir = os.environ.get("LOG_DIR", "runtime")
+cli_app.log_dir = os.environ.get("LOG_DIR", "runtime")
 
 
 # API Endpoints
@@ -692,13 +685,13 @@ async def run_agent(request: RunAgentRequest):
                     }
                 }
         except asyncio.CancelledError:
-            logger.info(f"Stream for task {task_id} cancelled by client")
+            logger.info(f"Stream for task {task_id} canceled by client")
             if task_future:
                 task_future.cancel()
                 try:
                     global_state: GlobalState = Registry.get_from_context("GlobalStateStore", task_id)
                     if global_state:
-                        global_state.set_running_state("cancelled")
+                        global_state.set_running_state("canceled")
                 except Exception as e:
                     logger.error(f"Error setting cancellation flag: {e}")
         except Exception as e:
@@ -974,9 +967,9 @@ def main():
     import uvicorn
     
     # Validate backend compatibility
-    has_display, pyautogui_available, _ = app.check_display_environment()
-    compatible_backends, incompatible_backends = app.get_compatible_backends(has_display, pyautogui_available)
-    app.validate_backend_compatibility('lybic', compatible_backends, incompatible_backends)
+    has_display, pyautogui_available, _ = cli_app.check_display_environment()
+    compatible_backends, incompatible_backends = cli_app.get_compatible_backends(has_display, pyautogui_available)
+    cli_app.validate_backend_compatibility('lybic', compatible_backends, incompatible_backends)
     
     # Get configuration from environment
     host = os.environ.get("RESTFUL_HOST", "0.0.0.0")

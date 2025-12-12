@@ -29,7 +29,7 @@ dependencies = [
     "boto3",
     "scikit-learn",
     "tiktoken",
-    "lybic>=0.11.0,<1.0.0",
+    "lybic>=0.12.0",
     'pyobjc; platform_system == "Darwin"',
     'oa_atomacos; platform_system == "Darwin"',
     'pywinauto; platform_system == "Windows"',
@@ -62,16 +62,14 @@ prometheus = [
 ]
 mcp = [
     "mcp>=1.0.0",
-    "fastapi>=0.100.0",
+    "fastapi>=0.122.0",
     "sse-starlette>=2.0.0",
     "uvicorn>=0.30.0",
 ]
 restful = [
-    # Note: shares FastAPI dependencies with mcp
-    "fastapi>=0.100.0",
+    "fastapi>=0.122.0",
     "sse-starlette>=2.0.0",
     "uvicorn>=0.30.0",
-    "pydantic>=2.0.0",
 ]
 vmware-and-evaluation = [
     "python-pptx",

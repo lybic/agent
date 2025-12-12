@@ -7,7 +7,7 @@ This module provides functions to:
 - Serialize/deserialize conversation history for storage
 """
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +29,8 @@ def strip_images_from_message(message: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(message["content"], str):
         return message.copy()
     
-    cleaned_message = {
-        "role": message["role"],
-        "content": []
-    }
+    cleaned_message = message.copy()
+    cleaned_message["content"] = []
     
     # Handle case where content is a list
     if isinstance(message["content"], list):

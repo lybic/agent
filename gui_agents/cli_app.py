@@ -1,9 +1,11 @@
+import asyncio
 import argparse
 import logging
 import os
 import platform
 import sys
 import datetime
+import uuid
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -279,8 +281,6 @@ def save_conversation_history_to_storage(agent, task_id: str, storage):
         conversation_history = extract_all_conversation_history_from_agent(agent)
         
         if conversation_history:
-            # Create/update task data with conversation history
-            import asyncio
             asyncio.run(storage.update_task(task_id, {
                 "conversation_history": conversation_history
             }))
@@ -826,12 +826,8 @@ def main():
         
         while True:
             query = input("Query: ")
-            
-            import uuid
+
             task_id = str(uuid.uuid4())
-            
-            # Create task data in storage
-            import asyncio
             task_data = TaskData(
                 task_id=task_id,
                 status="running",

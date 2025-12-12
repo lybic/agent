@@ -372,6 +372,16 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
         # Setup task
         task_id = f"mcp_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
         active_tasks.add(task_id)
+        
+        # Create task data in storage at the beginning with 'pending' status
+        task_data = TaskData(
+            task_id=task_id,
+            status="pending",
+            query=instruction,
+            max_steps=max_steps
+        )
+        await storage.create_task(task_data)
+        logger.info(f"Created task {task_id} in storage with status 'pending'")
         log_dir = Path("runtime")
         timestamp_dir = log_dir / f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{task_id[:8]}"
         cache_dir = timestamp_dir / "cache" / "screens"
@@ -476,6 +486,10 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
         # Reset agent (now it has task_id set)
         agent.reset()
         
+        # Update task status to 'running'
+        await storage.update_task(task_id, {"status": "running"})
+        logger.info(f"Updated task {task_id} status to 'running'")
+        
         # Restore conversation history from previous task if provided
         if previous_task_id:
             try:
@@ -512,20 +526,24 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
             conversation_history = extract_all_conversation_history_from_agent(agent)
             
             if conversation_history:
-                # Create task data in storage
-                task_data = TaskData(
-                    task_id=task_id,
-                    status="finished",
-                    query=instruction,
-                    max_steps=max_steps,
-                    conversation_history=conversation_history
-                )
-                await storage.create_task(task_data)
+                # Update task data with conversation history and finished status
+                await storage.update_task(task_id, {
+                    "status": "finished",
+                    "conversation_history": conversation_history
+                })
                 
                 total_messages = sum(len(history) for history in conversation_history.values())
                 logger.info(f"Saved conversation history for task {task_id}: {len(conversation_history)} tools, {total_messages} total messages")
+            else:
+                # Update status to finished even if no conversation history
+                await storage.update_task(task_id, {"status": "finished"})
         except Exception as e:
             logger.error(f"Error saving conversation history for task {task_id}: {e}")
+            # Still update status to finished
+            try:
+                await storage.update_task(task_id, {"status": "finished"})
+            except Exception as update_error:
+                logger.error(f"Failed to update task status: {update_error}")
         
         # Analyze results
         display_json_path = timestamp_dir / "display.json"
@@ -554,6 +572,13 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
 
     except Exception as e:
         logger.error(f"Failed to execute instruction: {e}", exc_info=True)
+        # Update task status to 'error' if task was created
+        if task_id:
+            try:
+                await storage.update_task(task_id, {"status": "error"})
+                logger.info(f"Updated task {task_id} status to 'error'")
+            except Exception as update_error:
+                logger.error(f"Failed to update task status to error: {update_error}")
         raise
     finally:
         # Cleanup registry and active task

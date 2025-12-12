@@ -575,8 +575,7 @@ Error responses include a `detail` field with more information:
 1. The API key and authentication credentials should be kept secure
 2. Use HTTPS in production environments
 3. Consider implementing rate limiting and authentication middleware
-4. The `ark_apikey` parameter allows per-request API key specification for multi-tenant scenarios
-5. API keys are not logged or exposed in responses
+4. API keys are not logged or exposed in responses
 
 ## Troubleshooting
 

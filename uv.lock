@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12, <3.15"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
@@ -858,7 +858,7 @@ wheels = [
 
 [[package]]
 name = "fastapi"
-version = "0.121.2"
+version = "0.124.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-doc" },
@@ -866,9 +866,9 @@ dependencies = [
     { name = "starlette" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fb/48/f08f264da34cf160db82c62ffb335e838b1fc16cbcc905f474c7d4c815db/fastapi-0.121.2.tar.gz", hash = "sha256:ca8e932b2b823ec1721c641e3669472c855ad9564a2854c9899d904c2848b8b9", size = 342944, upload-time = "2025-11-13T17:05:54.692Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/58/b7/4dbca3f9d847ba9876dcb7098c13a4c6c86ee8db148c923fab78e27748d3/fastapi-0.124.2.tar.gz", hash = "sha256:72e188f01f360e2f59da51c8822cbe4bca210c35daaae6321b1b724109101c00", size = 361867, upload-time = "2025-12-10T12:10:10.676Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/23/dfb161e91db7c92727db505dc72a384ee79681fe0603f706f9f9f52c2901/fastapi-0.121.2-py3-none-any.whl", hash = "sha256:f2d80b49a86a846b70cc3a03eb5ea6ad2939298bf6a7fe377aa9cd3dd079d358", size = 109201, upload-time = "2025-11-13T17:05:52.718Z" },
+    { url = "https://files.pythonhosted.org/packages/25/c5/8a5231197b81943b2df126cc8ea2083262e004bee3a39cf85a471392d145/fastapi-0.124.2-py3-none-any.whl", hash = "sha256:6314385777a507bb19b34bd064829fddaea0eea54436deb632b5de587554055c", size = 112711, upload-time = "2025-12-10T12:10:08.855Z" },
 ]
 
 [[package]]
@@ -1791,16 +1791,16 @@ wheels = [
 
 [[package]]
 name = "lybic"
-version = "0.11.0"
+version = "0.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "pillow" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/22/14/a40e0a907e6df8fd690b6c5efe1f4f02c7cbced42d4e35138c157647af0d/lybic-0.11.0.tar.gz", hash = "sha256:99084cff6e0b18b0ebb4efcb79ea18ab7294731877022be3dd61b937045cfe9b", size = 45884, upload-time = "2025-11-19T07:01:27.595Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/42/5f/162915a7fb4bf6491b7fc6ed180e5efa13dbfafe5299476ef8308eb42cbc/lybic-0.12.0.tar.gz", hash = "sha256:f7f67327ce55b06f83e9bf91a81b03ea45404b2f23da09f9f212a96fca1a482e", size = 46028, upload-time = "2025-11-25T10:42:18.594Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/04/ff/02751e03008bd2e285be9b63e88c2a54c7f304d3e0c7c8197d32610812b7/lybic-0.11.0-py3-none-any.whl", hash = "sha256:8f18aeb139350f96d27ce262ba637e468bd903bd16d9f704374adbf0dc85504f", size = 62178, upload-time = "2025-11-19T07:01:26.423Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/53/33e989cebfc5985be7db6fedfb1777b1a591be66bb82925d12c90166ae95/lybic-0.12.0-py3-none-any.whl", hash = "sha256:c8e0a2e9f34bfe88e21642a6000b21d0985f7ee0cafbf1fa8adfdca408f2048b", size = 62453, upload-time = "2025-11-25T10:42:17.451Z" },
 ]
 
 [[package]]
@@ -1929,6 +1929,11 @@ prometheus = [
 pyautogui = [
     { name = "pyautogui" },
 ]
+restful = [
+    { name = "fastapi" },
+    { name = "sse-starlette" },
+    { name = "uvicorn" },
+]
 vmware-and-evaluation = [
     { name = "azure-identity" },
     { name = "azure-mgmt-compute" },
@@ -1987,7 +1992,8 @@ requires-dist = [
     { name = "easyocr", marker = "extra == 'all'" },
     { name = "easyocr", marker = "extra == 'vmware-and-evaluation'" },
     { name = "exa-py", marker = "extra == 'all'" },
-    { name = "fastapi", marker = "extra == 'mcp'", specifier = ">=0.100.0" },
+    { name = "fastapi", marker = "extra == 'mcp'", specifier = ">=0.122.0" },
+    { name = "fastapi", marker = "extra == 'restful'", specifier = ">=0.122.0" },
     { name = "fastdtw", marker = "extra == 'all'" },
     { name = "fastdtw", marker = "extra == 'vmware-and-evaluation'" },
     { name = "filelock" },
@@ -2013,7 +2019,7 @@ requires-dist = [
     { name = "librosa", marker = "extra == 'vmware-and-evaluation'" },
     { name = "lxml", marker = "extra == 'all'" },
     { name = "lxml", marker = "extra == 'vmware-and-evaluation'" },
-    { name = "lybic", specifier = ">=0.11.0,<1.0.0" },
+    { name = "lybic", specifier = ">=0.12.0" },
     { name = "lybic", marker = "extra == 'all'", specifier = ">=0.7.3" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
     { name = "mutagen", marker = "extra == 'all'" },
@@ -2084,6 +2090,7 @@ requires-dist = [
     { name = "scikit-learn", marker = "extra == 'all'" },
     { name = "scikit-learn", marker = "extra == 'vmware-and-evaluation'" },
     { name = "sse-starlette", marker = "extra == 'mcp'", specifier = ">=2.0.0" },
+    { name = "sse-starlette", marker = "extra == 'restful'", specifier = ">=2.0.0" },
     { name = "tiktoken" },
     { name = "tiktoken", marker = "extra == 'all'" },
     { name = "toml", marker = "extra == 'all'" },
@@ -2091,12 +2098,13 @@ requires-dist = [
     { name = "tqdm", marker = "extra == 'all'", specifier = "~=4.65.0" },
     { name = "twisted", marker = "extra == 'dev'" },
     { name = "uvicorn", marker = "extra == 'mcp'", specifier = ">=0.30.0" },
+    { name = "uvicorn", marker = "extra == 'restful'", specifier = ">=0.30.0" },
     { name = "xmltodict", marker = "extra == 'all'" },
     { name = "xmltodict", marker = "extra == 'vmware-and-evaluation'" },
     { name = "zhipuai", specifier = ">=2.1.5.20250106" },
     { name = "zhipuai", marker = "extra == 'all'" },
 ]
-provides-extras = ["postgres", "dev", "grpc", "prometheus", "mcp", "vmware-and-evaluation", "pyautogui", "all"]
+provides-extras = ["postgres", "dev", "grpc", "prometheus", "mcp", "restful", "vmware-and-evaluation", "pyautogui", "all"]
 
 [[package]]
 name = "markupsafe"

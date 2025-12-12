@@ -62,9 +62,10 @@ FROM base AS final
 # Copy the environment, but not the source code
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
-# Expose the gRPC port and RESTful API port
+# Expose the gRPC port ,RESTful API and mcp port
 EXPOSE 50051
 EXPOSE 8080
+EXPOSE 8000
 
-# Set the CMD to run the CLI app by default. This can be overridden to run the gRPC or RESTful server.
+# Set the CMD to run the CLI app by default. This can be overridden to run the gRPC, Mcp or RESTful server.
 CMD ["/app/.venv/bin/lybic-guiagent"]

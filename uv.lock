@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12, <3.15"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
@@ -1805,7 +1805,7 @@ wheels = [
 
 [[package]]
 name = "lybic-guiagents"
-version = "0.7.6"
+version = "0.8.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
@@ -2019,7 +2019,7 @@ requires-dist = [
     { name = "librosa", marker = "extra == 'vmware-and-evaluation'" },
     { name = "lxml", marker = "extra == 'all'" },
     { name = "lxml", marker = "extra == 'vmware-and-evaluation'" },
-    { name = "lybic", specifier = ">=0.12.0" },
+    { name = "lybic", specifier = ">=0.12.0,<1.0.0" },
     { name = "lybic", marker = "extra == 'all'", specifier = ">=0.7.3" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
     { name = "mutagen", marker = "extra == 'all'" },

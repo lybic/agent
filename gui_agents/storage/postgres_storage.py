@@ -11,6 +11,7 @@ import json
 import asyncio
 
 from .base import TaskStorage, TaskData
+from .migrate import MigrationManager
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,14 @@ class PostgresStorage(TaskStorage):
             except Exception as e:
                 logger.error(f"Failed to initialize PostgreSQL schema: {e}")
                 raise
+            
+            # Run migrations
+            try:
+                migration_manager = MigrationManager(self.connection_string)
+                await migration_manager.run_migrations()
+                logger.info("PostgreSQL migrations completed")
+            except Exception as e:
+                logger.warning(f"Failed to run migrations (non-fatal): {e}")
             
             self._initialized = True
     

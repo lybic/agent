@@ -34,6 +34,7 @@ import datetime
 
 from google.protobuf import json_format
 from lybic import LybicClient, LybicAuth, Sandbox
+from lybic.exceptions import LybicAPIError
 import gui_agents.cli_app as app
 from gui_agents.proto import agent_pb2, agent_pb2_grpc
 from gui_agents.agents.stream_manager import stream_manager
@@ -509,6 +510,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
         platform_str = platform.system()
         sid = ''
         sandbox_pb = None
+        previous_sandbox_id = None
 
         if backend == 'lybic' or backend=='lybic_mobile':
             auth_info = (request.runningConfig.authorizationInfo
@@ -523,9 +525,37 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 endpoint=auth_info.apiEndpoint or "https://api.lybic.cn/"
             )
 
+            # Handle previousTaskId: get sandbox from previous task
+            if request.HasField("previousTaskId") and request.previousTaskId:
+                previous_task = await self.storage.get_task(request.previousTaskId)
+                if not previous_task:
+                    raise ValueError(f"Previous task {request.previousTaskId} not found")
+                
+                if previous_task.sandbox_info and previous_task.sandbox_info.get("id"):
+                    previous_sandbox_id = previous_task.sandbox_info["id"]
+                    logger.info(f"Retrieved sandbox_id {previous_sandbox_id} from previous task {request.previousTaskId}")
+                    
+                    # Validate sandbox exists and is not expired
+                    try:
+                        await self._get_sandbox_pb(previous_sandbox_id, lybic_auth)
+                    except Exception as e:
+                        if isinstance(e, LybicAPIError):
+                            error_msg = str(e)
+                            if "SANDBOX_EXPIRED" in error_msg or "expired" in error_msg.lower():
+                                raise ValueError(f"Sandbox {previous_sandbox_id} from task {request.previousTaskId} is expired")
+                            elif "not found" in error_msg.lower():
+                                raise ValueError(f"Sandbox {previous_sandbox_id} from task {request.previousTaskId} not found")
+                        raise ValueError(f"Failed to access sandbox {previous_sandbox_id} from task {request.previousTaskId}: {str(e)}")
+                    
+                    # Validate sandbox_id consistency if both are provided
+                    if request.HasField("sandbox") and request.sandbox.id and request.sandbox.id != previous_sandbox_id:
+                        raise ValueError(
+                            f"Sandbox ID mismatch: request has {request.sandbox.id} but task {request.previousTaskId} used {previous_sandbox_id}"
+                        )
+
             if request.HasField("sandbox"):
                 shape = request.sandbox.shapeName
-                sid = request.sandbox.id
+                sid = request.sandbox.id or previous_sandbox_id or ''
                 if sid:
                     logger.info(f"Using existing sandbox with id: {sid}")
                     sandbox_pb = await self._get_sandbox_pb(sid, lybic_auth)  # if not exist raise NotFound
@@ -537,8 +567,15 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 if request.sandbox.os != agent_pb2.SandboxOS.OSUNDEFINED:
                     platform_str = platform_map.get(request.sandbox.os, platform.system())
             else:
-                sandbox_pb = await self._create_sandbox(shape, lybic_auth)
-                sid, platform_str = sandbox_pb.id, platform_map.get(sandbox_pb.os, platform.system())
+                # Use previous sandbox if available, otherwise create new one
+                if previous_sandbox_id:
+                    sid = previous_sandbox_id
+                    logger.info(f"Using sandbox from previous task: {sid}")
+                    sandbox_pb = await self._get_sandbox_pb(sid, lybic_auth)
+                    platform_str = platform_map.get(sandbox_pb.os, platform.system())
+                else:
+                    sandbox_pb = await self._create_sandbox(shape, lybic_auth)
+                    sid, platform_str = sandbox_pb.id, platform_map.get(sandbox_pb.os, platform.system())
         else:
             if request.HasField("sandbox") and request.sandbox.os != agent_pb2.SandboxOS.OSUNDEFINED:
                 platform_str = platform_map.get(request.sandbox.os, platform.system())

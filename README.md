@@ -292,6 +292,16 @@ docker run --rm -it -p 50051:50051 --env-file gui_agents/.env agenticlybic/guiag
 ```
 > **Note**: The `-p 50051:50051` flag maps the container's gRPC port to your host machine.
 
+**Alternative: Running the RESTful API Server**
+
+You can also run the RESTful API server for HTTP/REST access:
+
+```sh
+docker run --rm -it -p 8080:8080 --env-file gui_agents/.env agenticlybic/guiagent /app/.venv/bin/lybic-guiagent-restful
+```
+
+The RESTful API provides similar functionality to the gRPC server but uses HTTP/REST protocol with Server-Sent Events (SSE) for streaming. Access the interactive API documentation at `http://localhost:8080/docs`. See [docs/restful_api.md](docs/restful_api.md) for detailed usage guide.
+
 **Optional: Enable Prometheus Monitoring**
 
 The gRPC service supports optional Prometheus metrics for monitoring task execution, resource usage, and performance. To enable:

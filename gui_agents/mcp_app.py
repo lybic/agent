@@ -40,7 +40,7 @@ else:
 import uvicorn
 
 from lybic import LybicClient, LybicAuth, Sandbox
-
+from lybic.exceptions import LybicAPIError
 from gui_agents.agents.agent_s import AgentS2, AgentSFast, load_config
 from gui_agents.agents.hardware_interface import HardwareInterface
 from gui_agents.store.registry import Registry
@@ -351,23 +351,57 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
     try:
         lybic_auth = get_lybic_auth(apikey, orgid)
 
+        # Handle previous_task_id: get sandbox from previous task
+        previous_sandbox_id = None
+        if previous_task_id:
+            previous_task = await storage.get_task(previous_task_id)
+            if not previous_task:
+                raise ValueError(f"Previous task {previous_task_id} not found")
+            
+            if previous_task.sandbox_info and previous_task.sandbox_info.get("id"):
+                previous_sandbox_id = previous_task.sandbox_info["id"]
+                logger.info(f"Retrieved sandbox_id {previous_sandbox_id} from previous task {previous_task_id}")
+                
+                # Validate sandbox exists and is not expired
+                try:
+                    async with LybicClient(lybic_auth) as lybic_client:
+                        sandbox_service = Sandbox(lybic_client)
+                        await sandbox_service.get(previous_sandbox_id)
+                except Exception as e:
+                    if isinstance(e, LybicAPIError):
+                        error_msg = str(e)
+                        if "SANDBOX_EXPIRED" in error_msg or "expired" in error_msg.lower():
+                            raise ValueError(f"Sandbox {previous_sandbox_id} from task {previous_task_id} is expired")
+                        elif "not found" in error_msg.lower():
+                            raise ValueError(f"Sandbox {previous_sandbox_id} from task {previous_task_id} not found")
+                    raise ValueError(f"Failed to access sandbox {previous_sandbox_id} from task {previous_task_id}: {str(e)}")
+                
+                # Validate sandbox_id consistency if both are provided
+                if sandbox_id and sandbox_id != previous_sandbox_id:
+                    raise ValueError(
+                        f"Sandbox ID mismatch: request has {sandbox_id} but task {previous_task_id} used {previous_sandbox_id}"
+                    )
+
         # Create or get sandbox
-        if not sandbox_id:
+        final_sandbox_id = sandbox_id or previous_sandbox_id
+        if not final_sandbox_id:
             logger.info("No sandbox_id provided, creating new sandbox")
             async with LybicClient(lybic_auth) as lybic_client:
                 sandbox_service = Sandbox(lybic_client)
                 result = await sandbox_service.create(shape="beijing-2c-4g-cpu")
                 sandbox = await sandbox_service.get(result.id)
-                sandbox_id = sandbox.sandbox.id
+                final_sandbox_id = sandbox.sandbox.id
                 # Store sandbox info
                 sandbox_info = {
-                    "id": sandbox.sandbox.id,
+                    "id": final_sandbox_id,
                     "shape": "beijing-2c-4g-cpu",
                     "os": str(sandbox.sandbox.shape.os),
                     "created_at": datetime.datetime.now().isoformat()
                 }
                 active_sandboxes[sandbox.sandbox.id] = sandbox_info
-            logger.info(f"Created new sandbox: {sandbox_id}")
+            logger.info(f"Created new sandbox: {final_sandbox_id}")
+        else:
+            logger.info(f"Using existing sandbox: {final_sandbox_id}")
 
         # Setup task
         task_id = f"mcp_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -477,7 +511,7 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
         hwi = HardwareInterface(
             backend='lybic',
             platform='Windows',
-            precreate_sid=sandbox_id,
+            precreate_sid=final_sandbox_id,
             org_id=lybic_auth.org_id,
             api_key=lybic_auth.api_key,
             endpoint=lybic_auth.endpoint
@@ -547,7 +581,7 @@ async def handle_execute_instruction(arguments: dict) -> list[types.TextContent]
         
         # Analyze results
         display_json_path = timestamp_dir / "display.json"
-        result_text = f"Instruction executed successfully!\n\nTask ID: {task_id}\nSandbox ID: {sandbox_id}\nMode: {mode}\nMax steps: {max_steps}\n"
+        result_text = f"Instruction executed successfully!\n\nTask ID: {task_id}\nSandbox ID: {final_sandbox_id}\nMode: {mode}\nMax steps: {max_steps}\n"
 
         if display_json_path.exists():
             try:

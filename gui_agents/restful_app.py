@@ -327,8 +327,39 @@ class RestfulAgentService:
             endpoint=auth.api_endpoint or "https://api.lybic.cn/"
         )
         
+        # Handle continue_context: get sandbox from previous task
+        previous_sandbox_id = None
+        if request.continue_context and request.task_id:
+            previous_task = await self.storage.get_task(request.task_id)
+            if not previous_task:
+                raise HTTPException(status_code=400, detail=f"Previous task {request.task_id} not found")
+            
+            if previous_task.sandbox_info and previous_task.sandbox_info.get("id"):
+                previous_sandbox_id = previous_task.sandbox_info["id"]
+                logger.info(f"Retrieved sandbox_id {previous_sandbox_id} from previous task {request.task_id}")
+                
+                # Validate sandbox exists and is not expired
+                try:
+                    await self._get_sandbox_pb(previous_sandbox_id, lybic_auth)
+                except Exception as e:
+                    from lybic.exceptions import LybicAPIError
+                    if isinstance(e, LybicAPIError):
+                        error_msg = str(e)
+                        if "SANDBOX_EXPIRED" in error_msg or "expired" in error_msg.lower():
+                            raise HTTPException(status_code=400, detail=f"Sandbox {previous_sandbox_id} from task {request.task_id} is expired")
+                        elif "not found" in error_msg.lower():
+                            raise HTTPException(status_code=400, detail=f"Sandbox {previous_sandbox_id} from task {request.task_id} not found")
+                    raise HTTPException(status_code=400, detail=f"Failed to access sandbox {previous_sandbox_id} from task {request.task_id}: {str(e)}")
+                
+                # Validate sandbox_id consistency if both are provided
+                if request.sandbox_id and request.sandbox_id != previous_sandbox_id:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Sandbox ID mismatch: request has {request.sandbox_id} but task {request.task_id} used {previous_sandbox_id}"
+                    )
+        
         # Handle sandbox creation or retrieval
-        sid = request.sandbox_id or ""
+        sid = request.sandbox_id or previous_sandbox_id or ""
         platform_str = request.platform
         sandbox_pb = None
         

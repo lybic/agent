@@ -645,52 +645,71 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
 
         logger.info("Applying global model configurations to this task.")
 
-        def apply_config(tool_name, llm_config:LLMConfig):
+        def apply_config(tool_name: str, llm_config: LLMConfig) -> None:
+            """Apply an LLMConfig override onto a tool entry.
+
+            Notes:
+                - For proto3 `optional` fields, do NOT overwrite existing values when the field is absent.
+                - apiEndpoint is mapped to both `base_url` and `endpoint_url` for OpenAI-compatible engines.
             """
-            Apply an LLM configuration to an existing tool entry in the local tools_dict.
-            
-            If a tool with the given name exists in tools_dict and the LLM config specifies a modelName,
-            this function updates the tool's provider, model_name, and model fields. It also overrides
-            sensitive connection fields when present: apiKey is copied to the tool's api_key, and
-            apiEndpoint is copied to base_url and endpoint_url. Actions are logged for any overrides.
-            
-            Parameters:
-                tool_name (str): Name of the tool to update in tools_dict.
-                llm_config (LLMConfig): LLM configuration containing provider, modelName, apiKey, and apiEndpoint.
-            
-            Returns:
-                None
-            """
-            if tool_name in tools_dict and llm_config.modelName:
-                tool_cfg = tools_dict[tool_name]
+            if tool_name not in tools_dict or not llm_config.modelName:
+                return
+
+            tool_cfg = tools_dict[tool_name]
+
+            if llm_config.HasField("provider") and llm_config.provider:
                 tool_cfg['provider'] = llm_config.provider
-                tool_cfg['model_name'] = llm_config.modelName
-                tool_cfg['model'] = llm_config.modelName
 
-                # IMPORTANT Override api key and endpoint
-                if llm_config.apiKey:
-                    tool_cfg['api_key'] = llm_config.apiKey
-                    logger.info(f"Override api_key for tool '{tool_name}'")
-                if llm_config.apiEndpoint:
-                    tool_cfg['base_url'] = llm_config.apiEndpoint
-                    tool_cfg['endpoint_url'] = llm_config.apiEndpoint  # for some engines that use endpoint_url
-                    logger.info(f"Override base_url for tool '{tool_name}': {llm_config.apiEndpoint}")
+            tool_cfg['model_name'] = llm_config.modelName
+            tool_cfg['model'] = llm_config.modelName
 
-                logger.info(f"Override tool '{tool_name}' with model '{llm_config.modelName}'.")
+            if llm_config.HasField("apiKey") and llm_config.apiKey:
+                tool_cfg['api_key'] = llm_config.apiKey
+                logger.info(f"Override api_key for tool '{tool_name}'")
 
-        if stage_config.HasField("embeddingModel"):
-            apply_config('embedding', stage_config.embeddingModel)
+            if llm_config.HasField("apiEndpoint") and llm_config.apiEndpoint:
+                tool_cfg['base_url'] = llm_config.apiEndpoint
+                tool_cfg['endpoint_url'] = llm_config.apiEndpoint
+                logger.info(f"Override base_url for tool '{tool_name}': {llm_config.apiEndpoint}")
 
-        if stage_config.HasField("groundingModel"):
-            apply_config('grounding', stage_config.groundingModel)
+            logger.info(f"Override tool '{tool_name}' with model '{llm_config.modelName}'.")
 
+        # Web search provider override (bocha/exa)
+        if stage_config.HasField("webSearchEngine") and stage_config.webSearchEngine:
+            if "websearch" in tools_dict:
+                tools_dict["websearch"]["provider"] = stage_config.webSearchEngine
+                logger.info(f"Override websearch provider to '{stage_config.webSearchEngine}'.")
+
+        # Optional: apply actionGeneratorModel as a common default to all LLM-based tools
         if stage_config.HasField("actionGeneratorModel"):
             common_llm_config = stage_config.actionGeneratorModel
-            # Apply common config to all other LLM-based tools
-            for tool_name, _ in tools_dict.items():
-                if tool_name not in ['embedding', 'grounding']:
+            for tool_name in tools_dict.keys():
+                if tool_name not in ['websearch', 'embedding', 'grounding']:
                     apply_config(tool_name, common_llm_config)
-        
+
+        # Stage-specific overrides
+        stage_field_to_tool = {
+            "contextFusionModel": "context_fusion",
+            "subtaskPlannerModel": "subtask_planner",
+            "trajReflectorModel": "traj_reflector",
+            "memoryRetrivalModel": "memory_retrival",
+            "groundingModel": "grounding",
+            "taskEvaluatorModel": "evaluator",
+            "actionGeneratorModel": "action_generator",
+            "actionGeneratorWithTakeoverModel": "action_generator_with_takeover",
+            "fastActionGeneratorModel": "fast_action_generator",
+            "fastActionGeneratorWithTakeoverModel": "fast_action_generator_with_takeover",
+            "dagTranslatorModel": "dag_translator",
+            "embeddingModel": "embedding",
+            "queryFormulatorModel": "query_formulator",
+            "narrativeSummarizationModel": "narrative_summarization",
+            "textSpanModel": "text_span",
+            "episodeSummarizationModel": "episode_summarization",
+        }
+        for field_name, tool_name in stage_field_to_tool.items():
+            if stage_config.HasField(field_name):
+                apply_config(tool_name, getattr(stage_config, field_name))
+
         # After modifications, merge changes from tools_dict back into tools_config
         for tool_entry in tools_config['tools']:
             tool_name = tool_entry['tool_name']
@@ -698,7 +717,7 @@ class AgentServicer(agent_pb2_grpc.AgentServicer):
                 modified_data = tools_dict[tool_name]
                 # Ensure all modified fields are synced back to tools_config
                 for key, value in modified_data.items():
-                    if key in ['provider', 'model_name', 'api_key', 'base_url', 'model']:
+                    if key in ['provider', 'model_name', 'api_key', 'base_url', 'model', 'endpoint_url']:
                         tool_entry[key] = value
 
         if request.HasField("runningConfig"):

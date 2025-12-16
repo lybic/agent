@@ -251,36 +251,62 @@ class RestfulAgentService:
         if stage_model_config:
             logger.info("Applying stage model configurations to this task")
             
-            def apply_config(tool_name: str, llm_config: Optional[LLMConfig]):
-                """Apply LLM configuration to a tool"""
-                if tool_name in tools_dict and llm_config and llm_config.model_name:
-                    tool_cfg = tools_dict[tool_name]
-                    if llm_config.provider:
-                        tool_cfg['provider'] = llm_config.provider
-                    tool_cfg['model_name'] = llm_config.model_name
-                    tool_cfg['model'] = llm_config.model_name
-                    
-                    # Override api_key and endpoint if provided
-                    if llm_config.api_key:
-                        tool_cfg['api_key'] = llm_config.api_key
-                        logger.info(f"Override api_key for tool '{tool_name}'")
-                    if llm_config.api_endpoint:
-                        tool_cfg['base_url'] = llm_config.api_endpoint
-                        tool_cfg['endpoint_url'] = llm_config.api_endpoint
-                        logger.info(f"Override base_url for tool '{tool_name}': {llm_config.api_endpoint}")
-                    
-                    logger.info(f"Override tool '{tool_name}' with model '{llm_config.model_name}'")
-            
-            # Apply specific model configurations
-            apply_config('embedding', stage_model_config.embedding_model)
-            apply_config('grounding', stage_model_config.grounding_model)
-            
-            # Apply action_generator_model as common config to all other LLM tools
+            def apply_config(tool_name: str, llm_config: Optional[LLMConfig]) -> None:
+                """Apply LLM configuration to a tool."""
+                if tool_name not in tools_dict or not llm_config or not llm_config.model_name:
+                    return
+
+                tool_cfg = tools_dict[tool_name]
+                if llm_config.provider:
+                    tool_cfg['provider'] = llm_config.provider
+
+                tool_cfg['model_name'] = llm_config.model_name
+                tool_cfg['model'] = llm_config.model_name
+
+                # Override api_key and endpoint if provided
+                if llm_config.api_key:
+                    tool_cfg['api_key'] = llm_config.api_key
+                    logger.info(f"Override api_key for tool '{tool_name}'")
+                if llm_config.api_endpoint:
+                    tool_cfg['base_url'] = llm_config.api_endpoint
+                    tool_cfg['endpoint_url'] = llm_config.api_endpoint
+                    logger.info(f"Override base_url for tool '{tool_name}': {llm_config.api_endpoint}")
+
+                logger.info(f"Override tool '{tool_name}' with model '{llm_config.model_name}'")
+
+            # Web search provider override (bocha/exa)
+            if stage_model_config.web_search_engine and 'websearch' in tools_dict:
+                tools_dict['websearch']['provider'] = stage_model_config.web_search_engine
+                logger.info(f"Override websearch provider to '{stage_model_config.web_search_engine}'")
+
+            # Optional: apply action_generator_model as a common default to all LLM-based tools
             if stage_model_config.action_generator_model:
                 common_llm_config = stage_model_config.action_generator_model
                 for tool_name in tools_dict.keys():
-                    if tool_name not in ['embedding', 'grounding']:
+                    if tool_name not in ['websearch', 'embedding', 'grounding']:
                         apply_config(tool_name, common_llm_config)
+
+            # Stage-specific overrides
+            stage_field_to_tool = {
+                'context_fusion_model': 'context_fusion',
+                'subtask_planner_model': 'subtask_planner',
+                'traj_reflector_model': 'traj_reflector',
+                'memory_retrival_model': 'memory_retrival',
+                'grounding_model': 'grounding',
+                'task_evaluator_model': 'evaluator',
+                'action_generator_model': 'action_generator',
+                'action_generator_with_takeover_model': 'action_generator_with_takeover',
+                'fast_action_generator_model': 'fast_action_generator',
+                'fast_action_generator_with_takeover_model': 'fast_action_generator_with_takeover',
+                'dag_translator_model': 'dag_translator',
+                'embedding_model': 'embedding',
+                'query_formulator_model': 'query_formulator',
+                'narrative_summarization_model': 'narrative_summarization',
+                'text_span_model': 'text_span',
+                'episode_summarization_model': 'episode_summarization',
+            }
+            for field_name, tool_name in stage_field_to_tool.items():
+                apply_config(tool_name, getattr(stage_model_config, field_name, None))
             
             # Merge changes from tools_dict back into tools_config
             for tool_entry in tools_config['tools']:

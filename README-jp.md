@@ -472,10 +472,6 @@ Python 3.15+はWindows上でデフォルトでUTF-8モードを有効にしま�
   <img src="assets/qq.png" alt="QQ Group" style="width: 200px; height: auto;"/>
 </div>
 
-## Stargazers over time
-
-[![Stargazers over time](https://starchart.cc/lybic/agent.svg)](https://starchart.cc/lybic/agent)
-
 ## ライセンス
 
 このプロジェクトはApache 2.0ライセンスの下で配布されています。

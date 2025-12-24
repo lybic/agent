@@ -511,10 +511,6 @@ Python 3.15+将在Windows上默认启用UTF-8模式（[PEP 686](https://peps.pyt
   <img src="assets/qq.png" alt="QQ Group" style="width: 200px; height: auto;"/>
 </div>
 
-## Stargazers over time
-
-[![Stargazers over time](https://starchart.cc/lybic/agent.svg)](https://starchart.cc/lybic/agent)
-
 ## 许可证
 
 该项目根据Apache 2.0许可证分发。

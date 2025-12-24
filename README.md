@@ -543,10 +543,6 @@ If you find this codebase useful, please cite:
   <img src="assets/qq.png" alt="QQ Group" style="width: 200px; height: auto;"/>
 </div>
 
-## Stargazers over time
-
-[![Stargazers over time](https://starchart.cc/lybic/agent.svg)](https://starchart.cc/lybic/agent)
-
 ## License
 
 This project is distributed under Apache 2.0 License.

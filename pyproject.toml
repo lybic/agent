@@ -38,6 +38,7 @@ dependencies = [
     "protobuf>=5.29.5",
     "googleapis-common-protos>=1.70.0",
     "filelock",
+    "uuid",
 ]
 [project.optional-dependencies]
 postgres = [

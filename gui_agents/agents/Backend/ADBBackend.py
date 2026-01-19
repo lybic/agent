@@ -20,7 +20,7 @@ class ADBBackend(Backend):
 
     _supported = {Click, Drag, TypeText, Hotkey, Wait}
 
-    def __init__(self, serial: str | None = None):
+    def __init__(self, serial: str | None = None,**kwargs):
         self.serial = serial  # specify target device; None = default
 
     # ------------------------------------------------------------------

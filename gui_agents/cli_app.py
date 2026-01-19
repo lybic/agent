@@ -145,9 +145,6 @@ debug_handler.setFormatter(formatter)
 stdout_handler.setFormatter(formatter)
 sdebug_handler.setFormatter(formatter)
 
-stdout_handler.addFilter(logging.Filter("desktopenv"))
-sdebug_handler.addFilter(logging.Filter("desktopenv"))
-
 logger.addHandler(file_handler)
 logger.addHandler(debug_handler)
 logger.addHandler(stdout_handler)
@@ -749,7 +746,7 @@ def main():
 
     # Initialize hardware interface with error handling
     backend_kwargs = {"platform": platform_os}
-    if args.lybic_sid is not None:
+    if args.backend in ("lybic","") and args.lybic_sid is not None:
         backend_kwargs["precreate_sid"] = args.lybic_sid
         logger.info(f"Using Lybic SID from command line: {args.lybic_sid}")
     else:
@@ -823,7 +820,9 @@ def main():
     else:
         # Track whether this is the first task in the interactive session
         first_task = True
-        
+        import uuid
+        import asyncio
+
         while True:
             query = input("Query: ")
 

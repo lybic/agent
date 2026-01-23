@@ -10,6 +10,9 @@ from pydantic import BaseModel, ValidationError
 
 import pickle
 from filelock import FileLock, Timeout
+import logging
+
+logger = logging.getLogger("desktopenv.agent")
 
 
 class Node(BaseModel):
@@ -287,24 +290,149 @@ def save_embeddings(embeddings_path: str, embeddings: Dict):
         print(f"Error saving embeddings: {e}")
 
 
-def agent_log_to_string(agent_log: List[Dict]) -> str:
+def agent_log_to_string(agent_log: List[Dict], max_tokens: int = 100000, safety_margin: float = 0.9) -> str:
     """
     Converts a list of agent log entries into a single string for LLM consumption.
+    If the full log exceeds max_tokens limit, earlier entries will be automatically
+    compressed to fit within the token budget.
 
     Args:
         agent_log: A list of dictionaries, where each dictionary is an agent log entry.
+        max_tokens: Maximum tokens available for agent log. Default is 100000,
+                    suitable for most 128K context models.
+        safety_margin: Safety factor (0-1) to apply to max_tokens to avoid edge cases.
 
     Returns:
         A formatted string representing the agent log.
     """
     if not agent_log:
         return "No agent log entries yet."
+    
+    if max_tokens is None:
+        # No limit, return full log
+        return _format_full_log(agent_log)
+    
+    effective_max = int(max_tokens * safety_margin)
+    
+    # First try full log
+    full_log = _format_full_log(agent_log)
+    full_tokens = get_input_token_length(full_log)
+    
+    if full_tokens <= effective_max:
+        return full_log
+    
+    # Need compression - use binary search to find optimal compression point
+    return _compress_log_to_fit(agent_log, effective_max)
 
+
+def _format_full_log(agent_log: List[Dict]) -> str:
+    """Format agent log with full content for all entries."""
     log_strings = ["[AGENT LOG]"]
     for entry in agent_log:
         entry_id = entry.get("id", "N/A")
         entry_type = entry.get("type", "N/A").capitalize()
         content = entry.get("content", "")
         log_strings.append(f"[Entry {entry_id} - {entry_type}] {content}")
-
     return "\n".join(log_strings)
+
+
+def _compress_log_to_fit(agent_log: List[Dict], max_tokens: int) -> str:
+    """
+    Compress agent log to fit within token limit using binary search.
+    Earlier entries are compressed while later entries remain full.
+    """
+    n = len(agent_log)
+    
+    if n == 0:
+        return "[AGENT LOG]\nNo agent log entries yet."
+    
+    # Log compression trigger for monitoring
+    full_log = _format_full_log(agent_log)
+    full_tokens = get_input_token_length(full_log)
+    logger.info(f"Agent log compression triggered: {n} entries, {full_tokens} tokens -> max_tokens={max_tokens}")
+    
+    # Binary search: find minimum number of entries to compress from the start
+    # At minimum, keep the last entry full
+    left, right = 0, n - 1
+    
+    while left < right:
+        mid = (left + right) // 2
+        log_str = _format_mixed_log(agent_log, compress_before=mid)
+        tokens = get_input_token_length(log_str)
+        
+        if tokens <= max_tokens:
+            right = mid
+        else:
+            left = mid + 1
+    
+    # Final check: if even compressing all but the last still exceeds, compress all
+    result = _format_mixed_log(agent_log, compress_before=left)
+    if get_input_token_length(result) > max_tokens:
+        # Edge case: try compressing all entries
+        result = _format_mixed_log(agent_log, compress_before=n)
+        left = n
+    
+    # Log compression result
+    result_tokens = get_input_token_length(result)
+    logger.info(f"Agent log compression result: {left}/{n} entries compressed, {full_tokens} -> {result_tokens} tokens")
+    
+    return result
+
+
+def _format_mixed_log(agent_log: List[Dict], compress_before: int) -> str:
+    """
+    Format agent log with mixed compression.
+    Entries before compress_before index are compressed, others are full.
+    """
+    log_strings = ["[AGENT LOG]"]
+    
+    for i, entry in enumerate(agent_log):
+        entry_id = entry.get("id", "N/A")
+        entry_type = entry.get("type", "N/A").capitalize()
+        content = entry.get("content", "")
+        
+        if i < compress_before:
+            # Compressed format
+            compressed = _compress_entry(content)
+            log_strings.append(f"[Entry {entry_id} - {entry_type}] {compressed}")
+        else:
+            # Full format
+            log_strings.append(f"[Entry {entry_id} - {entry_type}] {content}")
+    
+    return "\n".join(log_strings)
+
+
+def _compress_entry(content: str) -> str:
+    """
+    Compress a single entry content to a short one-line summary.
+    Extracts key information: action and brief description.
+    """
+    # Try to extract Grounded Action
+    action_match = re.search(r'agent\.\w+\([^)]*\)', content)
+    action = action_match.group(0) if action_match else ""
+    
+    # Try to extract Next Action description
+    next_action_match = re.search(
+        r'\(Next Action\)\s*(.+?)(?:\n\n|\(Grounded|\Z)', 
+        content, re.DOTALL
+    )
+    next_action = ""
+    if next_action_match:
+        next_action = next_action_match.group(1).strip()
+        # Truncate to 60 chars
+        if len(next_action) > 60:
+            next_action = next_action[:57] + "..."
+    
+    # Build compressed output
+    if action and next_action:
+        return f"{next_action} → {action}"
+    elif action:
+        return f"Action: {action}"
+    elif next_action:
+        return next_action
+    else:
+        # Fallback: take first 80 chars
+        one_line = content.replace('\n', ' ').strip()
+        if len(one_line) > 80:
+            return one_line[:77] + "..."
+        return one_line

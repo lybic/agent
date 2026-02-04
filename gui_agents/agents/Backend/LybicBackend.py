@@ -101,7 +101,7 @@ class LybicBackend(LybicSandboxDestroyMixin, Backend):
             raise ValueError("LYBIC_API_KEY and LYBIC_ORG_ID are required. Please set them as environment variables or pass them as arguments.")
         
         # 初始化SDK组件
-        self.sandbox_manager = Sandbox(self.client)
+        self.sandbox_manager = self.client.sandbox
         
         # 沙盒ID
         self.sandbox_id = self.precreate_sid

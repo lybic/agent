@@ -1791,21 +1791,21 @@ wheels = [
 
 [[package]]
 name = "lybic"
-version = "0.12.2"
+version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "pillow" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/04/d84caf4ddbccef81fe3fb3a0f391c479b3b79f25c3093d1b2142eb9c62fe/lybic-0.12.2.tar.gz", hash = "sha256:5d8249cc34fc1987ff831b173ea211f0ad7f808ee4b5cc47aec7778d1d2ffb6c", size = 42749, upload-time = "2025-12-13T12:14:39.5Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/83/6b/13dc4e2930bdc7fb63ff64c62f21d2693428c473e0458ce28d48fd708307/lybic-1.1.0.tar.gz", hash = "sha256:cee645a897c2f1456c845da70968d9685810f7ad777fd4dfc096307d27c8223f", size = 49847, upload-time = "2026-01-21T09:57:40.667Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/94/66/1c56ecaa17fa4651150c9596455d4786c956692fe89dfee2a3fcfeadeb8b/lybic-0.12.2-py3-none-any.whl", hash = "sha256:30469856ccf0cc147ff111abace57b63bc713c5616de8bb9adf56450197ce163", size = 61270, upload-time = "2025-12-13T12:14:38.319Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/27/888216174b75b58629e54b097833ac2a6ed3519bfb318003b548ae81d3f4/lybic-1.1.0-py3-none-any.whl", hash = "sha256:7bfa54476fcdc9acb7d84de1698d373cf4f9bbf6e5f89d3327ccc12a4b83f4a0", size = 77922, upload-time = "2026-01-21T09:57:39.76Z" },
 ]
 
 [[package]]
 name = "lybic-guiagents"
-version = "0.8.2"
+version = "0.8.3"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
@@ -1829,6 +1829,7 @@ dependencies = [
     { name = "pywinauto", marker = "sys_platform == 'win32'" },
     { name = "scikit-learn" },
     { name = "tiktoken" },
+    { name = "uuid" },
     { name = "zhipuai" },
 ]
 
@@ -2019,7 +2020,7 @@ requires-dist = [
     { name = "librosa", marker = "extra == 'vmware-and-evaluation'" },
     { name = "lxml", marker = "extra == 'all'" },
     { name = "lxml", marker = "extra == 'vmware-and-evaluation'" },
-    { name = "lybic", specifier = ">=0.12.0,<1.0.0" },
+    { name = "lybic", specifier = ">=0.13.0,<2.0.0" },
     { name = "lybic", marker = "extra == 'all'", specifier = ">=0.7.3" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
     { name = "mutagen", marker = "extra == 'all'" },
@@ -2097,6 +2098,7 @@ requires-dist = [
     { name = "toml", marker = "extra == 'vmware-and-evaluation'" },
     { name = "tqdm", marker = "extra == 'all'", specifier = "~=4.65.0" },
     { name = "twisted", marker = "extra == 'dev'" },
+    { name = "uuid" },
     { name = "uvicorn", marker = "extra == 'mcp'", specifier = ">=0.30.0" },
     { name = "uvicorn", marker = "extra == 'restful'", specifier = ">=0.30.0" },
     { name = "xmltodict", marker = "extra == 'all'" },
@@ -7510,6 +7512,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/15/22/9ee70a2574a4f4599
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/c2/fe1e52489ae3122415c51f387e221dd0773709bad6c6cdaa599e8a2c5185/urllib3-2.5.0-py3-none-any.whl", hash = "sha256:e6b01673c0fa6a13e374b50871808eb3bf7046c4b125b216f6bf1cc604cff0dc", size = 129795, upload-time = "2025-06-18T14:07:40.39Z" },
 ]
+
+[[package]]
+name = "uuid"
+version = "1.30"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/63/f42f5aa951ebf2c8dac81f77a8edcc1c218640a2a35a03b9ff2d4aa64c3d/uuid-1.30.tar.gz", hash = "sha256:1f87cc004ac5120466f36c5beae48b4c48cc411968eed0eaecd3da82aa96193f", size = 5811, upload-time = "2007-05-26T11:13:24Z" }
 
 [[package]]
 name = "uvicorn"

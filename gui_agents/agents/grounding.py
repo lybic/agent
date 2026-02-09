@@ -227,8 +227,10 @@ class Grounding(ACI, MobileActionsMixin):
         try:
             action = parse_single_code_from_string(
                 plan.split("Grounded Action")[-1])
-            function_name = re.match(r"(\w+\.\w+)\(",
-                                     action).group(1)  # type: ignore
+            match = re.match(r"(\w+\.\w+)\(", action)
+            if match is None:
+                raise ValueError(f"Could not parse function name from action: {action}")
+            function_name = match.group(1)
             args = self.parse_function_args(action)
         except Exception as e:
             raise RuntimeError(f"Error in parsing grounded action: {e}") from e

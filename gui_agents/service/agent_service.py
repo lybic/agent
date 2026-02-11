@@ -317,7 +317,13 @@ class AgentService:
             for step in range(max_steps):
                 # Take screenshot
                 screenshot: Image.Image = hwi.dispatch(Screenshot())
-                global_state.set_screenshot(screenshot)
+                
+                # 获取截图URL（如果是Lybic后端）
+                screenshot_url = None
+                if hasattr(hwi.backend, 'get_last_screenshot_url'):
+                    screenshot_url = hwi.backend.get_last_screenshot_url()
+                
+                global_state.set_screenshot(screenshot, url=screenshot_url)
                 obs = global_state.get_obs_for_manager()
                 
                 # Get agent prediction
@@ -372,7 +378,13 @@ class AgentService:
             for step in range(max_steps):
                 # Take screenshot
                 screenshot: Image.Image = hwi.dispatch(Screenshot())
-                global_state.set_screenshot(screenshot)
+                
+                # 获取截图URL（如果是Lybic后端）
+                screenshot_url = None
+                if hasattr(hwi.backend, 'get_last_screenshot_url'):
+                    screenshot_url = hwi.backend.get_last_screenshot_url()
+                
+                global_state.set_screenshot(screenshot, url=screenshot_url)
                 obs = global_state.get_obs_for_manager()
                 
                 # Get agent prediction

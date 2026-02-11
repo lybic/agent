@@ -124,9 +124,15 @@ class BaseTool(ABC):
         # Extract text and image inputs
         text_input = input_data.get('str_input', '')
         image_input = input_data.get('img_input', None)
+        image_url = input_data.get('img_url', None)
         
         # Add the message with the formatted prompt
-        self.llm_agent.add_message(text_input, image_content=image_input, role="user")
+        self.llm_agent.add_message(
+            text_input, 
+            image_content=image_input,
+            image_url=image_url,
+            role="user"
+        )
         
         # Implement safe retry mechanism
         max_retries = 3

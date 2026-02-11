@@ -372,7 +372,12 @@ class Manager:
         # Stream subtask planning message
         self._send_stream_message(self.task_id, "planning", "Analyzing tasks and generating subtask plans...")
 
-        plan, total_tokens, cost_string = self.generator_agent.execute_tool("subtask_planner", {"str_input": generator_message, "img_input": observation.get("screenshot", None)})
+        plan, total_tokens, cost_string = self.generator_agent.execute_tool(
+            "subtask_planner", {
+                "str_input": generator_message,
+                "img_input": observation.get("screenshot", None),
+                "img_url": observation.get("screenshot_url")
+            })
         logger.info(f"Subtask planner tokens: {total_tokens}, cost: {cost_string}")
         subtask_planner_time = time.time() - subtask_planner_start
         logger.info(f"[Timing] Manager.subtask_planner execution time: {subtask_planner_time:.2f} seconds")

@@ -2095,7 +2095,7 @@ requires-dist = [
     { name = "tiktoken", marker = "extra == 'all'" },
     { name = "toml", marker = "extra == 'all'" },
     { name = "toml", marker = "extra == 'vmware-and-evaluation'" },
-    { name = "tqdm", marker = "extra == 'all'", specifier = "~=4.65.0" },
+    { name = "tqdm", marker = "extra == 'all'", specifier = ">=4.65,<4.68" },
     { name = "twisted", marker = "extra == 'dev'" },
     { name = "uuid" },
     { name = "uvicorn", marker = "extra == 'mcp'", specifier = ">=0.30.0" },
@@ -7382,14 +7382,14 @@ wheels = [
 
 [[package]]
 name = "tqdm"
-version = "4.65.2"
+version = "4.67.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/06/04/e65e7f457ce9a2e338366a3a873ec6994e081cf4f99becb59ab6ce19e4b5/tqdm-4.65.2.tar.gz", hash = "sha256:5f7d8b4ac76016ce9d51a7f0ea30d30984888d97c474fdc4a4148abfb5ee76aa", size = 167099, upload-time = "2023-08-08T23:13:47.552Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/09/a9/6ba95a270c6f1fbcd8dac228323f2777d886cb206987444e4bce66338dd4/tqdm-4.67.3.tar.gz", hash = "sha256:7d825f03f89244ef73f1d4ce193cb1774a8179fd96f31d7e1dcde62092b960bb", size = 169598, upload-time = "2026-02-03T17:35:53.048Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c0/ab/bd9ba7f84c509c8b377628bc66696d52623e30c6c0830db3c78748eec4b4/tqdm-4.65.2-py3-none-any.whl", hash = "sha256:6c431f7dee4f57284c8f4bd2eb1d4af00d730d38cc6098bd79880bcbec676276", size = 77079, upload-time = "2023-08-08T23:13:45.303Z" },
+    { url = "https://files.pythonhosted.org/packages/16/e1/3079a9ff9b8e11b846c6ac5c8b5bfb7ff225eee721825310c91b3b50304f/tqdm-4.67.3-py3-none-any.whl", hash = "sha256:ee1e4c0e59148062281c49d80b25b67771a127c85fc9676d3be5f243206826bf", size = 78374, upload-time = "2026-02-03T17:35:50.982Z" },
 ]
 
 [[package]]

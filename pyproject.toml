@@ -18,7 +18,7 @@ license-files = ["LICENSE"]
 dependencies = [
     "dotenv",
     "pyperclip",
-    "Pillow>=11.3.0",
+    "Pillow*",
     "backoff",
     "numpy",
     "anthropic",
@@ -126,7 +126,7 @@ all=[
     "exa_py",
     "google-genai",
     "python-dotenv",
-    "Pillow>=11.3.0",
+    "Pillow*",
     "gymnasium~=0.28.1",
     "requests>=2.31,<2.33",
     "pytz>=2024.1,<2026.0",
